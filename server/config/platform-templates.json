@@ -1,0 +1,285 @@
+{
+  "instagram": {
+    "id": "instagram",
+    "name": "Instagram",
+    "status": "complete",
+    "description": "Instagram post template with carousel, reel, and story support",
+    "copy": {
+      "headline": {
+        "label": "Caption Headline",
+        "maxLength": 150,
+        "required": true,
+        "guidance": "Hook-driven opening line; aim for 1-2 sentences"
+      },
+      "body": {
+        "label": "Caption Body",
+        "maxLength": 2200,
+        "required": true,
+        "guidance": "Story-driven engagement content; 3-5 sentences recommended"
+      },
+      "callToAction": {
+        "label": "Call-to-Action",
+        "maxLength": 50,
+        "required": true,
+        "examples": ["Tap the link in bio", "Explore the link in our bio", "Learn more →"],
+        "guidance": "Clear, urgent, action-oriented"
+      },
+      "hashtags": {
+        "label": "Hashtags",
+        "minCount": 3,
+        "maxCount": 7,
+        "required": false,
+        "guidance": "Mix branded + discovery hashtags; avoid banned terms"
+      }
+    },
+    "media": {
+      "allowedTypes": ["image", "video", "carousel"],
+      "preferredRatios": {
+        "feed_post": "1:1",
+        "carousel": "1:1",
+        "reel": "9:16",
+        "story": "9:16"
+      },
+      "maxFileSize": "100MB",
+      "recommendations": {
+        "image": "High contrast, faces optional, logo clear; 1080x1080px optimal",
+        "video": "Max 90 seconds for feed, unlimited for reels; 60fps recommended",
+        "carousel": "3-10 cards, each 1:1; design for mobile swipe"
+      }
+    },
+    "compliance": {
+      "restrictions": [
+        "No medical claims without FDA disclaimer",
+        "No guaranteed results; use 'may help', 'can support'",
+        "Brand safety: avoid controversial topics"
+      ],
+      "requiredDisclosures": ["Ad label if sponsored"],
+      "linkHandling": "Link in bio; UTM parameters supported"
+    },
+    "timing": {
+      "optimalPostTime": "2-4 PM EST weekdays",
+      "recommendedFrequency": "5-7 posts per week",
+      "bestEngagementDays": ["Tuesday", "Wednesday", "Thursday"],
+      "avoidTimes": ["Late night (9 PM - 7 AM EST)"]
+    }
+  },
+  "twitter": {
+    "id": "twitter",
+    "name": "X (Twitter)",
+    "status": "complete",
+    "description": "X (Twitter) post template with thread and media support",
+    "copy": {
+      "headline": {
+        "label": "Main Tweet",
+        "maxLength": 280,
+        "required": true,
+        "guidance": "Conversational, punchy; lead with insight or question"
+      },
+      "body": {
+        "label": "Thread (optional)",
+        "maxLength": 5600,
+        "required": false,
+        "guidance": "Break into 2-5 sequential tweets; each ≤280 chars"
+      },
+      "callToAction": {
+        "label": "CTA",
+        "maxLength": 40,
+        "required": false,
+        "examples": ["Reply below", "RT to share", "Quote tweet your take"],
+        "guidance": "Community-driven; ask questions to boost engagement"
+      },
+      "mentions": {
+        "label": "Mentions/Tags",
+        "maxCount": 3,
+        "guidance": "Relevant accounts only; avoid spam/tag stuffing"
+      },
+      "hashtags": {
+        "label": "Hashtags",
+        "maxCount": 2,
+        "guidance": "Trending + niche; research relevance"
+      }
+    },
+    "media": {
+      "allowedTypes": ["image", "video", "gif"],
+      "preferredRatios": {
+        "tweet_image": "16:9",
+        "tweet_video": "16:9",
+        "thumbnail": "1:1"
+      },
+      "maxFileSize": "15MB",
+      "recommendations": {
+        "image": "16:9 aspect; emoji or text overlay enhances engagement",
+        "video": "Max 2m 20s; captions required for accessibility",
+        "gif": "Short loops (2-5s); 1-3 MB optimal"
+      }
+    },
+    "compliance": {
+      "restrictions": [
+        "No violent, hateful, or explicit content",
+        "Link-only tweets underperform; add context",
+        "Avoid political divisiveness unless on-brand"
+      ],
+      "requiredDisclosures": ["#ad if promotional"],
+      "linkHandling": "Short URLs (bit.ly, etc.); UTM parameters in query string"
+    },
+    "timing": {
+      "optimalPostTime": "9-11 AM EST weekdays",
+      "recommendedFrequency": "1-3 tweets per day",
+      "bestEngagementDays": ["Monday", "Tuesday", "Wednesday"],
+      "avoidTimes": ["Weekends (lower engagement)"]
+    }
+  },
+  "linkedin": {
+    "id": "linkedin",
+    "name": "LinkedIn",
+    "status": "complete",
+    "description": "LinkedIn post template for B2B, thought leadership, and company updates",
+    "copy": {
+      "headline": {
+        "label": "Headline",
+        "maxLength": 200,
+        "required": true,
+        "guidance": "Professional, insight-driven; position as expert or conversation starter"
+      },
+      "body": {
+        "label": "Post Body",
+        "maxLength": 3000,
+        "required": true,
+        "guidance": "Narrative structure: Hook (why care?) → Insight → Call-to-action"
+      },
+      "callToAction": {
+        "label": "CTA",
+        "maxLength": 50,
+        "required": false,
+        "examples": ["Let's connect", "Share your thoughts", "View the full analysis"],
+        "guidance": "Professional, non-salesy; invite dialogue"
+      },
+      "mentions": {
+        "label": "Mentions",
+        "maxCount": 3,
+        "guidance": "Tag relevant thought leaders, companies, or topics"
+      },
+      "hashtags": {
+        "label": "Hashtags",
+        "maxCount": 5,
+        "guidance": "Industry, role, trend-based; avoid over-tagging"
+      }
+    },
+    "media": {
+      "allowedTypes": ["image", "video", "document", "carousel"],
+      "preferredRatios": {
+        "post_image": "1.2:1",
+        "video": "16:9",
+        "carousel": "1:1"
+      },
+      "maxFileSize": "10MB",
+      "recommendations": {
+        "image": "Professional, data-driven visuals; infographics excel here",
+        "video": "Max 10 min; captions essential for muted auto-play",
+        "document": "Whitepapers, case studies; generates high engagement",
+        "carousel": "3-5 slides; each tells part of larger narrative"
+      }
+    },
+    "compliance": {
+      "restrictions": [
+        "B2B tone: professional, authoritative, non-promotional",
+        "No misleading claims; data/sources required",
+        "Avoid political/religious content unless directly on-brand"
+      ],
+      "requiredDisclosures": ["Sponsored label if paid promotion"],
+      "linkHandling": "Direct URLs; UTM parameters optional but tracked"
+    },
+    "timing": {
+      "optimalPostTime": "8 AM - 10 AM EST Tuesday-Thursday",
+      "recommendedFrequency": "2-4 posts per week",
+      "bestEngagementDays": ["Tuesday", "Wednesday", "Thursday"],
+      "avoidTimes": ["Weekends", "Off-hours (9 PM - 7 AM)"]
+    }
+  },
+  "email": {
+    "id": "email",
+    "name": "Email",
+    "status": "complete",
+    "description": "Email template for newsletters, announcements, and marketing campaigns",
+    "copy": {
+      "subject": {
+        "label": "Subject Line",
+        "maxLength": 60,
+        "required": true,
+        "guidance": "Personalization + urgency; A/B test variants (2 recommended)"
+      },
+      "preheader": {
+        "label": "Preheader Text",
+        "maxLength": 125,
+        "required": false,
+        "guidance": "Extends subject; completes the hook"
+      },
+      "headline": {
+        "label": "Email Headline (H1)",
+        "maxLength": 100,
+        "required": true,
+        "guidance": "Reiterate subject promise; single, clear message"
+      },
+      "body": {
+        "label": "Email Body",
+        "maxLength": 5000,
+        "required": true,
+        "guidance": "Scannable: short paragraphs, bold emphasis, subheadings"
+      },
+      "callToAction": {
+        "label": "Primary CTA",
+        "maxLength": 50,
+        "required": true,
+        "examples": ["Read the full story", "Claim your offer", "Register now"],
+        "guidance": "Action-oriented; button text (not link)"
+      },
+      "secondaryCtAs": {
+        "label": "Secondary CTAs (optional)",
+        "maxCount": 2,
+        "guidance": "Footer links; social sharing; unsubscribe"
+      }
+    },
+    "media": {
+      "allowedTypes": ["image", "gif", "video_link"],
+      "preferredRatios": {
+        "header_image": "600x200px (2.5:1)",
+        "content_image": "600x400px (1.5:1)",
+        "footer_image": "600x100px (6:1)"
+      },
+      "maxFileSize": "2MB total",
+      "recommendations": {
+        "header_image": "Bold, branded; sets tone",
+        "content_image": "Break up text; 1 image per 200 words",
+        "gif": "Max 3 sec loop; file size <1MB",
+        "video_link": "Linked thumbnail; email clients don't embed video"
+      }
+    },
+    "compliance": {
+      "restrictions": [
+        "CAN-SPAM: unsubscribe link required",
+        "No deceptive subject lines or sender names",
+        "Preference center recommended (frequency, content type)"
+      ],
+      "requiredDisclosures": [
+        "Company name and physical address",
+        "Unsubscribe / preference center link",
+        "SPF/DKIM/DMARC authentication"
+      ],
+      "linkHandling": "UTM parameters on all links; click tracking enabled"
+    },
+    "timing": {
+      "optimalSendTime": "10 AM - 2 PM EST Tuesday-Thursday",
+      "recommendedFrequency": "Weekly to bi-weekly",
+      "bestOpenRates": "Tuesday 10-11 AM, Wednesday 9-10 AM",
+      "avoidTimes": ["Monday mornings (email overload)", "Weekends"]
+    },
+    "segments": {
+      "guidance": "Split by: new vs engaged, product interest, purchase history",
+      "examples": [
+        "VIP (high engagement): premium content, exclusive offers",
+        "Standard (moderate): educational, promotional mix",
+        "Inactive (re-engagement): special incentive, 30-day win-back"
+      ]
+    }
+  }
+}

@@ -1,0 +1,338 @@
+{
+  "metadata": {
+    "export_date": "2024-11-11",
+    "source": "Builder.io (neon-nest branch)",
+    "design_system_version": "2024.11",
+    "total_components": 20,
+    "total_files": 35
+  },
+  "exported_components": {
+    "landing": [
+      {
+        "name": "HeroSection.tsx",
+        "original_path": "client/components/landing/HeroSection.tsx",
+        "exported_path": "design-import/components/landing/HeroSection.tsx",
+        "status": "✅ Ready",
+        "mock_data": true,
+        "removed_code": ["useNavigate()", "useAuth()", "analytics.track()"],
+        "props": ["onCTA?: () => void"],
+        "notes": "Removed navigation logic. CTA prop optional for parent-level routing."
+      },
+      {
+        "name": "ProblemSection.tsx",
+        "original_path": "client/components/landing/ProblemSection.tsx",
+        "exported_path": "design-import/components/landing/ProblemSection.tsx",
+        "status": "✅ Ready",
+        "mock_data": true,
+        "removed_code": [],
+        "notes": "Fully static component. No logic removed."
+      },
+      {
+        "name": "PromiseSection.tsx",
+        "original_path": "client/components/landing/PromiseSection.tsx",
+        "exported_path": "design-import/components/landing/PromiseSection.tsx",
+        "status": "✅ Ready",
+        "mock_data": true,
+        "removed_code": ["useNavigate()"],
+        "notes": "Removed navigation. CTA button left as static."
+      },
+      {
+        "name": "HowItWorksSection.tsx",
+        "original_path": "client/components/landing/HowItWorksSection.tsx",
+        "exported_path": "design-import/components/landing/HowItWorksSection.tsx",
+        "status": "✅ Ready",
+        "mock_data": true,
+        "removed_code": [],
+        "notes": "Static 4-step card grid. No logic."
+      },
+      {
+        "name": "WhatItFeelsLikeSection.tsx",
+        "original_path": "client/components/landing/WhatItFeelsLikeSection.tsx",
+        "exported_path": "design-import/components/landing/WhatItFeelsLikeSection.tsx",
+        "status": "✅ Ready",
+        "mock_data": true,
+        "removed_code": [],
+        "notes": "Narrative section with static text. No logic."
+      },
+      {
+        "name": "WhyTeamsLoveItSection.tsx",
+        "original_path": "client/components/landing/WhyTeamsLoveItSection.tsx",
+        "exported_path": "design-import/components/landing/WhyTeamsLoveItSection.tsx",
+        "status": "✅ Ready",
+        "mock_data": true,
+        "removed_code": [],
+        "notes": "Static differentiators section. No logic."
+      },
+      {
+        "name": "TestimonialsSection.tsx",
+        "original_path": "client/components/landing/TestimonialsSection.tsx",
+        "exported_path": "design-import/components/landing/TestimonialsSection.tsx",
+        "status": "✅ Ready",
+        "mock_data": true,
+        "removed_code": [],
+        "props": ["testimonials?: Testimonial[]"],
+        "notes": "Can accept testimonials prop or use 3 mock testimonials."
+      },
+      {
+        "name": "ZiaQuotePanel.tsx",
+        "original_path": "client/components/landing/ZiaQuotePanel.tsx",
+        "exported_path": "design-import/components/landing/ZiaQuotePanel.tsx",
+        "status": "✅ Ready",
+        "mock_data": true,
+        "removed_code": [],
+        "notes": "Mascot + quote display. Static, no logic."
+      },
+      {
+        "name": "FinalCTASection.tsx",
+        "original_path": "client/components/landing/FinalCTASection.tsx",
+        "exported_path": "design-import/components/landing/FinalCTASection.tsx",
+        "status": "✅ Ready",
+        "mock_data": true,
+        "removed_code": ["useNavigate()"],
+        "props": ["onCTA?: () => void"],
+        "notes": "Dark variant hero. CTA button wired via prop."
+      },
+      {
+        "name": "DashboardVisual.tsx",
+        "original_path": "client/components/landing/DashboardVisual.tsx",
+        "exported_path": "design-import/components/landing/DashboardVisual.tsx",
+        "status": "✅ Ready",
+        "mock_data": true,
+        "removed_code": [],
+        "notes": "Mock dashboard card with static content."
+      },
+      {
+        "name": "ProblemVisuals.tsx",
+        "original_path": "client/components/landing/ProblemVisuals.tsx",
+        "exported_path": "design-import/components/landing/ProblemVisuals.tsx",
+        "status": "✅ Ready",
+        "mock_data": true,
+        "removed_code": [],
+        "notes": "Visual grid with placeholder images."
+      },
+      {
+        "name": "InteractiveStoryFlow.tsx",
+        "original_path": "client/components/landing/InteractiveStoryFlow.tsx",
+        "exported_path": "design-import/components/landing/InteractiveStoryFlow.tsx",
+        "status": "✅ Ready",
+        "mock_data": true,
+        "removed_code": [],
+        "notes": "3-step visual flow (Chaos→Clarity→Alignment). Static."
+      },
+      {
+        "name": "LiveDemoPreview.tsx",
+        "original_path": "client/components/landing/LiveDemoPreview.tsx",
+        "exported_path": "design-import/components/landing/LiveDemoPreview.tsx",
+        "status": "✅ Ready",
+        "mock_data": true,
+        "removed_code": [],
+        "notes": "Mock dashboard metrics card. Static numbers."
+      }
+    ],
+    "dashboard": [
+      {
+        "name": "ZiaMascot.tsx",
+        "original_path": "client/components/dashboard/ZiaMascot.tsx",
+        "exported_path": "design-import/components/dashboard/ZiaMascot.tsx",
+        "status": "✅ Ready",
+        "mock_data": false,
+        "removed_code": [],
+        "props": ["size?: 'sm' | 'md' | 'lg'", "className?: string"],
+        "notes": "Reusable mascot component. Pure presentational."
+      },
+      {
+        "name": "GoodNews.tsx",
+        "original_path": "client/components/dashboard/GoodNews.tsx",
+        "exported_path": "design-import/components/dashboard/GoodNews.tsx",
+        "status": "✅ Ready",
+        "mock_data": true,
+        "removed_code": [],
+        "props": ["data?: MetricsData"],
+        "notes": "Hero banner with 3 metric cards. Can accept real data via prop."
+      },
+      {
+        "name": "InsightsFeed.tsx",
+        "original_path": "client/components/dashboard/InsightsFeed.tsx",
+        "exported_path": "design-import/components/dashboard/InsightsFeed.tsx",
+        "status": "✅ Ready",
+        "mock_data": true,
+        "removed_code": [],
+        "props": ["insights?: Insight[]"],
+        "notes": "Compact 4-card AI insights panel. Sticky on desktop."
+      },
+      {
+        "name": "Sparkline.tsx",
+        "original_path": "client/components/dashboard/Sparkline.tsx",
+        "exported_path": "design-import/components/dashboard/Sparkline.tsx",
+        "status": "✅ Ready",
+        "mock_data": true,
+        "removed_code": [],
+        "props": ["data: number[]", "trend?: 'up' | 'down'"],
+        "notes": "Animated trend sparkline. Pure SVG visualization."
+      },
+      {
+        "name": "CalendarAccordion.tsx",
+        "original_path": "client/components/dashboard/CalendarAccordion.tsx",
+        "exported_path": "design-import/components/dashboard/CalendarAccordion.tsx",
+        "status": "✅ Ready",
+        "mock_data": true,
+        "removed_code": [],
+        "props": ["schedule?: ScheduleItem[]"],
+        "notes": "7-day expandable schedule. Mock data can be replaced with real API."
+      },
+      {
+        "name": "AnalyticsPanel.tsx",
+        "original_path": "client/components/dashboard/AnalyticsPanel.tsx",
+        "exported_path": "design-import/components/dashboard/AnalyticsPanel.tsx",
+        "status": "✅ Ready",
+        "mock_data": true,
+        "removed_code": [],
+        "props": ["metrics?: MetricItem[]"],
+        "notes": "Performance metrics grid. Accepts real data via prop."
+      }
+    ],
+    "layout": [
+      {
+        "name": "Header.tsx",
+        "original_path": "client/components/layout/Header.tsx",
+        "exported_path": "design-import/components/layout/Header.tsx",
+        "status": "✅ Ready",
+        "mock_data": false,
+        "removed_code": ["useAuth()", "useNavigate()"],
+        "props": ["onLoginClick?: () => void", "onSignupClick?: () => void"],
+        "notes": "Site header with nav. CTA handlers passed via props."
+      },
+      {
+        "name": "Footer.tsx",
+        "original_path": "client/components/layout/Footer.tsx",
+        "exported_path": "design-import/components/layout/Footer.tsx",
+        "status": "✅ Ready",
+        "mock_data": true,
+        "removed_code": [],
+        "notes": "Site footer with links and copyright. Static."
+      }
+    ]
+  },
+  "supporting_files": {
+    "styles": [
+      {
+        "name": "tokens.css",
+        "path": "design-import/styles/tokens.css",
+        "description": "CSS custom properties for colors, spacing, glassmorphism effects",
+        "content": [
+          "--color-indigo-900 through --color-indigo-100",
+          "--color-lime-400, --color-lime-300",
+          "--color-slate-900, --color-slate-700, --color-slate-600",
+          "--glass-bg, --glass-border (glassmorphism)"
+        ]
+      },
+      {
+        "name": "animations.css",
+        "path": "design-import/styles/animations.css",
+        "description": "CSS keyframe animations (gradient-shift, pulse-glow, slide-up, etc.)",
+        "keyframes": [
+          "gradient-shift (8s infinite)",
+          "pulse-glow (3s infinite)",
+          "float-soft (4s infinite)",
+          "slide-up (0.6s)",
+          "fade-in-up (0.7s)",
+          "reflect-sweep (3s infinite)"
+        ]
+      },
+      {
+        "name": "reset.css",
+        "path": "design-import/styles/reset.css",
+        "description": "Minimal CSS resets needed for exported components"
+      }
+    ],
+    "tailwind": [
+      {
+        "name": "tailwind.config.fragment.ts",
+        "path": "design-import/tailwind/tailwind.config.fragment.ts",
+        "description": "Tailwind animation keyframes and extensions to merge into main config",
+        "note": "Copy extend section into your existing tailwind.config.ts"
+      }
+    ],
+    "documentation": [
+      {
+        "name": "DESIGN_SYSTEM.md",
+        "path": "design-import/docs/DESIGN_SYSTEM.md",
+        "description": "Complete design system reference (colors, typography, spacing, components)"
+      },
+      {
+        "name": "COMPONENTS.md",
+        "path": "design-import/docs/COMPONENTS.md",
+        "description": "Component library quick reference with usage examples"
+      },
+      {
+        "name": "INTEGRATION_GUIDE.md",
+        "path": "design-import/docs/INTEGRATION_GUIDE.md",
+        "description": "5-step integration guide to connect design to backend"
+      }
+    ],
+    "manifests": [
+      {
+        "name": "exported-files.json",
+        "path": "design-import/manifests/exported-files.json",
+        "description": "This file. Lists all exported components and what was removed."
+      },
+      {
+        "name": "assets-manifest.json",
+        "path": "design-import/manifests/assets-manifest.json",
+        "description": "Lists all images, SVGs, and assets with usage and original paths"
+      },
+      {
+        "name": "component-map.json",
+        "path": "design-import/manifests/component-map.json",
+        "description": "Detailed breakdown of each component (imports, removed code, mock data)"
+      }
+    ]
+  },
+  "what_was_removed": {
+    "navigation": {
+      "pattern": "useNavigate(), navigate(...)",
+      "components_affected": ["HeroSection", "PromiseSection", "FinalCTASection"],
+      "replacement": "Wire CTA via onCTA prop from parent component"
+    },
+    "authentication": {
+      "pattern": "useAuth(), user context checks, auth-dependent rendering",
+      "components_affected": ["Header", "All CTA buttons"],
+      "replacement": "Pass user state via props or use context in parent"
+    },
+    "analytics": {
+      "pattern": "analytics.track() calls, event tracking",
+      "components_affected": ["HeroSection", "All CTA buttons"],
+      "replacement": "Add event tracking in parent component after CTA handler"
+    },
+    "api_calls": {
+      "pattern": "useEffect + fetch, API integrations",
+      "components_affected": ["GoodNews", "CalendarAccordion", "TestimonialsSection"],
+      "replacement": "Fetch data in parent, pass via props to component"
+    },
+    "form_handling": {
+      "pattern": "Form submissions, validation, error handling",
+      "components_affected": ["Contact form components"],
+      "replacement": "Implement form logic in parent page component"
+    }
+  },
+  "how_to_verify": {
+    "step1": "Check for 'TODO' comments in each component (should be minimal)",
+    "step2": "Search for imports from '@/contexts/', '@/hooks/', '/api' (should find none in design-import)",
+    "step3": "Verify no .env, .env.local, or secrets files in design-import/",
+    "step4": "Verify all CSS variables defined in styles/tokens.css match component usage",
+    "step5": "Verify all images referenced in assets-manifest.json exist in assets/ folder"
+  },
+  "production_ready_checklist": [
+    "✅ All 20 components exported",
+    "✅ No backend code included",
+    "✅ No secrets or .env files",
+    "✅ Mock data clearly marked as TODO",
+    "✅ Behavioral hooks removed or stubbed",
+    "✅ CSS tokens and animations complete",
+    "✅ Tailwind config fragment ready to merge",
+    "✅ Documentation complete and comprehensive",
+    "✅ Manifests track all files and removals",
+    "✅ Integration guide with 5 concrete steps",
+    "⏳ Ready for developer handoff"
+  ]
+}

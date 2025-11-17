@@ -1,0 +1,10 @@
+{
+  "title": "Homepage",
+  "route": "/",
+  "layout": "hero-gradient",
+  "theme": "indigo-dark",
+  "primaryAccent": "lime",
+  "purpose": "Marketing landing page",
+  "visualNotes": "Hero gradient indigo → navy; lime CTA; feature cards; equal spacing; use micro-interactions",
+  "_changelog": "created by automation: initial meta file"
+}

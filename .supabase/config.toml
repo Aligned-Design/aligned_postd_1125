@@ -1,0 +1,15 @@
+# Supabase CLI Configuration
+# Project: xpzvtvycjsccaosahmgz
+
+[api]
+enabled = true
+max_body_size = "20mb"
+
+[db]
+major_version = 15
+
+[functions."."]
+import_map = "./supabase/functions/import_map.json"
+
+[auth]
+enable_signup = true

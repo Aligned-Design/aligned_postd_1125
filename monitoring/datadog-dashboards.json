@@ -1,0 +1,488 @@
+{
+  "dashboards": [
+    {
+      "id": "connector-health",
+      "title": "Connector Health & OAuth Flow",
+      "description": "Monitor success rates and performance of all OAuth connectors",
+      "widgets": [
+        {
+          "type": "timeseries",
+          "title": "OAuth Connection Success Rate",
+          "query": "avg:alignedai.oauth.success_rate{*}",
+          "yaxis": {
+            "min": 0,
+            "max": 100
+          }
+        },
+        {
+          "type": "timeseries",
+          "title": "Connector Token Refresh Latency",
+          "query": "p99:alignedai.token.refresh.latency_ms{*}",
+          "yaxis": {
+            "label": "milliseconds"
+          }
+        },
+        {
+          "type": "gauge",
+          "title": "Meta OAuth Status",
+          "query": "avg:alignedai.oauth.meta.success_rate{*}"
+        },
+        {
+          "type": "gauge",
+          "title": "LinkedIn OAuth Status",
+          "query": "avg:alignedai.oauth.linkedin.success_rate{*}"
+        },
+        {
+          "type": "gauge",
+          "title": "TikTok OAuth Status",
+          "query": "avg:alignedai.oauth.tiktok.success_rate{*}"
+        },
+        {
+          "type": "gauge",
+          "title": "Google OAuth Status",
+          "query": "avg:alignedai.oauth.google.success_rate{*}"
+        },
+        {
+          "type": "timeseries",
+          "title": "Token Vault Encryption Performance",
+          "query": "p95:alignedai.tokenvault.encrypt_latency_ms{*}",
+          "yaxis": {
+            "label": "milliseconds"
+          }
+        },
+        {
+          "type": "number",
+          "title": "Active Token Count",
+          "query": "avg:alignedai.tokens.active{*}"
+        }
+      ],
+      "alerts": [
+        {
+          "name": "Meta OAuth Success Rate < 95%",
+          "query": "avg(last_5m):avg:alignedai.oauth.meta.success_rate{*} < 0.95",
+          "alertThreshold": 0.95,
+          "notificationChannels": ["slack", "pagerduty"]
+        },
+        {
+          "name": "LinkedIn OAuth Success Rate < 95%",
+          "query": "avg(last_5m):avg:alignedai.oauth.linkedin.success_rate{*} < 0.95",
+          "alertThreshold": 0.95,
+          "notificationChannels": ["slack", "pagerduty"]
+        }
+      ]
+    },
+    {
+      "id": "queue-health",
+      "title": "Job Queue & Processing Health",
+      "description": "Monitor Bull Queue, Redis, and job processing pipeline",
+      "widgets": [
+        {
+          "type": "timeseries",
+          "title": "Queue Depth (Jobs Pending)",
+          "query": "avg:bull.queue.depth{*}",
+          "yaxis": {
+            "label": "jobs"
+          }
+        },
+        {
+          "type": "timeseries",
+          "title": "Job Processing Rate",
+          "query": "rate:alignedai.jobs.completed{*}",
+          "yaxis": {
+            "label": "jobs/sec"
+          }
+        },
+        {
+          "type": "timeseries",
+          "title": "Job Processing Latency (p95)",
+          "query": "p95:alignedai.jobs.processing_latency_ms{*}",
+          "yaxis": {
+            "label": "milliseconds"
+          }
+        },
+        {
+          "type": "timeseries",
+          "title": "Job Failure Rate",
+          "query": "avg:alignedai.jobs.failure_rate{*}",
+          "yaxis": {
+            "min": 0,
+            "max": 0.1,
+            "label": "percentage"
+          }
+        },
+        {
+          "type": "gauge",
+          "title": "Redis Memory Usage %",
+          "query": "avg:redis.memory.used_percent{*}"
+        },
+        {
+          "type": "timeseries",
+          "title": "Dead Letter Queue Depth",
+          "query": "avg:bull.dlq.depth{*}",
+          "yaxis": {
+            "label": "jobs"
+          }
+        },
+        {
+          "type": "number",
+          "title": "Current Queue Wait Time",
+          "query": "avg:alignedai.jobs.queue_wait_ms{*}"
+        }
+      ],
+      "alerts": [
+        {
+          "name": "Queue Depth > 1000",
+          "query": "avg(last_10m):avg:bull.queue.depth{*} > 1000",
+          "alertThreshold": 1000,
+          "notificationChannels": ["slack", "pagerduty"]
+        },
+        {
+          "name": "Job Failure Rate > 5%",
+          "query": "avg(last_5m):avg:alignedai.jobs.failure_rate{*} > 0.05",
+          "alertThreshold": 0.05,
+          "notificationChannels": ["slack", "pagerduty"]
+        },
+        {
+          "name": "DLQ Depth > 100",
+          "query": "avg(last_5m):avg:bull.dlq.depth{*} > 100",
+          "alertThreshold": 100,
+          "notificationChannels": ["slack"]
+        }
+      ]
+    },
+    {
+      "id": "api-performance",
+      "title": "API Performance & Error Rates",
+      "description": "Monitor API endpoint latency, errors, and throughput",
+      "widgets": [
+        {
+          "type": "timeseries",
+          "title": "Request Rate (Requests/sec)",
+          "query": "rate:trace.web.request.hits{*}",
+          "yaxis": {
+            "label": "requests/sec"
+          }
+        },
+        {
+          "type": "timeseries",
+          "title": "Error Rate",
+          "query": "rate:trace.web.request.errors{*}",
+          "yaxis": {
+            "label": "errors/sec"
+          }
+        },
+        {
+          "type": "timeseries",
+          "title": "API Latency (p50, p95, p99)",
+          "query": ["p50:trace.web.request.duration{*}", "p95:trace.web.request.duration{*}", "p99:trace.web.request.duration{*}"],
+          "yaxis": {
+            "label": "milliseconds"
+          }
+        },
+        {
+          "type": "heatmap",
+          "title": "Response Time Distribution",
+          "query": "trace.web.request.duration{*}"
+        },
+        {
+          "type": "timeseries",
+          "title": "4xx Client Errors",
+          "query": "rate:trace.web.request.errors{http.status_code:4*}",
+          "yaxis": {
+            "label": "errors/sec"
+          }
+        },
+        {
+          "type": "timeseries",
+          "title": "5xx Server Errors",
+          "query": "rate:trace.web.request.errors{http.status_code:5*}",
+          "yaxis": {
+            "label": "errors/sec"
+          }
+        },
+        {
+          "type": "pie",
+          "title": "Request Distribution by Endpoint",
+          "query": "sum:trace.web.request.hits{*} by {http.route}"
+        }
+      ],
+      "alerts": [
+        {
+          "name": "Error Rate > 1%",
+          "query": "avg(last_5m):rate:trace.web.request.errors{*}/rate:trace.web.request.hits{*} > 0.01",
+          "alertThreshold": 0.01,
+          "notificationChannels": ["slack", "pagerduty"]
+        },
+        {
+          "name": "API Latency p99 > 1 second",
+          "query": "avg(last_5m):p99:trace.web.request.duration{*} > 1000",
+          "alertThreshold": 1000,
+          "notificationChannels": ["slack"]
+        },
+        {
+          "name": "5xx Error Rate > 0.1%",
+          "query": "avg(last_5m):rate:trace.web.request.errors{http.status_code:5*}/rate:trace.web.request.hits{*} > 0.001",
+          "alertThreshold": 0.001,
+          "notificationChannels": ["slack", "pagerduty"]
+        }
+      ]
+    },
+    {
+      "id": "database-health",
+      "title": "Database Performance & Health",
+      "description": "Monitor Postgres/Supabase queries, connections, and throughput",
+      "widgets": [
+        {
+          "type": "timeseries",
+          "title": "Database Query Latency (p95)",
+          "query": "p95:trace.postgres.query.duration{*}",
+          "yaxis": {
+            "label": "milliseconds"
+          }
+        },
+        {
+          "type": "timeseries",
+          "title": "Active Database Connections",
+          "query": "avg:postgres.connections{*}",
+          "yaxis": {
+            "label": "connections"
+          }
+        },
+        {
+          "type": "gauge",
+          "title": "Connection Pool Utilization",
+          "query": "avg:postgres.connections.used_percent{*}"
+        },
+        {
+          "type": "timeseries",
+          "title": "Query Count by Type",
+          "query": "rate:trace.postgres.query.hits{*} by {query_type}",
+          "yaxis": {
+            "label": "queries/sec"
+          }
+        },
+        {
+          "type": "timeseries",
+          "title": "Slow Queries (>100ms)",
+          "query": "rate:trace.postgres.query.slow{*}",
+          "yaxis": {
+            "label": "slow queries/sec"
+          }
+        },
+        {
+          "type": "number",
+          "title": "Database Size (GB)",
+          "query": "avg:postgres.database.size_gb{*}"
+        },
+        {
+          "type": "timeseries",
+          "title": "RLS Policy Enforcement",
+          "query": "avg:alignedai.rls.policy_hits{*}",
+          "yaxis": {
+            "label": "policies enforced"
+          }
+        }
+      ],
+      "alerts": [
+        {
+          "name": "Database Latency > 500ms",
+          "query": "avg(last_5m):p95:trace.postgres.query.duration{*} > 500",
+          "alertThreshold": 500,
+          "notificationChannels": ["slack", "pagerduty"]
+        },
+        {
+          "name": "Connection Pool > 80%",
+          "query": "avg(last_5m):avg:postgres.connections.used_percent{*} > 0.8",
+          "alertThreshold": 0.8,
+          "notificationChannels": ["slack", "pagerduty"]
+        },
+        {
+          "name": "Slow Query Rate Spike",
+          "query": "avg(last_5m):rate:trace.postgres.query.slow{*} > 10",
+          "alertThreshold": 10,
+          "notificationChannels": ["slack"]
+        }
+      ]
+    },
+    {
+      "id": "system-health",
+      "title": "System Health & Infrastructure",
+      "description": "Monitor server resources, uptime, and infrastructure health",
+      "widgets": [
+        {
+          "type": "timeseries",
+          "title": "CPU Usage %",
+          "query": "avg:system.cpu.user{*}",
+          "yaxis": {
+            "min": 0,
+            "max": 100,
+            "label": "percentage"
+          }
+        },
+        {
+          "type": "timeseries",
+          "title": "Memory Usage %",
+          "query": "avg:system.memory.percent{*}",
+          "yaxis": {
+            "min": 0,
+            "max": 100,
+            "label": "percentage"
+          }
+        },
+        {
+          "type": "timeseries",
+          "title": "Disk Usage %",
+          "query": "avg:system.disk.used_percent{*}",
+          "yaxis": {
+            "min": 0,
+            "max": 100,
+            "label": "percentage"
+          }
+        },
+        {
+          "type": "number",
+          "title": "Service Uptime %",
+          "query": "avg:trace.web.request.uptime{*}",
+          "format": "percent"
+        },
+        {
+          "type": "timeseries",
+          "title": "Network I/O (bytes/sec)",
+          "query": ["avg:system.net.bytes_sent{*}", "avg:system.net.bytes_rcvd{*}"],
+          "yaxis": {
+            "label": "bytes/sec"
+          }
+        },
+        {
+          "type": "number",
+          "title": "Last Health Check Status",
+          "query": "avg:alignedai.health.check{status:ok}"
+        }
+      ],
+      "alerts": [
+        {
+          "name": "CPU > 80%",
+          "query": "avg(last_5m):avg:system.cpu.user{*} > 80",
+          "alertThreshold": 80,
+          "notificationChannels": ["slack", "pagerduty"]
+        },
+        {
+          "name": "Memory > 85%",
+          "query": "avg(last_5m):avg:system.memory.percent{*} > 85",
+          "alertThreshold": 85,
+          "notificationChannels": ["slack", "pagerduty"]
+        },
+        {
+          "name": "Service Down (Uptime < 99%)",
+          "query": "avg(last_5m):avg:trace.web.request.uptime{*} < 0.99",
+          "alertThreshold": 0.99,
+          "notificationChannels": ["slack", "pagerduty"]
+        },
+        {
+          "name": "Disk > 80%",
+          "query": "avg(last_5m):avg:system.disk.used_percent{*} > 80",
+          "alertThreshold": 80,
+          "notificationChannels": ["slack"]
+        }
+      ]
+    }
+  ],
+  "alerts": [
+    {
+      "id": "slack-integration",
+      "type": "slack",
+      "channel": "#incidents",
+      "description": "Send critical alerts to #incidents channel"
+    },
+    {
+      "id": "email-integration",
+      "type": "email",
+      "recipients": ["oncall@aligned.com", "devops@aligned.com"],
+      "description": "Send critical alerts via email to on-call team"
+    },
+    {
+      "id": "pagerduty-integration",
+      "type": "pagerduty",
+      "serviceKey": "${PAGERDUTY_SERVICE_KEY}",
+      "description": "Trigger PagerDuty incidents for critical alerts"
+    }
+  ],
+  "syntheticTests": [
+    {
+      "id": "api-health-check",
+      "name": "API Health Check (Synthetic)",
+      "url": "https://aligned.com/health",
+      "method": "GET",
+      "frequency": "5m",
+      "locations": ["us-east-1", "eu-west-1", "ap-southeast-1"],
+      "assertions": [
+        {
+          "property": "statusCode",
+          "operator": "==",
+          "value": 200
+        },
+        {
+          "property": "responseTime",
+          "operator": "<",
+          "value": 1000
+        }
+      ],
+      "alert": {
+        "threshold": 2,
+        "severity": "CRITICAL"
+      }
+    },
+    {
+      "id": "oauth-flow-test",
+      "name": "OAuth Redirect URI Test",
+      "url": "https://aligned.com/api/oauth/meta",
+      "method": "GET",
+      "frequency": "15m",
+      "locations": ["us-east-1", "eu-west-1"],
+      "assertions": [
+        {
+          "property": "statusCode",
+          "operator": "==",
+          "value": 302
+        },
+        {
+          "property": "header[location]",
+          "operator": "contains",
+          "value": "facebook.com"
+        }
+      ]
+    },
+    {
+      "id": "database-connectivity",
+      "name": "Database Connectivity Check",
+      "url": "https://aligned.com/api/connectors",
+      "method": "GET",
+      "headers": {
+        "Authorization": "Bearer ${TEST_TOKEN}"
+      },
+      "frequency": "10m",
+      "locations": ["us-east-1"],
+      "assertions": [
+        {
+          "property": "statusCode",
+          "operator": "in",
+          "value": [200, 401]
+        },
+        {
+          "property": "responseTime",
+          "operator": "<",
+          "value": 500
+        }
+      ]
+    }
+  ],
+  "importInstructions": {
+    "step1": "Go to Datadog Dashboard → New Dashboard",
+    "step2": "Click 'Import' → Paste this JSON",
+    "step3": "Update dashboard variables (e.g., ${PAGERDUTY_SERVICE_KEY})",
+    "step4": "Configure Slack/PagerDuty webhook URLs in Alert settings",
+    "step5": "Enable synthetic tests by updating URLs and tokens",
+    "step6": "Test each dashboard and alert manually before going live"
+  },
+  "notes": "This is a template. Customize based on your specific metrics, thresholds, and notification preferences."
+}

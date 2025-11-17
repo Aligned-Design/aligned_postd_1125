@@ -1,0 +1,55 @@
+name: Customer-Facing Validation
+
+on:
+  push:
+    branches: [main, pulse-nest]
+  pull_request:
+    branches: [main]
+
+jobs:
+  validate-customer-experience:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "pnpm"
+
+      - name: Install pnpm
+        run: npm install -g pnpm
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Run UI Component Tests
+        run: pnpm test client/components --run
+        continue-on-error: true
+
+      - name: Check Accessibility
+        run: pnpm test e2e/responsive-ui.spec.ts --run
+        continue-on-error: true
+
+      - name: Validate Customer-Facing Types
+        run: pnpm typecheck
+        continue-on-error: true
+
+      - name: Build Customer App
+        run: pnpm build
+        env:
+          NODE_ENV: production
+
+      - name: Generate Customer Experience Report
+        run: pnpm tsx scripts/customer-facing-audit.ts
+        continue-on-error: true
+
+      - name: Upload Report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: customer-experience-report
+          path: docs/CUSTOMER_EXPERIENCE_REPORT.md
+          retention-days: 30

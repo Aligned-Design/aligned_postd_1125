@@ -1,0 +1,11 @@
+-- ============================================================================
+-- MIGRATION 003: Content & Posts (Skipped - Tables Exist)
+-- Created: 2025-01-01
+-- Description: Tables already exist in current schema with different names
+-- ============================================================================
+
+-- SKIPPED: Tables already exist in current schema
+-- content_items table exists (equivalent to our 'content' table)
+-- post_approvals table exists
+-- All necessary indexes and RLS policies are in place
+-- No action needed in this migration

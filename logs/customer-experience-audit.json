@@ -1,0 +1,66 @@
+{
+  "timestamp": "2025-11-12T07:18:57.536Z",
+  "overallStatus": "WARNING",
+  "results": [
+    {
+      "category": "UI Components",
+      "status": "PASS",
+      "details": "Found 257 customer-facing components, 72 reusable UI components",
+      "metrics": {
+        "totalComponents": 257,
+        "uiComponents": 72
+      }
+    },
+    {
+      "category": "Accessibility",
+      "status": "PASS",
+      "details": "2/2 accessible components found",
+      "metrics": {
+        "accessibleComponents": 2,
+        "expected": 2
+      }
+    },
+    {
+      "category": "Customer Pages",
+      "status": "PASS",
+      "details": "3/3 critical customer pages exist. Total pages: 41",
+      "metrics": {
+        "totalPages": 41,
+        "criticalPages": 3
+      }
+    },
+    {
+      "category": "Responsive Design",
+      "status": "PASS",
+      "details": "Responsive UI tests exist and Tailwind configured",
+      "metrics": {
+        "hasResponsiveTests": true,
+        "hasTailwind": true
+      }
+    },
+    {
+      "category": "Customer APIs",
+      "status": "WARNING",
+      "details": "2/4 customer-facing API endpoints exist",
+      "metrics": {
+        "endpoints": 2,
+        "expected": 4
+      }
+    },
+    {
+      "category": "Performance",
+      "status": "PASS",
+      "details": "Lazy loading implemented, Vite configured for optimization",
+      "metrics": {
+        "hasLazyLoading": true,
+        "hasBundleOptimization": true
+      }
+    }
+  ],
+  "summary": {
+    "totalChecks": 6,
+    "passed": 5,
+    "failed": 0,
+    "warnings": 1
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "title": "Legal",
+  "route": "/terms",
+  "layout": "content-simple",
+  "theme": "indigo-light",
+  "primaryAccent": "lime",
+  "purpose": "Terms and legal information",
+  "visualNotes": "Neutral page; readable typography; minimal accents",
+  "_changelog": "created by automation: initial meta file"
+}

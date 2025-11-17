@@ -1,0 +1,10 @@
+{
+  "title": "Contact",
+  "route": "/contact",
+  "layout": "content-simple",
+  "theme": "indigo-light",
+  "primaryAccent": "lime",
+  "purpose": "Contact and support",
+  "visualNotes": "Light surface; form-first; highlight support email and CTA",
+  "_changelog": "created by automation: initial meta file"
+}

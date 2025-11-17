@@ -1,0 +1,40 @@
+{
+  "name": "aligned-ai",
+  "description": "Multi-platform brand intelligence and content management system",
+  "publicApiKey": "39bfc067b694403ca329597d360f18f4",
+  "runtime": {
+    "node": "22",
+    "pnpm": ">=9.0.0"
+  },
+  "build": {
+    "entry": "client/main.tsx",
+    "outDir": "dist",
+    "target": "esnext"
+  },
+  "dev": {
+    "port": 8080,
+    "strictPort": true
+  },
+  "deployable": true,
+  "apiBaseUrl": "/api",
+  "features": [
+    "design-generation",
+    "content-publishing",
+    "analytics",
+    "brand-management",
+    "media-management",
+    "scheduling",
+    "weekend-posting-controls"
+  ],
+  "integrations": [
+    "supabase",
+    "openai",
+    "anthropic",
+    "sendgrid",
+    "instagram",
+    "facebook",
+    "linkedin",
+    "twitter",
+    "google-business-profile"
+  ]
+}

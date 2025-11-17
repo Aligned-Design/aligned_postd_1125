@@ -1,0 +1,528 @@
+/**
+ * Animation Keyframes
+ * Aligned-20AI Design System
+ *
+ * CSS-only animations for all components.
+ * Purposeful, smooth, and performant (200-400ms durations).
+ */
+
+/* ============================================================================
+   BACKGROUND & GRADIENT ANIMATIONS
+   ============================================================================ */
+
+/**
+ * Gradient Shift
+ * Subtle background gradient animation used in hero sections and backgrounds
+ * Creates a slow, flowing gradient effect for visual interest
+ */
+@keyframes gradient-shift {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+/**
+ * Pulse Glow
+ * Soft pulsing opacity animation for glowing orb effects
+ * Used in hero section background orbs
+ */
+@keyframes pulse-glow {
+  0%,
+  100% {
+    opacity: 0.4;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+/**
+ * Float Soft
+ * Gentle floating animation for decorative elements
+ * Creates a subtle up/down movement
+ */
+@keyframes float-soft {
+  0%,
+  100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+/**
+ * Light Reflection Sweep
+ * Subtle light reflection sweep across glass surfaces
+ * Creates realistic glass light refraction effect
+ */
+@keyframes reflect-sweep {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+/* ============================================================================
+   ENTRANCE ANIMATIONS
+   ============================================================================ */
+
+/**
+ * Slide Up
+ * Content slides up from below while fading in
+ * Used for hero section copy, initial page loads
+ * Duration: 600ms (0.6s)
+ */
+@keyframes slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/**
+ * Fade In Up
+ * Content fades in while sliding up slightly
+ * Used for cards, sections, testimonials
+ * Duration: 700ms (0.7s)
+ */
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/**
+ * Fade In
+ * Simple opacity fade-in
+ * Used for overlays, background images
+ * Duration: 300ms (0.3s)
+ */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* ============================================================================
+   EXPANSION & DISCLOSURE ANIMATIONS
+   ============================================================================ */
+
+/**
+ * Slide Down
+ * Content slides down from above while revealing height
+ * Used for accordion open, expandable sections
+ * Duration: 200ms (0.2s)
+ */
+@keyframes slide-down {
+  from {
+    opacity: 0;
+    height: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    height: auto;
+    transform: translateY(0);
+  }
+}
+
+/**
+ * Slide Up Collapse
+ * Content slides up while collapsing height
+ * Used for accordion close, expandable sections
+ * Duration: 200ms (0.2s)
+ */
+@keyframes slide-up-collapse {
+  from {
+    opacity: 1;
+    height: auto;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    height: 0;
+    transform: translateY(-10px);
+  }
+}
+
+/* ============================================================================
+   INTERACTION ANIMATIONS (Hover, Focus, Active)
+   ============================================================================ */
+
+/**
+ * Scale Pulse
+ * Element pulses with slight scale increase
+ * Used for button hover states, icon interactions
+ * Duration: 200ms (0.2s)
+ */
+@keyframes scale-pulse {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/**
+ * Lift
+ * Element lifts up with shadow increase
+ * Used for card hover states, interactive elements
+ * Duration: 300ms (0.3s)
+ */
+@keyframes lift {
+  from {
+    transform: translateY(0);
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  }
+  to {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 30px rgba(37, 37, 91, 0.06);
+  }
+}
+
+/* ============================================================================
+   ATTENTION-SEEKING ANIMATIONS
+   ============================================================================ */
+
+/**
+ * Shimmer
+ * Horizontal shimmer effect across element
+ * Used for loading states, skeleton screens
+ * Duration: 2000ms (2s), looped
+ */
+@keyframes shimmer {
+  0% {
+    background-position: -1000px 0;
+  }
+  100% {
+    background-position: 1000px 0;
+  }
+}
+
+/**
+ * Bounce
+ * Elastic bounce animation
+ * Used for attention-grabbing elements
+ * Duration: 600ms (0.6s)
+ */
+@keyframes bounce {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  25% {
+    transform: translateY(-8px);
+  }
+  50% {
+    transform: translateY(-4px);
+  }
+  75% {
+    transform: translateY(-6px);
+  }
+}
+
+/**
+ * Pulse
+ * Simple opacity pulse
+ * Used for loading indicators, notifications
+ * Duration: 2000ms (2s), looped
+ */
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+/* ============================================================================
+   SPARKLINE & DATA VIZ ANIMATIONS
+   ============================================================================ */
+
+/**
+ * Sparkline Draw
+ * Sparkline animates from left to right
+ * Creates reveal effect for chart visualization
+ * Duration: 400ms (0.4s)
+ */
+@keyframes sparkline-draw {
+  from {
+    stroke-dashoffset: 1000;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+/**
+ * Bar Reveal
+ * Chart bars animate upward from baseline
+ * Used in analytics charts, metric displays
+ * Duration: 500ms (0.5s)
+ */
+@keyframes bar-reveal {
+  from {
+    height: 0;
+    opacity: 0;
+  }
+  to {
+    height: 100%;
+    opacity: 1;
+  }
+}
+
+/* ============================================================================
+   ROTATION ANIMATIONS
+   ============================================================================ */
+
+/**
+ * Rotate
+ * Continuous 360° rotation
+ * Used for loading spinners, refresh icons
+ * Duration: 1000ms (1s)
+ */
+@keyframes rotate {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/**
+ * Chevron Rotate
+ * Accordion chevron/arrow rotation
+ * Used for expand/collapse indicators
+ * Duration: 200ms (0.2s)
+ */
+@keyframes chevron-rotate {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(180deg);
+  }
+}
+
+/* ============================================================================
+   STAGGER & SEQUENCE ANIMATIONS
+   ============================================================================ */
+
+/**
+ * Stagger Effect (applied via CSS or JS)
+ * Sequential animation of multiple elements
+ * Each element delays 100ms from previous
+ *
+ * Usage in component:
+ * style={{ animationDelay: `${idx * 100}ms` }}
+ */
+
+.animate-stagger-0 {
+  animation-delay: 0ms;
+}
+
+.animate-stagger-1 {
+  animation-delay: 100ms;
+}
+
+.animate-stagger-2 {
+  animation-delay: 200ms;
+}
+
+.animate-stagger-3 {
+  animation-delay: 300ms;
+}
+
+.animate-stagger-4 {
+  animation-delay: 400ms;
+}
+
+/* ============================================================================
+   UTILITY CLASSES FOR ANIMATIONS
+   ============================================================================ */
+
+/**
+ * Animation application classes
+ * Add to element to activate animation
+ */
+
+.animate-gradient-shift {
+  animation: gradient-shift 8s ease-in-out infinite;
+  background-size: 200% 200%;
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.animate-float-soft {
+  animation: float-soft 4s ease-in-out infinite;
+}
+
+.animate-reflect-sweep {
+  animation: reflect-sweep 3s linear infinite;
+}
+
+.animate-slide-up {
+  animation: slide-up 0.6s ease-out forwards;
+}
+
+.animate-fade-in-up {
+  animation: fade-in-up 0.7s ease-out forwards;
+}
+
+.animate-fade-in {
+  animation: fade-in 0.3s ease-out forwards;
+}
+
+.animate-slide-down {
+  animation: slide-down 0.2s ease-out;
+}
+
+.animate-slide-up-collapse {
+  animation: slide-up-collapse 0.2s ease-out;
+}
+
+.animate-scale-pulse {
+  animation: scale-pulse 0.2s ease-out;
+}
+
+.animate-lift {
+  animation: lift 0.3s ease-out;
+}
+
+.animate-shimmer {
+  animation: shimmer 2s infinite;
+}
+
+.animate-bounce {
+  animation: bounce 0.6s ease;
+}
+
+.animate-pulse {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.animate-sparkline-draw {
+  animation: sparkline-draw 0.4s ease-out forwards;
+}
+
+.animate-bar-reveal {
+  animation: bar-reveal 0.5s ease-out forwards;
+}
+
+.animate-rotate {
+  animation: rotate 1s linear infinite;
+}
+
+.animate-chevron-rotate {
+  animation: chevron-rotate 0.2s ease-out forwards;
+}
+
+/* ============================================================================
+   TRANSITION UTILITIES
+   ============================================================================ */
+
+/**
+ * Standard transition classes
+ * For use in CSS or Tailwind
+ */
+
+.transition-fast {
+  transition: all 150ms ease;
+}
+
+.transition-base {
+  transition: all 200ms ease;
+}
+
+.transition-slow {
+  transition: all 300ms ease;
+}
+
+.transition-slower {
+  transition: all 400ms ease;
+}
+
+/* Specific property transitions */
+.transition-opacity {
+  transition: opacity 200ms ease;
+}
+
+.transition-transform {
+  transition: transform 200ms ease;
+}
+
+.transition-colors {
+  transition: background-color, border-color, color 200ms ease;
+}
+
+.transition-shadow {
+  transition: box-shadow 200ms ease;
+}
+
+/* ============================================================================
+   PERFORMANCE NOTES
+   ============================================================================ */
+
+/*
+ * Animation Performance Best Practices (Implemented):
+ *
+ * 1. Use transforms (translate, scale, rotate) instead of position/size changes
+ *    - GPU-accelerated, smooth 60fps
+ *
+ * 2. Use opacity for fade effects
+ *    - Cheap operation, no layout recalculation
+ *
+ * 3. Prefer CSS animations over JS for loops
+ *    - Smoother, better battery life on mobile
+ *
+ * 4. Keep durations 200-400ms
+ *    - Fast feedback, prevents slowness
+ *
+ * 5. Use `will-change` sparingly (not in this file, add to specific elements)
+ *    - Tell browser to prepare for animation
+ *
+ * 6. Avoid animating width/height
+ *    - Causes layout thrashing
+ *    - Use scale() or max-height instead
+ *
+ * 7. Test on mobile
+ *    - Some animations may need reduced duration on low-end devices
+ */
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "title": "Dashboard",
+  "route": "/dashboard",
+  "layout": "app-shell",
+  "theme": "indigo-dark",
+  "primaryAccent": "lime",
+  "purpose": "Authenticated user workspace with analytics and tools",
+  "visualNotes": "Left nav + topbar; content cards on light surfaces; maintain consistent card spacing",
+  "_changelog": "created by automation: initial meta file"
+}

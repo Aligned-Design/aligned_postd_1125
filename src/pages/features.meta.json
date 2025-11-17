@@ -1,0 +1,10 @@
+{
+  "title": "Features",
+  "route": "/features",
+  "layout": "content-grid",
+  "theme": "indigo-light",
+  "primaryAccent": "lime",
+  "purpose": "Feature showcase and product education",
+  "visualNotes": "Modular left/right split sections; media-first; neutral surfaces for secondary sections",
+  "_changelog": "created by automation: initial meta file"
+}

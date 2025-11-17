@@ -1,0 +1,329 @@
+╔════════════════════════════════════════════════════════════════════════════════╗
+║                                                                                ║
+║          ALIGNED-20AI DESIGN IMPORT PACKAGE                                    ║
+║          Builder.io Design-Only Export                                         ║
+║                                                                                ║
+║          Status: ✅ PRODUCTION READY                                           ║
+║          Date: November 11, 2024                                               ║
+║                                                                                ║
+╚════════════════════════════════════════════════════════════════════════════════╝
+
+QUICK START (3 Steps)
+════════════════════════════════════════════════════════════════════════════════
+
+1. READ THE README
+   └─ design-import/README.md
+      • Overview of what's included
+      • Quick start guide
+      • Component list
+
+2. FOLLOW THE INTEGRATION GUIDE  
+   └─ design-import/docs/INTEGRATION_GUIDE.md
+      • 5 concrete steps with code examples
+      • Common patterns and pitfalls
+      • Data mapping reference
+
+3. COPY COMPONENTS TO YOUR PROJECT
+   └─ Copy files from design-import/ to your codebase
+      • CSS tokens & Tailwind config
+      • React components
+      • Design documentation
+
+════════════════════════════════════════════════════════════════════════════════
+
+WHAT'S INCLUDED
+════════════════════════════════════════════════════════════════════════════════
+
+✅ 20 React Components (TSX)
+   • 13 landing page sections
+   • 6 dashboard components
+   • 2 layout components
+
+✅ Design System
+   • 100+ CSS custom properties (colors, spacing, shadows)
+   • 20+ CSS keyframe animations
+   • Glassmorphism effects
+   • 8pt spacing grid
+
+✅ Comprehensive Documentation
+   • README.md — Overview & quick start
+   • DESIGN_SYSTEM.md — Design tokens & patterns
+   • COMPONENTS.md — Component library reference
+   • INTEGRATION_GUIDE.md — 5-step integration walkthrough
+
+✅ Technical Manifests
+   • exported-files.json — Complete file listing
+   • assets-manifest.json — Image & asset tracking
+   • component-map.json — Detailed component breakdown
+
+════════════════════════════════════════════════════════════════════════════════
+
+WHAT'S NOT INCLUDED (Intentionally Removed)
+════════════════════════════════════════════════════════════════════════════════
+
+❌ Backend Code — All API calls, authentication, data fetching removed
+❌ Navigation Logic — useNavigate() and routing logic removed
+❌ Analytics Tracking — analytics.track() calls removed
+❌ Authentication Hooks — useAuth() and user context checks removed
+❌ Form Logic — Form submission and validation logic removed
+❌ Secrets/Environment Variables — No .env files included
+❌ Tests or Build Artifacts — Only source design code
+
+🔍 Why? To create a pure design package that can be integrated with YOUR 
+   backend architecture without conflicts or duplication.
+
+════════════════════════════════════════════════════════════════════════════════
+
+RECOMMENDED READING ORDER
+════════════════════════════════════════════════════════════════════════════════
+
+1st → README.md
+      ~ 5 min read, high-level overview
+
+2nd → DESIGN_SYSTEM.md  
+      ~ 10 min read, understand design tokens & patterns
+
+3rd → COMPONENTS.md
+      ~ 10 min read, what each component does
+
+4th → INTEGRATION_GUIDE.md
+      ~ 20 min read, 5-step integration with code examples
+
+5th → Start implementing!
+
+════════════════════════════════════════════════════════════════════════════════
+
+KEY FILES EXPLAINED
+════════════════════════════════════════════════════════════════════════════════
+
+README.md
+  └─ START HERE. Overview, quick start, and what's in the package.
+
+INTEGRATION_GUIDE.md
+  └─ Step-by-step walkthrough to integrate design into your project.
+     Includes 5 concrete code examples for common patterns.
+
+DESIGN_SYSTEM.md
+  └─ Complete design language reference:
+     • Color palette (indigo primary, lime accent)
+     • Typography hierarchy
+     • Spacing & layout (8pt grid)
+     • Glassmorphism patterns
+     • Animations & transitions
+     • Responsive breakpoints
+
+COMPONENTS.md
+  └─ Quick reference for each component:
+     • What it does
+     • Props it accepts
+     • Usage examples
+     • Customization notes
+
+EXPORT_SUMMARY.md
+  └─ Detailed manifest of everything exported and what was removed.
+
+QUICK_REFERENCE.json
+  └─ Machine-readable summary (for tools/automation).
+
+styles/tokens.css
+  └─ CSS custom properties (colors, spacing, shadows, etc.).
+     Import this early in your CSS pipeline.
+
+styles/animations.css
+  └─ 20+ CSS keyframe animations.
+     All animations referenced by components.
+
+tailwind/tailwind.config.fragment.ts
+  └─ Tailwind animation keyframes and extensions.
+     Merge into your existing tailwind.config.ts.
+
+components/
+  └─ 20 production-ready React components (no backend logic).
+
+manifests/
+  └─ Technical manifests (file listings, asset tracking, component maps).
+
+════════════════════════════════════════════════════════════════════════════════
+
+5-STEP INTEGRATION SUMMARY
+════════════════════════════════════════════════════════════════════════════════
+
+Step 1: COPY TOKENS & CONFIG (5 min)
+   cp design-import/styles/tokens.css client/styles/
+   cp design-import/tailwind/tailwind.config.fragment.ts tailwind.config.ts
+
+Step 2: COPY COMPONENTS (5 min)
+   cp -r design-import/components/landing client/components/
+   cp -r design-import/components/dashboard client/components/
+
+Step 3: RENDER A COMPONENT (10 min)
+   import { HeroSection } from "@/components/landing/HeroSection";
+   
+   export default function Home() {
+     return <HeroSection />;
+   }
+
+Step 4: CONNECT TO BACKEND (varies)
+   Replace mock data with real API calls
+   Wire up navigation handlers via props
+   Add analytics tracking
+
+Step 5: TEST & DEPLOY (varies)
+   Run TypeScript check: pnpm typecheck
+   Run build: pnpm build
+   Test responsive design & animations
+   Deploy to staging, then production
+
+✨ See INTEGRATION_GUIDE.md for detailed examples of each step.
+
+════════════════════════════════════════════════════════════════════════════════
+
+COMPONENT OVERVIEW
+════════════════════════════════════════════════════════════════════════════════
+
+LANDING COMPONENTS (for marketing pages)
+─────────────────────────────────────────
+  HeroSection .................... Main hero with headline & CTA
+  ProblemSection ................. Problem statement & pain points
+  PromiseSection ................. Value proposition
+  HowItWorksSection .............. 4-step process flow
+  WhatItFeelsLikeSection ......... Narrative user experience
+  WhyTeamsLoveItSection .......... Differentiators
+  TestimonialsSection ............ Social proof with avatars
+  ZiaQuotePanel .................. Mascot quote display
+  FinalCTASection ................ Dark closing section
+  DashboardVisual ................ Mock dashboard preview
+  ProblemVisuals ................. 4-grid illustration
+  InteractiveStoryFlow ........... 3-step journey visualization
+  LiveDemoPreview ................ KPI metrics card
+
+DASHBOARD COMPONENTS (for product UI)
+──────────────────────────────────────
+  ZiaMascot ...................... Reusable mascot
+  GoodNews ....................... Hero banner with 3 metrics
+  InsightsFeed ................... 4-card AI insights panel
+  Sparkline ...................... Animated trend visualization
+  CalendarAccordion .............. 7-day expandable schedule
+  AnalyticsPanel ................. Performance metrics grid
+
+LAYOUT COMPONENTS
+──────────────────
+  Header ......................... Site navigation
+  Footer ......................... Site footer with links
+
+════════════════════════════════════════════════════════════════════════════════
+
+KEY DESIGN DECISIONS
+════════════════════════════════════════════════════════════════════════════════
+
+PRIMARY COLOR: Indigo (#3730a3)
+  └─ Used for headlines, primary UI elements, and text
+
+ACCENT COLOR: Lime (#b9f227)
+  └─ Used for CTAs, highlights, uptrends, and accents
+
+GLASS EFFECT: rgba(255,255,255,0.55) + backdrop-blur-xl
+  └─ Applied to all cards and overlays for luxury feel
+
+SPACING GRID: 8px baseline
+  └─ All spacing is a multiple of 8px (8, 16, 24, 32, 48px)
+
+ANIMATIONS: 200-400ms durations
+  └─ Fast feedback, smooth 60fps performance
+
+MOBILE-FIRST: Responsive at 375px, 768px, 1200px
+  └─ All components tested and optimized for mobile
+
+════════════════════════════════════════════════════════════════════════════════
+
+NEXT ACTIONS
+════════════════════════════════════════════════════════════════════════════════
+
+☐ Read README.md (now)
+☐ Read DESIGN_SYSTEM.md (understand the design language)
+☐ Read COMPONENTS.md (see what each component does)
+☐ Read INTEGRATION_GUIDE.md (learn how to integrate)
+☐ Copy CSS tokens and Tailwind config
+☐ Copy React components to your project
+☐ Render first component (HeroSection)
+☐ Replace mock data with real API calls
+☐ Connect CTA buttons to navigation
+☐ Add analytics tracking
+☐ Test responsive design
+☐ Run build and deploy
+
+════════════════════════════════════════════════════════════════════════════════
+
+QUESTIONS?
+════════════════════════════════════════════════════════════════════════════════
+
+Design questions?
+  → See DESIGN_SYSTEM.md
+
+Component questions?
+  → See COMPONENTS.md
+
+Integration questions?
+  → See INTEGRATION_GUIDE.md
+
+Technical details?
+  → See manifests/ folder
+     • exported-files.json
+     • assets-manifest.json
+     • component-map.json
+
+════════════════════════════════════════════════════════════════════════════════
+
+PRODUCTION CHECKLIST
+════════════════════════════════════════════════════════════════════════════════
+
+☐ All 20 components render without errors
+☐ CSS tokens are imported globally
+☐ Tailwind config merged with animations
+☐ Mock data replaced with real API calls
+☐ CTA buttons wired to navigation
+☐ Authentication integrated (if needed)
+☐ Analytics events firing
+☐ Images loaded (not showing 404s)
+☐ Responsive design tested (mobile, tablet, desktop)
+☐ Animations play smoothly (60fps)
+☐ Colors match design spec
+☐ Fonts loaded and rendering
+☐ No TypeScript errors
+☐ Build passes without warnings
+☐ Deployed to staging
+☐ User tested and approved
+☐ Ready for production
+
+════════════════════════════════════════════════════════════════════════════════
+
+SUPPORT
+════════════════════════════════════════════════════════════════════════════════
+
+📍 Location: /Users/krisfoust/Documents/GitHub/Aligned-20ai/design-import/
+
+📚 Documentation:
+   • README.md — Overview & quick start
+   • DESIGN_SYSTEM.md — Design tokens & patterns
+   • COMPONENTS.md — Component reference
+   • INTEGRATION_GUIDE.md — Step-by-step integration
+
+📋 Manifests:
+   • exported-files.json — File listing
+   • assets-manifest.json — Image tracking
+   • component-map.json — Component details
+
+💻 Source Files:
+   • components/landing/ — 13 landing components
+   • components/dashboard/ — 6 dashboard components
+   • components/layout/ — 2 layout components
+   • styles/ — CSS tokens & animations
+   • tailwind/ — Tailwind config fragment
+
+════════════════════════════════════════════════════════════════════════════════
+
+                              READY TO INTEGRATE!
+
+                              Start with README.md →
+
+════════════════════════════════════════════════════════════════════════════════

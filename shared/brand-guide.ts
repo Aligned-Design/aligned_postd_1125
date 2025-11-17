@@ -1,0 +1,239 @@
+/**
+ * Brand Guide (Shared Type)
+ *
+ * The Brand Guide is the "source of truth" for each brand in Postd.
+ * All AI agents (Copywriter, Creative, Advisor) must load and obey the Brand Guide.
+ *
+ * Stored in Supabase `brands` table:
+ * - `brand_kit` (JSONB) - Main Brand Guide data
+ * - `voice_summary` (JSONB) - Voice & tone specific data
+ * - `visual_summary` (JSONB) - Visual identity data
+ */
+
+export interface BrandGuide {
+  id: string;
+  brandId: string;
+  brandName: string;
+
+  // Identity
+  identity: {
+    name: string;
+    businessType?: string; // e.g., "coffee shop", "accountant", "real estate", "salon"
+    industryKeywords: string[]; // e.g., ["latte art", "community", "cozy mornings"] for coffee shop
+    competitors?: string[]; // Competitor names or brands to avoid referencing
+    sampleHeadlines?: string[]; // Example headlines extracted from website
+  };
+
+  // Voice & Tone
+  voiceAndTone: {
+    tone: string[]; // e.g., ["Friendly", "Confident", "Professional"]
+    friendlinessLevel: number; // 0-100
+    formalityLevel: number; // 0-100
+    confidenceLevel: number; // 0-100
+    voiceDescription?: string;
+    writingRules?: string[];
+    avoidPhrases?: string[];
+  };
+
+  // Visual Identity
+  visualIdentity: {
+    colors: string[]; // hex codes
+    typography: {
+      heading?: string;
+      body?: string;
+      source?: "google" | "custom";
+      customUrl?: string;
+    };
+    photographyStyle: {
+      mustInclude: string[]; // e.g., "poured coffee only, no espresso shots"
+      mustAvoid: string[]; // e.g., "no stock photos of people"
+    };
+    logoUrl?: string;
+    visualNotes?: string;
+  };
+
+  // Content Rules
+  contentRules: {
+    platformGuidelines?: Record<string, string>; // Platform-specific rules (e.g., "instagram": "Use 5-10 hashtags")
+    preferredPlatforms?: string[]; // e.g., ["instagram", "facebook", "linkedin", "tiktok"]
+    preferredPostTypes?: string[]; // e.g., ["carousel", "reel", "story", "feed"]
+    brandPhrases?: string[]; // Approved phrases to use
+    formalityLevel?: "very_formal" | "formal" | "casual" | "very_casual"; // How formal/informal writing should be
+    neverDo: string[]; // "never do" rules
+    guardrails?: Array<{
+      id: string;
+      title: string;
+      description: string;
+      category: "tone" | "messaging" | "visual" | "behavior";
+      isActive: boolean;
+    }>;
+  };
+
+  // Approved Assets
+  approvedAssets?: {
+    uploadedPhotos?: Array<{
+      id: string;
+      url: string;
+      title?: string;
+      alt?: string;
+      category?: string; // e.g., "product", "team", "lifestyle"
+    }>;
+    uploadedGraphics?: Array<{
+      id: string;
+      url: string;
+      title?: string;
+      alt?: string;
+    }>;
+    uploadedTemplates?: Array<{
+      id: string;
+      name: string;
+      url?: string;
+      format?: string;
+    }>;
+    approvedStockImages?: Array<{
+      id: string;
+      url: string;
+      source: "pexels" | "unsplash" | "canva" | "other";
+      title?: string;
+      alt?: string;
+    }>;
+    productsServices?: Array<{
+      id: string;
+      name: string;
+      description?: string;
+      imageUrl?: string;
+    }>;
+  };
+
+  // Performance Insights (optional)
+  performanceInsights?: {
+    visualPatterns?: Array<{
+      pattern: string;
+      performance: number;
+      lastSeen: string;
+    }>;
+    copyPatterns?: Array<{
+      pattern: string;
+      performance: number;
+      lastSeen: string;
+    }>;
+  };
+
+  // Legacy/Extended Fields (for backward compatibility)
+  purpose?: string;
+  mission?: string;
+  vision?: string;
+  personas?: Array<{
+    id: string;
+    name: string;
+    role: string;
+    description: string;
+    painPoints: string[];
+    goals: string[];
+  }>;
+  goals?: Array<{
+    id: string;
+    title: string;
+    description: string;
+    targetAudience: string;
+    measurable: string;
+    timeline: string;
+    progress: number;
+    status: string;
+  }>;
+
+  // Metadata
+  createdAt: string;
+  updatedAt: string;
+  version: number;
+  setupMethod?: "ai_generated" | "detailed";
+}
+
+/**
+ * Convert legacy BrandGuide format to new structured format
+ */
+export function normalizeBrandGuide(legacy: any): BrandGuide {
+  const brandKit = legacy.brand_kit || {};
+  const voiceSummary = legacy.voice_summary || {};
+  const visualSummary = legacy.visual_summary || {};
+
+  return {
+    id: legacy.id || legacy.brandId,
+    brandId: legacy.brandId || legacy.id,
+    brandName: legacy.name || brandKit.brandName || "Untitled Brand",
+
+    identity: {
+      name: legacy.name || brandKit.brandName || "Untitled Brand",
+      businessType: brandKit.businessType,
+      industryKeywords: brandKit.keywords || brandKit.industryKeywords || [],
+      competitors: brandKit.competitors || [],
+    },
+
+    voiceAndTone: {
+      tone: Array.isArray(voiceSummary.tone)
+        ? voiceSummary.tone
+        : Array.isArray(brandKit.toneKeywords)
+        ? brandKit.toneKeywords
+        : legacy.tone_keywords || [],
+      friendlinessLevel: voiceSummary.friendlinessLevel || brandKit.friendlinessLevel || 50,
+      formalityLevel: voiceSummary.formalityLevel || brandKit.formalityLevel || 50,
+      confidenceLevel: voiceSummary.confidenceLevel || brandKit.confidenceLevel || 50,
+      voiceDescription: voiceSummary.voiceDescription || brandKit.voiceDescription || "",
+      writingRules: voiceSummary.writingRules || brandKit.writingRules || [],
+      avoidPhrases: voiceSummary.avoid || brandKit.wordsToAvoid || brandKit.avoidPhrases || [],
+    },
+
+    visualIdentity: {
+      colors: visualSummary.colors || brandKit.primaryColors || [],
+      typography: {
+        heading: visualSummary.fonts?.[0] || brandKit.fontFamily,
+        body: visualSummary.fonts?.[1] || brandKit.bodyFont,
+        source: brandKit.fontSource || "google",
+        customUrl: brandKit.customFontUrl,
+      },
+      photographyStyle: {
+        mustInclude: visualSummary.photographyStyle?.mustInclude || brandKit.photographyStyle?.mustInclude || [],
+        mustAvoid: visualSummary.photographyStyle?.mustAvoid || brandKit.photographyStyle?.mustAvoid || [],
+      },
+      logoUrl: legacy.logo_url || brandKit.logoUrl || visualSummary.logo_urls?.[0],
+      visualNotes: visualSummary.visualNotes || brandKit.visualNotes,
+    },
+
+    contentRules: {
+      platformGuidelines: brandKit.platformGuidelines || {},
+      preferredPlatforms: brandKit.preferredPlatforms || [],
+      preferredPostTypes: brandKit.preferredPostTypes || [],
+      brandPhrases: brandKit.brandPhrases || [],
+      formalityLevel: brandKit.contentFormalityLevel || brandKit.formalityLevel, // Support both old and new field names
+      neverDo: brandKit.neverDo || [],
+      guardrails: brandKit.guardrails || [],
+    },
+
+    approvedAssets: {
+      uploadedPhotos: brandKit.approvedAssets?.uploadedPhotos || [],
+      uploadedGraphics: brandKit.approvedAssets?.uploadedGraphics || [],
+      uploadedTemplates: brandKit.approvedAssets?.uploadedTemplates || [],
+      approvedStockImages: brandKit.approvedAssets?.approvedStockImages || [],
+      productsServices: brandKit.approvedAssets?.productsServices || [],
+    },
+
+    performanceInsights: {
+      visualPatterns: brandKit.performanceInsights?.visualPatterns || [],
+      copyPatterns: brandKit.performanceInsights?.copyPatterns || [],
+    },
+
+    // Legacy fields
+    purpose: brandKit.purpose,
+    mission: brandKit.mission,
+    vision: brandKit.vision,
+    personas: brandKit.personas || [],
+    goals: brandKit.goals || [],
+
+    // Metadata
+    createdAt: legacy.created_at || new Date().toISOString(),
+    updatedAt: legacy.updated_at || new Date().toISOString(),
+    version: brandKit.version || 1,
+    setupMethod: brandKit.setupMethod || "ai_generated",
+  };
+}
+

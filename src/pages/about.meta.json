@@ -1,0 +1,10 @@
+{
+  "title": "About",
+  "route": "/about",
+  "layout": "content-simple",
+  "theme": "indigo-light",
+  "primaryAccent": "lime",
+  "purpose": "Company about and story",
+  "visualNotes": "Light surfaces; team cards; use indigo accents for headers",
+  "_changelog": "created by automation: initial meta file"
+}

@@ -1,0 +1,10 @@
+{
+  "title": "Integrations",
+  "route": "/integrations-marketing",
+  "layout": "content-grid",
+  "theme": "indigo-light",
+  "primaryAccent": "lime",
+  "purpose": "Integrations overview and setup guides",
+  "visualNotes": "List integrations; use light surfaces; highlight setup CTA with lime",
+  "_changelog": "created by automation: initial meta file"
+}

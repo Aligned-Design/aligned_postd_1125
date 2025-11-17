@@ -1,0 +1,96 @@
+/** @import must precede all other statements */
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap");
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+/* DESIGN TOKENS - Single Source of Truth */
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+@import "./styles/tokens.css";
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Dark mode disabled - always use light mode for bright, clean design */
+
+:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+@layer base {
+  /**
+   * Tailwind CSS theme
+   * tailwind.config.ts expects the following color variables to be expressed as HSL values.
+   * A different format will require also updating the theme in tailwind.config.ts.
+  */
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 228 15% 15%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 228 15% 15%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 228 15% 15%;
+
+    --primary: 228 80% 35%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 265 88% 44%;
+    --secondary-foreground: 0 0% 100%;
+
+    --muted: 220 12% 92%;
+    --muted-foreground: 220 8% 48%;
+
+    --accent: 80 86% 50%;
+    --accent-foreground: 228 15% 15%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 220 13% 91%;
+    --input: 220 13% 91%;
+    --ring: 228 80% 35%;
+
+    --radius: 0.5rem;
+
+    --sidebar-background: 0 0% 98.5%;
+
+    --sidebar-foreground: 228 15% 20%;
+
+    --sidebar-primary: 228 80% 35%;
+
+    --sidebar-primary-foreground: 0 0% 100%;
+
+    --sidebar-accent: 80 86% 50%;
+
+    --sidebar-accent-foreground: 228 15% 15%;
+
+    --sidebar-border: 220 13% 91%;
+
+    --sidebar-ring: 228 80% 35%;
+  }
+
+  /* Dark mode disabled - always use light mode for bright, clean design */
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-white text-foreground;
+  }
+
+  :where(p, span, li, h1, h2, h3, h4, h5, h6, a, label, td, th) {
+    overflow-wrap: break-word;
+    word-break: normal;
+  }
+
+  pre,
+  code {
+    overflow-x: auto;
+    white-space: pre;
+  }
+}

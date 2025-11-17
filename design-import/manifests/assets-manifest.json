@@ -1,0 +1,245 @@
+{
+  "metadata": {
+    "total_assets": 24,
+    "image_formats": ["svg", "png", "jpg"],
+    "note": "All paths are relative to design-import/assets/"
+  },
+  "icons": [
+    {
+      "name": "dashboard.svg",
+      "type": "icon",
+      "original_path": "client/assets/icons/dashboard.svg",
+      "exported_path": "design-import/assets/icons/dashboard.svg",
+      "used_by": ["DashboardVisual.tsx", "GoodNews.tsx"],
+      "description": "Dashboard grid icon"
+    },
+    {
+      "name": "check-circle.svg",
+      "type": "icon",
+      "original_path": "client/assets/icons/check-circle.svg",
+      "exported_path": "design-import/assets/icons/check-circle.svg",
+      "used_by": ["HeroSection.tsx", "PromiseSection.tsx"],
+      "description": "Green checkmark icon for feature lists"
+    },
+    {
+      "name": "sparkles.svg",
+      "type": "icon",
+      "original_path": "client/assets/icons/sparkles.svg",
+      "exported_path": "design-import/assets/icons/sparkles.svg",
+      "used_by": ["HeroSection.tsx", "WhatItFeelsLikeSection.tsx"],
+      "description": "Sparkles icon for highlights"
+    },
+    {
+      "name": "arrow-right.svg",
+      "type": "icon",
+      "original_path": "client/assets/icons/arrow-right.svg",
+      "exported_path": "design-import/assets/icons/arrow-right.svg",
+      "used_by": ["All CTA buttons"],
+      "description": "Arrow right for CTAs"
+    },
+    {
+      "name": "linkedin.svg",
+      "type": "icon",
+      "original_path": "client/assets/icons/linkedin.svg",
+      "exported_path": "design-import/assets/icons/linkedin.svg",
+      "used_by": ["CalendarAccordion.tsx", "Platform selectors"],
+      "description": "LinkedIn platform icon"
+    },
+    {
+      "name": "instagram.svg",
+      "type": "icon",
+      "original_path": "client/assets/icons/instagram.svg",
+      "exported_path": "design-import/assets/icons/instagram.svg",
+      "used_by": ["CalendarAccordion.tsx", "Platform selectors"],
+      "description": "Instagram platform icon"
+    },
+    {
+      "name": "facebook.svg",
+      "type": "icon",
+      "original_path": "client/assets/icons/facebook.svg",
+      "exported_path": "design-import/assets/icons/facebook.svg",
+      "used_by": ["CalendarAccordion.tsx", "Platform selectors"],
+      "description": "Facebook platform icon"
+    },
+    {
+      "name": "twitter.svg",
+      "type": "icon",
+      "original_path": "client/assets/icons/twitter.svg",
+      "exported_path": "design-import/assets/icons/twitter.svg",
+      "used_by": ["CalendarAccordion.tsx", "Platform selectors"],
+      "description": "Twitter/X platform icon"
+    }
+  ],
+  "illustrations": [
+    {
+      "name": "chaos-to-clarity.svg",
+      "type": "illustration",
+      "original_path": "client/assets/illustrations/chaos-to-clarity.svg",
+      "exported_path": "design-import/assets/illustrations/chaos-to-clarity.svg",
+      "used_by": ["InteractiveStoryFlow.tsx"],
+      "description": "3-step flow visualization (Chaos → Clarity → Alignment)"
+    },
+    {
+      "name": "problem-1-brand-chaos.svg",
+      "type": "illustration",
+      "original_path": "client/assets/illustrations/problem-1.svg",
+      "exported_path": "design-import/assets/illustrations/problem-1.svg",
+      "used_by": ["ProblemVisuals.tsx", "ProblemSection.tsx"],
+      "description": "Visual for 'Brand chaos' pain point"
+    },
+    {
+      "name": "problem-2-approvals.svg",
+      "type": "illustration",
+      "original_path": "client/assets/illustrations/problem-2.svg",
+      "exported_path": "design-import/assets/illustrations/problem-2.svg",
+      "used_by": ["ProblemVisuals.tsx", "ProblemSection.tsx"],
+      "description": "Visual for 'Approval bottlenecks' pain point"
+    },
+    {
+      "name": "problem-3-manual.svg",
+      "type": "illustration",
+      "original_path": "client/assets/illustrations/problem-3.svg",
+      "exported_path": "design-import/assets/illustrations/problem-3.svg",
+      "used_by": ["ProblemVisuals.tsx", "ProblemSection.tsx"],
+      "description": "Visual for 'Manual overload' pain point"
+    },
+    {
+      "name": "problem-4-reporting.svg",
+      "type": "illustration",
+      "original_path": "client/assets/illustrations/problem-4.svg",
+      "exported_path": "design-import/assets/illustrations/problem-4.svg",
+      "used_by": ["ProblemVisuals.tsx", "ProblemSection.tsx"],
+      "description": "Visual for 'Reporting fatigue' pain point"
+    },
+    {
+      "name": "zia-mascot.svg",
+      "type": "illustration",
+      "original_path": "client/assets/illustrations/zia-mascot.svg",
+      "exported_path": "design-import/assets/illustrations/zia-mascot.svg",
+      "used_by": ["ZiaMascot.tsx", "ZiaQuotePanel.tsx"],
+      "description": "Zia zebra mascot (main character)"
+    }
+  ],
+  "placeholders": [
+    {
+      "name": "dashboard-preview.png",
+      "type": "placeholder",
+      "original_path": "client/assets/placeholders/dashboard-preview.png",
+      "exported_path": "design-import/assets/placeholders/dashboard-preview.png",
+      "used_by": ["DashboardVisual.tsx", "HeroSection.tsx", "LiveDemoPreview.tsx"],
+      "description": "Mock dashboard screenshot (1200x760px)",
+      "note": "Should be replaced with actual product screenshot"
+    },
+    {
+      "name": "testimonial-avatar-1.jpg",
+      "type": "placeholder",
+      "original_path": "client/assets/placeholders/testimonial-avatar-1.jpg",
+      "exported_path": "design-import/assets/placeholders/testimonial-avatar-1.jpg",
+      "used_by": ["TestimonialsSection.tsx"],
+      "description": "Avatar for Little Fox Creative testimonial",
+      "note": "Should be replaced with actual client photo"
+    },
+    {
+      "name": "testimonial-avatar-2.jpg",
+      "type": "placeholder",
+      "original_path": "client/assets/placeholders/testimonial-avatar-2.jpg",
+      "exported_path": "design-import/assets/placeholders/testimonial-avatar-2.jpg",
+      "used_by": ["TestimonialsSection.tsx"],
+      "description": "Avatar for Indigo & Co testimonial",
+      "note": "Should be replaced with actual client photo"
+    },
+    {
+      "name": "testimonial-avatar-3.jpg",
+      "type": "placeholder",
+      "original_path": "client/assets/placeholders/testimonial-avatar-3.jpg",
+      "exported_path": "design-import/assets/placeholders/testimonial-avatar-3.jpg",
+      "used_by": ["TestimonialsSection.tsx"],
+      "description": "Avatar for 806 Marketing testimonial",
+      "note": "Should be replaced with actual client photo"
+    },
+    {
+      "name": "blog-thumb-1.jpg",
+      "type": "placeholder",
+      "original_path": "client/assets/placeholders/blog-thumb-1.jpg",
+      "exported_path": "design-import/assets/placeholders/blog-thumb-1.jpg",
+      "used_by": ["BlogCard.tsx"],
+      "description": "Blog post thumbnail (1200x675px)",
+      "note": "Should be replaced with actual blog post images"
+    },
+    {
+      "name": "blog-thumb-2.jpg",
+      "type": "placeholder",
+      "original_path": "client/assets/placeholders/blog-thumb-2.jpg",
+      "exported_path": "design-import/assets/placeholders/blog-thumb-2.jpg",
+      "used_by": ["BlogCard.tsx"],
+      "description": "Blog post thumbnail (1200x675px)",
+      "note": "Should be replaced with actual blog post images"
+    },
+    {
+      "name": "blog-thumb-3.jpg",
+      "type": "placeholder",
+      "original_path": "client/assets/placeholders/blog-thumb-3.jpg",
+      "exported_path": "design-import/assets/placeholders/blog-thumb-3.jpg",
+      "used_by": ["BlogCard.tsx"],
+      "description": "Blog post thumbnail (1200x675px)",
+      "note": "Should be replaced with actual blog post images"
+    },
+    {
+      "name": "logo.svg",
+      "type": "logo",
+      "original_path": "client/assets/logo.svg",
+      "exported_path": "design-import/assets/logo.svg",
+      "used_by": ["Header.tsx", "Footer.tsx"],
+      "description": "Aligned logo (primary brand mark)"
+    }
+  ],
+  "logos": [
+    {
+      "name": "little-fox-creative-logo.png",
+      "type": "logo",
+      "original_path": "client/assets/logos/little-fox.png",
+      "exported_path": "design-import/assets/logos/little-fox.png",
+      "used_by": ["TestimonialsSection.tsx"],
+      "description": "Client logo: Little Fox Creative",
+      "note": "Optional — testimonial can show initials if logo not available"
+    },
+    {
+      "name": "indigo-co-logo.png",
+      "type": "logo",
+      "original_path": "client/assets/logos/indigo-co.png",
+      "exported_path": "design-import/assets/logos/indigo-co.png",
+      "used_by": ["TestimonialsSection.tsx"],
+      "description": "Client logo: Indigo & Co",
+      "note": "Optional — testimonial can show initials if logo not available"
+    },
+    {
+      "name": "806-marketing-logo.png",
+      "type": "logo",
+      "original_path": "client/assets/logos/806-marketing.png",
+      "exported_path": "design-import/assets/logos/806-marketing.png",
+      "used_by": ["TestimonialsSection.tsx"],
+      "description": "Client logo: 806 Marketing",
+      "note": "Optional — testimonial can show initials if logo not available"
+    }
+  ],
+  "verification": {
+    "step1": "Count files in design-import/assets/ (should match total_assets count)",
+    "step2": "For each component, verify all images in used_by list exist",
+    "step3": "Check that all image paths in components point to exported_path locations",
+    "step4": "Verify placeholder images are marked with note about replacement"
+  },
+  "asset_replacement_guide": {
+    "placeholders_to_replace": [
+      "dashboard-preview.png → production screenshot",
+      "testimonial-avatar-*.jpg → real client headshots",
+      "blog-thumb-*.jpg → real blog post images",
+      "problem-*.svg → custom illustrations (or use mockups)"
+    ],
+    "how_to_replace": [
+      "Update src path in component",
+      "Add alt text for accessibility",
+      "Optimize image (compress, resize)",
+      "Test responsive display"
+    ]
+  }
+}

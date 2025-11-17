@@ -1,0 +1,11 @@
+{
+  "timestamp": "2025-11-11T23:04:46.037Z",
+  "status": "failed",
+  "deployed_tables": [],
+  "deployed_views": [],
+  "deployed_functions": [],
+  "errors": [
+    "Supabase CLI not installed. Run: npm install -g supabase"
+  ],
+  "duration_ms": 4
+}

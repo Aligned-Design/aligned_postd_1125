@@ -1,0 +1,506 @@
+{
+  "metadata": {
+    "total_components": 20,
+    "export_date": "2024-11-11",
+    "note": "This file maps each component to its original source, removed code, mock data, and integration points."
+  },
+  "components": {
+    "HeroSection": {
+      "path": "design-import/components/landing/HeroSection.tsx",
+      "original_source": "client/components/landing/HeroSection.tsx (code/neon-nest branch)",
+      "purpose": "Main hero section with headline, subheadline, CTAs, and dashboard visual",
+      "mock_data": {
+        "headline": "You built your agency for stories, not spreadsheets.",
+        "subheadline": "Aligned handles your content...",
+        "features": ["Brand Management", "Content Automation", "Client Approvals", "AI Reporting"],
+        "dashboardPreview": "Mock dashboard card"
+      },
+      "removed_code": [
+        "useNavigate() hook",
+        "useAuth() hook + user context check",
+        "analytics.track('cta_click', ...)",
+        "handleCTA() navigation logic"
+      ],
+      "imports_removed": [
+        "import { useNavigate } from 'react-router-dom'",
+        "import { useAuth } from '@/contexts/AuthContext'",
+        "import { analytics } from '@/lib/analytics'"
+      ],
+      "props": {
+        "onCTA": {
+          "type": "() => void",
+          "optional": true,
+          "description": "Callback when primary CTA is clicked. If not provided, CTA logs to console."
+        }
+      },
+      "integration_points": [
+        "Render as-is for static version",
+        "Pass onCTA prop to handle navigation: <HeroSection onCTA={handleNavigation} />",
+        "Replace mock data by making component accept data prop (optional)"
+      ],
+      "uses_assets": ["dashboard-preview.png"],
+      "animations": ["gradient-shift", "pulse-glow", "slide-up"],
+      "status": "✅ Production ready"
+    },
+    "ProblemSection": {
+      "path": "design-import/components/landing/ProblemSection.tsx",
+      "original_source": "client/components/landing/ProblemSection.tsx (code/neon-nest branch)",
+      "purpose": "Problem statement section with 4 pain points and visuals",
+      "mock_data": {
+        "headline": "You're not behind — you're buried.",
+        "painPoints": ["Brand chaos", "Approval bottlenecks", "Manual overload", "Reporting fatigue"]
+      },
+      "removed_code": [],
+      "imports_removed": [],
+      "props": {},
+      "integration_points": ["Render as-is (fully static)"],
+      "uses_assets": ["problem-1.svg", "problem-2.svg", "problem-3.svg", "problem-4.svg"],
+      "animations": [],
+      "status": "✅ Production ready (static)"
+    },
+    "PromiseSection": {
+      "path": "design-import/components/landing/PromiseSection.tsx",
+      "original_source": "client/components/landing/PromiseSection.tsx (code/neon-nest branch)",
+      "purpose": "Value proposition section with supporting copy and CTA",
+      "mock_data": {
+        "headline": "Every piece of content. Every approval. Every post.",
+        "body": "3 supporting paragraphs"
+      },
+      "removed_code": ["useNavigate() hook", "navigate() calls on CTA button"],
+      "imports_removed": ["import { useNavigate } from 'react-router-dom'"],
+      "props": {
+        "onCTA": {
+          "type": "() => void",
+          "optional": true,
+          "description": "Callback when CTA is clicked"
+        }
+      },
+      "integration_points": ["Pass onCTA prop for navigation"],
+      "uses_assets": [],
+      "animations": ["fade-in-up"],
+      "status": "✅ Production ready"
+    },
+    "HowItWorksSection": {
+      "path": "design-import/components/landing/HowItWorksSection.tsx",
+      "original_source": "client/components/landing/HowItWorksSection.tsx (code/neon-nest branch)",
+      "purpose": "Process flow with 4 step cards",
+      "mock_data": {
+        "steps": [
+          "Connect your brand",
+          "Plan your content",
+          "Get AI suggestions",
+          "Schedule & publish"
+        ]
+      },
+      "removed_code": [],
+      "imports_removed": [],
+      "props": {},
+      "integration_points": ["Render as-is (fully static)"],
+      "uses_assets": [],
+      "animations": [],
+      "status": "✅ Production ready (static)"
+    },
+    "WhatItFeelsLikeSection": {
+      "path": "design-import/components/landing/WhatItFeelsLikeSection.tsx",
+      "original_source": "client/components/landing/WhatItFeelsLikeSection.tsx (code/neon-nest branch)",
+      "purpose": "Narrative section describing the user experience",
+      "mock_data": {
+        "opening": "It's Monday. You open your laptop. Everything's already scheduled...",
+        "narrative": "Detailed description of ideal workflow"
+      },
+      "removed_code": [],
+      "imports_removed": [],
+      "props": {},
+      "integration_points": ["Render as-is (fully static)"],
+      "uses_assets": [],
+      "animations": [],
+      "status": "✅ Production ready (static)"
+    },
+    "WhyTeamsLoveItSection": {
+      "path": "design-import/components/landing/WhyTeamsLoveItSection.tsx",
+      "original_source": "client/components/landing/WhyTeamsLoveItSection.tsx (code/neon-nest branch)",
+      "purpose": "Differentiators section explaining competitive advantages",
+      "mock_data": {
+        "headline": "Built for Agencies That Care Too Much to Cut Corners",
+        "sections": "2 supporting paragraphs"
+      },
+      "removed_code": [],
+      "imports_removed": [],
+      "props": {},
+      "integration_points": ["Render as-is (fully static)"],
+      "uses_assets": [],
+      "animations": [],
+      "status": "✅ Production ready (static)"
+    },
+    "TestimonialsSection": {
+      "path": "design-import/components/landing/TestimonialsSection.tsx",
+      "original_source": "client/components/landing/TestimonialsSection.tsx (code/neon-nest branch)",
+      "purpose": "Social proof section with 3 testimonial cards",
+      "mock_data": {
+        "testimonials": [
+          {
+            "company": "Little Fox Creative",
+            "quote": "...",
+            "author": "...",
+            "role": "Founder"
+          },
+          {
+            "company": "Indigo & Co",
+            "quote": "...",
+            "author": "...",
+            "role": "Director"
+          },
+          {
+            "company": "806 Marketing",
+            "quote": "...",
+            "author": "...",
+            "role": "Lead"
+          }
+        ]
+      },
+      "removed_code": [],
+      "imports_removed": [],
+      "props": {
+        "testimonials": {
+          "type": "Testimonial[]",
+          "optional": true,
+          "description": "Real testimonials from API (falls back to mock if not provided)"
+        }
+      },
+      "integration_points": [
+        "Render as-is for mock testimonials",
+        "Fetch testimonials from /api/testimonials",
+        "Pass real data: <TestimonialsSection testimonials={testimonials} />"
+      ],
+      "uses_assets": ["testimonial-avatar-1.jpg", "testimonial-avatar-2.jpg", "testimonial-avatar-3.jpg"],
+      "animations": ["fade-in-up", "stagger effect"],
+      "status": "✅ Ready for backend connection"
+    },
+    "ZiaQuotePanel": {
+      "path": "design-import/components/landing/ZiaQuotePanel.tsx",
+      "original_source": "client/components/landing/ZiaQuotePanel.tsx (code/neon-nest branch)",
+      "purpose": "Decorative mascot with quote",
+      "mock_data": {
+        "quote": "Stay wild. Stay aligned."
+      },
+      "removed_code": [],
+      "imports_removed": [],
+      "props": {},
+      "integration_points": ["Render as-is (fully static)"],
+      "uses_assets": ["zia-mascot.svg"],
+      "animations": [],
+      "status": "✅ Production ready (static)"
+    },
+    "FinalCTASection": {
+      "path": "design-import/components/landing/FinalCTASection.tsx",
+      "original_source": "client/components/landing/FinalCTASection.tsx (code/neon-nest branch)",
+      "purpose": "Strong closing section with dark background and prominent CTA",
+      "mock_data": {
+        "headline": "You've built something real.",
+        "subheadline": "Now it's time to run it without running yourself into the ground.",
+        "body": "Aligned.ai — for the ones brave enough to build differently..."
+      },
+      "removed_code": ["useNavigate() hook", "navigate() on CTA"],
+      "imports_removed": ["import { useNavigate } from 'react-router-dom'"],
+      "props": {
+        "onCTA": {
+          "type": "() => void",
+          "optional": true,
+          "description": "Callback when CTA is clicked"
+        }
+      },
+      "integration_points": ["Pass onCTA prop for navigation"],
+      "uses_assets": [],
+      "animations": [],
+      "status": "✅ Production ready"
+    },
+    "DashboardVisual": {
+      "path": "design-import/components/landing/DashboardVisual.tsx",
+      "original_source": "client/components/landing/DashboardVisual.tsx (code/neon-nest branch)",
+      "purpose": "Mock dashboard card preview for hero section",
+      "mock_data": {
+        "dashboardPreview": "Static card layout with mock metrics"
+      },
+      "removed_code": [],
+      "imports_removed": [],
+      "props": {},
+      "integration_points": ["Render as-is (static design showcase)"],
+      "uses_assets": ["dashboard-preview.png"],
+      "animations": [],
+      "status": "✅ Production ready (static)"
+    },
+    "ProblemVisuals": {
+      "path": "design-import/components/landing/ProblemVisuals.tsx",
+      "original_source": "client/components/landing/ProblemVisuals.tsx (code/neon-nest branch)",
+      "purpose": "Visual grid for problem section (4 illustrations)",
+      "mock_data": {
+        "visuals": ["Brand chaos", "Approval bottlenecks", "Manual overload", "Reporting fatigue"]
+      },
+      "removed_code": [],
+      "imports_removed": [],
+      "props": {},
+      "integration_points": ["Render as-is (static)"],
+      "uses_assets": ["problem-1.svg", "problem-2.svg", "problem-3.svg", "problem-4.svg"],
+      "animations": [],
+      "status": "✅ Production ready (static)"
+    },
+    "InteractiveStoryFlow": {
+      "path": "design-import/components/landing/InteractiveStoryFlow.tsx",
+      "original_source": "client/components/landing/InteractiveStoryFlow.tsx (code/neon-nest branch)",
+      "purpose": "3-step visual flow showing journey (Chaos → Clarity → Alignment)",
+      "mock_data": {
+        "steps": ["Chaos", "Clarity", "Alignment"]
+      },
+      "removed_code": [],
+      "imports_removed": [],
+      "props": {},
+      "integration_points": ["Render as-is (static)"],
+      "uses_assets": ["chaos-to-clarity.svg"],
+      "animations": ["fadeIn", "slideIn"],
+      "status": "✅ Production ready (static)"
+    },
+    "LiveDemoPreview": {
+      "path": "design-import/components/landing/LiveDemoPreview.tsx",
+      "original_source": "client/components/landing/LiveDemoPreview.tsx (code/neon-nest branch)",
+      "purpose": "Mock dashboard metrics card with KPIs",
+      "mock_data": {
+        "metrics": [
+          { label: "Posts Generated", value: "243", change: "+12%" },
+          { label: "Engagement Rate", value: "8.4%", change: "+2.3%" },
+          { label: "Clients Managed", value: "24", change: "+3" }
+        ]
+      },
+      "removed_code": [],
+      "imports_removed": [],
+      "props": {},
+      "integration_points": ["Render as-is for preview", "Can be enhanced with real metrics"],
+      "uses_assets": [],
+      "animations": ["fade-in-up"],
+      "status": "✅ Production ready (static)"
+    },
+    "ZiaMascot": {
+      "path": "design-import/components/dashboard/ZiaMascot.tsx",
+      "original_source": "client/components/dashboard/ZiaMascot.tsx (code/neon-nest branch)",
+      "purpose": "Reusable mascot component for dashboard and landing pages",
+      "mock_data": null,
+      "removed_code": [],
+      "imports_removed": [],
+      "props": {
+        "size": {
+          "type": "'sm' | 'md' | 'lg'",
+          "optional": true,
+          "default": "'md'"
+        },
+        "className": {
+          "type": "string",
+          "optional": true
+        }
+      },
+      "integration_points": ["<ZiaMascot size='lg' /> for landing pages"],
+      "uses_assets": ["zia-mascot.svg"],
+      "animations": [],
+      "status": "✅ Production ready (reusable)"
+    },
+    "GoodNews": {
+      "path": "design-import/components/dashboard/GoodNews.tsx",
+      "original_source": "client/components/dashboard/GoodNews.tsx (code/neon-nest branch)",
+      "purpose": "Hero banner with 3 metric cards and CTA",
+      "mock_data": {
+        "cards": [
+          { label: "Best Performer", value: "243 engagements", description: "New Feature Launch" },
+          { label: "Trending", value: "8.4%", description: "Above average engagement" },
+          { label: "Milestone", value: "100 posts", description: "Published this month" }
+        ],
+        "timestamp": "Updated 2 hours ago"
+      },
+      "removed_code": [],
+      "imports_removed": [],
+      "props": {
+        "data": {
+          "type": "MetricsData",
+          "optional": true,
+          "description": "Real metrics from API (falls back to mock if not provided)"
+        }
+      },
+      "integration_points": [
+        "Fetch from /api/dashboard/metrics",
+        "Pass data: <GoodNews data={realMetrics} />"
+      ],
+      "uses_assets": [],
+      "animations": ["fade-in-up", "stagger"],
+      "status": "✅ Ready for backend connection"
+    },
+    "InsightsFeed": {
+      "path": "design-import/components/dashboard/InsightsFeed.tsx",
+      "original_source": "client/components/dashboard/InsightsFeed.tsx (code/neon-nest branch)",
+      "purpose": "Compact 4-card AI insights panel (sticky on desktop)",
+      "mock_data": {
+        "insights": [
+          { title: "Content Peak Hours", description: "Posts perform best at 10am & 2pm EST" },
+          { title: "Audience Growth", description: "+12% week-over-week" },
+          { title: "Engagement Trend", description: "Captions > hashtags by 3x" },
+          { title: "Content Recommendation", description: "Try video content next" }
+        ]
+      },
+      "removed_code": [],
+      "imports_removed": [],
+      "props": {
+        "insights": {
+          "type": "Insight[]",
+          "optional": true,
+          "description": "Real insights from API (falls back to mock)"
+        }
+      },
+      "integration_points": [
+        "Fetch from /api/dashboard/insights or /api/advisor/insights",
+        "Pass data: <InsightsFeed insights={realInsights} />"
+      ],
+      "uses_assets": [],
+      "animations": ["fade-in-up", "stagger", "hover lift"],
+      "status": "✅ Ready for backend connection"
+    },
+    "Sparkline": {
+      "path": "design-import/components/dashboard/Sparkline.tsx",
+      "original_source": "client/components/dashboard/Sparkline.tsx (code/neon-nest branch)",
+      "purpose": "Animated trend visualization (60x20px)",
+      "mock_data": {
+        "data": "[23, 25, 28, 31, 29, 32, 35, 38, 42]",
+        "trend": "up"
+      },
+      "removed_code": [],
+      "imports_removed": [],
+      "props": {
+        "data": {
+          "type": "number[]",
+          "required": true,
+          "description": "Data points for sparkline"
+        },
+        "trend": {
+          "type": "'up' | 'down'",
+          "optional": true,
+          "description": "Color indicator (lime for up, gray for down)"
+        }
+      },
+      "integration_points": [
+        "Pass data from metrics: <Sparkline data={metricTrend} />"
+      ],
+      "uses_assets": [],
+      "animations": ["reveal animation 400ms"],
+      "status": "✅ Production ready"
+    },
+    "CalendarAccordion": {
+      "path": "design-import/components/dashboard/CalendarAccordion.tsx",
+      "original_source": "client/components/dashboard/CalendarAccordion.tsx (code/neon-nest branch)",
+      "purpose": "7-day expandable schedule with post cards",
+      "mock_data": {
+        "schedule": [
+          {
+            "date": "2024-11-11",
+            "day": "Monday",
+            "posts": [
+              { title: "LinkedIn Article", status": "approved", platform: "linkedin" },
+              { title: "Instagram Carousel", "status": "draft", "platform": "instagram" }
+            ]
+          }
+        ]
+      },
+      "removed_code": [],
+      "imports_removed": [],
+      "props": {
+        "schedule": {
+          "type": "ScheduleItem[]",
+          "optional": true,
+          "description": "Real schedule from API (falls back to mock)"
+        }
+      },
+      "integration_points": [
+        "Fetch from /api/content/schedule",
+        "Pass data: <CalendarAccordion schedule={realSchedule} />"
+      ],
+      "uses_assets": ["linkedin.svg", "instagram.svg", "facebook.svg", "twitter.svg"],
+      "animations": ["accordion expand 200ms", "chevron rotate"],
+      "status": "✅ Ready for backend connection"
+    },
+    "AnalyticsPanel": {
+      "path": "design-import/components/dashboard/AnalyticsPanel.tsx",
+      "original_source": "client/components/dashboard/AnalyticsPanel.tsx (code/neon-nest branch)",
+      "purpose": "Performance metrics grid with integrations",
+      "mock_data": {
+        "metrics": [
+          { label: "Impressions", value: "12.4K", change: "+8%" },
+          { label: "Clicks", value: "842", change: "+12%" },
+          { label: "Engagement Rate", value: "6.8%", change: "-1.2%" },
+          { label: "Share of Voice", value: "28%", change: "+3%" }
+        ]
+      },
+      "removed_code": [],
+      "imports_removed": [],
+      "props": {
+        "metrics": {
+          "type": "MetricItem[]",
+          "optional": true,
+          "description": "Real metrics from API (falls back to mock)"
+        }
+      },
+      "integration_points": [
+        "Fetch from /api/analytics/metrics",
+        "Pass data: <AnalyticsPanel metrics={realMetrics} />"
+      ],
+      "uses_assets": [],
+      "animations": ["fade-in-up", "stagger"],
+      "status": "✅ Ready for backend connection"
+    },
+    "Header": {
+      "path": "design-import/components/layout/Header.tsx",
+      "original_source": "client/components/layout/Header.tsx (code/neon-nest branch)",
+      "purpose": "Site header with navigation and auth CTAs",
+      "mock_data": {
+        "navLinks": ["Features", "Pricing", "Blog", "Contact"]
+      },
+      "removed_code": ["useAuth() hook", "useNavigate() hook", "auth-dependent rendering"],
+      "imports_removed": [
+        "import { useAuth } from '@/contexts/AuthContext'",
+        "import { useNavigate } from 'react-router-dom'"
+      ],
+      "props": {
+        "onLoginClick": {
+          "type": "() => void",
+          "optional": true,
+          "description": "Callback for Login CTA"
+        },
+        "onSignupClick": {
+          "type": "() => void",
+          "optional": true,
+          "description": "Callback for Signup CTA"
+        }
+      },
+      "integration_points": [
+        "Pass navigation callbacks: <Header onLoginClick={handleLogin} onSignupClick={handleSignup} />"
+      ],
+      "uses_assets": ["logo.svg"],
+      "animations": ["sticky scroll reveal", "mobile hamburger menu"],
+      "status": "✅ Ready for backend connection"
+    },
+    "Footer": {
+      "path": "design-import/components/layout/Footer.tsx",
+      "original_source": "client/components/layout/Footer.tsx (code/neon-nest branch)",
+      "purpose": "Site footer with links, copyright, and newsletter",
+      "mock_data": {
+        "columns": {
+          "Product": ["Features", "Pricing", "Security"],
+          "Company": ["About", "Blog", "Careers"],
+          "Resources": ["Documentation", "API", "Contact"],
+          "Legal": ["Privacy", "Terms", "Cookies"]
+        },
+        "copyright": "© 2024 Aligned-20AI. All rights reserved."
+      },
+      "removed_code": [],
+      "imports_removed": [],
+      "props": {},
+      "integration_points": ["Render as-is (fully static)"],
+      "uses_assets": ["logo.svg"],
+      "animations": [],
+      "status": "✅ Production ready (static)"
+    }
+  }
+}

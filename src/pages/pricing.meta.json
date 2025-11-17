@@ -1,0 +1,10 @@
+{
+  "title": "Pricing",
+  "route": "/pricing",
+  "layout": "hero-simple",
+  "theme": "indigo-light",
+  "primaryAccent": "lime",
+  "purpose": "Pricing comparison and subscription purchase",
+  "visualNotes": "Emphasize preferred plan with lime CTA; responsive pricing grid; include FAQs",
+  "_changelog": "created by automation: initial meta file"
+}

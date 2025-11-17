@@ -1,0 +1,201 @@
+{
+  "timestamp": "2025-11-11T19:00:29.187Z",
+  "commit": "unknown",
+  "frontend": {
+    "routesDetected": [
+      "/dashboard",
+      "/calendar",
+      "/content-queue",
+      "/approvals",
+      "/creative-studio",
+      "/content-generator",
+      "/campaigns",
+      "/brands",
+      "/brand-intake",
+      "/brand-guide",
+      "/brand-snapshot",
+      "/brand-intelligence",
+      "/analytics",
+      "/reporting",
+      "/paid-ads",
+      "/library",
+      "/client-portal",
+      "/events",
+      "/reviews",
+      "/linked-accounts",
+      "/settings",
+      "/client-settings",
+      "/billing",
+      "*"
+    ],
+    "routeCount": 24,
+    "tailwindActive": true,
+    "reactRouterV6": true,
+    "codeSpittingEnabled": false,
+    "issues": []
+  },
+  "typescript": {
+    "strictMode": false,
+    "pathAliases": [
+      "@/*",
+      "@shared/*"
+    ],
+    "issues": [
+      "Strict mode disabled - should enable incrementally"
+    ]
+  },
+  "vite": {
+    "reactPluginPresent": true,
+    "codeSpittingConfigured": true,
+    "envAccessible": false,
+    "issues": []
+  },
+  "server": {
+    "expressRoutesDetected": 9,
+    "middlewaresDetected": [
+      "cors",
+      "json-parser"
+    ],
+    "corsPolicy": "open",
+    "rateLimitPresent": true,
+    "csrfProtectionPresent": false,
+    "requestIdMiddlewarePresent": false,
+    "issues": [
+      "CORS allows all origins - restrict in production"
+    ]
+  },
+  "supabase": {
+    "rlsEnforced": true,
+    "clientConfigured": true,
+    "migrationsPresent": true,
+    "evidence": "Migrations found in /Users/krisfoust/Documents/GitHub/Aligned-20ai/supabase/migrations",
+    "issues": []
+  },
+  "queue": {
+    "queueOk": true,
+    "bullQueueDefined": true,
+    "redisConfigured": true,
+    "retryPolicyDefined": true,
+    "dlqPresent": false,
+    "workerConfigured": true,
+    "estimatedLatencyMs": 250,
+    "issues": []
+  },
+  "tokenVault": {
+    "tokenvaultOk": true,
+    "aes256GcmImplemented": true,
+    "pbkdf2Used": true,
+    "roundTripSuccess": true,
+    "encryptionTest": "PASS: AES-256-GCM round-trip successful",
+    "issues": []
+  },
+  "observability": {
+    "pinoLogger": true,
+    "structuredLogging": true,
+    "datadogReadiness": true,
+    "requiredLogFields": {
+      "cycleId": true,
+      "requestId": true,
+      "tenantId": true,
+      "platform": true,
+      "latencyMs": true,
+      "statusCode": true,
+      "errorCode": true,
+      "retryAttempt": true
+    },
+    "issues": []
+  },
+  "connectors": {
+    "meta": {
+      "fileExists": true,
+      "oauthEndpointsRegistered": true,
+      "capabilitiesUsed": true,
+      "scopesListed": true,
+      "errorTaxonomyIntegrated": true,
+      "issues": []
+    },
+    "linkedin": {
+      "fileExists": true,
+      "oauthEndpointsRegistered": true,
+      "capabilitiesUsed": true,
+      "scopesListed": true,
+      "errorTaxonomyIntegrated": true,
+      "issues": []
+    },
+    "tiktok": {
+      "fileExists": true,
+      "oauthEndpointsRegistered": true,
+      "capabilitiesUsed": false,
+      "scopesListed": false,
+      "errorTaxonomyIntegrated": true,
+      "issues": []
+    },
+    "gbp": {
+      "fileExists": true,
+      "oauthEndpointsRegistered": true,
+      "capabilitiesUsed": false,
+      "scopesListed": false,
+      "errorTaxonomyIntegrated": true,
+      "issues": []
+    },
+    "mailchimp": {
+      "fileExists": true,
+      "oauthEndpointsRegistered": true,
+      "capabilitiesUsed": false,
+      "scopesListed": false,
+      "errorTaxonomyIntegrated": true,
+      "issues": []
+    }
+  },
+  "syntheticChecks": {
+    "syntheticCheckScriptExists": false,
+    "healthCheckRoutesPresent": false,
+    "schedulerConfigured": false,
+    "issues": [
+      "Synthetic health check script not yet implemented"
+    ]
+  },
+  "hitl": {
+    "hitlEnforced": true,
+    "approvalRequiredInPublishFlow": true,
+    "composerCapabilityEnforced": true,
+    "errorTaxonomyConsulted": true,
+    "autoPauseImplemented": true,
+    "issues": []
+  },
+  "dependencies": {
+    "active": [
+      "react",
+      "react-dom",
+      "react-router-dom",
+      "vite",
+      "@vitejs/plugin-react-swc",
+      "tailwindcss",
+      "@radix-ui/react-dialog",
+      "@tanstack/react-query",
+      "react-hook-form",
+      "zod",
+      "express",
+      "@supabase/supabase-js",
+      "bull",
+      "ioredis",
+      "pino",
+      "@anthropic-ai/sdk",
+      "openai"
+    ],
+    "unused": [],
+    "missing": []
+  },
+  "issuesFound": [
+    "Strict mode disabled - should enable incrementally",
+    "CORS allows all origins - restrict in production",
+    "Synthetic health check script not yet implemented"
+  ],
+  "verdict": "ACTIVE",
+  "readinessScore": 91,
+  "recommendations": [
+    "Enable TypeScript strict mode incrementally",
+    "Configure CORS for production",
+    "Implement synthetic health checks"
+  ]
+}

@@ -1,0 +1,582 @@
+{
+  "version": "1.0",
+  "description": "Post-Launch Monitoring Dashboards for AlignedAI Production",
+  "createdAt": "2025-11-11T21:30:00Z",
+  "targetAudience": ["DevOps", "SRE", "Product", "Engineering Leadership"],
+  "updateFrequency": "Real-time (1s intervals)",
+  "dashboards": [
+    {
+      "id": "post-launch-health",
+      "title": "Post-Launch System Health Dashboard",
+      "description": "Real-time health metrics for first 72 hours post-launch",
+      "refreshInterval": "30s",
+      "widgets": [
+        {
+          "type": "number",
+          "title": "System Status",
+          "query": "avg:trace.web.request.uptime{env:production}",
+          "unit": "percent",
+          "threshold": {
+            "warning": 95,
+            "critical": 90
+          },
+          "displayFormat": "{{value}}%",
+          "expectedValue": ">99.5%"
+        },
+        {
+          "type": "timeseries",
+          "title": "Error Rate (Last 1 Hour)",
+          "query": "rate:trace.web.request.errors{env:production}",
+          "yaxis": {
+            "label": "errors/sec",
+            "min": 0,
+            "max": 50
+          },
+          "threshold": {
+            "warning": 10,
+            "critical": 20
+          },
+          "expectedValue": "<1%",
+          "alerts": [
+            {
+              "name": "High error rate detected",
+              "threshold": 20,
+              "notificationChannels": ["pagerduty", "slack"]
+            }
+          ]
+        },
+        {
+          "type": "number",
+          "title": "Active Users (Realtime)",
+          "query": "count:trace.web.request.hits{env:production}",
+          "aggregationWindow": "1m",
+          "expectedValue": "0-100 per minute"
+        },
+        {
+          "type": "gauge",
+          "title": "API Availability",
+          "query": "avg:synthetics.api.availability{service:aligned}",
+          "min": 0,
+          "max": 100,
+          "thresholds": [
+            { "value": 95, "label": "Acceptable" },
+            { "value": 99, "label": "Excellent" }
+          ],
+          "expectedValue": ">99%"
+        },
+        {
+          "type": "heatmap",
+          "title": "Response Time Distribution (Last 30 min)",
+          "query": "trace.web.request.duration{env:production}",
+          "expectedValue": "<500ms p95"
+        },
+        {
+          "type": "timeseries",
+          "title": "Request Volume (Requests/sec)",
+          "query": "rate:trace.web.request.hits{env:production}",
+          "yaxis": {
+            "label": "requests/sec"
+          },
+          "expectedValue": "0-50 req/s (early adoption)"
+        }
+      ]
+    },
+    {
+      "id": "post-launch-business-metrics",
+      "title": "Business & Engagement Metrics",
+      "description": "Track user adoption and engagement post-launch",
+      "refreshInterval": "5m",
+      "widgets": [
+        {
+          "type": "timeseries",
+          "title": "New User Signups (Daily)",
+          "query": "count:events.user_signup{env:production}",
+          "aggregation": "day",
+          "yaxis": {
+            "label": "new users"
+          },
+          "expectedValue": "Target: 10-50 new users day 1"
+        },
+        {
+          "type": "timeseries",
+          "title": "OAuth Connection Success Rate",
+          "query": "avg:alignedai.oauth.success_rate{env:production}",
+          "yaxis": {
+            "label": "percent",
+            "min": 0,
+            "max": 100
+          },
+          "threshold": {
+            "warning": 90,
+            "critical": 80
+          },
+          "expectedValue": ">95%"
+        },
+        {
+          "type": "number",
+          "title": "Posts Published (Cumulative)",
+          "query": "count:events.post_published{env:production}",
+          "expectedValue": "Track adoption velocity"
+        },
+        {
+          "type": "timeseries",
+          "title": "Average Posts per User",
+          "query": "count:events.post_published{env:production} / count:events.user_signup{env:production}",
+          "expectedValue": "Track engagement depth"
+        },
+        {
+          "type": "pie",
+          "title": "Posts by Platform",
+          "query": "count:events.post_published{env:production} by {platform}",
+          "expectedValue": "Platform adoption distribution"
+        },
+        {
+          "type": "number",
+          "title": "Active Connectors",
+          "query": "count:alignedai.connectors.active{env:production}",
+          "expectedValue": "Increasing over time"
+        }
+      ]
+    },
+    {
+      "id": "post-launch-slo-tracking",
+      "title": "Service Level Objectives (SLOs) Tracking",
+      "description": "Monitor SLO compliance for critical services",
+      "refreshInterval": "1m",
+      "slos": [
+        {
+          "name": "API Availability",
+          "objective": 0.995,
+          "target": "99.5% (4.38 hrs/month downtime)",
+          "metric": "avg:trace.web.request.uptime{env:production}",
+          "window": "rolling_1h",
+          "alerts": [
+            {
+              "burnRate": 10,
+              "duration": "5m",
+              "message": "High burn rate - critical alert"
+            },
+            {
+              "burnRate": 5,
+              "duration": "30m",
+              "message": "Elevated burn rate - page on-call"
+            }
+          ]
+        },
+        {
+          "name": "Error Rate",
+          "objective": 0.99,
+          "target": "<1% errors",
+          "metric": "rate:trace.web.request.errors{env:production} / rate:trace.web.request.hits{env:production}",
+          "window": "rolling_1h",
+          "threshold": 0.01
+        },
+        {
+          "name": "Latency (p99)",
+          "objective": 0.95,
+          "target": "<500ms p99",
+          "metric": "p99:trace.web.request.duration{env:production}",
+          "window": "rolling_5m",
+          "threshold": 500
+        },
+        {
+          "name": "Queue Processing",
+          "objective": 0.98,
+          "target": "<2s job latency p99",
+          "metric": "p99:alignedai.jobs.processing_latency_ms{env:production}",
+          "window": "rolling_5m",
+          "threshold": 2000
+        },
+        {
+          "name": "Database Performance",
+          "objective": 0.99,
+          "target": "<300ms query p95",
+          "metric": "p95:trace.postgres.query.duration{env:production}",
+          "window": "rolling_10m",
+          "threshold": 300
+        }
+      ],
+      "widget": {
+        "type": "timeseries",
+        "title": "SLO Burn Rate (All Services)",
+        "description": "Budget consumption rate - approaching 100% means SLO miss imminent",
+        "queries": [
+          "avg:slo.burn_rate{service:api}",
+          "avg:slo.burn_rate{service:queue}",
+          "avg:slo.burn_rate{service:database}"
+        ]
+      }
+    },
+    {
+      "id": "post-launch-success-metrics",
+      "title": "Success Rate & Conversion Funnel",
+      "description": "Track user flow through critical workflows",
+      "refreshInterval": "15m",
+      "widgets": [
+        {
+          "type": "timeseries",
+          "title": "Signup → OAuth Connect Conversion",
+          "query": "count:events.oauth_connect{env:production} / count:events.user_signup{env:production}",
+          "yaxis": {
+            "label": "conversion rate",
+            "min": 0,
+            "max": 1
+          },
+          "expectedValue": ">60% (day 1)",
+          "alerts": [
+            {
+              "threshold": 0.4,
+              "severity": "warning",
+              "message": "Low OAuth conversion - check onboarding flow"
+            }
+          ]
+        },
+        {
+          "type": "timeseries",
+          "title": "OAuth Connect → First Post Conversion",
+          "query": "count:events.post_created{env:production} / count:events.oauth_connect{env:production}",
+          "expectedValue": ">40% (day 1-3)"
+        },
+        {
+          "type": "timeseries",
+          "title": "Post Creation → Publish Success Rate",
+          "query": "count:events.post_published{env:production} / count:events.post_created{env:production}",
+          "expectedValue": ">90% (approval + publishing)",
+          "threshold": {
+            "warning": 0.85,
+            "critical": 0.75
+          }
+        },
+        {
+          "type": "bar",
+          "title": "Top Drop-off Points",
+          "query": "count:events.user_journey by {stage}",
+          "expectedValue": "Identify where users leave",
+          "stages": [
+            { "name": "Signup", "target": 100 },
+            { "name": "Email Verified", "target": 95 },
+            { "name": "Platform Selection", "target": 85 },
+            { "name": "OAuth Started", "target": 80 },
+            { "name": "OAuth Completed", "target": 70 },
+            { "name": "Composer Visited", "target": 45 },
+            { "name": "Post Published", "target": 30 }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "post-launch-infrastructure",
+      "title": "Infrastructure Health & Capacity",
+      "description": "Monitor underlying infrastructure during peak usage",
+      "refreshInterval": "30s",
+      "widgets": [
+        {
+          "type": "timeseries",
+          "title": "Database CPU Usage",
+          "query": "avg:postgres.cpu_percent{env:production}",
+          "yaxis": {
+            "label": "percent",
+            "min": 0,
+            "max": 100
+          },
+          "threshold": {
+            "warning": 75,
+            "critical": 85
+          },
+          "expectedValue": "<50%"
+        },
+        {
+          "type": "timeseries",
+          "title": "Database Memory Usage",
+          "query": "avg:postgres.memory_percent{env:production}",
+          "threshold": {
+            "warning": 80,
+            "critical": 90
+          },
+          "expectedValue": "<60%"
+        },
+        {
+          "type": "number",
+          "title": "Active Database Connections",
+          "query": "avg:postgres.connections{env:production}",
+          "expectedValue": "<50 (pool size: 100)"
+        },
+        {
+          "type": "timeseries",
+          "title": "Queue Depth (Jobs Pending)",
+          "query": "avg:bull.queue.depth{env:production}",
+          "yaxis": {
+            "label": "jobs"
+          },
+          "threshold": {
+            "warning": 100,
+            "critical": 500
+          },
+          "expectedValue": "<10"
+        },
+        {
+          "type": "number",
+          "title": "Redis Memory Usage",
+          "query": "avg:redis.memory_used_percent{env:production}",
+          "threshold": {
+            "warning": 80,
+            "critical": 90
+          },
+          "expectedValue": "<40%"
+        },
+        {
+          "type": "timeseries",
+          "title": "Token Refresh Latency (p95)",
+          "query": "p95:alignedai.token.refresh.latency_ms{env:production}",
+          "expectedValue": "<100ms"
+        }
+      ]
+    },
+    {
+      "id": "post-launch-errors",
+      "title": "Error Analysis & Incidents",
+      "description": "Drill-down into errors and track incident resolution",
+      "refreshInterval": "1m",
+      "widgets": [
+        {
+          "type": "pie",
+          "title": "Errors by Type (Last 1 Hour)",
+          "query": "count:trace.web.request.errors{env:production} by {http.status_code}",
+          "expectedValue": "Identify top error categories"
+        },
+        {
+          "type": "timeseries",
+          "title": "4xx Client Errors",
+          "query": "rate:trace.web.request.errors{http.status_code:4*,env:production}",
+          "expectedValue": "User input/auth errors"
+        },
+        {
+          "type": "timeseries",
+          "title": "5xx Server Errors",
+          "query": "rate:trace.web.request.errors{http.status_code:5*,env:production}",
+          "threshold": {
+            "warning": 1,
+            "critical": 5
+          },
+          "expectedValue": "<0.1 errors/sec"
+        },
+        {
+          "type": "table",
+          "title": "Recent Critical Errors",
+          "query": "top:100 trace.error{env:production,severity:critical}",
+          "columns": [
+            "timestamp",
+            "error_message",
+            "user_id",
+            "endpoint",
+            "status"
+          ]
+        },
+        {
+          "type": "number",
+          "title": "Dead Letter Queue Size",
+          "query": "avg:bull.dlq.depth{env:production}",
+          "threshold": {
+            "warning": 10,
+            "critical": 50
+          },
+          "expectedValue": "0-5 jobs"
+        },
+        {
+          "type": "timeseries",
+          "title": "Failed Job Rate",
+          "query": "rate:alignedai.jobs.failed{env:production}",
+          "expectedValue": "<0.5%"
+        }
+      ]
+    },
+    {
+      "id": "post-launch-oauth-health",
+      "title": "OAuth & Connector Health",
+      "description": "Monitor OAuth flows and connector stability",
+      "refreshInterval": "5m",
+      "widgets": [
+        {
+          "type": "number",
+          "title": "Meta OAuth Success Rate (24h)",
+          "query": "avg:alignedai.oauth.meta.success_rate{env:production}",
+          "threshold": {
+            "warning": 90,
+            "critical": 80
+          },
+          "expectedValue": ">95%"
+        },
+        {
+          "type": "number",
+          "title": "LinkedIn OAuth Success Rate (24h)",
+          "query": "avg:alignedai.oauth.linkedin.success_rate{env:production}",
+          "threshold": {
+            "warning": 90,
+            "critical": 80
+          },
+          "expectedValue": ">95%"
+        },
+        {
+          "type": "number",
+          "title": "Twitter OAuth Success Rate (24h)",
+          "query": "avg:alignedai.oauth.twitter.success_rate{env:production}",
+          "threshold": {
+            "warning": 90,
+            "critical": 80
+          },
+          "expectedValue": ">95%"
+        },
+        {
+          "type": "timeseries",
+          "title": "Token Refresh Success Rate by Platform",
+          "query": "avg:alignedai.token.refresh.success_rate{env:production} by {platform}",
+          "expectedValue": ">99%"
+        },
+        {
+          "type": "pie",
+          "title": "Active Connectors by Platform",
+          "query": "count:alignedai.connectors.active{env:production} by {platform}",
+          "expectedValue": "Balanced distribution"
+        },
+        {
+          "type": "timeseries",
+          "title": "Auto-Pause Events",
+          "query": "count:events.connector_auto_paused{env:production}",
+          "expectedValue": "Trend toward 0 after initial ramp"
+        }
+      ]
+    },
+    {
+      "id": "post-launch-alerts",
+      "title": "Active Alerts & Incidents",
+      "description": "Real-time alerting and incident tracking",
+      "refreshInterval": "1m",
+      "widgets": [
+        {
+          "type": "number",
+          "title": "Critical Alerts (Active)",
+          "query": "count:alerts{status:active,severity:critical,env:production}",
+          "displayFormat": "{{value}} critical alerts",
+          "expectedValue": "0"
+        },
+        {
+          "type": "list",
+          "title": "Active Incidents",
+          "query": "incidents{env:production,status:open}",
+          "columns": [
+            "incident_id",
+            "title",
+            "severity",
+            "timeCreated",
+            "assignee"
+          ],
+          "expectedValue": "None during stable operation"
+        },
+        {
+          "type": "timeseries",
+          "title": "Incident Frequency (Last 7 Days)",
+          "query": "count:incidents{env:production} by {severity}",
+          "expectedValue": "<1 critical incident per day"
+        },
+        {
+          "type": "table",
+          "title": "Alert Resolution Times",
+          "query": "avg:alerts.resolution_time{env:production}",
+          "columns": [
+            "alert_name",
+            "avg_resolution_time",
+            "max_resolution_time",
+            "incident_count"
+          ],
+          "expectedValue": "MTTF < 30 minutes"
+        }
+      ]
+    }
+  ],
+  "alertPolicies": [
+    {
+      "name": "Critical: API Down",
+      "condition": "avg:trace.web.request.uptime{env:production} < 0.95",
+      "evaluationWindow": "5m",
+      "severity": "CRITICAL",
+      "notification": {
+        "channels": ["pagerduty", "slack"],
+        "slackChannel": "#incidents",
+        "escalation": "page-on-call"
+      }
+    },
+    {
+      "name": "Critical: Error Rate Spike",
+      "condition": "rate:trace.web.request.errors{env:production} > 10",
+      "evaluationWindow": "2m",
+      "severity": "CRITICAL",
+      "notification": {
+        "channels": ["pagerduty", "slack"]
+      }
+    },
+    {
+      "name": "Warning: High Database CPU",
+      "condition": "avg:postgres.cpu_percent{env:production} > 75",
+      "evaluationWindow": "10m",
+      "severity": "WARNING",
+      "notification": {
+        "channels": ["slack"]
+      }
+    },
+    {
+      "name": "Warning: Queue Backup",
+      "condition": "avg:bull.queue.depth{env:production} > 100",
+      "evaluationWindow": "5m",
+      "severity": "WARNING",
+      "notification": {
+        "channels": ["slack"],
+        "action": "auto-scale-workers"
+      }
+    },
+    {
+      "name": "Info: Low OAuth Success Rate",
+      "condition": "avg:alignedai.oauth.success_rate{env:production} < 0.95",
+      "evaluationWindow": "30m",
+      "severity": "INFO",
+      "notification": {
+        "channels": ["slack"]
+      }
+    }
+  ],
+  "runbookReferences": {
+    "apiDown": "docs/runbooks/api-down.md",
+    "highErrorRate": "docs/runbooks/high-error-rate.md",
+    "queueBackup": "docs/runbooks/queue-backup.md",
+    "oauthFailures": "docs/runbooks/oauth-failures.md",
+    "databasePerformance": "docs/runbooks/database-performance.md"
+  },
+  "dashboardAccessControl": {
+    "engineers": ["view", "edit", "share"],
+    "devops": ["view", "edit", "share"],
+    "product": ["view"],
+    "leadership": ["view"]
+  },
+  "maintenanceWindows": [
+    {
+      "name": "Weekly Infrastructure Maintenance",
+      "schedule": "Sundays 2-3 AM UTC",
+      "expectedDowntime": "5 minutes",
+      "alertsSuppressed": true
+    }
+  ],
+  "dataRetention": {
+    "metrics": "30 days (Datadog standard)",
+    "logs": "15 days (Datadog standard)",
+    "customMetrics": "30 days",
+    "archival": "S3 for long-term analysis"
+  },
+  "successCriteria": {
+    "availability": ">99.5%",
+    "errorRate": "<1%",
+    "latencyP99": "<500ms",
+    "queueLatencyP99": "<2000ms",
+    "oauthSuccessRate": ">95%",
+    "mttr": "<30 minutes",
+    "mttf": ">168 hours"
+  }
+}
