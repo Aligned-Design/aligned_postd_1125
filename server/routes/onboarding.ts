@@ -115,13 +115,19 @@ router.get("/content-package/:brandId", async (req, res, next) => {
       );
     }
 
+    // If no package found, return empty structure (frontend will use fallback)
     if (!packages || packages.length === 0) {
-      throw new AppError(
-        ErrorCode.NOT_FOUND,
-        "Content package not found",
-        HTTP_STATUS.NOT_FOUND,
-        "info"
-      );
+      return (res as any).json({
+        success: true,
+        contentPackage: {
+          id: `empty-${brandId}`,
+          brandId,
+          weeklyFocus: "",
+          generatedAt: new Date().toISOString(),
+          items: [],
+        },
+        message: "No content package found - using fallback",
+      });
     }
 
     const packageData = packages[0];

@@ -75,7 +75,7 @@ export function CalendarAccordion({
     preferredSchedule: preferredSchedule || null,
   });
 
-  const allSchedules: DaySchedule[] = [
+  const [daySchedules, setDaySchedules] = useState<DaySchedule[]>([
     {
       date: "Mon 11/18",
       dayName: "Monday",
@@ -261,10 +261,10 @@ export function CalendarAccordion({
         },
       ],
     },
-  ];
+  ]);
 
   // Filter posts based on filters
-  const filteredSchedules = allSchedules
+  const filteredSchedules = daySchedules
     .map((day) => ({
       ...day,
       posts: day.posts.filter((post) => {
@@ -365,9 +365,15 @@ export function CalendarAccordion({
         variant: "default",
       });
 
-      // Update local state to reflect approval
-      // In a real app, you'd refetch the schedule data here
-      // For now, we'll just show the toast
+      // Update local state to reflect approval - update the post status in the schedule
+      setDaySchedules((prevSchedule) =>
+        prevSchedule.map((day) => ({
+          ...day,
+          posts: day.posts.map((p) =>
+            p.id === post.id ? { ...p, status: "approved" as const } : p
+          ),
+        }))
+      );
     } catch (error) {
       console.error("Failed to approve post:", error);
       toast({

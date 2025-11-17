@@ -14,8 +14,9 @@
 
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { ArrowRight, Calendar, Sparkles, MessageSquare, RefreshCw } from "lucide-react";
+import { ArrowRight, Calendar, Sparkles, MessageSquare, RefreshCw, X } from "lucide-react";
 import { OnboardingProgress } from "@/components/onboarding/OnboardingProgress";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 interface ContentItem {
   id: string;
@@ -34,6 +35,8 @@ export default function Screen8CalendarPreview() {
   const [engagementCount, setEngagementCount] = useState(0);
   const [showConnectCTA, setShowConnectCTA] = useState(false);
   const [isRegenerating, setIsRegenerating] = useState(false);
+  const [selectedDay, setSelectedDay] = useState<string | null>(null);
+  const [selectedDayContent, setSelectedDayContent] = useState<ContentItem[]>([]);
 
   useEffect(() => {
     // Load generated content from API
@@ -103,7 +106,7 @@ export default function Screen8CalendarPreview() {
   const generateSampleWeekContent = (snapshot: any): ContentItem[] => {
     const brandName = snapshot.brandName || snapshot.name || "Your Brand";
     const industry = snapshot.industry || snapshot.businessType || "business";
-    const weeklyFocus = user?.weeklyFocus || "brand_awareness";
+    const weeklyFocus = (user as any)?.weeklyFocus || localStorage.getItem("aligned:weekly_focus") || "brand_awareness";
     
     // Content templates based on weekly focus
     const contentTemplates: Array<{
@@ -193,6 +196,20 @@ export default function Screen8CalendarPreview() {
   const handleItemClick = (itemId: string) => {
     setEngagementCount((prev) => prev + 1);
     checkEngagementTrigger();
+    // Find the item and show its details
+    const item = contentItems.find(i => i.id === itemId);
+    if (item) {
+      setSelectedDayContent([item]);
+      setSelectedDay(item.scheduledDate);
+    }
+  };
+
+  const handleDayClick = (date: string) => {
+    const dayContent = getContentForDay(date);
+    if (dayContent.length > 0) {
+      setSelectedDayContent(dayContent);
+      setSelectedDay(date);
+    }
   };
 
   const handleItemDrag = (itemId: string) => {
@@ -235,7 +252,8 @@ export default function Screen8CalendarPreview() {
   };
 
   const handleRegenerateWeek = async () => {
-    if (!user?.weeklyFocus || !brandSnapshot) return;
+    const weeklyFocus = (user as any)?.weeklyFocus || localStorage.getItem("aligned:weekly_focus") || "brand_awareness";
+    if (!weeklyFocus || !brandSnapshot) return;
     
     setIsRegenerating(true);
     try {
@@ -248,7 +266,7 @@ export default function Screen8CalendarPreview() {
         },
         body: JSON.stringify({
           brandId,
-          weeklyFocus: user.weeklyFocus,
+          weeklyFocus,
           brandSnapshot,
         }),
       });
@@ -351,7 +369,8 @@ export default function Screen8CalendarPreview() {
               return (
                 <div
                   key={date}
-                  className="min-h-[200px] p-3 rounded-lg border-2 border-slate-200 bg-slate-50/50"
+                  className="min-h-[200px] p-3 rounded-lg border-2 border-slate-200 bg-slate-50/50 cursor-pointer hover:border-indigo-300 hover:bg-indigo-50/30 transition-all"
+                  onClick={() => handleDayClick(date)}
                   onDragOver={(e) => {
                     e.preventDefault();
                   }}
@@ -364,6 +383,9 @@ export default function Screen8CalendarPreview() {
                   <div className="mb-3">
                     <p className="text-xs font-bold text-slate-600 uppercase">{dayName}</p>
                     <p className="text-lg font-black text-slate-900">{dateObj.getDate()}</p>
+                    {dayContent.length > 0 && (
+                      <p className="text-xs text-slate-500 mt-1">{dayContent.length} {dayContent.length === 1 ? 'post' : 'posts'}</p>
+                    )}
                   </div>
 
                   {/* Content Items */}

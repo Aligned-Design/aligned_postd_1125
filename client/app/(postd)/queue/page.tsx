@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
+import { useToast } from "@/hooks/use-toast";
 import { StatusOverviewBanner } from "@/components/dashboard/StatusOverviewBanner";
 import { QueueAdvisor } from "@/components/dashboard/QueueAdvisor";
 import { PostActionMenu } from "@/components/dashboard/PostActionMenu";
@@ -170,6 +171,7 @@ export default function ContentQueue() {
   const { currentWorkspace } = useWorkspace();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
+  const { toast } = useToast();
   const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>([]);
   const [selectedBrand, setSelectedBrand] = useState<string | null>(null);
   const [selectedCampaign, setSelectedCampaign] = useState<string | null>(null);
@@ -179,13 +181,14 @@ export default function ContentQueue() {
   const [previewPost, setPreviewPost] = useState<Post | null>(null);
   const [showPreview, setShowPreview] = useState(false);
   const [viewMode, setViewMode] = useState<"grid" | "carousel">("grid");
+  const [posts, setPosts] = useState<Post[]>(allPosts);
 
   // Get status filter from URL query params
   const statusFilter = searchParams.get("status") as PostStatus | null;
 
-  const brands = Array.from(new Set(allPosts.map((p) => p.brand)));
-  const platforms = Array.from(new Set(allPosts.map((p) => p.platform)));
-  const campaigns = Array.from(new Set(allPosts.map((p) => p.campaign)));
+  const brands = Array.from(new Set(posts.map((p) => p.brand)));
+  const platforms = Array.from(new Set(posts.map((p) => p.platform)));
+  const campaigns = Array.from(new Set(posts.map((p) => p.campaign)));
 
   const togglePlatform = (platform: string) => {
     setSelectedPlatforms((prev) =>
@@ -219,7 +222,7 @@ export default function ContentQueue() {
     selectedBrand || selectedPlatforms.length > 0 || selectedCampaign;
 
   // Filter posts
-  const filteredPosts = allPosts.filter((post) => {
+  const filteredPosts = posts.filter((post) => {
     // Filter by status from URL if provided
     if (statusFilter && post.status !== statusFilter) return false;
     if (selectedBrand && post.brand !== selectedBrand) return false;
@@ -350,8 +353,41 @@ export default function ContentQueue() {
             </button>
             <button
               className="flex-1 px-2 py-1.5 rounded text-xs font-bold bg-lime-100 hover:bg-lime-200 text-lime-600 transition-colors flex items-center justify-center gap-1"
-              onClick={() => {
-                navigate(`/studio?postId=${post.id}`);
+              onClick={async () => {
+                try {
+                  const response = await fetch(`/api/approvals/${post.id}/approve`, {
+                    method: "POST",
+                    headers: {
+                      "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({}),
+                  });
+
+                  if (!response.ok) {
+                    const error = await response.json().catch(() => null);
+                    throw new Error(error?.error?.message || `Failed to approve post: ${response.status}`);
+                  }
+
+                  toast({
+                    title: "Post Approved",
+                    description: `${post.title} has been approved successfully.`,
+                    variant: "default",
+                  });
+
+                  // Update local state - update post status to approved
+                  setPosts((prevPosts) =>
+                    prevPosts.map((p) =>
+                      p.id === post.id ? { ...p, status: "approved" as PostStatus } : p
+                    )
+                  );
+                } catch (error) {
+                  console.error("Failed to approve post:", error);
+                  toast({
+                    title: "Approval Failed",
+                    description: error instanceof Error ? error.message : "Failed to approve post. Please try again.",
+                    variant: "destructive",
+                  });
+                }
               }}
             >
               <CheckCircle2 className="w-3 h-3" />

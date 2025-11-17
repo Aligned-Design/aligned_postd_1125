@@ -9,6 +9,8 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCurrentBrand } from "@/hooks/useCurrentBrand";
+import { useBrand } from "@/contexts/BrandContext";
+import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { DashboardRow } from "@/components/postd/dashboard/DashboardShell";
 import { useDashboardData } from "@/components/postd/dashboard/hooks/useDashboardData";
 import { KpiRow } from "@/components/postd/dashboard/widgets/KpiRow";
@@ -29,6 +31,8 @@ import { NewPostButton } from "@/components/postd/shared/NewPostButton";
 export default function Dashboard() {
   const { user, role, onboardingStep } = useAuth();
   const { brandId } = useCurrentBrand();
+  const { currentBrand } = useBrand();
+  const { currentWorkspace } = useWorkspace();
   const { data, isLoading, isError, error, refetch } = useDashboardData({ brandId, timeRange: "30d" });
   const [retryCount, setRetryCount] = useState(0);
   const [showFirstTimeWelcome, setShowFirstTimeWelcome] = useState(false);
@@ -67,7 +71,7 @@ export default function Dashboard() {
 
       <PageHeader
         title="Dashboard"
-        subtitle={showFirstTimeWelcome ? "You're all set! Let's create something amazing." : `Welcome back, ${user?.name || "User"}!`}
+        subtitle={showFirstTimeWelcome ? "You're all set! Let's create something amazing." : `Welcome back, ${currentBrand?.name || currentWorkspace?.name || user?.name || "User"}!`}
         actions={<NewPostButton variant="default" size="md" label="Create Content" />}
       />
 
