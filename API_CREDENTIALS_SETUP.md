@@ -19,17 +19,17 @@ Add these to your `.env` file:
 # ============================================================================
 # Meta (Facebook/Instagram/Threads)
 # ============================================================================
-META_APP_ID=1153555240091402
-META_APP_SECRET=edbb347cd77fe25094dd36a8ab18d5c8
-META_ACCESS_TOKEN=373cb691e9cdf31966c38c2f19d9fd57
+META_APP_ID=YOUR_META_APP_ID_HERE
+META_APP_SECRET=YOUR_META_APP_SECRET_HERE
+META_ACCESS_TOKEN=YOUR_META_ACCESS_TOKEN_HERE
 META_REDIRECT_URI=http://localhost:8080/api/auth/meta/callback
 # Production: https://app.postd.app/api/auth/meta/callback
 
 # ============================================================================
 # Threads (Meta)
 # ============================================================================
-THREADS_APP_ID=801761816181762
-THREADS_APP_SECRET=6fd35b0dd758b22129e17385c2da3e06
+THREADS_APP_ID=YOUR_THREADS_APP_ID_HERE
+THREADS_APP_SECRET=YOUR_THREADS_APP_SECRET_HERE
 THREADS_REDIRECT_URI=http://localhost:8080/api/auth/threads/callback
 # Production: https://app.postd.app/api/auth/threads/callback
 
@@ -44,19 +44,19 @@ LINKEDIN_REDIRECT_URI=http://localhost:8080/api/auth/linkedin/callback
 # ============================================================================
 # X (Twitter)
 # ============================================================================
-X_CLIENT_ID=VXBsTzFvWDdka1JzNHZTaklJREs6MTpjaQ
-X_CLIENT_SECRET=DTrVqtKi3Y-pXPbrfKwXinsAVOja6NIVslmSDd-f354Y0mnfze
-X_API_KEY=dcQjzzSnY97UKsKTS1SlMcFe3N8qPTjSiVcEsvBlkyGXu3scA9
-X_API_SECRET=dcQjzzSnY97UKsKTS1SlMcFe3N8qPTjSiVcEsvBlkyGXu3scA9
-X_BEARER_TOKEN=dcQjzzSnY97UKsKTS1SlMcFe3N8qPTjSiVcEsvBlkyGXu3scA9
+X_CLIENT_ID=YOUR_X_CLIENT_ID_HERE
+X_CLIENT_SECRET=YOUR_X_CLIENT_SECRET_HERE
+X_API_KEY=YOUR_X_API_KEY_HERE
+X_API_SECRET=YOUR_X_API_SECRET_HERE
+X_BEARER_TOKEN=YOUR_X_BEARER_TOKEN_HERE
 X_REDIRECT_URI=http://localhost:8080/api/auth/x/callback
 # Production: https://app.postd.app/api/auth/x/callback
 
 # ============================================================================
 # TikTok
 # ============================================================================
-TIKTOK_CLIENT_KEY=awpiosguy7xhu8ku
-TIKTOK_CLIENT_SECRET=pbyi7liR4Qt4KmG5fKzyWU3AfYfSxjKa
+TIKTOK_CLIENT_KEY=YOUR_TIKTOK_CLIENT_KEY_HERE
+TIKTOK_CLIENT_SECRET=YOUR_TIKTOK_CLIENT_SECRET_HERE
 TIKTOK_REDIRECT_URI=http://localhost:8080/api/auth/tiktok/callback
 # Production: https://app.postd.app/api/auth/tiktok/callback
 
