@@ -221,13 +221,24 @@ router.post("/start", authenticateUser, async (req, res, next) => {
           brandId: finalBrandId,
           tenantId: tenantId || "unknown",
         });
-        // Return fallback data instead of failing
-        return res.json({
-          success: false,
-          brandKit: generateFallbackBrandKit(finalUrl),
-          status: "fallback",
-          error: error instanceof Error ? error.message : "Crawl failed, using fallback",
+        // ✅ CRITICAL: Return proper error instead of fallback data
+        console.error("[Crawler] ❌ Crawl failed - returning error (no fallback)", {
+          url: finalUrl,
+          brandId: finalBrandId,
+          error: error instanceof Error ? error.message : String(error),
         });
+        throw new AppError(
+          ErrorCode.SERVICE_UNAVAILABLE,
+          `Website scraping failed: ${error instanceof Error ? error.message : "Unknown error"}`,
+          HTTP_STATUS.INTERNAL_SERVER_ERROR,
+          "error",
+          {
+            url: finalUrl,
+            brandId: finalBrandId,
+            details: error instanceof Error ? error.stack : undefined,
+          },
+          "Please check the website URL and try again, or contact support if this persists."
+        );
       }
     }
 
@@ -321,13 +332,14 @@ async function runCrawlJobSync(url: string, brandId: string, tenantId: string | 
           colors = await extractColors(url);
         } catch (error) {
           console.warn("[Crawler] Error extracting colors:", error);
-          // Use fallback colors
+          // ✅ If colors extraction fails, use null values (no hardcoded fallback)
           colors = {
-            primary: "#8B5CF6",
-            secondary: "#F0F7F7",
-            accent: "#EC4899",
+            primary: null,
+            secondary: null,
+            accent: null,
             confidence: 0,
           };
+          console.log("[Crawler] ⚠️  Color extraction failed - using null values");
         }
         
         // Generate brand kit from crawl results
@@ -456,35 +468,13 @@ async function runCrawlJobSync(url: string, brandId: string, tenantId: string | 
 }
 
 /**
- * Generate fallback brand kit (used when crawl fails)
+ * ✅ REMOVED: generateFallbackBrandKit
+ * 
+ * Fallback data is no longer used. All crawl failures now return proper errors.
+ * This ensures we only work with real scraped data, not mock/fallback data.
+ * 
+ * If a crawl fails, the error is properly logged and returned to the client.
  */
-function generateFallbackBrandKit(url: string): any {
-  const urlObj = new URL(url.startsWith("http") ? url : `https://${url}`);
-  const domain = urlObj.hostname.replace("www.", "");
-
-  return {
-    voice_summary: {
-      tone: ["professional", "trustworthy"],
-      style: "Clear and direct",
-      avoid: ["jargon", "slang"],
-      audience: "Business professionals",
-      personality: ["helpful", "reliable"],
-    },
-    keyword_themes: [domain],
-    about_blurb: `Brand from ${domain}. Please complete intake form for more details.`,
-    colors: {
-      primary: "#8B5CF6",
-      secondary: "#F0F7F7",
-      accent: "#EC4899",
-      confidence: 0,
-    },
-    source_urls: [url],
-    images: [],
-    logoUrl: undefined,
-    headlines: [],
-    source: "fallback" as const,
-  };
-}
 
 /**
  * Extract tone from text (simple heuristic)

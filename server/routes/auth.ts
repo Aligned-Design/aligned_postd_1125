@@ -214,9 +214,10 @@ router.post("/signup", (async (req, res, next) => {
     // ✅ STEP 3: Get or create tenant/workspace
     // ✅ CRITICAL: Create a tenant row in the tenants table
     // This is required for the brands.tenant_id foreign key constraint
-    console.log("[Auth] 🏢 Creating tenant for new user", {
+    console.log("[Tenants] 🏢 Creating tenant for new user", {
       userId: userId,
       email: userEmail,
+      timestamp: new Date().toISOString(),
     });
 
     let tenantId: string;
@@ -230,11 +231,12 @@ router.post("/signup", (async (req, res, next) => {
       .single();
 
     if (existingTenant) {
-      console.log("[Auth] ✅ Tenant already exists", {
+      console.log("[Tenants] ✅ Tenant already exists", {
         tenantId: existingTenant.id,
       });
       tenantId = existingTenant.id;
       tenantData = existingTenant;
+      console.log("[Tenants] Using tenantId:", tenantId);
     } else {
       // Create new tenant row
       const tenantName = name || email.split("@")[0] || "My Workspace";
@@ -280,12 +282,16 @@ router.post("/signup", (async (req, res, next) => {
         );
       }
 
-      console.log("[Auth] ✅ Tenant created successfully", {
+      console.log("[Tenants] ✅ Tenant created successfully", {
         tenantId: newTenant.id,
         tenantName: newTenant.name,
+        plan: newTenant.plan,
+        createdAt: newTenant.created_at,
       });
       tenantId = newTenant.id;
       tenantData = newTenant;
+      
+      console.log("[Tenants] Using tenantId:", tenantId);
     }
 
     // ✅ STEP 4: Store tenantId in user metadata for easy retrieval

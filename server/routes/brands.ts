@@ -218,15 +218,19 @@ router.post(
           );
         }
 
-        console.log("[Brands] ✅ Tenant created successfully", {
+        console.log("[Tenants] ✅ Tenant created successfully", {
           tenantId: newTenant.id,
           tenantName: newTenant.name,
+          plan: newTenant.plan,
+          createdAt: newTenant.created_at,
         });
+        console.log("[Tenants] Using tenantId:", newTenant.id);
       } else {
-        console.log("[Brands] ✅ Tenant verified", {
-          tenantId: existingTenant.id,
-          tenantName: existingTenant.name,
-        });
+      console.log("[Tenants] ✅ Tenant verified", {
+        tenantId: existingTenant.id,
+        tenantName: existingTenant.name,
+      });
+      console.log("[Tenants] Using tenantId:", existingTenant.id);
       }
 
       // ✅ LOGGING: Brand creation start with IDs

@@ -22,9 +22,56 @@ if (supabaseUrl && supabaseServiceKey) {
   console.log("✅ Supabase credentials configured", {
     url: supabaseUrl,
     hasServiceKey: true,
+    keyLength: supabaseServiceKey.length,
   });
 } else {
-  console.warn("⚠️  Supabase credentials incomplete - some features may not work");
+  console.error("❌ CRITICAL: Supabase credentials incomplete - server will fail!");
+  console.error("   Missing:", {
+    url: !supabaseUrl,
+    serviceKey: !supabaseServiceKey,
+  });
+  throw new Error("Supabase environment variables are required");
+}
+
+// ✅ CRITICAL: Verify Supabase connection on startup
+import { supabase } from "./lib/supabase";
+
+async function verifySupabaseConnection() {
+  try {
+    console.log("[Server] 🔍 Verifying Supabase connection...");
+    
+    // Test query to verify connection
+    const { data, error } = await supabase
+      .from("tenants")
+      .select("id")
+      .limit(1);
+    
+    if (error) {
+      console.error("[Server] ❌ Supabase connection test FAILED:", {
+        message: error.message,
+        code: error.code,
+        details: error.details,
+        hint: error.hint,
+      });
+      throw new Error(`Supabase connection failed: ${error.message}`);
+    }
+    
+    console.log("[Server] ✅ Supabase connection verified", {
+      url: supabaseUrl,
+      testQuery: "success",
+      rowCount: data?.length || 0,
+    });
+  } catch (err) {
+    console.error("[Server] ❌ CRITICAL: Supabase verification failed", err);
+    throw err;
+  }
+}
+
+// Run verification (but don't block server startup in production)
+if (process.env.NODE_ENV !== "production") {
+  verifySupabaseConnection().catch((err) => {
+    console.error("[Server] ⚠️  Supabase verification error (continuing anyway):", err);
+  });
 }
 
 // Import error handling
@@ -51,6 +98,7 @@ import { getAdvisorInsights } from "./routes/advisor";
 import { generateDocContent } from "./routes/doc-agent";
 import { generateDesignContent } from "./routes/design-agent";
 import { getDashboardData } from "./routes/dashboard";
+import debugHealthRouter from "./routes/debug-health";
 
 export function createServer() {
   const app = express();
@@ -135,6 +183,9 @@ export function createServer() {
   app.use("/api/crawl", crawlerRouter);
   app.use("/api/brand-guide", brandGuideRouter);
   app.use("/api/onboarding", onboardingRouter);
+  
+  // ✅ DEBUG: Health check endpoint (comprehensive system verification)
+  app.use("/api/debug", debugHealthRouter);
 
   // TODO: Add these routers incrementally after testing
   // app.use("/api/client-portal", clientPortalRouter);
