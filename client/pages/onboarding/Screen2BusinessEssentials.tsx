@@ -10,6 +10,18 @@ import { useAuth } from "@/contexts/AuthContext";
 import { ArrowRight, Globe, Building2 } from "lucide-react";
 import { OnboardingProgress } from "@/components/onboarding/OnboardingProgress";
 
+// Helper to extract brand name from URL
+const extractBrandNameFromUrl = (url: string): string => {
+  try {
+    const urlObj = new URL(url.startsWith("http") ? url : `https://${url}`);
+    const hostname = urlObj.hostname.replace("www.", "");
+    const parts = hostname.split(".");
+    return parts[0].charAt(0).toUpperCase() + parts[0].slice(1);
+  } catch {
+    return "My Brand";
+  }
+};
+
 const BUSINESS_TYPES = [
   "E-commerce",
   "SaaS / Technology",
@@ -53,7 +65,7 @@ export default function Screen2BusinessEssentials() {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleContinue = () => {
+  const handleContinue = async () => {
     if (validate()) {
       // Normalize website URL
       const normalizedUrl = websiteUrl.startsWith("http") 
@@ -61,19 +73,52 @@ export default function Screen2BusinessEssentials() {
         : `https://${websiteUrl}`;
 
       console.log("[Onboarding] User clicked 'Continue' with website:", normalizedUrl);
-      console.log("[Onboarding] This will trigger scraping in step 4");
 
-      // ✅ FIX: Use updateUser instead of signUp to update existing user data
-      // signUp is only for creating new accounts, not updating user info
+      // ✅ CRITICAL: Create brand FIRST before proceeding
+      // This ensures we have a real UUID to use throughout onboarding
       if (user) {
+        // Update user info
         updateUser({
           website: normalizedUrl,
           industry: businessType,
           businessName: description || undefined,
         });
-        console.log("[Onboarding] ✅ Updated user with website:", normalizedUrl);
+
+        // ✅ Create brand record in database
+        try {
+          const { apiPost } = await import("@/lib/api");
+          const workspaceId = (user as any)?.workspaceId || (user as any)?.tenantId;
+          const brandName = description || extractBrandNameFromUrl(normalizedUrl);
+
+          console.log("[Onboarding] Creating brand record", {
+            name: brandName,
+            website: normalizedUrl,
+            workspaceId,
+          });
+
+          const brandResponse = await apiPost<{ success: boolean; brand: any }>("/api/brands", {
+            name: brandName,
+            website_url: normalizedUrl,
+            industry: businessType,
+            description: description || undefined,
+            tenant_id: workspaceId,
+            workspace_id: workspaceId,
+            autoRunOnboarding: false, // We're already in onboarding
+          });
+
+          if (brandResponse.success && brandResponse.brand) {
+            const realBrandId = brandResponse.brand.id;
+            localStorage.setItem("aligned_brand_id", realBrandId);
+            console.log("[Onboarding] ✅ Brand created with UUID:", realBrandId);
+          } else {
+            throw new Error("Brand creation failed");
+          }
+        } catch (error) {
+          console.error("[Onboarding] ❌ Failed to create brand:", error);
+          // Continue anyway - we'll create it later if needed
+        }
       } else {
-        console.error("[Onboarding] ❌ No user found - cannot save website URL");
+        console.error("[Onboarding] ❌ No user found - cannot create brand");
       }
 
       // Move to expectation setting step

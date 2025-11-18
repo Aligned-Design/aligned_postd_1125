@@ -48,6 +48,13 @@ export default function Screen5BrandSummaryReview() {
         return;
       }
 
+      // ✅ Validate brandId is a UUID (not temporary brand_*)
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if (!uuidRegex.test(brandId)) {
+        console.warn("[BrandSnapshot] Invalid brand ID format:", brandId);
+        return;
+      }
+
       try {
         // ✅ Use centralized API utility with auth headers
         const { apiGet } = await import("@/lib/api");
@@ -100,12 +107,26 @@ export default function Screen5BrandSummaryReview() {
   const handleContinue = async () => {
     // Save Brand Guide to Supabase before continuing
     if (brandSnapshot) {
-      const brandId = localStorage.getItem("aligned_brand_id") || `brand_${Date.now()}`;
+      const brandId = localStorage.getItem("aligned_brand_id");
+      if (!brandId) {
+        console.error("[BrandSnapshot] No brandId found - cannot save brand guide");
+        setOnboardingStep(6);
+        return;
+      }
+
+      // ✅ Validate brandId is a UUID
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if (!uuidRegex.test(brandId)) {
+        console.error("[BrandSnapshot] Invalid brand ID format:", brandId);
+        setOnboardingStep(6);
+        return;
+      }
+
       const brandName = brandSnapshot.name || "Untitled Brand";
       
       try {
         await saveBrandGuideFromOnboarding(brandId, brandSnapshot, brandName);
-        localStorage.setItem("aligned_brand_id", brandId);
+        console.log("[BrandSnapshot] ✅ Brand Guide saved for brand:", brandId);
       } catch (error) {
         console.error("Failed to save Brand Guide:", error);
         // Continue anyway - don't block onboarding

@@ -131,15 +131,20 @@ export default function Screen3AiScrape() {
     }
 
     try {
-      // ✅ ROOT FIX: Use consistent brandId throughout onboarding
-      // Get existing brandId from localStorage or create new one
-      let brandId = localStorage.getItem("aligned_brand_id");
+      // ✅ CRITICAL: Use REAL brandId from database (created in step 2)
+      // Do NOT create temporary IDs - brand should already exist
+      const brandId = localStorage.getItem("aligned_brand_id");
       if (!brandId) {
-        brandId = `brand_${Date.now()}`;
-        localStorage.setItem("aligned_brand_id", brandId);
+        throw new Error("Brand ID not found. Please go back and complete step 2.");
       }
 
-      console.log("[Onboarding] Calling crawler API", {
+      // ✅ Validate brandId is a UUID (not temporary brand_*)
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if (!uuidRegex.test(brandId)) {
+        throw new Error(`Invalid brand ID format: ${brandId}. Brand must be created first.`);
+      }
+
+      console.log("[Onboarding] Starting scrape with real brandId", {
         url: user.website,
         brandId,
         sync: true,
@@ -216,52 +221,16 @@ export default function Screen3AiScrape() {
 
       setBrandSnapshot(brandSnapshot);
       
-      // ✅ CRITICAL: Create actual brand record in database
-      // This ensures the brand exists and is associated with the user/tenant
+      // ✅ Brand already exists (created in step 2), just save Brand Guide
       const brandName = user.businessName || extractBrandNameFromUrl(user.website);
-      const workspaceId = (user as any)?.workspaceId || (user as any)?.tenantId;
       
-      let finalBrandId = brandId; // Use temporary ID as fallback
-      
-      try {
-        // ✅ Create brand via API
-        const { apiPost } = await import("@/lib/api");
-        console.log("[Onboarding] Creating brand record", {
-          name: brandName,
-          website: user.website,
-          workspaceId,
-        });
-        
-        const brandResponse = await apiPost<{ success: boolean; brand: any }>("/api/brands", {
-          name: brandName,
-          website_url: user.website,
-          industry: user.industry,
-          description: brandSnapshot.extractedMetadata?.brandIdentity || "",
-          tenant_id: workspaceId,
-          workspace_id: workspaceId,
-          tempBrandId: brandId, // Pass temp ID to transfer scraped images
-          autoRunOnboarding: false, // Already running onboarding
-        });
-        
-        if (brandResponse.success && brandResponse.brand) {
-          finalBrandId = brandResponse.brand.id;
-          localStorage.setItem("aligned_brand_id", finalBrandId);
-          console.log("[Onboarding] ✅ Brand created", {
-            brandId: finalBrandId,
-            name: brandName,
-          });
-        }
-      } catch (error) {
-        console.error("[Onboarding] Failed to create brand:", error);
-        // Continue with temporary brandId - brand guide save will handle it
-      }
-      
-      // Save Brand Guide to Supabase with final brandId
+      // Save Brand Guide to Supabase with real brandId
       try {
         const { saveBrandGuideFromOnboarding } = await import("@/lib/onboarding-brand-sync");
-        await saveBrandGuideFromOnboarding(finalBrandId, brandSnapshot, brandName);
+        await saveBrandGuideFromOnboarding(brandId, brandSnapshot, brandName);
+        console.log("[Onboarding] ✅ Brand Guide saved for brand:", brandId);
       } catch (error) {
-        console.error("Failed to save Brand Guide during scrape:", error);
+        console.error("[Onboarding] Failed to save Brand Guide:", error);
         // Continue anyway - don't block onboarding
       }
     } catch (err) {
