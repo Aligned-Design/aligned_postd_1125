@@ -92,7 +92,7 @@ function signToken(payload: JWTPayload): string {
 /**
  * Verify JWT token
  */
-function verifyToken(token: string): JWTPayload {
+export function verifyToken(token: string): JWTPayload {
   const parts = token.split(".");
 
   if (parts.length !== 3) {
