@@ -18,6 +18,83 @@ import { transferScrapedImages } from "../lib/scraped-images-service";
 const router = Router();
 
 /**
+ * Generate a unique slug for a brand within a tenant
+ * If the slug already exists, appends -1, -2, etc. until finding a unique value
+ * 
+ * @param baseSlug - The base slug to use (e.g., "aligned-bydesign")
+ * @param tenantId - The tenant ID to scope the uniqueness check
+ * @returns A unique slug for the tenant
+ */
+async function generateUniqueSlug(baseSlug: string, tenantId: string): Promise<string> {
+  // Normalize the base slug
+  const normalizedSlug = baseSlug.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
+  
+  // Check if the base slug is available
+  const { data: existingBrand, error: checkError } = await supabase
+    .from("brands")
+    .select("slug")
+    .eq("tenant_id", tenantId)
+    .eq("slug", normalizedSlug)
+    .maybeSingle(); // Use maybeSingle() to handle no results gracefully
+  
+  // If error occurred (not just "not found"), log it but continue
+  if (checkError && checkError.code !== "PGRST116") {
+    console.warn("[Brands] Error checking slug availability, proceeding with base slug", {
+      error: checkError.message,
+      code: checkError.code,
+      slug: normalizedSlug,
+    });
+  }
+  
+  // If no existing brand found, base slug is available
+  if (!existingBrand) {
+    return normalizedSlug;
+  }
+  
+  // Slug exists, try with suffix
+  let counter = 1;
+  let candidateSlug = `${normalizedSlug}-${counter}`;
+  
+  // Keep checking until we find an available slug
+  while (true) {
+    const { data: existing, error: candidateError } = await supabase
+      .from("brands")
+      .select("slug")
+      .eq("tenant_id", tenantId)
+      .eq("slug", candidateSlug)
+      .maybeSingle();
+    
+    // If error occurred (not just "not found"), log it but continue
+    if (candidateError && candidateError.code !== "PGRST116") {
+      console.warn("[Brands] Error checking candidate slug, trying next", {
+        error: candidateError.message,
+        code: candidateError.code,
+        slug: candidateSlug,
+      });
+    }
+    
+    // If no existing brand found, this slug is available
+    if (!existing) {
+      return candidateSlug;
+    }
+    
+    counter++;
+    candidateSlug = `${normalizedSlug}-${counter}`;
+    
+    // Safety limit to prevent infinite loops
+    if (counter > 1000) {
+      // Fallback to timestamp-based slug
+      const fallbackSlug = `${normalizedSlug}-${Date.now()}`;
+      console.warn("[Brands] Reached max iterations, using timestamp-based slug", {
+        baseSlug: normalizedSlug,
+        fallbackSlug,
+      });
+      return fallbackSlug;
+    }
+  }
+}
+
+/**
  * GET /api/brands
  * Get all brands for the current user
  * 
@@ -253,10 +330,20 @@ router.post(
         website_url,
       });
 
+      // ✅ Generate unique slug before insert to prevent duplicate key errors
+      const baseSlug = slug || name.toLowerCase().replace(/\s+/g, "-");
+      const uniqueSlug = await generateUniqueSlug(baseSlug, finalTenantId);
+      
+      console.log("[Brands] Generated unique slug", {
+        baseSlug,
+        uniqueSlug,
+        tenantId: finalTenantId,
+      });
+
       // ✅ Prepare brand data for insert
       const brandInsertData = {
         name,
-        slug: slug || name.toLowerCase().replace(/\s+/g, "-"),
+        slug: uniqueSlug,
         website_url: website_url || null,
         industry: industry || null,
         description: description || null,

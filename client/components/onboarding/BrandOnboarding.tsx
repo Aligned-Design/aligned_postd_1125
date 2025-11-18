@@ -76,26 +76,26 @@ export default function BrandOnboarding({
 
     setLoading(true);
     try {
-      const { data: brandData, error: brandError } = await supabase
-        .from("brands")
-        .insert([
-          {
-            ...formData,
-            slug: formData.name.toLowerCase().replace(/\s+/g, "-"),
-          },
-        ])
-        .select()
-        .single();
-
-      if (brandError) throw brandError;
-
-      await supabase.from("brand_members").insert([
-        {
-          brand_id: brandData.id,
-          user_id: user.id,
-          role: "owner",
+      // Use API endpoint which handles unique slug generation
+      const response = await fetch("/api/brands", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
         },
-      ]);
+        body: JSON.stringify({
+          name: formData.name,
+          website_url: formData.website_url,
+          industry: formData.industry,
+          description: formData.description,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: "Failed to create brand" }));
+        throw new Error(errorData.message || `HTTP ${response.status}`);
+      }
+
+      const { brand: brandData } = await response.json();
 
       toast({
         title: "Brand created!",
