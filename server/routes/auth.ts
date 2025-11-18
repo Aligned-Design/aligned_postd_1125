@@ -528,5 +528,76 @@ router.get("/me", (async (req, res, next) => {
   }
 }) as RequestHandler);
 
+/**
+ * POST /api/auth/forgot-password
+ * Send password reset email via Supabase
+ */
+router.post("/forgot-password", (async (req, res, next) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      throw new AppError(
+        ErrorCode.MISSING_REQUIRED_FIELD,
+        "email is required",
+        HTTP_STATUS.BAD_REQUEST,
+        "warning"
+      );
+    }
+
+    // Validate email format
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      throw new AppError(
+        ErrorCode.VALIDATION_ERROR,
+        "Invalid email format",
+        HTTP_STATUS.BAD_REQUEST,
+        "warning"
+      );
+    }
+
+    // ✅ Check Supabase connection
+    if (!supabase) {
+      console.error("[Auth] ❌ CRITICAL: Supabase client not initialized!");
+      throw new AppError(
+        ErrorCode.INTERNAL_ERROR,
+        "Database connection not configured",
+        HTTP_STATUS.INTERNAL_SERVER_ERROR,
+        "critical"
+      );
+    }
+
+    console.log("[Auth] Sending password reset email", {
+      email: email,
+    });
+
+    // ✅ Use Supabase Auth to send password reset email
+    const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${process.env.VITE_APP_URL || process.env.VERCEL_URL || "http://localhost:5173"}/reset-password`,
+    });
+
+    if (resetError) {
+      console.error("[Auth] Password reset error:", resetError);
+      // Don't reveal if email exists or not (security best practice)
+      // Always return success to prevent email enumeration
+      res.json({
+        success: true,
+        message: "If an account exists with this email, a password reset link has been sent.",
+      });
+      return;
+    }
+
+    console.log("[Auth] ✅ Password reset email sent", {
+      email: email,
+    });
+
+    res.json({
+      success: true,
+      message: "If an account exists with this email, a password reset link has been sent.",
+    });
+  } catch (error) {
+    next(error);
+  }
+}) as RequestHandler);
+
 export default router;
 

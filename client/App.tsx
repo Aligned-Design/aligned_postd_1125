@@ -143,12 +143,12 @@ function ProtectedRoutes() {
         }
       />
 
-      {/* Auth Routes - redirect to onboarding or show onboarding */}
+      {/* Auth Routes */}
       <Route
         path="/login"
         element={
           <PublicRoute>
-            <Index />
+            <Screen0Login />
           </PublicRoute>
         }
       />

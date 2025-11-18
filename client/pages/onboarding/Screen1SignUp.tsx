@@ -1,11 +1,15 @@
 import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowRight } from "lucide-react";
 import { OnboardingProgress } from "@/components/onboarding/OnboardingProgress";
+import { PasswordInput } from "@/components/ui/password-input";
 
 export default function Screen1SignUp() {
   const { signUp, setOnboardingStep } = useAuth();
-  const [email, setEmail] = useState("");
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const [email, setEmail] = useState(searchParams.get("email") || "");
   const [password, setPassword] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -28,8 +32,21 @@ export default function Screen1SignUp() {
         await signUp({ name, email, password, role: "single_business" });
         setOnboardingStep(2);
       } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "Signup failed. Please try again.";
+        
+        // ✅ Check if email already exists - redirect to login
+        if (
+          errorMessage.toLowerCase().includes("already exists") ||
+          errorMessage.toLowerCase().includes("user_already_exists") ||
+          errorMessage.toLowerCase().includes("already registered")
+        ) {
+          // Redirect to login with email pre-filled
+          navigate(`/login?email=${encodeURIComponent(email)}&message=already_exists`);
+          return;
+        }
+        
         setErrors({ 
-          email: error instanceof Error ? error.message : "Signup failed. Please try again." 
+          email: errorMessage
         });
       }
     }
@@ -85,20 +102,14 @@ export default function Screen1SignUp() {
             <label className="block text-sm font-bold text-slate-900 mb-2">
               Password
             </label>
-            <input
-              type="password"
+            <PasswordInput
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="Min. 6 characters"
-              className={`w-full px-4 py-3 rounded-lg border-2 transition-all focus:outline-none ${
-                errors.password
-                  ? "border-red-300 bg-red-50/50"
-                  : "border-slate-200 bg-white/50 focus:border-indigo-500 focus:bg-white"
-              }`}
+              error={errors.password}
+              id="signup-password"
+              required
             />
-            {errors.password && (
-              <p className="text-xs text-red-600 mt-1">{errors.password}</p>
-            )}
           </div>
         </div>
 
@@ -114,12 +125,12 @@ export default function Screen1SignUp() {
         {/* Footer Text */}
         <p className="text-xs text-slate-500 text-center mt-6">
           Already have an account?{" "}
-          <a
-            href="#"
-            className="text-indigo-600 font-bold hover:text-indigo-700"
+          <button
+            onClick={() => navigate("/login")}
+            className="text-indigo-600 font-bold hover:text-indigo-700 underline"
           >
             Sign in
-          </a>
+          </button>
         </p>
       </div>
     </div>
