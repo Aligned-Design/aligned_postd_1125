@@ -162,38 +162,37 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           localStorage.removeItem("aligned_brand");
           localStorage.removeItem("aligned_onboarding_step");
         }
+
+        // Restore brand snapshot from localStorage
+        const storedBrand = localStorage.getItem("aligned_brand");
+        if (storedBrand) {
+          try {
+            setBrandSnapshot(JSON.parse(storedBrand));
+          } catch (err) {
+            console.warn(
+              "Failed to parse aligned_brand, clearing corrupted key",
+              err,
+            );
+            localStorage.removeItem("aligned_brand");
+          }
+        }
+
+        // Restore onboarding step from localStorage
+        const storedStep = localStorage.getItem("aligned_onboarding_step");
+        if (storedStep) {
+          try {
+            setOnboardingStep(JSON.parse(storedStep));
+          } catch (err) {
+            console.warn("Failed to parse onboarding_step, clearing key", err);
+            localStorage.removeItem("aligned_onboarding_step");
+          }
+        }
       } catch (err) {
-        console.error("Unexpected error loading auth state:", err);
+        console.error("Unexpected error loading auth/brand/onboarding state:", err);
       }
     };
 
     restoreSession();
-
-      const storedBrand = localStorage.getItem("aligned_brand");
-      if (storedBrand) {
-        try {
-          setBrandSnapshot(JSON.parse(storedBrand));
-        } catch (err) {
-          console.warn(
-            "Failed to parse aligned_brand, clearing corrupted key",
-            err,
-          );
-          localStorage.removeItem("aligned_brand");
-        }
-      }
-
-      const storedStep = localStorage.getItem("aligned_onboarding_step");
-      if (storedStep) {
-        try {
-          setOnboardingStep(JSON.parse(storedStep));
-        } catch (err) {
-          console.warn("Failed to parse onboarding_step, clearing key", err);
-          localStorage.removeItem("aligned_onboarding_step");
-        }
-      }
-    } catch (err) {
-      console.error("Unexpected error loading brand/onboarding state:", err);
-    }
   }, []);
 
   // Persist to localStorage on change
