@@ -83,6 +83,27 @@ BEGIN
     ALTER TABLE brands ADD COLUMN scraper_status TEXT DEFAULT 'never_run';
   END IF;
 
+  -- Add workspace_id if it doesn't exist (backward compatibility alias to tenant_id)
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'brands' AND column_name = 'workspace_id'
+  ) THEN
+    -- workspace_id can be TEXT or UUID depending on existing schema
+    -- Check if we should use TEXT (for compatibility) or UUID
+    ALTER TABLE brands ADD COLUMN workspace_id TEXT;
+    
+    -- Sync workspace_id with tenant_id for existing rows
+    UPDATE brands SET workspace_id = tenant_id::text WHERE workspace_id IS NULL AND tenant_id IS NOT NULL;
+  END IF;
+
+  -- Add industry if it doesn't exist
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'brands' AND column_name = 'industry'
+  ) THEN
+    ALTER TABLE brands ADD COLUMN industry TEXT;
+  END IF;
+
   -- Ensure brand_kit exists (JSONB)
   IF NOT EXISTS (
     SELECT 1 FROM information_schema.columns
