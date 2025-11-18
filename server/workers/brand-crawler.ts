@@ -344,7 +344,8 @@ async function fetchRobotsTxt(
 /**
  * Extract brand name from URL (domain name)
  */
-function extractBrandNameFromUrl(url: string): string | undefined {
+// ✅ EXPORT: Allow crawler route to use this function
+export function extractBrandNameFromUrl(url: string): string | undefined {
   try {
     const urlObj = new URL(url);
     const hostname = urlObj.hostname;
@@ -364,7 +365,8 @@ function extractBrandNameFromUrl(url: string): string | undefined {
 /**
  * Extract industry hints from crawl results
  */
-function extractIndustryFromContent(crawlResults: CrawlResult[]): string | undefined {
+// ✅ EXPORT: Allow crawler route to use this function
+export function extractIndustryFromContent(crawlResults: CrawlResult[]): string | undefined {
   // Look for common industry keywords in content
   const allText = crawlResults
     .map((r) => `${r.title} ${r.metaDescription} ${r.bodyText}`)
