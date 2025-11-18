@@ -117,7 +117,13 @@ export function brandSnapshotToBrandGuide(
     },
 
     // Legacy fields (for backward compatibility)
-    purpose: brandSnapshot.extractedMetadata?.brandIdentity || brandSnapshot.goal || "",
+    // ✅ FIX: Ensure purpose is always a valid string (not 0, not empty)
+    purpose: (brandSnapshot.extractedMetadata?.brandIdentity && 
+              typeof brandSnapshot.extractedMetadata.brandIdentity === "string" && 
+              brandSnapshot.extractedMetadata.brandIdentity.length > 10 &&
+              brandSnapshot.extractedMetadata.brandIdentity !== "0")
+      ? brandSnapshot.extractedMetadata.brandIdentity
+      : brandSnapshot.goal || "",
     mission: brandSnapshot.goal || "",
     vision: "",
     personas: [],
