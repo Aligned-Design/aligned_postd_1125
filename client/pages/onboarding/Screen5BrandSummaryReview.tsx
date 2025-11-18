@@ -288,9 +288,29 @@ export default function Screen5BrandSummaryReview() {
   // ✅ PRIORITY: Use brandGuideStory first (from API), then brandSnapshot, then fallback
   // ✅ FIX: Check if brandIdentity is a valid string (not 0, null, or empty)
   const rawBrandIdentity = brandGuideStory || brandSnapshot.extractedMetadata?.brandIdentity;
-  const brandIdentity = (rawBrandIdentity && typeof rawBrandIdentity === "string" && rawBrandIdentity.length > 10 && rawBrandIdentity !== "0")
-    ? rawBrandIdentity
+  
+  // ✅ CRITICAL LOGGING: Debug brand story display
+  console.log("[BrandSnapshot] Brand identity resolution", {
+    hasBrandGuideStory: !!brandGuideStory,
+    brandGuideStoryLength: brandGuideStory?.length || 0,
+    brandGuideStoryPreview: brandGuideStory?.substring(0, 100),
+    hasSnapshotIdentity: !!brandSnapshot.extractedMetadata?.brandIdentity,
+    snapshotIdentityLength: brandSnapshot.extractedMetadata?.brandIdentity?.length || 0,
+    snapshotIdentityValue: brandSnapshot.extractedMetadata?.brandIdentity,
+    rawBrandIdentity: rawBrandIdentity,
+    rawBrandIdentityType: typeof rawBrandIdentity,
+  });
+  
+  const brandIdentity = (rawBrandIdentity && typeof rawBrandIdentity === "string" && rawBrandIdentity.trim().length > 10 && rawBrandIdentity !== "0" && !rawBrandIdentity.toLowerCase().includes("placeholder"))
+    ? rawBrandIdentity.trim()
     : `${brandSnapshot.name || "Your brand"} is a ${brandSnapshot.industry || "business"} that ${brandSnapshot.voice || "connects with customers"} through ${brandSnapshot.tone?.join(" and ") || "authentic communication"}.`;
+  
+  // ✅ LOG FINAL RESULT
+  console.log("[BrandSnapshot] Final brand identity:", {
+    finalIdentity: brandIdentity,
+    finalIdentityLength: brandIdentity.length,
+    isFallback: !rawBrandIdentity || rawBrandIdentity === "0" || rawBrandIdentity.length < 10,
+  });
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-indigo-50/30 via-white to-blue-50/20 p-4">
