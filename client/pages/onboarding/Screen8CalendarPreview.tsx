@@ -45,7 +45,11 @@ export default function Screen8CalendarPreview() {
       try {
         // Get the most recent content package for this brand
         // For onboarding, we'll use the brandId from localStorage or context
-        const brandId = localStorage.getItem("aligned_brand_id") || `brand_${Date.now()}`;
+        const brandId = localStorage.getItem("aligned_brand_id");
+        if (!brandId) {
+          console.warn("[CalendarPreview] No brandId found");
+          return;
+        }
         
         const response = await fetch(`/api/onboarding/content-package/${brandId}`);
         if (response.ok) {
