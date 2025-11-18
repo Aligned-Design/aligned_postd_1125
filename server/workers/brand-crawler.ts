@@ -1195,7 +1195,8 @@ Respond in JSON format:
 /**
  * Generate brand kit using AI (with automatic fallback to Claude if OpenAI is down)
  */
-async function generateBrandKit(
+// ✅ EXPORT: Allow crawler route to use this function directly
+export async function generateBrandKit(
   crawlResults: CrawlResult[],
   colors: ColorPalette,
   sourceUrl: string,
