@@ -25,6 +25,8 @@ export default function Screen5BrandSummaryReview() {
   const [editingField, setEditingField] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");
   const [brandGuideImages, setBrandGuideImages] = useState<string[]>([]);
+  const [logoImages, setLogoImages] = useState<string[]>([]);
+  const [otherImages, setOtherImages] = useState<string[]>([]);
 
   // Fire confetti on load
   useEffect(() => {
@@ -72,23 +74,43 @@ export default function Screen5BrandSummaryReview() {
         });
         
         // Extract scraped images from approvedAssets.uploadedPhotos (source='scrape')
+        // ✅ Separate logos from other images based on metadata.role
         if (brandGuide?.approvedAssets?.uploadedPhotos) {
-          const scrapedImages = brandGuide.approvedAssets.uploadedPhotos
-            .filter((img: any) => img.source === "scrape" && img.url && typeof img.url === "string" && img.url.startsWith("http"))
+          const allScrapedImages = brandGuide.approvedAssets.uploadedPhotos
+            .filter((img: any) => img.source === "scrape" && img.url && typeof img.url === "string" && img.url.startsWith("http"));
+          
+          // Separate by role: logos vs other images
+          const logos = allScrapedImages
+            .filter((img: any) => {
+              const role = img.metadata?.role || "";
+              return role === "logo" || role === "Logo";
+            })
             .map((img: any) => img.url)
             .filter(Boolean);
           
-          console.log(`[BrandSnapshot] Filtered ${scrapedImages.length} valid scraped images from ${brandGuide.approvedAssets.uploadedPhotos.length} total photos`);
+          const otherImgs = allScrapedImages
+            .filter((img: any) => {
+              const role = img.metadata?.role || "";
+              return role !== "logo" && role !== "Logo";
+            })
+            .map((img: any) => img.url)
+            .filter(Boolean);
           
-          if (scrapedImages.length > 0) {
-            console.log(`[BrandSnapshot] ✅ Found ${scrapedImages.length} scraped images from brand guide`);
-            setBrandGuideImages(scrapedImages);
+          console.log(`[BrandSnapshot] Separated images: ${logos.length} logos, ${otherImgs.length} other images from ${allScrapedImages.length} total scraped images`);
+          
+          if (logos.length > 0 || otherImgs.length > 0) {
+            console.log(`[BrandSnapshot] ✅ Found ${logos.length} logos and ${otherImgs.length} other images from brand guide`);
+            setLogoImages(logos);
+            setOtherImages(otherImgs);
+            // Keep brandGuideImages for backward compatibility (all images combined)
+            setBrandGuideImages([...logos, ...otherImgs]);
             return;
           } else {
             console.warn("[BrandSnapshot] No valid scraped images found in brand guide", {
               totalPhotos: brandGuide.approvedAssets.uploadedPhotos.length,
               photos: brandGuide.approvedAssets.uploadedPhotos.map((img: any) => ({
                 source: img.source,
+                role: img.metadata?.role,
                 hasUrl: !!img.url,
                 urlType: typeof img.url,
                 urlPreview: img.url ? img.url.substring(0, 50) : "none",
@@ -293,7 +315,7 @@ export default function Screen5BrandSummaryReview() {
           </div>
         </div>
 
-        {/* Visual Grid: Colors + Images */}
+        {/* Visual Grid: Colors + Logos + Images */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
           {/* Color Palette */}
           <div className="bg-white/50 backdrop-blur-xl rounded-2xl border border-white/60 p-6">
@@ -327,28 +349,27 @@ export default function Screen5BrandSummaryReview() {
             </div>
           </div>
 
-          {/* Brand Images */}
+          {/* Logos Section */}
           <div className="bg-white/50 backdrop-blur-xl rounded-2xl border border-white/60 p-6">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-black text-slate-900">Brand Images</h2>
+              <h2 className="text-lg font-black text-slate-900">Logos</h2>
               <span className="text-xs text-slate-500">
-                {brandImages.length > 0 ? `${brandImages.length} images` : "No images found"}
+                {logoImages.length > 0 ? `${logoImages.length} logo${logoImages.length !== 1 ? 's' : ''}` : "No logos found"}
               </span>
             </div>
-            {brandImages.length > 0 ? (
+            {logoImages.length > 0 ? (
               <div className="grid grid-cols-3 gap-3">
-                {brandImages.map((imageUrl, index) => (
+                {logoImages.map((imageUrl, index) => (
                   <div
                     key={index}
-                    className="aspect-square rounded-lg overflow-hidden border-2 border-slate-200 bg-slate-100"
+                    className="aspect-square rounded-lg overflow-hidden border-2 border-slate-200 bg-slate-100 flex items-center justify-center"
                   >
                     <img
                       src={imageUrl}
-                      alt={`Brand image ${index + 1}`}
-                      className="w-full h-full object-cover"
+                      alt={`Logo ${index + 1}`}
+                      className="w-full h-full object-contain p-2"
                       onError={(e) => {
-                        console.error(`[BrandSnapshot] Failed to load image ${index + 1}:`, imageUrl);
-                        // Hide broken image
+                        console.error(`[BrandSnapshot] Failed to load logo ${index + 1}:`, imageUrl);
                         (e.target as HTMLImageElement).style.display = "none";
                       }}
                     />
@@ -357,12 +378,42 @@ export default function Screen5BrandSummaryReview() {
               </div>
             ) : (
               <div className="text-center py-8 text-slate-500 text-sm">
-                <p>No images were extracted from your website.</p>
-                <p className="mt-2 text-xs">Images will appear here once they're scraped and saved.</p>
+                <p>No logos were extracted from your website.</p>
+                <p className="mt-2 text-xs">Logos will appear here once they're scraped and saved.</p>
               </div>
             )}
           </div>
         </div>
+
+        {/* Brand Images Section (separate row for other images) */}
+        {otherImages.length > 0 && (
+          <div className="bg-white/50 backdrop-blur-xl rounded-2xl border border-white/60 p-6 mb-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-black text-slate-900">Brand Images</h2>
+              <span className="text-xs text-slate-500">
+                {otherImages.length} image{otherImages.length !== 1 ? 's' : ''}
+              </span>
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+              {otherImages.map((imageUrl, index) => (
+                <div
+                  key={index}
+                  className="aspect-square rounded-lg overflow-hidden border-2 border-slate-200 bg-slate-100"
+                >
+                  <img
+                    src={imageUrl}
+                    alt={`Brand image ${index + 1}`}
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      console.error(`[BrandSnapshot] Failed to load image ${index + 1}:`, imageUrl);
+                      (e.target as HTMLImageElement).style.display = "none";
+                    }}
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Tone & Keywords Row */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
