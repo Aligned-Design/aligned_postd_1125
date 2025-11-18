@@ -147,7 +147,7 @@ export default function Screen3AiScrape() {
 
       // Call the backend crawler endpoint (sync mode for onboarding)
       // ✅ CRITICAL: Include workspaceId/tenantId so images can be persisted
-      const workspaceId = (user as any)?.workspaceId || (user as any)?.tenantId || localStorage.getItem("aligned_workspace_id");
+      const crawlerWorkspaceId = (user as any)?.workspaceId || (user as any)?.tenantId || localStorage.getItem("aligned_workspace_id");
       
       // ✅ Use centralized API utility for authenticated requests
       const { apiPost } = await import("@/lib/api");
@@ -155,13 +155,13 @@ export default function Screen3AiScrape() {
       console.log("[Onboarding] Calling crawler API with auth token", {
         url: user.website,
         brandId,
-        workspaceId,
+        workspaceId: crawlerWorkspaceId,
       });
       
       const result = await apiPost(`/api/crawl/start`, {
         url: user.website,
         brand_id: brandId, // ✅ Use consistent brandId
-        workspaceId: workspaceId, // ✅ CRITICAL: Pass workspaceId for image persistence
+        workspaceId: crawlerWorkspaceId, // ✅ CRITICAL: Pass workspaceId for image persistence
         sync: true, // Use sync mode for immediate results
       });
 
