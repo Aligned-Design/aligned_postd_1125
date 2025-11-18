@@ -71,7 +71,10 @@ interface CrawledImage {
   alt?: string;
   width?: number;
   height?: number;
-  role?: "logo" | "hero" | "other";
+  role: "logo" | "team" | "subject" | "hero" | "other";
+  pageType?: "main" | "team" | "about" | "other";
+  filename?: string;
+  priority?: number; // Calculated priority score
 }
 
 interface TypographyData {
@@ -182,7 +185,10 @@ export async function processBrandIntake(
     console.log(`[Brand Crawler] Extracted color palette (with retries)`);
 
     // Step 3: Generate AI summaries (or fallback)
-    const brandKit = await generateBrandKit(crawlResults, colors, websiteUrl);
+    // Try to get brand name and industry from website URL or crawl results
+    const brandName = extractBrandNameFromUrl(websiteUrl);
+    const industry = extractIndustryFromContent(crawlResults);
+    const brandKit = await generateBrandKit(crawlResults, colors, websiteUrl, brandName, industry);
     console.log(`[Brand Crawler] Generated brand kit`);
 
     // Step 4: Create embeddings (if OpenAI available)
@@ -335,11 +341,236 @@ async function fetchRobotsTxt(
 }
 
 /**
- * Extract images from a page
+ * Extract brand name from URL (domain name)
  */
-async function extractImages(page: Page, baseUrl: string): Promise<CrawledImage[]> {
+function extractBrandNameFromUrl(url: string): string | undefined {
   try {
-    const images = await page.evaluate((url) => {
+    const urlObj = new URL(url);
+    const hostname = urlObj.hostname;
+    // Remove www. and .com/.net/.org etc.
+    const brandName = hostname
+      .replace(/^www\./, "")
+      .split(".")
+      .slice(0, -1)
+      .join(" ")
+      .replace(/-/g, " ");
+    return brandName || undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Extract industry hints from crawl results
+ */
+function extractIndustryFromContent(crawlResults: CrawlResult[]): string | undefined {
+  // Look for common industry keywords in content
+  const allText = crawlResults
+    .map((r) => `${r.title} ${r.metaDescription} ${r.bodyText}`)
+    .join(" ")
+    .toLowerCase();
+  
+  const industryKeywords: Record<string, string> = {
+    "restaurant": "Food & Dining",
+    "cafe": "Food & Dining",
+    "coffee": "Food & Dining",
+    "fitness": "Health & Fitness",
+    "gym": "Health & Fitness",
+    "yoga": "Health & Fitness",
+    "law": "Legal Services",
+    "attorney": "Legal Services",
+    "real estate": "Real Estate",
+    "property": "Real Estate",
+    "technology": "Technology",
+    "software": "Technology",
+    "consulting": "Business Consulting",
+    "marketing": "Marketing & Advertising",
+    "design": "Design & Creative",
+    "healthcare": "Healthcare",
+    "medical": "Healthcare",
+    "education": "Education",
+    "school": "Education",
+  };
+  
+  for (const [keyword, industry] of Object.entries(industryKeywords)) {
+    if (allText.includes(keyword)) {
+      return industry;
+    }
+  }
+  
+  return undefined;
+}
+
+/**
+ * Detect page type from URL
+ */
+function detectPageType(url: string): "main" | "team" | "about" | "other" {
+  const urlLower = url.toLowerCase();
+  const pathname = new URL(url).pathname.toLowerCase();
+  
+  // Main page detection
+  if (pathname === "/" || pathname === "/home" || pathname === "/index" || pathname === "/index.html") {
+    return "main";
+  }
+  
+  // Team page detection
+  if (pathname.includes("/team") || pathname.includes("/our-team") || pathname.includes("/staff") || pathname.includes("/people")) {
+    return "team";
+  }
+  
+  // About page detection
+  if (pathname.includes("/about") || pathname.includes("/about-us") || pathname.includes("/who-we-are")) {
+    return "about";
+  }
+  
+  return "other";
+}
+
+/**
+ * Extract filename from URL
+ */
+function extractFilename(url: string): string {
+  try {
+    const urlObj = new URL(url);
+    const pathname = urlObj.pathname;
+    const filename = pathname.split("/").pop() || "";
+    return filename.toLowerCase();
+  } catch {
+    return "";
+  }
+}
+
+/**
+ * Enhanced logo detection - checks filename, URL path, alt text, and brand name
+ */
+function isLogo(
+  img: { url: string; alt?: string; width?: number; height?: number },
+  pageUrl: string,
+  brandName?: string
+): boolean {
+  const filename = extractFilename(img.url);
+  const urlLower = img.url.toLowerCase();
+  const altLower = img.alt?.toLowerCase() || "";
+  const pathname = new URL(img.url).pathname.toLowerCase();
+  
+  // Check filename for "logo" or brand name
+  const brandNameLower = brandName?.toLowerCase().replace(/\s+/g, "-") || "";
+  if (brandNameLower && (filename.includes(brandNameLower) || filename.includes(brandName?.toLowerCase().replace(/\s+/g, "") || ""))) {
+    return true;
+  }
+  
+  // Check filename for "logo"
+  if (filename.includes("logo")) {
+    return true;
+  }
+  
+  // Check URL path for "logo" or brand name
+  if (pathname.includes("/logo") || (brandNameLower && pathname.includes(brandNameLower))) {
+    return true;
+  }
+  
+  // Check alt text for "logo" or brand name
+  if (altLower.includes("logo") || (brandName && altLower.includes(brandName.toLowerCase()))) {
+    return true;
+  }
+  
+  // Existing checks: parent classes, header position, size
+  // These are handled in the page.evaluate() function
+  
+  return false;
+}
+
+/**
+ * Categorize image based on context
+ */
+function categorizeImage(
+  img: { url: string; alt?: string; width?: number; height?: number; role?: string },
+  pageUrl: string,
+  pageType: "main" | "team" | "about" | "other",
+  brandName?: string
+): "logo" | "team" | "subject" | "hero" | "other" {
+  // Logo detection (highest priority)
+  if (isLogo(img, pageUrl, brandName) || img.role === "logo") {
+    return "logo";
+  }
+  
+  // Team images: from team/about pages, or images with faces (detected by alt text or context)
+  if (pageType === "team" || pageType === "about") {
+    const altLower = img.alt?.toLowerCase() || "";
+    const urlLower = img.url.toLowerCase();
+    if (
+      altLower.includes("team") ||
+      altLower.includes("staff") ||
+      altLower.includes("member") ||
+      altLower.includes("founder") ||
+      altLower.includes("ceo") ||
+      altLower.includes("director") ||
+      urlLower.includes("team") ||
+      urlLower.includes("staff")
+    ) {
+      return "team";
+    }
+  }
+  
+  // Hero images: large images near top of page
+  if (img.role === "hero") {
+    return "hero";
+  }
+  
+  // Subject matter: product/service images (medium priority)
+  // These are typically product photos, service illustrations, etc.
+  const altLower = img.alt?.toLowerCase() || "";
+  const urlLower = img.url.toLowerCase();
+  if (
+    altLower.includes("product") ||
+    altLower.includes("service") ||
+    altLower.includes("feature") ||
+    urlLower.includes("product") ||
+    urlLower.includes("service")
+  ) {
+    return "subject";
+  }
+  
+  // Default to other
+  return "other";
+}
+
+/**
+ * Calculate priority score for image
+ */
+function calculateImagePriority(img: CrawledImage): number {
+  let priority = 0;
+  
+  // Role-based priority
+  if (img.role === "logo") priority += 1000;
+  if (img.role === "team") priority += 800;
+  if (img.role === "subject") priority += 600;
+  if (img.role === "hero") priority += 400;
+  if (img.role === "other") priority += 100;
+  
+  // Page type priority
+  if (img.pageType === "main") priority += 100;
+  if (img.pageType === "team" || img.pageType === "about") priority += 80;
+  
+  // Size priority (larger images are generally better)
+  if (img.width && img.height) {
+    const area = img.width * img.height;
+    if (area > 500000) priority += 50; // Very large images
+    else if (area > 200000) priority += 30; // Large images
+    else if (area > 50000) priority += 10; // Medium images
+  }
+  
+  return priority;
+}
+
+/**
+ * Extract images from a page with smart prioritization
+ */
+async function extractImages(page: Page, baseUrl: string, brandName?: string): Promise<CrawledImage[]> {
+  try {
+    const pageType = detectPageType(baseUrl);
+    
+    const images = await page.evaluate((url, brandName) => {
       const base = new URL(url);
       const results: Array<{
         url: string;
@@ -347,6 +578,7 @@ async function extractImages(page: Page, baseUrl: string): Promise<CrawledImage[
         width?: number;
         height?: number;
         role?: "logo" | "hero" | "other";
+        filename?: string;
       }> = [];
 
       // Helper to normalize URL
@@ -370,6 +602,17 @@ async function extractImages(page: Page, baseUrl: string): Promise<CrawledImage[
         }
       };
 
+      // Helper to extract filename
+      const getFilename = (url: string): string => {
+        try {
+          const urlObj = new URL(url);
+          const pathname = urlObj.pathname;
+          return pathname.split("/").pop() || "";
+        } catch {
+          return "";
+        }
+      };
+
       // Extract <img> tags
       const imgElements = document.querySelectorAll("img");
       imgElements.forEach((img) => {
@@ -380,19 +623,24 @@ async function extractImages(page: Page, baseUrl: string): Promise<CrawledImage[
         const width = img.naturalWidth || img.width || undefined;
         const height = img.naturalHeight || img.height || undefined;
         const alt = img.getAttribute("alt") || undefined;
+        const filename = getFilename(normalizedUrl);
 
-        // Determine role
+        // Determine initial role (will be refined later)
         let role: "logo" | "hero" | "other" = "other";
 
-        // Logo detection heuristics
+        // Enhanced logo detection
         const altLower = alt?.toLowerCase() || "";
+        const filenameLower = filename.toLowerCase();
         const parentClasses = img.parentElement?.className?.toLowerCase() || "";
         const parentId = img.parentElement?.id?.toLowerCase() || "";
         const isInHeader = img.closest("header") !== null || img.closest("nav") !== null;
         const isSmall = width && width < 400 && height && height < 400;
+        const brandNameLower = brandName?.toLowerCase().replace(/\s+/g, "-") || "";
 
         if (
           altLower.includes("logo") ||
+          filenameLower.includes("logo") ||
+          (brandNameLower && (filenameLower.includes(brandNameLower) || altLower.includes(brandName?.toLowerCase() || ""))) ||
           parentClasses.includes("logo") ||
           parentId.includes("logo") ||
           (isInHeader && isSmall)
@@ -412,6 +660,7 @@ async function extractImages(page: Page, baseUrl: string): Promise<CrawledImage[
           width,
           height,
           role,
+          filename,
         });
       });
 
@@ -426,11 +675,13 @@ async function extractImages(page: Page, baseUrl: string): Promise<CrawledImage[
             const normalizedUrl = normalizeUrl(match[1]);
             if (normalizedUrl) {
               const rect = section.getBoundingClientRect();
+              const filename = getFilename(normalizedUrl);
               results.push({
                 url: normalizedUrl,
                 width: rect.width || undefined,
                 height: rect.height || undefined,
                 role: rect.top < window.innerHeight ? "hero" : "other",
+                filename,
               });
             }
           }
@@ -438,7 +689,7 @@ async function extractImages(page: Page, baseUrl: string): Promise<CrawledImage[
       });
 
       return results;
-    }, baseUrl);
+    }, baseUrl, brandName);
 
     // Deduplicate by URL
     const seen = new Set<string>();
@@ -448,18 +699,30 @@ async function extractImages(page: Page, baseUrl: string): Promise<CrawledImage[
       return true;
     });
 
-    // Sort by relevance: logo first, then hero, then by size/position
-    const sortedImages = uniqueImages.sort((a, b) => {
-      // Prioritize logos
-      if (a.role === "logo" && b.role !== "logo") return -1;
-      if (b.role === "logo" && a.role !== "logo") return 1;
-      // Then heroes
-      if (a.role === "hero" && b.role !== "hero") return -1;
-      if (b.role === "hero" && a.role !== "hero") return 1;
-      // Then by size (larger is better)
-      const aSize = (a.width || 0) * (a.height || 0);
-      const bSize = (b.width || 0) * (b.height || 0);
-      return bSize - aSize;
+    // Categorize and enrich images with page type and priority
+    const categorizedImages: CrawledImage[] = uniqueImages.map((img) => {
+      const categorized = categorizeImage(img, baseUrl, pageType, brandName);
+      return {
+        url: img.url,
+        alt: img.alt,
+        width: img.width,
+        height: img.height,
+        role: categorized,
+        pageType,
+        filename: img.filename,
+      };
+    });
+
+    // Calculate priority scores
+    categorizedImages.forEach((img) => {
+      img.priority = calculateImagePriority(img);
+    });
+
+    // Sort by priority (highest first)
+    const sortedImages = categorizedImages.sort((a, b) => {
+      const priorityA = a.priority || 0;
+      const priorityB = b.priority || 0;
+      return priorityB - priorityA; // Descending order
     });
 
     // Filter out placeholders, icons, and tiny images
@@ -553,7 +816,8 @@ async function extractPageContent(
     return clone.textContent?.trim() || "";
   });
 
-  // Extract images
+  // Extract images (we don't have brand name here, but can extract from URL if needed)
+  // For now, pass undefined - logo detection will work with filename/URL checks
   const images = await extractImages(page, url).catch((error) => {
     console.warn("[Crawler] Error extracting images from page:", error);
     return [];
@@ -772,12 +1036,90 @@ export async function extractColors(url: string): Promise<ColorPalette> {
 }
 
 /**
+ * Generate compelling brand summary using AI (Copywriter agent)
+ * This ensures we always have a strong, engaging brand story
+ */
+async function generateBrandSummaryWithAI(
+  crawlResults: CrawlResult[],
+  brandName?: string,
+  industry?: string
+): Promise<{ about_blurb: string; longFormSummary: string }> {
+  if (!OPENAI_API_KEY) {
+    // Fallback if no API key
+    const allText = crawlResults
+      .map((r) => [r.h1, r.h2, r.h3, r.bodyText].flat().join(" "))
+      .join(" ");
+    const aboutBlurb = crawlResults[0]?.metaDescription?.slice(0, 160) || allText.slice(0, 160) || "A professional brand committed to excellence.";
+    return {
+      about_blurb: aboutBlurb,
+      longFormSummary: allText.slice(0, 500) || aboutBlurb,
+    };
+  }
+
+  const openai = new OpenAI({ apiKey: OPENAI_API_KEY });
+
+  // Collect all text from crawl results
+  const allText = crawlResults
+    .map((r) => `${r.title}\n${r.metaDescription}\n${r.h1.join(" ")}\n${r.h2.join(" ")}\n${r.h3.join(" ")}\n${r.bodyText}`)
+    .join("\n\n")
+    .slice(0, 4000); // Limit to 4k chars for summary generation
+
+  const brandNameText = brandName ? `Brand Name: ${brandName}\n` : "";
+  const industryText = industry ? `Industry: ${industry}\n` : "";
+
+  const prompt = `You are The Copywriter for Postd. Create a compelling brand story for this business.
+
+${brandNameText}${industryText}
+Website Content:
+${allText}
+
+Create:
+1. A concise "About" blurb (1-2 sentences, 120-160 characters) that captures the brand's essence and value proposition
+2. A longer form summary (3-5 sentences, 300-500 characters) that tells the brand's story more fully
+
+Respond in JSON format:
+{
+  "about_blurb": "1-2 sentence brand story...",
+  "longFormSummary": "3-5 sentence expanded brand story..."
+}`;
+
+  try {
+    const response = await openai.chat.completions.create({
+      model: "gpt-4-turbo-preview",
+      messages: [{ role: "user", content: prompt }],
+      response_format: { type: "json_object" },
+      temperature: 0.7, // Slightly higher for more creative summaries
+    });
+
+    const result = JSON.parse(response.choices[0].message.content || "{}");
+    
+    return {
+      about_blurb: result.about_blurb || "",
+      longFormSummary: result.longFormSummary || result.about_blurb || "",
+    };
+  } catch (error) {
+    console.error("[AI] Error generating brand summary:", error);
+    // Fallback
+    const allTextFallback = crawlResults
+      .map((r) => [r.h1, r.h2, r.h3, r.bodyText].flat().join(" "))
+      .join(" ");
+    const aboutBlurb = crawlResults[0]?.metaDescription?.slice(0, 160) || allTextFallback.slice(0, 160) || "A professional brand committed to excellence.";
+    return {
+      about_blurb: aboutBlurb,
+      longFormSummary: allTextFallback.slice(0, 500) || aboutBlurb,
+    };
+  }
+}
+
+/**
  * Generate brand kit using OpenAI (or fallback)
  */
 async function generateBrandKit(
   crawlResults: CrawlResult[],
   colors: ColorPalette,
   sourceUrl: string,
+  brandName?: string,
+  industry?: string,
 ): Promise<BrandKitData> {
   // Dedupe by hash
   const uniqueResults = deduplicateResults(crawlResults);
@@ -788,11 +1130,24 @@ async function generateBrandKit(
     .join("\n\n")
     .slice(0, 10000); // Limit to 10k chars
 
+  let brandKit: BrandKitData;
+  
   if (OPENAI_API_KEY) {
-    return await generateBrandKitWithAI(combinedText, colors, sourceUrl);
+    brandKit = await generateBrandKitWithAI(combinedText, colors, sourceUrl);
   } else {
-    return generateBrandKitFallback(uniqueResults, colors, sourceUrl);
+    brandKit = await generateBrandKitFallback(uniqueResults, colors, sourceUrl);
   }
+
+  // ✅ ENSURE STRONG SUMMARY: Generate AI summary if missing or weak
+  if (!brandKit.about_blurb || brandKit.about_blurb.length < 50 || brandKit.about_blurb.includes("professional brand committed")) {
+    console.log("[Brand Crawler] Generating enhanced brand summary with AI...");
+    const enhancedSummary = await generateBrandSummaryWithAI(uniqueResults, brandName, industry);
+    brandKit.about_blurb = enhancedSummary.about_blurb;
+    // Also add longFormSummary to brandKit (will be saved to brand_kit.longFormSummary)
+    (brandKit as any).longFormSummary = enhancedSummary.longFormSummary;
+  }
+
+  return brandKit;
 }
 
 /**

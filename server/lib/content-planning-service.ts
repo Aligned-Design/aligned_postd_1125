@@ -106,15 +106,48 @@ export async function generateContentPlan(
       advisorRecommendations
     );
 
-    // 5. Store content items in database
+    // 5. Verify content quality before storing
+    if (contentItems.length === 0) {
+      throw new Error("No content items generated. Content generation may have failed.");
+    }
+
+    // Verify all items have real content (not placeholders)
+    const invalidItems = contentItems.filter(item => 
+      !item.content || 
+      item.content.length < 50 ||
+      item.content.toLowerCase().includes("placeholder") ||
+      item.content.toLowerCase().includes("edit this")
+    );
+
+    if (invalidItems.length > 0) {
+      logger.warn("Some content items have placeholder content", {
+        brandId,
+        invalidCount: invalidItems.length,
+        totalCount: contentItems.length,
+      });
+      // Filter out invalid items
+      contentItems = contentItems.filter(item => 
+        item.content && 
+        item.content.length >= 50 &&
+        !item.content.toLowerCase().includes("placeholder") &&
+        !item.content.toLowerCase().includes("edit this")
+      );
+    }
+
+    if (contentItems.length === 0) {
+      throw new Error("All generated content items were invalid (placeholders). Content generation failed.");
+    }
+
+    // 6. Store content items in database
     const storedItems = await storeContentItems(brandId, contentItems, tenantId);
 
     const durationMs = Date.now() - startTime;
-    logger.info("Content plan generated", {
+    logger.info("Content plan generated and stored", {
       requestId,
       brandId,
       durationMs,
       itemsCount: storedItems.length,
+      storedCount: storedItems.length,
     });
 
     return {
@@ -320,42 +353,46 @@ Guidelines:
       const parsed = JSON.parse(cleaned);
       const items = Array.isArray(parsed) ? parsed : parsed.items || [];
 
-      // Assign IDs and default status
-      contentItems = items.map((item: any) => ({
-        id: randomUUID(),
-        title: item.title || `${item.contentType} - ${item.platform}`,
-        contentType: item.contentType || "post",
-        platform: item.platform || "instagram",
-        content: item.content || "",
-        scheduledDate: item.scheduledDate || getDefaultScheduledDate(),
-        scheduledTime: item.scheduledTime || "09:00",
-        status: "draft" as const,
-      }));
+      // Assign IDs and default status, with content quality validation
+      contentItems = items
+        .filter((item: any) => {
+          // Filter out items with placeholder or empty content
+          const content = item.content || "";
+          return (
+            content.length > 50 && // Minimum length
+            !content.toLowerCase().includes("placeholder") &&
+            !content.toLowerCase().includes("edit this content") &&
+            !content.toLowerCase().includes("sample") &&
+            !content.toLowerCase().includes("complete...") &&
+            content.trim().length > 0
+          );
+        })
+        .map((item: any) => ({
+          id: randomUUID(),
+          title: item.title || `${item.contentType} - ${item.platform}`,
+          contentType: item.contentType || "post",
+          platform: item.platform || "instagram",
+          content: item.content || "",
+          scheduledDate: item.scheduledDate || getDefaultScheduledDate(),
+          scheduledTime: item.scheduledTime || "09:00",
+          status: "draft" as const,
+        }));
 
-      // Ensure we have exactly 8 items (5 social + 1 blog + 1 email + 1 Google Business)
+      // If we don't have enough quality items, log warning but don't add placeholders
       if (contentItems.length < 8) {
-        // Fill missing items with defaults
-        const needed = 8 - contentItems.length;
-        const defaultTypes: Array<"post" | "blog" | "email" | "gbp"> = ["blog", "email", "gbp", "post", "post"];
-        const defaultPlatforms = ["blog", "email", "google_business", "instagram", "facebook"];
-        for (let i = 0; i < needed; i++) {
-          const contentType = defaultTypes[i] || "post";
-          contentItems.push({
-            id: randomUUID(),
-            title: `${contentType === "gbp" ? "Google Business" : contentType.charAt(0).toUpperCase() + contentType.slice(1)} Post ${contentItems.length + 1}`,
-            contentType: contentType === "gbp" ? "post" : contentType,
-            platform: defaultPlatforms[i] || "instagram",
-            content: `Complete ${contentType === "gbp" ? "Google Business Profile" : contentType} content ready to post...`,
-            scheduledDate: getDefaultScheduledDate(i),
-            scheduledTime: "09:00",
-            status: "draft",
-          });
-        }
+        logger.warn("Generated fewer than 8 content items", {
+          brandId,
+          count: contentItems.length,
+          expected: 8,
+        });
+        // Don't add placeholder items - return what we have
+        // The system will work with fewer items if needed
       }
     } catch (parseError) {
-      logger.warn("Failed to parse content plan", { brandId, error: parseError });
-      // Generate default content plan
-      contentItems = generateDefaultContentPlan();
+      logger.error("Failed to parse content plan", { brandId, error: parseError });
+      // Don't generate default placeholder content - throw error instead
+      // This ensures we only show real AI-generated content
+      throw new Error(`Failed to generate content plan: ${parseError instanceof Error ? parseError.message : "Parse error"}`);
     }
 
     // Assign images from scraped images
@@ -366,10 +403,35 @@ Guidelines:
       });
     }
 
-    return contentItems;
+    // Final quality check: ensure all items have real content
+    const validatedItems = contentItems.filter(item => {
+      const hasRealContent = 
+        item.content &&
+        item.content.length > 50 &&
+        !item.content.toLowerCase().includes("placeholder") &&
+        !item.content.toLowerCase().includes("edit this") &&
+        !item.content.toLowerCase().includes("sample");
+      
+      if (!hasRealContent) {
+        logger.warn("Filtered out item with placeholder content", {
+          brandId,
+          itemId: item.id,
+          title: item.title,
+        });
+      }
+      
+      return hasRealContent;
+    });
+
+    if (validatedItems.length === 0) {
+      throw new Error("No valid content items generated. All items were filtered as placeholders.");
+    }
+
+    return validatedItems;
   } catch (error: any) {
     logger.error("Content planning failed", error, { brandId });
-    return generateDefaultContentPlan(); // Return default plan on error
+    // Don't return default plan - throw error so caller knows generation failed
+    throw error;
   }
 }
 
@@ -591,19 +653,6 @@ function getDefaultScheduledDate(offset: number = 0): string {
   return date.toISOString().split("T")[0];
 }
 
-function generateDefaultContentPlan(): ContentPlanItem[] {
-  const platforms = ["instagram", "facebook", "linkedin", "twitter", "instagram"];
-  const contentTypes: Array<"post" | "blog" | "email" | "gbp"> = ["post", "post", "post", "post", "post", "blog", "email", "gbp"];
-
-  return contentTypes.map((contentType, index) => ({
-    id: randomUUID(),
-    title: `${contentType === "gbp" ? "Google Business" : contentType.charAt(0).toUpperCase() + contentType.slice(1)} ${index + 1}`,
-    contentType: contentType === "gbp" ? "post" : contentType,
-    platform: contentType === "blog" ? "blog" : contentType === "email" ? "email" : contentType === "gbp" ? "google_business" : platforms[index % platforms.length],
-    content: `This is a ${contentType === "gbp" ? "Google Business Profile" : contentType} post for your brand. Edit this content in the studio.`,
-    scheduledDate: getDefaultScheduledDate(index),
-    scheduledTime: "09:00",
-    status: "draft" as const,
-  }));
-}
+// Removed generateDefaultContentPlan() - we don't want placeholder content
+// If content generation fails, we throw an error instead
 

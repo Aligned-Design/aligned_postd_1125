@@ -38,16 +38,33 @@ export default function Screen8CalendarPreview() {
   const [isRegenerating, setIsRegenerating] = useState(false);
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
   const [selectedDayContent, setSelectedDayContent] = useState<ContentItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  // Verify content is real (not placeholder)
+  const isRealContent = (item: ContentItem): boolean => {
+    const content = item.preview || item.title || "";
+    return (
+      content.length > 20 &&
+      !content.toLowerCase().includes("placeholder") &&
+      !content.toLowerCase().includes("edit this") &&
+      !content.toLowerCase().includes("sample") &&
+      !content.toLowerCase().includes("complete...")
+    );
+  };
 
   useEffect(() => {
     // Load generated content from API
     const loadContent = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      
       try {
         // Get the most recent content package for this brand
-        // For onboarding, we'll use the brandId from localStorage or context
         const brandId = localStorage.getItem("aligned_brand_id");
         if (!brandId) {
-          console.warn("[CalendarPreview] No brandId found");
+          setLoadError("Brand ID not found. Please go back and complete brand setup.");
+          setIsLoading(false);
           return;
         }
         
@@ -55,19 +72,25 @@ export default function Screen8CalendarPreview() {
         const contentPlanResponse = await fetch(`/api/content-plan/${brandId}`);
         if (contentPlanResponse.ok) {
           const data = await contentPlanResponse.json();
-          if (data.success && data.contentPlan && data.contentPlan.items) {
-            const items: ContentItem[] = data.contentPlan.items.map((item: any) => ({
-              id: item.id,
-              title: item.title,
-              platform: item.platform.charAt(0).toUpperCase() + item.platform.slice(1),
-              type: item.contentType || "post",
-              scheduledDate: item.scheduledDate,
-              scheduledTime: item.scheduledTime,
-              preview: item.content?.substring(0, 50) + "..." || item.title,
-              imageUrl: item.imageUrl,
-            }));
-            setContentItems(items);
-            return;
+          if (data.success && data.contentPlan && data.contentPlan.items && data.contentPlan.items.length > 0) {
+            const items: ContentItem[] = data.contentPlan.items
+              .map((item: any) => ({
+                id: item.id,
+                title: item.title,
+                platform: item.platform.charAt(0).toUpperCase() + item.platform.slice(1),
+                type: item.contentType || "post",
+                scheduledDate: item.scheduledDate,
+                scheduledTime: item.scheduledTime,
+                preview: item.content?.substring(0, 50) + "..." || item.title,
+                imageUrl: item.imageUrl,
+              }))
+              .filter(isRealContent); // Filter out placeholders
+            
+            if (items.length > 0) {
+              setContentItems(items);
+              setIsLoading(false);
+              return;
+            }
           }
         }
         
@@ -75,55 +98,67 @@ export default function Screen8CalendarPreview() {
         const response = await fetch(`/api/onboarding/content-package/${brandId}`);
         if (response.ok) {
           const data = await response.json();
-          if (data.success && data.contentPackage) {
-            const items: ContentItem[] = data.contentPackage.items.map((item: any) => ({
-              id: item.id,
-              title: item.title,
-              platform: item.platform.charAt(0).toUpperCase() + item.platform.slice(1),
-              type: item.type,
-              scheduledDate: item.scheduledDate,
-              scheduledTime: item.scheduledTime,
-              preview: item.content?.substring(0, 50) + "..." || item.title,
-              imageUrl: item.imageUrl, // ✅ Include imageUrl from API response
-            }));
-            setContentItems(items);
-            return;
+          if (data.success && data.contentPackage && data.contentPackage.items && data.contentPackage.items.length > 0) {
+            const items: ContentItem[] = data.contentPackage.items
+              .map((item: any) => ({
+                id: item.id,
+                title: item.title,
+                platform: item.platform.charAt(0).toUpperCase() + item.platform.slice(1),
+                type: item.type,
+                scheduledDate: item.scheduledDate,
+                scheduledTime: item.scheduledTime,
+                preview: item.content?.substring(0, 50) + "..." || item.title,
+                imageUrl: item.imageUrl,
+              }))
+              .filter(isRealContent); // Filter out placeholders
+            
+            if (items.length > 0) {
+              setContentItems(items);
+              setIsLoading(false);
+              return;
+            }
           }
         }
+        
+        // Try localStorage as last resort
+        const savedPackage = localStorage.getItem("aligned:onboarding:content_package");
+        if (savedPackage) {
+          try {
+            const parsed = JSON.parse(savedPackage);
+            if (parsed.items && parsed.items.length > 0) {
+              const items: ContentItem[] = parsed.items
+                .map((item: any) => ({
+                  id: item.id,
+                  title: item.title,
+                  platform: item.platform.charAt(0).toUpperCase() + item.platform.slice(1),
+                  type: item.type,
+                  scheduledDate: item.scheduledDate,
+                  scheduledTime: item.scheduledTime,
+                  preview: item.content?.substring(0, 50) + "..." || item.title,
+                  imageUrl: item.imageUrl,
+                }))
+                .filter(isRealContent);
+              
+              if (items.length > 0) {
+                setContentItems(items);
+                setIsLoading(false);
+                return;
+              }
+            }
+          } catch (e) {
+            console.error("Failed to parse saved package:", e);
+          }
+        }
+        
+        // No real content found - show error
+        setLoadError("No content found. Please go back and regenerate your content plan.");
+        setContentItems([]);
       } catch (error) {
         console.error("Failed to load content package:", error);
-      }
-      
-      // Fallback: Try to get from localStorage (if saved during generation)
-      const savedPackage = localStorage.getItem("aligned:onboarding:content_package");
-      if (savedPackage) {
-        try {
-          const parsed = JSON.parse(savedPackage);
-          if (parsed.items) {
-            const items: ContentItem[] = parsed.items.map((item: any) => ({
-              id: item.id,
-              title: item.title,
-              platform: item.platform.charAt(0).toUpperCase() + item.platform.slice(1),
-              type: item.type,
-              scheduledDate: item.scheduledDate,
-              scheduledTime: item.scheduledTime,
-              preview: item.content?.substring(0, 50) + "..." || item.title,
-              imageUrl: item.imageUrl, // ✅ Include imageUrl from localStorage
-            }));
-            setContentItems(items);
-            return;
-          }
-        } catch (e) {
-          console.error("Failed to parse saved package:", e);
-        }
-      }
-      
-      // Final fallback: Generate sample content based on brand snapshot
-      if (brandSnapshot) {
-        const sampleContent = generateSampleWeekContent(brandSnapshot);
-        setContentItems(sampleContent);
-      } else {
+        setLoadError("Failed to load content. Please try again or go back to regenerate.");
         setContentItems([]);
+      } finally {
+        setIsLoading(false);
       }
     };
     
@@ -379,7 +414,7 @@ export default function Screen8CalendarPreview() {
           </p>
           <button
             onClick={handleRegenerateWeek}
-            disabled={isRegenerating}
+            disabled={isRegenerating || isLoading}
             className="inline-flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <RefreshCw className={`w-4 h-4 ${isRegenerating ? "animate-spin" : ""}`} />
@@ -387,7 +422,35 @@ export default function Screen8CalendarPreview() {
           </button>
         </div>
 
+        {/* Loading State */}
+        {isLoading && (
+          <div className="text-center py-12">
+            <RefreshCw className="w-8 h-8 text-indigo-600 animate-spin mx-auto mb-4" />
+            <p className="text-slate-600 font-medium">Loading your content plan...</p>
+          </div>
+        )}
+
+        {/* Error State */}
+        {!isLoading && loadError && (
+          <div className="bg-red-50 border border-red-200 rounded-xl p-6 mb-6">
+            <div className="flex items-start gap-3">
+              <X className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <h3 className="text-red-900 font-bold mb-1">Content Not Found</h3>
+                <p className="text-red-700 text-sm mb-4">{loadError}</p>
+                <button
+                  onClick={() => setOnboardingStep(7)}
+                  className="px-4 py-2 bg-red-600 text-white rounded-lg font-bold hover:bg-red-700 transition-colors"
+                >
+                  Go Back to Generate Content
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Calendar Grid */}
+        {!isLoading && !loadError && (
         <div className="bg-white/50 backdrop-blur-xl rounded-2xl border border-white/60 p-6 mb-6">
           <div className="grid grid-cols-7 gap-4">
             {weekDates.map((date, index) => {
@@ -457,8 +520,10 @@ export default function Screen8CalendarPreview() {
             })}
           </div>
         </div>
+        )}
 
         {/* Guide Hints */}
+        {!isLoading && !loadError && (
         <div className="bg-blue-50 border border-blue-200 rounded-xl p-6 mb-6">
           <div className="space-y-3">
             <div className="flex items-start gap-3">
@@ -481,9 +546,10 @@ export default function Screen8CalendarPreview() {
             </div>
           </div>
         </div>
+        )}
 
         {/* Connect Accounts CTA (Triggered by Engagement) */}
-        {showConnectCTA && (
+        {!isLoading && !loadError && showConnectCTA && (
           <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-full max-w-2xl px-4 transition-all duration-300">
             <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-2xl shadow-2xl p-6 text-white">
               <div className="flex items-center justify-between gap-4">
@@ -513,7 +579,7 @@ export default function Screen8CalendarPreview() {
         )}
 
         {/* Continue Button (if CTA not shown yet) */}
-        {!showConnectCTA && (
+        {!isLoading && !loadError && !showConnectCTA && (
           <div className="text-center">
             <button
               onClick={handleContinue}

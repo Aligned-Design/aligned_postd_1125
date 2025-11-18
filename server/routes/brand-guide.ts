@@ -156,11 +156,12 @@ router.get("/:brandId", authenticateUser, async (req, res, next) => {
       fontFamily: visualSummary.fonts?.[0] || brandKit.fontFamily || "",
       fontSource: brandKit.fontSource || "google",
       customFontUrl: brandKit.customFontUrl || "",
-      primaryColors: visualSummary.colors || brandKit.primaryColors || brandKit.colorPalette || [],
+      primaryColors: visualSummary.colors || brandKit.primaryColors || brandKit.colorPalette || brandKit.allColors?.slice(0, 3) || [],
       primaryColor: brandKit.primaryColor || visualSummary.colors?.[0] || brand.primary_color || "",
       secondaryColor: brandKit.secondaryColor || visualSummary.colors?.[1] || "",
-      colorPalette: visualSummary.colors || brandKit.colorPalette || [],
-      secondaryColors: visualSummary.colors?.slice(1) || brandKit.secondaryColors || [],
+      colorPalette: visualSummary.colors || brandKit.colorPalette || brandKit.allColors || [],
+      secondaryColors: visualSummary.colors?.slice(1) || brandKit.secondaryColors || brandKit.allColors?.slice(3, 6) || [],
+      allColors: brandKit.allColors || visualSummary.colors || brandKit.colorPalette || [],
       visualNotes: visualSummary.style || brandKit.visualNotes || "",
 
       // Personas
