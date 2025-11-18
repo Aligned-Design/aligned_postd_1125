@@ -6,6 +6,7 @@ import { OnboardingProgress } from "@/components/onboarding/OnboardingProgress";
 import { extractColorsFromImage, ColorSwatch } from "@/lib/colorExtraction";
 import { PalettePreview } from "@/components/onboarding/PalettePreview";
 import { Progress } from "@/components/ui/progress";
+import { saveBrandGuideFromOnboarding } from "@/lib/onboarding-brand-sync";
 
 interface BrandFormData {
   brandName: string;
@@ -206,7 +207,7 @@ export default function Screen3BrandIntake() {
       };
 
       // ✅ CRITICAL: Save to backend via brand guide API
-      const { saveBrandGuideFromOnboarding } = await import("@/lib/onboarding-brand-sync");
+      // ✅ FIX: Use static import (already imported at top of file)
       await saveBrandGuideFromOnboarding(brandId, snapshot, form.brandName || "Your Brand");
       
       console.log("[Onboarding] ✅ Manual brand guide saved to backend", { brandId });
