@@ -85,12 +85,9 @@ export function useBrandGuide(): UseBrandGuideReturn {
       }
 
       try {
-        return await fetchJSON(`/api/brand-guide/${brandId}`, {
-          method: "PATCH",
-          body: JSON.stringify(updates),
-          timeout: 30000, // 30 seconds
-          retries: 2,
-        });
+        // ✅ Use centralized API utility which includes auth headers
+        const { apiPatch } = await import("@/lib/api");
+        return await apiPatch(`/api/brand-guide/${brandId}`, updates);
       } catch (error) {
         if (error instanceof Error) {
           throw new Error(`Failed to update Brand Guide: ${error.message}`);
