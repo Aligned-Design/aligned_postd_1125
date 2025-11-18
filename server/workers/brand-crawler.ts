@@ -687,7 +687,7 @@ async function extractImages(page: Page, baseUrl: string, brandName?: string): P
           const parentClasses = img.parentElement?.className?.toLowerCase() || "";
           const parentId = img.parentElement?.id?.toLowerCase() || "";
           const isInHeader = img.closest("header") !== null || img.closest("nav") !== null;
-          const isSmall = width ? width < 400 && height ? height < 400 : false;
+          const isSmall = width ? (width < 400 && height ? height < 400 : false) : false;
           const brandNameLower = brandName?.toLowerCase().replace(/\s+/g, "-") || "";
 
           if (

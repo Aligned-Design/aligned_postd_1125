@@ -97,7 +97,7 @@ export async function generateContentPlan(
     );
 
     // 4. Step 3: Creative plans content (5 social posts, blog, email)
-    const contentItems = await planContentWithCreativeAgent(
+    let contentItems = await planContentWithCreativeAgent(
       brandId,
       brandGuide,
       brandProfile,
@@ -126,12 +126,15 @@ export async function generateContentPlan(
         totalCount: contentItems.length,
       });
       // Filter out invalid items
-      contentItems = contentItems.filter(item => 
+      const filteredContentItems = contentItems.filter(item => 
         item.content && 
         item.content.length >= 50 &&
         !item.content.toLowerCase().includes("placeholder") &&
         !item.content.toLowerCase().includes("edit this")
       );
+      
+      // Use filtered items
+      contentItems = filteredContentItems;
     }
 
     if (contentItems.length === 0) {
