@@ -182,6 +182,8 @@ export async function saveBrandGuideFromOnboarding(
       setupMethod: brandGuide.setupMethod || "ai_generated",
       // Additional onboarding fields
       images: brandSnapshot.extractedMetadata?.images || [],
+      // ✅ CRITICAL: Ensure about_blurb is saved (for crawler compatibility)
+      about_blurb: brandGuide.purpose || brandGuide.longFormSummary || "",
     };
 
     const voiceSummary: any = {
