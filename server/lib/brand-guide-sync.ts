@@ -136,7 +136,11 @@ export async function saveBrandGuideFromOnboarding(
     // Map to Supabase structure using new BrandGuide format
     const brandKit: any = {
       brandName: brandGuide.brandName,
+      // ✅ CRITICAL: Save both purpose and about_blurb for compatibility
+      // Brand guide uses 'purpose', crawler uses 'about_blurb'
       purpose: brandGuide.purpose,
+      about_blurb: brandGuide.purpose || "", // Map purpose to about_blurb for crawler compatibility
+      longFormSummary: brandGuide.longFormSummary || brandGuide.purpose || "",
       mission: brandGuide.mission,
       vision: brandGuide.vision,
       businessType: brandGuide.identity?.businessType,
