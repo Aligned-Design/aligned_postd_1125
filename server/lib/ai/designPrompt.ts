@@ -21,7 +21,7 @@ export interface DesignPromptContext {
   brandVisualIdentity?: BrandVisualIdentity | null;
   availableImages?: Array<{
     url: string;
-    source: "brand_asset" | "stock_image" | "generic";
+    source: "scrape" | "stock" | "upload" | "generic"; // ✅ Normalized to match image-sourcing.ts
     title?: string;
     alt?: string;
   }>;
@@ -235,8 +235,8 @@ export function buildDesignUserPrompt(context: DesignPromptContext): string {
   // Image context (if available images are provided)
   if (context.availableImages && context.availableImages.length > 0) {
     prompt += `\n## Available Visual Assets\n`;
-    const brandAssets = context.availableImages.filter(img => img.source === "brand_asset");
-    const stockImages = context.availableImages.filter(img => img.source === "stock_image");
+    const brandAssets = context.availableImages.filter(img => img.source === "scrape" || img.source === "upload");
+    const stockImages = context.availableImages.filter(img => img.source === "stock");
     
     if (brandAssets.length > 0) {
       prompt += `Brand-owned images available: ${brandAssets.length}\n`;
@@ -291,11 +291,12 @@ export function buildDesignUserPrompt(context: DesignPromptContext): string {
   }
 
   // ✅ ADAPTIVE LOGIC: Apply performance-driven recommendations
-  if (brandHistory?.performance) {
+  if (brandHistory && (brandHistory as any).performance) {
     prompt += `\n## Performance-Driven Recommendations\n`;
     
-    const insights = brandHistory.performance.visualInsights || [];
-    const trends = brandHistory.performance.trends || [];
+    const performance = (brandHistory as any).performance;
+    const insights = performance.visualInsights || [];
+    const trends = performance.trends || [];
     
     // Check for team photo preference
     const teamPhotoInsight = insights.find(i => i.insight.toLowerCase().includes("team") || i.insight.toLowerCase().includes("people"));

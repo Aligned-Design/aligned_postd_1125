@@ -54,6 +54,7 @@ router.post("/generate-week", async (req, res, next) => {
             content: item.content,
             scheduledDate: item.scheduledDate,
             scheduledTime: item.scheduledTime,
+            imageUrl: item.imageUrl, // ✅ Include imageUrl from scraped/prioritized images
             brandFidelityScore: item.brandFidelityScore,
           })),
           weeklyFocus,
@@ -139,7 +140,10 @@ router.get("/content-package/:brandId", async (req, res, next) => {
       brandId: packageData.brand_id,
       weeklyFocus: copyData.weeklyFocus || "",
       generatedAt: copyData.generatedAt || packageData.created_at,
-      items: copyData.items || [],
+      items: (copyData.items || []).map((item: any) => ({
+        ...item,
+        imageUrl: item.imageUrl, // ✅ Ensure imageUrl is included in response
+      })),
     };
 
     (res as any).json({
@@ -192,6 +196,7 @@ router.post("/regenerate-week", async (req, res, next) => {
             content: item.content,
             scheduledDate: item.scheduledDate,
             scheduledTime: item.scheduledTime,
+            imageUrl: item.imageUrl, // ✅ Include imageUrl from scraped/prioritized images
             brandFidelityScore: item.brandFidelityScore,
           })),
           weeklyFocus,

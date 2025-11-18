@@ -26,6 +26,7 @@ interface ContentItem {
   scheduledDate: string;
   scheduledTime: string;
   preview?: string;
+  imageUrl?: string; // ✅ Image URL from scraped brand images or prioritized images
 }
 
 export default function Screen8CalendarPreview() {
@@ -58,6 +59,7 @@ export default function Screen8CalendarPreview() {
               scheduledDate: item.scheduledDate,
               scheduledTime: item.scheduledTime,
               preview: item.content?.substring(0, 50) + "..." || item.title,
+              imageUrl: item.imageUrl, // ✅ Include imageUrl from API response
             }));
             setContentItems(items);
             return;
@@ -81,6 +83,7 @@ export default function Screen8CalendarPreview() {
               scheduledDate: item.scheduledDate,
               scheduledTime: item.scheduledTime,
               preview: item.content?.substring(0, 50) + "..." || item.title,
+              imageUrl: item.imageUrl, // ✅ Include imageUrl from localStorage
             }));
             setContentItems(items);
             return;
@@ -286,6 +289,7 @@ export default function Screen8CalendarPreview() {
           scheduledDate: item.scheduledDate,
           scheduledTime: item.scheduledTime,
           preview: item.content?.substring(0, 50) + "..." || item.title,
+          imageUrl: item.imageUrl, // ✅ Include imageUrl from regenerated content
         }));
         setContentItems(items);
         
@@ -398,6 +402,20 @@ export default function Screen8CalendarPreview() {
                         onClick={() => handleItemClick(item.id)}
                         className="p-2 rounded-lg bg-white border border-slate-200 hover:border-indigo-300 hover:shadow-md transition-all cursor-move group"
                       >
+                        {/* ✅ Image Preview (if available) */}
+                        {item.imageUrl && (
+                          <div className="w-full h-20 mb-2 rounded overflow-hidden bg-slate-100">
+                            <img
+                              src={item.imageUrl}
+                              alt={item.title}
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                // Hide image on error (broken URL)
+                                (e.target as HTMLImageElement).style.display = "none";
+                              }}
+                            />
+                          </div>
+                        )}
                         <div className="flex items-center gap-2 mb-1">
                           <span className="text-xs">{getPlatformIcon(item.platform)}</span>
                           <span className="text-xs font-bold text-slate-700 truncate">{item.platform}</span>

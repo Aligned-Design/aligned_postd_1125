@@ -16,7 +16,7 @@ export interface DocPromptContext {
   strategyBrief?: StrategyBrief | null;
   availableImages?: Array<{
     url: string;
-    source: "brand_asset" | "stock_image" | "generic";
+    source: "scrape" | "stock" | "upload" | "generic"; // ✅ Normalized to match image-sourcing.ts
     title?: string;
     alt?: string;
   }>;
@@ -195,8 +195,8 @@ export function buildDocUserPrompt(context: DocPromptContext): string {
   // Image context (if available images are provided)
   if (context.availableImages && context.availableImages.length > 0) {
     prompt += `\n## Available Visual Assets\n`;
-    const brandAssets = context.availableImages.filter(img => img.source === "brand_asset");
-    const stockImages = context.availableImages.filter(img => img.source === "stock_image");
+    const brandAssets = context.availableImages.filter(img => img.source === "scrape" || img.source === "upload");
+    const stockImages = context.availableImages.filter(img => img.source === "stock");
     
     if (brandAssets.length > 0) {
       prompt += `Brand-owned images available: ${brandAssets.length}\n`;

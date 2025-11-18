@@ -123,7 +123,6 @@ import brandMembersRouter from "./routes/brand-members";
 import brandsRouter from "./routes/brands";
 import healthRouter from "./routes/health";
 import crawlerRouter from "./routes/crawler";
-import notificationsRouter from "./routes/notifications";
 import agentsHealthRouter from "./routes/agents-health";
 
 export function createServer() {

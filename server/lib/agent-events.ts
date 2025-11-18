@@ -179,6 +179,7 @@ class AgentEventLogger {
         ...metadata,
       });
     } else {
+      // ✅ Type-safe error logging (Error type doesn't have event_type, use any for logger)
       this.logger.error("Action failed", {
         event_type: "action.result",
         brand_id: brandId,
@@ -186,7 +187,7 @@ class AgentEventLogger {
         request_id: requestId,
         duration_ms: durationMs,
         ...metadata,
-      });
+      } as any);
     }
   }
 

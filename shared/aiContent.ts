@@ -71,7 +71,7 @@ export interface AiDesignVariant {
 }
 
 export interface AiDocGenerationRequest {
-  brandId: string;
+  brandId?: string; // ✅ Made optional to match route implementation
   topic: string;
   platform: string;
   contentType: "caption" | "email" | "blog" | "ad" | "script" | "other";
@@ -83,10 +83,10 @@ export interface AiDocGenerationRequest {
 }
 
 export interface AiDesignGenerationRequest {
-  brandId: string;
+  brandId?: string; // ✅ Made optional to match route implementation
   campaignName?: string;
   platform: string;
-  format: "story" | "feed" | "reel" | "short" | "ad" | "other";
+  format: "story" | "feed" | "reel" | "short" | "ad" | "carousel" | "linkedin_post" | "quote_card" | "announcement" | "other"; // ✅ Added missing format types
   tone?: string;
   visualStyle?: string;
   additionalContext?: string;
@@ -99,6 +99,7 @@ export interface AiDocGenerationResponse {
   request: AiDocGenerationRequest;
   metadata: AiAgentMetadata;
   warnings?: AiAgentWarning[];
+  status?: AiAgentResponseStatus; // ✅ Added status property
 }
 
 export interface AiDesignGenerationResponse {
@@ -107,5 +108,6 @@ export interface AiDesignGenerationResponse {
   request: AiDesignGenerationRequest;
   metadata: AiAgentMetadata;
   warnings?: AiAgentWarning[];
+  status?: AiAgentResponseStatus; // ✅ Added status property
 }
 

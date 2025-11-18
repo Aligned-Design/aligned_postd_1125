@@ -12,18 +12,19 @@ import { auditLogs as dbAuditLogs } from "./dbClient";
  * Helper to convert database record to AuditLog format
  */
 function dbRecordToAuditLog(record: unknown): AuditLog {
+  const r = record as any; // ✅ Type assertion for Supabase record
   return {
-    id: record.id,
-    brandId: record.brand_id,
-    postId: record.post_id,
-    actorId: record.actor_id,
-    actorEmail: record.actor_email,
-    action: record.action as AuditAction,
-    metadata: record.metadata || {},
-    ipAddress: record.ip_address,
-    userAgent: record.user_agent,
-    createdAt: record.created_at,
-    updatedAt: record.updated_at,
+    id: r.id,
+    brandId: r.brand_id,
+    postId: r.post_id,
+    actorId: r.actor_id,
+    actorEmail: r.actor_email,
+    action: r.action as AuditAction,
+    metadata: r.metadata || {},
+    ipAddress: r.ip_address,
+    userAgent: r.user_agent,
+    createdAt: r.created_at,
+    updatedAt: r.updated_at,
   };
 }
 

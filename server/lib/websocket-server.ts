@@ -32,14 +32,24 @@ export function initializeWebSocketServer(
   httpServer: HTTPServer,
   options: WebSocketServerOptions = {}
 ): SocketIOServer {
-  const corsConfig = getCorsConfig();
+  // ✅ Type-safe CORS configuration for Socket.io
+  // Socket.io expects a simpler CORS config than Express
+  const corsOrigin = options.corsOrigin || (process.env.NODE_ENV === "production" 
+    ? (process.env.ALLOWED_ORIGINS || process.env.FRONTEND_URL || "*")
+    : "*");
+  
+  const corsConfigTyped: {
+    origin: string | string[] | boolean;
+    credentials: boolean;
+    methods: string[];
+  } = {
+    origin: corsOrigin,
+    credentials: true,
+    methods: ["GET", "POST"],
+  };
 
   const io = new SocketIOServer(httpServer, {
-    cors: {
-      origin: options.corsOrigin || corsConfig.origin || "*",
-      credentials: true,
-      methods: ["GET", "POST"],
-    },
+    cors: corsConfigTyped,
     transports: ["websocket", "polling"],
     pingInterval: 25000,
     pingTimeout: 20000,

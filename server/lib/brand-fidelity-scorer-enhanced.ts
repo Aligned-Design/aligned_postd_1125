@@ -229,8 +229,9 @@ function calculateToneAlignmentMatch(
  * Fallback keyword-based tone alignment
  */
 function calculateKeywordToneAlignment(brandKit: unknown): number {
-  const toneKeywords: string[] = (brandKit && brandKit.tone_keywords) || [];
-  const personality: string[] = (brandKit && brandKit.brandPersonality) || [];
+  const bk = brandKit as any; // ✅ Type assertion for Supabase record
+  const toneKeywords: string[] = (bk?.tone_keywords) || [];
+  const personality: string[] = (bk?.brandPersonality) || [];
 
   if (toneKeywords.length === 0 && personality.length === 0) {
     return 0.5; // Neutral if no tone guidelines
@@ -244,12 +245,14 @@ function calculateKeywordToneAlignment(brandKit: unknown): number {
  * Terminology match scoring
  */
 function calculateTerminologyMatch(content: unknown, brandKit: unknown): number {
+  const bk = brandKit as any; // ✅ Type assertion for Supabase record
+  const ct = content as any; // ✅ Type assertion for content object
   const preferredTerms: string[] =
-    brandKit && brandKit.commonPhrases
-      ? (brandKit.commonPhrases as string).split(",")
+    bk?.commonPhrases
+      ? (bk.commonPhrases as string).split(",")
       : [];
   const contentLower =
-    `${content?.body || ""} ${content?.cta || ""}`.toLowerCase();
+    `${ct?.body || ""} ${ct?.cta || ""}`.toLowerCase();
 
   if (preferredTerms.length === 0) {
     return 0.7; // Default if no terminology specified
@@ -266,8 +269,10 @@ function calculateTerminologyMatch(content: unknown, brandKit: unknown): number 
  * Compliance scoring
  */
 function calculateCompliance(content: unknown, brandKit: unknown): number {
-  const contentLower = `${content?.body || ""}`.toLowerCase();
-  const bannedPhrases: string[] = (brandKit && brandKit.banned_phrases) || [];
+  const ct = content as any; // ✅ Type assertion for content object
+  const bk = brandKit as any; // ✅ Type assertion for Supabase record
+  const contentLower = `${ct?.body || ""}`.toLowerCase();
+  const bannedPhrases: string[] = (bk?.banned_phrases) || [];
 
   // Check for banned phrases
   const hasBanned = bannedPhrases.some((phrase: string) =>
@@ -280,7 +285,7 @@ function calculateCompliance(content: unknown, brandKit: unknown): number {
 
   // Check for required disclaimers
   const requiredDisclaimers: string[] =
-    (brandKit && brandKit.required_disclaimers) || [];
+    (bk?.required_disclaimers) || [];
   const hasRequired = requiredDisclaimers.every((disclaimer: string) =>
     contentLower.includes(disclaimer.toLowerCase()),
   );
@@ -292,11 +297,12 @@ function calculateCompliance(content: unknown, brandKit: unknown): number {
  * CTA fit scoring
  */
 function calculateCTAFit(content: unknown): number {
-  if (!content?.cta || content.cta.length === 0) {
+  const ct = content as any; // ✅ Type assertion for content object
+  if (!ct?.cta || ct.cta.length === 0) {
     return 0.2; // Poor score if no CTA
   }
 
-  const cta = (content.cta || "").toLowerCase();
+  const cta = (ct.cta || "").toLowerCase();
   const ctaKeywords = [
     "learn",
     "discover",
@@ -319,10 +325,11 @@ function calculateCTAFit(content: unknown): number {
  * Platform fit scoring
  */
 function calculatePlatformFit(content: unknown): number {
-  const platform = (content?.platform || "").toLowerCase();
+  const ct = content as any; // ✅ Type assertion for content object
+  const platform = (ct?.platform || "").toLowerCase();
 
   // Platform-specific length checks
-  const contentLength = (content?.body || "").length;
+  const contentLength = (ct?.body || "").length;
 
   switch (platform) {
     case "twitter":

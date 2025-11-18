@@ -266,7 +266,7 @@ class AIMetricsService {
 
   private getEmptySnapshot(agentType: string): AIMetricsSnapshot {
     return {
-      agentType: agentType as unknown,
+      agentType: agentType as "all" | "advisor" | "doc" | "design", // ✅ Proper type assertion
       timeRange: {
         start: new Date().toISOString(),
         end: new Date().toISOString()

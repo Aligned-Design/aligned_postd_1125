@@ -103,7 +103,7 @@ async function generateContentItem(
   const imageSource = await getPrioritizedImage(brandId, "image");
   if (imageSource) {
     userPrompt += `\n## Available Visual Assets\n`;
-    userPrompt += `The brand has ${imageSource.source === "brand_asset" ? "brand-owned" : "approved stock"} images available.\n`;
+    userPrompt += `The brand has ${imageSource.source === "scrape" || imageSource.source === "upload" ? "brand-owned" : "approved stock"} images available.\n`;
     if (imageSource.metadata?.alt) {
       userPrompt += `Recommended image: ${imageSource.metadata.alt}\n`;
     }

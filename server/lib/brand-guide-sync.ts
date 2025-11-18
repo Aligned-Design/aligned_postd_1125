@@ -6,7 +6,7 @@
  */
 
 import { supabase } from "./supabase";
-import type { BrandGuide } from "@shared/brandGuide";
+import type { BrandGuide } from "@shared/brand-guide"; // ✅ Fixed import path
 
 /**
  * Convert Brand Snapshot (onboarding format) to Brand Guide format
@@ -165,7 +165,7 @@ export async function saveBrandGuideFromOnboarding(
       preferredPlatforms: brandGuide.contentRules?.preferredPlatforms || [],
       preferredPostTypes: brandGuide.contentRules?.preferredPostTypes || [],
       brandPhrases: brandGuide.contentRules?.brandPhrases || [],
-      formalityLevel: brandGuide.contentRules?.formalityLevel,
+      contentFormalityLevel: brandGuide.contentRules?.formalityLevel, // ✅ Renamed to avoid duplicate with voiceAndTone.formalityLevel
       neverDo: brandGuide.contentRules?.neverDo || [],
       guardrails: brandGuide.contentRules?.guardrails || [],
       approvedAssets: brandGuide.approvedAssets || {

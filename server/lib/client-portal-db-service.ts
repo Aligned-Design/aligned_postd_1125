@@ -584,14 +584,17 @@ export class ClientPortalDBService {
       );
     }
 
-    return (data || []).map((item: unknown) => ({
-      id: item.id,
-      filename: item.filename,
-      mimeType: item.mime_type,
-      fileSize: item.file_size,
-      path: item.path,
-      uploadedAt: item.created_at,
-    }));
+    return (data || []).map((item: unknown) => {
+      const i = item as any; // ✅ Type assertion for Supabase record
+      return {
+        id: i.id,
+        filename: i.filename,
+        mimeType: i.mime_type,
+        fileSize: i.file_size,
+        path: i.path,
+        uploadedAt: i.created_at,
+      };
+    });
   }
 
   /**
@@ -772,17 +775,20 @@ export class ClientPortalDBService {
       );
     }
 
-    return (data || []).map((item: unknown) => ({
-      id: item.id,
-      token: item.token,
-      name: item.name,
-      description: item.description || undefined,
-      expiresAt: item.expires_at || undefined,
-      viewCount: item.view_count || 0,
-      lastAccessedAt: item.last_accessed_at || undefined,
-      createdAt: item.created_at,
-      revoked: !!item.revoked_at,
-    }));
+    return (data || []).map((item: unknown) => {
+      const i = item as any; // ✅ Type assertion for Supabase record
+      return {
+        id: i.id,
+        token: i.token,
+        name: i.name,
+        description: i.description || undefined,
+        expiresAt: i.expires_at || undefined,
+        viewCount: i.view_count || 0,
+        lastAccessedAt: i.last_accessed_at || undefined,
+        createdAt: i.created_at,
+        revoked: !!i.revoked_at,
+      };
+    });
   }
 
   /**

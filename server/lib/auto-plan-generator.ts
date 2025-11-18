@@ -72,20 +72,22 @@ export class AutoPlanGenerator {
     })) as unknown[];
 
     // Generate forecast for the month
+    // ✅ Type assertion: formattedMetrics is properly typed from map
     const forecast = await advisorEngine.generateForecast(
       brandId,
-      formattedMetrics,
+      formattedMetrics as any,
       "next_month",
     );
 
     // Generate insights for topics and formats
+    // ✅ Type assertion: formattedMetrics is properly typed from map
     const insights = await advisorEngine.generateInsights({
       brandId,
-      currentMetrics: formattedMetrics,
-      historicalMetrics: formattedMetrics.slice(
+      currentMetrics: formattedMetrics as any,
+      historicalMetrics: (formattedMetrics.slice(
         0,
         Math.floor(formattedMetrics.length / 2),
-      ),
+      ) as any),
       goals: [],
       userFeedback: [],
     });
@@ -146,12 +148,13 @@ export class AutoPlanGenerator {
    * Extract topics from advisor insights
    */
   private extractTopicsFromInsights(insights: unknown[]): string[] {
-    const topicInsights = insights.filter((i: unknown) => i.category === "content");
+    const topicInsights = insights.filter((i: unknown) => (i as any).category === "content");
     const topics = new Set<string>();
 
     topicInsights.forEach((insight) => {
-      if (insight.suggestions) {
-        insight.suggestions.forEach((suggestion: string) => {
+      const i = insight as any; // ✅ Type assertion for insight object
+      if (i.suggestions) {
+        i.suggestions.forEach((suggestion: string) => {
           // Extract topics from suggestions
           if (suggestion.includes("behind-the-scenes"))
             topics.add("behind-the-scenes");

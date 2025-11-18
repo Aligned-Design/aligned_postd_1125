@@ -55,6 +55,50 @@ const PLATFORM_LIMITS: Record<Platform, PlatformLimits> = {
     supportedFormats: ['jpg', 'jpeg', 'png', 'mp4'],
     schedulingEnabled: true,
     maxScheduleDays: 30
+  },
+  x: { // ✅ Added X (Twitter) platform limits
+    platform: 'x',
+    textMaxLength: 280,
+    imagesMax: 4,
+    videosMax: 1,
+    hashtagsMax: 5,
+    supportedAspectRatios: ['16:9', '1:1', '2:1'],
+    supportedFormats: ['jpg', 'jpeg', 'png', 'gif', 'mp4'],
+    schedulingEnabled: true,
+    maxScheduleDays: 365
+  },
+  tiktok: { // ✅ Added TikTok platform limits
+    platform: 'tiktok',
+    textMaxLength: 2200,
+    imagesMax: 0,
+    videosMax: 1,
+    hashtagsMax: 100,
+    supportedAspectRatios: ['9:16'],
+    supportedFormats: ['mp4'],
+    schedulingEnabled: true,
+    maxScheduleDays: 10
+  },
+  threads: { // ✅ Added Threads platform limits
+    platform: 'threads',
+    textMaxLength: 500,
+    imagesMax: 10,
+    videosMax: 0,
+    hashtagsMax: 30,
+    supportedAspectRatios: ['1:1', '4:5', '9:16'],
+    supportedFormats: ['jpg', 'jpeg', 'png'],
+    schedulingEnabled: true,
+    maxScheduleDays: 75
+  },
+  canva: { // ✅ Added Canva platform limits
+    platform: 'canva',
+    textMaxLength: 5000,
+    imagesMax: 20,
+    videosMax: 1,
+    hashtagsMax: 0,
+    supportedAspectRatios: ['16:9', '1:1', '4:5', '9:16'],
+    supportedFormats: ['jpg', 'jpeg', 'png', 'mp4'],
+    schedulingEnabled: false,
+    maxScheduleDays: 0
   }
 };
 

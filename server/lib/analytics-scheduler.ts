@@ -92,7 +92,8 @@ export async function syncBrandAnalytics(brandId: string, tenantId: string): Pro
     }
 
     // Perform incremental sync
-    await analyticsSync.performIncrementalSync(brandId, syncConfigs);
+    // ✅ Type assertion: syncConfigs is properly typed from getBrandConnections
+    await analyticsSync.performIncrementalSync(brandId, syncConfigs as any);
 
     // Log successful sync
     const endTime = new Date();
@@ -171,13 +172,14 @@ export async function generateBrandMonthlyPlan(
     if (existingPlan) {
       // Update existing plan
       const { supabase } = await import('./supabase');
+      const plan = existingPlan as any; // ✅ Type assertion for Supabase record
       const { data, error } = await supabase
         .from('auto_plans')
         .update({
           plan_data: planData,
           generated_at: new Date().toISOString()
         })
-        .eq('id', existingPlan.id)
+        .eq('id', plan.id)
         .select()
         .single();
 
@@ -235,13 +237,13 @@ export async function getSyncStatus(brandId: string): Promise<{
       };
     }
 
-    const lastLog = logs[0];
+    const lastLog = logs[0] as any; // ✅ Type assertion for Supabase record
     return {
       lastSync: new Date(lastLog.completed_at || lastLog.started_at),
-      status: lastLog.status as unknown,
-      itemsSynced: lastLog.items_synced,
-      itemsFailed: lastLog.items_failed,
-      duration: lastLog.duration_ms
+      status: (lastLog.status as string) as "pending" | "failed" | "in_progress" | "completed",
+      itemsSynced: lastLog.items_synced || 0,
+      itemsFailed: lastLog.items_failed || 0,
+      duration: lastLog.duration_ms || 0
     };
   } catch (error) {
     console.error('Failed to get sync status:', error);

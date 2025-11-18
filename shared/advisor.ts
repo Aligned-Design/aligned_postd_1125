@@ -41,10 +41,11 @@ export interface AdvisorResponse {
       provider?: "openai" | "claude";
     retryAttempted?: boolean;
   };
+  status?: "ok" | "partial" | "error"; // ✅ Added status property
 }
 
 export interface AdvisorRequest {
-  brandId: string;
+  brandId?: string; // ✅ Made optional to match route implementation
   timeRange?: "7d" | "30d" | "90d" | "all";
   period?: string; // Alternative to timeRange
   metrics?: {

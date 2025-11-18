@@ -429,14 +429,17 @@ export class ApprovalsDBService {
       );
     }
 
-    return (data || []).map((item: unknown) => ({
-      id: item.id,
-      action: item.action,
-      userId: item.user_id,
-      userEmail: item.user_email,
-      timestamp: item.created_at,
-      details: item.details || {},
-    }));
+    return (data || []).map((item: unknown) => {
+      const i = item as any; // ✅ Type assertion for Supabase record
+      return {
+        id: i.id,
+        action: i.action,
+        userId: i.user_id,
+        userEmail: i.user_email,
+        timestamp: i.created_at,
+        details: i.details || {},
+      };
+    });
   }
 
   /**

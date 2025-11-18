@@ -364,7 +364,8 @@ function generateOAuthUrl(type: IntegrationType, brandId: string, redirectUrl?: 
     zapier: 'https://zapier.com/oauth/authorize',
     asana: 'https://app.asana.com/-/oauth_authorize',
     trello: 'https://trello.com/app-key',
-    salesforce: 'https://login.salesforce.com/services/oauth2/authorize'
+    salesforce: 'https://login.salesforce.com/services/oauth2/authorize',
+    canva: 'https://www.canva.com/api/oauth/authorize' // ✅ Added missing canva entry
   };
 
   const scopes: Record<IntegrationType, string> = {
@@ -375,7 +376,8 @@ function generateOAuthUrl(type: IntegrationType, brandId: string, redirectUrl?: 
     zapier: 'user:read',
     asana: 'default',
     trello: 'read,write',
-    salesforce: 'full'
+    salesforce: 'full',
+    canva: 'design:read,design:write' // ✅ Added missing canva entry
   };
 
   // Map integration types to correct environment variable names
