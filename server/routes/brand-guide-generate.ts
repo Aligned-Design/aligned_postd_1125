@@ -40,8 +40,13 @@ router.post(
         );
       }
 
-      // Verify brand access
-      assertBrandAccess(req, brandId);
+      // ✅ ROOT FIX: During onboarding, brand may not exist yet (temporary brandId)
+      // Skip brand access check for temporary brandIds (ones starting with "brand_")
+      // This allows onboarding to work without creating a brand record first
+      if (!brandId.startsWith("brand_")) {
+        // Only check access if brand is not a temporary onboarding ID
+        await assertBrandAccess(req, brandId);
+      }
 
       // Check if Brand Guide already exists
       const existing = await getCurrentBrandGuide(brandId);

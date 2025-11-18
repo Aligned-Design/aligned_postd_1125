@@ -13,6 +13,7 @@ import { requireScope } from "../middleware/requireScope";
 import { assertBrandAccess } from "../lib/brand-access";
 import { logger } from "../lib/logger";
 import { runOnboardingWorkflow } from "../lib/onboarding-orchestrator";
+import { transferScrapedImages } from "../lib/scraped-images-service";
 
 const router = Router();
 
@@ -131,6 +132,31 @@ router.post(
         brandId: brandData.id,
         duration: Date.now() - startTime,
       });
+
+      // ✅ ROOT FIX: Transfer scraped images from temporary onboarding brandId to real brandId
+      // Check if request includes temporary brandId from onboarding
+      const tempBrandId = req.body.tempBrandId || req.body.onboardingBrandId;
+      if (tempBrandId && tempBrandId.startsWith("brand_") && tempBrandId !== brandData.id) {
+        try {
+          const transferredCount = await transferScrapedImages(tempBrandId, brandData.id);
+          if (transferredCount > 0) {
+            logger.info("Transferred scraped images from onboarding", {
+              requestId,
+              fromBrandId: tempBrandId,
+              toBrandId: brandData.id,
+              imageCount: transferredCount,
+            });
+          }
+        } catch (transferError) {
+          logger.warn("Failed to transfer scraped images from onboarding", {
+            requestId,
+            fromBrandId: tempBrandId,
+            toBrandId: brandData.id,
+            error: transferError instanceof Error ? transferError.message : String(transferError),
+          });
+          // Don't fail brand creation if transfer fails
+        }
+      }
 
       // Automatically trigger onboarding workflow if enabled
       if (autoRunOnboarding && website_url) {

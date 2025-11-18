@@ -121,6 +121,14 @@ export default function Screen3AiScrape() {
     if (!user?.website) return;
 
     try {
+      // ✅ ROOT FIX: Use consistent brandId throughout onboarding
+      // Get existing brandId from localStorage or create new one
+      let brandId = localStorage.getItem("aligned_brand_id");
+      if (!brandId) {
+        brandId = `brand_${Date.now()}`;
+        localStorage.setItem("aligned_brand_id", brandId);
+      }
+
       // Call the backend crawler endpoint (sync mode for onboarding)
       const response = await fetch(`/api/crawl/start`, {
         method: "POST",
@@ -129,7 +137,7 @@ export default function Screen3AiScrape() {
         },
         body: JSON.stringify({
           url: user.website,
-          brand_id: `brand_${Date.now()}`, // Temporary ID
+          brand_id: brandId, // ✅ Use consistent brandId
           sync: true, // Use sync mode for immediate results
         }),
       });
@@ -182,12 +190,11 @@ export default function Screen3AiScrape() {
 
       setBrandSnapshot(brandSnapshot);
       
-      // Save to Supabase as Brand Guide
-      const brandId = `brand_${Date.now()}`;
+      // ✅ ROOT FIX: Use the SAME brandId that was used for crawling
+      // This ensures scraped images are associated with the same brandId
       const brandName = user.businessName || extractBrandNameFromUrl(user.website);
       
-      // Store brandId for later use
-      localStorage.setItem("aligned_brand_id", brandId);
+      // brandId is already set from above and stored in localStorage
       
       // Save Brand Guide to Supabase
       try {

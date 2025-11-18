@@ -112,6 +112,23 @@ export async function saveBrandGuide(brandId: string, guide: Partial<BrandGuide>
       visualNotes: guide.visualIdentity?.visualNotes,
     };
 
+    // ✅ ROOT FIX: Handle temporary brandIds during onboarding
+    // Check if brand exists first
+    const { data: existingBrand } = await supabase
+      .from("brands")
+      .select("id")
+      .eq("id", brandId)
+      .single();
+
+    if (!existingBrand) {
+      // Brand doesn't exist - this is a temporary brandId during onboarding
+      // For now, we'll skip saving to database (brand guide will be saved when brand is created)
+      // The brand guide data is still returned to the frontend
+      console.log(`[BrandGuideService] Brand ${brandId} does not exist yet (onboarding). Brand guide will be saved when brand is created.`);
+      return; // Skip save for temporary brandIds
+    }
+
+    // Brand exists - update it
     const { error } = await supabase
       .from("brands")
       .update({

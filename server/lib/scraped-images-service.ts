@@ -37,9 +37,13 @@ export async function persistScrapedImages(
     return [];
   }
 
-  // Get tenant_id from brand if not provided
+  // ✅ ROOT FIX: tenantId is now required - caller must provide it
+  // During onboarding, tenantId comes from user's workspace/auth
+  // If brand exists, we can look it up, but during onboarding brand may not exist yet
   let finalTenantId = tenantId;
+  
   if (!finalTenantId) {
+    // Try to get from brand (only works if brand already exists)
     const { data: brand } = await supabase
       .from("brands")
       .select("tenant_id")
@@ -49,8 +53,9 @@ export async function persistScrapedImages(
     if (brand && (brand as any).tenant_id) {
       finalTenantId = (brand as any).tenant_id;
     } else {
-      // Fallback: use a default tenant or skip persistence
-      console.warn(`[ScrapedImages] No tenant_id found for brand ${brandId}, skipping persistence`);
+      // ✅ CRITICAL: During onboarding, brand may not exist yet
+      // Caller MUST provide tenantId from user's workspace/auth
+      console.error(`[ScrapedImages] CRITICAL: No tenant_id provided and brand ${brandId} not found. Images cannot be persisted. This should not happen - tenantId must be passed from request.`);
       return [];
     }
   }
@@ -118,6 +123,80 @@ export async function persistScrapedImages(
 }
 
 /**
+ * Transfer scraped images from temporary brandId to real brandId
+ * 
+ * This is used during onboarding when:
+ * 1. Images are scraped with temporary brandId (e.g., brand_1234567890)
+ * 2. Real brand is created with UUID
+ * 3. Images need to be transferred to the real brandId
+ * 
+ * @param fromBrandId - Temporary brandId (source)
+ * @param toBrandId - Real brandId (destination)
+ * @returns Number of images transferred
+ */
+export async function transferScrapedImages(
+  fromBrandId: string,
+  toBrandId: string
+): Promise<number> {
+  if (!fromBrandId || !toBrandId || fromBrandId === toBrandId) {
+    return 0;
+  }
+
+  try {
+    // Get all scraped images from the temporary brandId
+    const scrapedImages = await getScrapedImages(fromBrandId);
+    
+    if (scrapedImages.length === 0) {
+      console.log(`[ScrapedImages] No images to transfer from ${fromBrandId} to ${toBrandId}`);
+      return 0;
+    }
+
+    // Get tenantId from the destination brand
+    const { data: brand } = await supabase
+      .from("brands")
+      .select("tenant_id")
+      .eq("id", toBrandId)
+      .single();
+
+    if (!brand || !(brand as any).tenant_id) {
+      console.error(`[ScrapedImages] Cannot transfer: destination brand ${toBrandId} not found or has no tenant_id`);
+      return 0;
+    }
+
+    const tenantId = (brand as any).tenant_id;
+    let transferredCount = 0;
+
+    // Update each image's brand_id
+    for (const image of scrapedImages) {
+      try {
+        const { error } = await supabase
+          .from("media_assets")
+          .update({
+            brand_id: toBrandId,
+            tenant_id: tenantId,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", image.id);
+
+        if (error) {
+          console.warn(`[ScrapedImages] Failed to transfer image ${image.id}:`, error);
+        } else {
+          transferredCount++;
+        }
+      } catch (error) {
+        console.warn(`[ScrapedImages] Error transferring image ${image.id}:`, error);
+      }
+    }
+
+    console.log(`[ScrapedImages] Transferred ${transferredCount}/${scrapedImages.length} images from ${fromBrandId} to ${toBrandId}`);
+    return transferredCount;
+  } catch (error) {
+    console.error(`[ScrapedImages] Error transferring images from ${fromBrandId} to ${toBrandId}:`, error);
+    return 0;
+  }
+}
+
+/**
  * Get scraped images for a brand (source='scrape')
  */
 export async function getScrapedImages(
@@ -144,10 +223,18 @@ export async function getScrapedImages(
     const { data, error } = await query
       .order("created_at", { ascending: false });
 
-    if (error || !data) {
+    if (error) {
+      console.error("[ScrapedImages] Error querying scraped images:", error);
       return [];
     }
 
+    if (!data || data.length === 0) {
+      console.log(`[ScrapedImages] No scraped images found for brandId: ${brandId}${role ? `, role: ${role}` : ""} (query returned empty)`);
+      return [];
+    }
+
+    console.log(`[ScrapedImages] Found ${data.length} scraped images for brandId: ${brandId}${role ? `, role: ${role}` : ""}`);
+    
     return data.map((asset) => ({
       id: asset.id,
       url: asset.url,

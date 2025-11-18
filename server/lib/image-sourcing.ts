@@ -367,20 +367,29 @@ async function getScrapedBrandAssets(
   metadata?: Record<string, unknown>;
 }>> {
   try {
+    // ✅ ROOT FIX: Query for scraped images with proper JSONB filtering
     const { data, error } = await supabase
       .from("media_assets")
       .select("id, url, filename, metadata")
       .eq("brand_id", brandId)
       .eq("status", "active")
-      .eq("metadata->>source", "scrape")
+      .eq("metadata->>source", "scrape") // JSONB path query
       .in("category", ["images", "graphics", "logos"])
       .order("created_at", { ascending: false })
       .limit(limit);
 
-    if (error || !data) {
+    if (error) {
+      console.error("[ImageSourcing] Error querying scraped brand assets:", error);
       return [];
     }
 
+    if (!data || data.length === 0) {
+      console.log(`[ImageSourcing] No scraped images found for brandId: ${brandId} (query returned empty)`);
+      return [];
+    }
+
+    console.log(`[ImageSourcing] Found ${data.length} scraped images for brandId: ${brandId}`);
+    
     return data.map((asset) => ({
       id: asset.id,
       url: asset.url,

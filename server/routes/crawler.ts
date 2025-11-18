@@ -87,7 +87,36 @@ router.post("/crawl/start", async (req, res) => {
     // SYNC MODE: For onboarding, run crawl immediately and return results
     if (isSync) {
       try {
-        const result = await runCrawlJobSync(finalUrl, finalBrandId);
+        // ✅ ROOT FIX: Get workspaceId/tenantId from user or request body
+        // This allows us to persist images even if brand doesn't exist yet
+        let tenantId: string | null = null;
+        const user = (req as any).user;
+        const auth = (req as any).auth;
+        
+        // Try to get tenantId from multiple sources
+        if (workspaceId && workspaceId !== "unknown") {
+          tenantId = workspaceId;
+        } else if (user?.workspaceId) {
+          tenantId = user.workspaceId;
+        } else if (auth?.workspaceId) {
+          tenantId = auth.workspaceId;
+        } else if (user?.tenantId) {
+          tenantId = user.tenantId;
+        } else if (auth?.tenantId) {
+          tenantId = auth.tenantId;
+        } else {
+          // Try to get from user's workspace via Supabase
+          if (user?.id) {
+            const { data: userData } = await supabase
+              .from("users")
+              .select("workspace_id, tenant_id")
+              .eq("id", user.id)
+              .single();
+            tenantId = (userData as any)?.workspace_id || (userData as any)?.tenant_id || null;
+          }
+        }
+        
+        const result = await runCrawlJobSync(finalUrl, finalBrandId, tenantId);
         
         // ✅ LOGGING: Log crawler result (for Vercel server logs)
         const images = result.brandKit?.images || [];
@@ -98,6 +127,7 @@ router.post("/crawl/start", async (req, res) => {
           hasLogo: !!logo,
           colors: colors ? Object.keys(colors).length : 0,
           brandId: finalBrandId,
+          tenantId: tenantId || "unknown",
         });
         
         return res.json({
@@ -173,8 +203,12 @@ router.post("/crawl/start", async (req, res) => {
 
 /**
  * Sync crawl job for onboarding (runs immediately, returns results)
+ * 
+ * @param url - Website URL to crawl
+ * @param brandId - Brand ID (may be temporary during onboarding)
+ * @param tenantId - Tenant/Workspace ID (required for image persistence)
  */
-async function runCrawlJobSync(url: string, brandId: string): Promise<{ brandKit: any }> {
+async function runCrawlJobSync(url: string, brandId: string, tenantId: string | null = null): Promise<{ brandKit: any }> {
   // TODO: Consider increasing timeout to 30-45s for JS-heavy sites if needed
   const CRAWL_TIMEOUT_MS = 25000; // 25 second timeout for onboarding
 
@@ -230,29 +264,38 @@ async function runCrawlJobSync(url: string, brandId: string): Promise<{ brandKit
         // ✅ PERSIST SCRAPED IMAGES: Save to media_assets table with source='scrape'
         let persistedImageCount = 0;
         let logoFound = false;
-        let workspaceId = "unknown";
+        let workspaceId = tenantId || "unknown";
+        
         if (allImages.length > 0 && brandId) {
           try {
-            // Get tenant_id from brand if available (for onboarding, brand might not exist yet)
-            let tenantId: string | null = null;
-            if (!brandId.startsWith("brand_")) {
+            // ✅ ROOT FIX: Use tenantId passed as parameter (from request body/auth)
+            // If not provided, try to get from brand (only if brand exists)
+            let finalTenantId = tenantId;
+            if (!finalTenantId && !brandId.startsWith("brand_")) {
+              // Brand exists, try to get tenant_id from it
               const { data: brand } = await supabase
                 .from("brands")
                 .select("tenant_id")
                 .eq("id", brandId)
                 .single();
-              tenantId = (brand as any)?.tenant_id || null;
-              workspaceId = tenantId || "unknown";
+              finalTenantId = (brand as any)?.tenant_id || null;
+              workspaceId = finalTenantId || "unknown";
             }
             
-            const persistedIds = await persistScrapedImages(brandId, tenantId, allImages);
-            persistedImageCount = persistedIds.length;
-            logoFound = !!logoImage;
-            
-            // ✅ LOGGING: Log scrape results (for Vercel server logs)
-            console.log(`[Crawler] Scrape result: { workspaceId: ${workspaceId}, brandId: ${brandId}, pages: ${crawlResults.length}, images: ${allImages.length}, persisted: ${persistedImageCount}, logoFound: ${logoFound} }`);
+            // ✅ CRITICAL: Only persist if we have tenantId
+            // During onboarding, tenantId should come from request body/auth
+            if (finalTenantId) {
+              const persistedIds = await persistScrapedImages(brandId, finalTenantId, allImages);
+              persistedImageCount = persistedIds.length;
+              logoFound = !!logoImage;
+              
+              // ✅ LOGGING: Log scrape results (for Vercel server logs)
+              console.log(`[Crawler] Scrape result: { workspaceId: ${workspaceId}, brandId: ${brandId}, pages: ${crawlResults.length}, images: ${allImages.length}, persisted: ${persistedImageCount}, logoFound: ${logoFound} }`);
+            } else {
+              console.warn(`[Crawler] Cannot persist images: no tenantId for brandId ${brandId}. Images will be in response but not saved to database.`);
+            }
           } catch (persistError) {
-            console.warn("[Crawler] Failed to persist scraped images (non-critical):", persistError);
+            console.error("[Crawler] Failed to persist scraped images:", persistError);
             // Continue anyway - images are still in brandKit response
           }
         }
