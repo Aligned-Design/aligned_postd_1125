@@ -14,6 +14,7 @@ import { BrandProvider } from "@/contexts/BrandContext";
 import MilestoneCelebrator from "@/components/MilestoneCelebrator";
 import Index from "./pages/Index";
 import Onboarding from "./pages/Onboarding";
+import Screen0Login from "./pages/onboarding/Screen0Login";
 import NotFound from "./pages/NotFound";
 import { Navigate, useNavigate } from "react-router-dom";
 import { PostdLayout } from "./app/(postd)/layout";
