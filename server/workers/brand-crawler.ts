@@ -8,11 +8,35 @@
  * - AI-generated summaries and embeddings
  */
 
-import { chromium, Browser, Page } from "playwright";
+import { chromium as playwrightChromium, Browser, Page } from "playwright";
+import vercelChromium from "@sparticuz/chromium";
+import playwrightCore from "playwright-core";
 import { Vibrant } from "node-vibrant/node";
 import robotsParser from "robots-parser";
 import OpenAI from "openai";
 import crypto from "crypto";
+
+// Detect if running on Vercel
+const isVercel = !!process.env.VERCEL || !!process.env.AWS_LAMBDA_FUNCTION_NAME;
+
+/**
+ * Launch browser with Vercel-compatible setup
+ */
+async function launchBrowser(): Promise<Browser> {
+  if (isVercel) {
+    const chromiumPath = await vercelChromium.executablePath();
+    return await playwrightCore.chromium.launch({
+      executablePath: chromiumPath,
+      args: [...vercelChromium.args, "--no-sandbox", "--disable-setuid-sandbox"],
+      headless: true,
+    });
+  } else {
+    return await playwrightChromium.launch({
+      headless: true,
+      args: ["--no-sandbox", "--disable-setuid-sandbox"],
+    });
+  }
+}
 
 // Environment configuration
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
@@ -179,10 +203,7 @@ export async function crawlWebsite(startUrl: string): Promise<CrawlResult[]> {
   let browser: Browser | null = null;
 
   try {
-    browser = await chromium.launch({
-      headless: true,
-      args: ["--no-sandbox", "--disable-setuid-sandbox"],
-    });
+    browser = await launchBrowser();
 
     while (queue.length > 0 && results.length < CRAWL_MAX_PAGES) {
       const { url, depth } = queue.shift()!;
@@ -495,7 +516,7 @@ export async function extractColors(url: string): Promise<ColorPalette> {
   let browser: Browser | null = null;
 
   try {
-    browser = await chromium.launch({ headless: true });
+    browser = await launchBrowser();
     const page = await browser.newPage({ userAgent: CRAWL_USER_AGENT });
     await page.goto(url, {
       timeout: CRAWL_TIMEOUT_MS,

@@ -39,10 +39,19 @@ const crawlJobs = new Map<string, unknown>();
  */
 router.post("/crawl/start", async (req, res) => {
   try {
-    const { brand_id, url, sync } = req.body;
+    const { brand_id, url, sync, websiteUrl, workspaceId } = req.body;
     const isSync = sync === true || req.query.sync === "true";
+    const finalUrl = url || websiteUrl;
 
-    if (!url) {
+    // ✅ LOGGING: Log crawler start (for Vercel server logs)
+    console.log("[CRAWLER] Start", { 
+      websiteUrl: finalUrl, 
+      brandId: brand_id || "unknown",
+      workspaceId: workspaceId || "unknown",
+      sync: isSync 
+    });
+
+    if (!finalUrl) {
       throw new AppError(
         ErrorCode.MISSING_REQUIRED_FIELD,
         "url is required",
@@ -78,7 +87,19 @@ router.post("/crawl/start", async (req, res) => {
     // SYNC MODE: For onboarding, run crawl immediately and return results
     if (isSync) {
       try {
-        const result = await runCrawlJobSync(url, finalBrandId);
+        const result = await runCrawlJobSync(finalUrl, finalBrandId);
+        
+        // ✅ LOGGING: Log crawler result (for Vercel server logs)
+        const images = result.brandKit?.images || [];
+        const logo = result.brandKit?.logoUrl;
+        const colors = result.brandKit?.colors;
+        console.log("[CRAWLER] Result", {
+          images: images.length,
+          hasLogo: !!logo,
+          colors: colors ? Object.keys(colors).length : 0,
+          brandId: finalBrandId,
+        });
+        
         return res.json({
           success: true,
           brandKit: result.brandKit,
@@ -89,7 +110,7 @@ router.post("/crawl/start", async (req, res) => {
         // Return fallback data instead of failing
         return res.json({
           success: false,
-          brandKit: generateFallbackBrandKit(url),
+          brandKit: generateFallbackBrandKit(finalUrl),
           status: "fallback",
           error: error instanceof Error ? error.message : "Crawl failed, using fallback",
         });
@@ -120,13 +141,13 @@ router.post("/crawl/start", async (req, res) => {
     crawlJobs.set(job_id, {
       job_id,
       brand_id: finalBrandId,
-      url,
+      url: finalUrl,
       status: "pending",
       started_at: new Date().toISOString(),
     });
 
     // Start crawl in background (don't await)
-    runCrawlJob(job_id, finalBrandId, url, currentBrandKit).catch((error) => {
+    runCrawlJob(job_id, finalBrandId, finalUrl, currentBrandKit).catch((error) => {
       console.error(`Crawl job ${job_id} failed:`, error);
       const job = crawlJobs.get(job_id) as any;
       if (job) {

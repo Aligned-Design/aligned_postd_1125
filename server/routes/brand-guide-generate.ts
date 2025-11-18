@@ -132,7 +132,8 @@ Generate a Brand Guide in JSON format matching this structure:
       const scrapedImages = await getScrapedImages(brandId);
       
       // ✅ FALLBACK: Only use stock images if scraped images are insufficient
-      const SCRAPED_IMAGE_THRESHOLD = 5;
+      // If crawler returns ≥ 2 scraped images, use those; otherwise fall back to stock
+      const SCRAPED_IMAGE_THRESHOLD = 2;
       let stockImagesCount = 0;
       let stockImages: any[] = [];
       
@@ -235,10 +236,21 @@ Generate a Brand Guide in JSON format matching this structure:
       // Save Brand Guide
       await saveBrandGuide(brandId, brandGuide);
 
+      // ✅ DEBUG: Add debug info to response showing image source
+      const imageSource = scrapedImages.length >= 2 ? "scrape" : stockImagesCount > 0 ? "stock" : "none";
+      const debug = {
+        imageSource,
+        scrapedCount: scrapedImages.length,
+        stockCount: stockImagesCount,
+        hasLogo: !!scrapedLogo,
+        hasHero: !!scrapedHero,
+      };
+
       return res.status(200).json({
         success: true,
         brandGuide,
         message: "Brand Guide generated successfully",
+        debug, // Include debug info for troubleshooting
       });
     } catch (error) {
       next(error);

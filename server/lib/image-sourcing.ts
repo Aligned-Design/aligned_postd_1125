@@ -332,7 +332,8 @@ export async function getPrioritizedImages(
   }
 
   // ✅ PRIORITY 3: Fill remaining slots with stock images (only if < threshold)
-  const SCRAPED_IMAGE_THRESHOLD = 5;
+  // If crawler returns ≥ 2 scraped images, use those; otherwise fall back to stock
+  const SCRAPED_IMAGE_THRESHOLD = 2;
   if (images.length < SCRAPED_IMAGE_THRESHOLD) {
     const stockImages = await getApprovedStockImages(brandId, count - images.length);
     images.push(...stockImages.map((img): ImageSource => ({
