@@ -258,15 +258,23 @@ export class MediaDBService {
     brandId: string,
     hash: string
   ): Promise<MediaAssetRecord | null> {
+    // ✅ RESILIENT: Only select fields that definitely exist (avoid metadata column)
     const { data, error } = await supabase
       .from("media_assets")
-      .select("*")
+      .select("id, brand_id, tenant_id, category, filename, mime_type, path, file_size, hash, url, thumbnail_url, status, created_at, updated_at")
       .eq("brand_id", brandId)
       .eq("hash", hash)
       .eq("status", "active")
       .maybeSingle();
 
     if (error && error.code !== "PGRST116") {
+      // ✅ LOGGING: Log the error for debugging
+      console.error("[MediaDB] Error checking for duplicate asset:", {
+        brandId,
+        hash: hash.substring(0, 16) + "...",
+        errorCode: error.code,
+        errorMessage: error.message,
+      });
       throw new AppError(
         ErrorCode.DATABASE_ERROR,
         "Failed to check for duplicate",
