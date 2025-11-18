@@ -908,10 +908,19 @@ async function extractPageContent(
   // For now, pass undefined - logo detection will work with filename/URL checks
   let images: CrawledImage[] = [];
   try {
-    images = await extractImages(page, url);
-    console.log(`[Crawler] Extracted ${images.length} images from ${url}`);
+    // ✅ CRITICAL: Extract brand name from URL for better logo detection
+    const brandNameFromUrl = extractBrandNameFromUrl(url);
+    images = await extractImages(page, url, brandNameFromUrl);
+    console.log(`[Crawler] Extracted ${images.length} images from ${url}`, {
+      url,
+      imagesCount: images.length,
+      logos: images.filter(img => img.role === "logo").length,
+      heroes: images.filter(img => img.role === "hero").length,
+      others: images.filter(img => img.role === "other").length,
+      sampleImage: images[0]?.url?.substring(0, 100),
+    });
   } catch (error) {
-    console.error("[Crawler] Error extracting images from page:", error);
+    console.error("[Crawler] ❌ Error extracting images from page:", error);
     console.error("[Crawler] Error details:", {
       url,
       error: error instanceof Error ? error.message : String(error),

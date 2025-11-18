@@ -416,6 +416,24 @@ async function runCrawlJobSync(url: string, brandId: string, tenantId: string | 
         
         console.log(`[Crawler] Final image count after filtering: ${allImages.length} (from ${sortedImages.length} raw images)`);
         
+        // ✅ CRITICAL LOGGING: Log image extraction details
+        if (allImages.length === 0) {
+          console.warn(`[Crawler] ⚠️ NO IMAGES EXTRACTED from ${url}`, {
+            url,
+            pagesCrawled: crawlResults.length,
+            rawImagesCount: sortedImages.length,
+            crawlResultsWithImages: crawlResults.filter(r => r.images && r.images.length > 0).length,
+            totalRawImages: crawlResults.reduce((sum, r) => sum + (r.images?.length || 0), 0),
+          });
+        } else {
+          console.log(`[Crawler] ✅ Images extracted successfully`, {
+            totalImages: allImages.length,
+            logos: allImages.filter(img => img.role === "logo").length,
+            otherImages: allImages.filter(img => img.role !== "logo").length,
+            sampleImageUrl: allImages[0]?.url?.substring(0, 100),
+          });
+        }
+        
         // Find logo (first image with role="logo")
         const logoImage = allImages.find((img) => img.role === "logo");
         const logoUrl = logoImage?.url;

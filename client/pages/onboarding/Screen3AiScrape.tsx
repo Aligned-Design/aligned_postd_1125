@@ -264,6 +264,7 @@ export default function Screen3AiScrape() {
       
       // Save Brand Guide to Supabase with real brandId
       try {
+        // ✅ FIX: Use static import to avoid mixed import warning
         const { saveBrandGuideFromOnboarding } = await import("@/lib/onboarding-brand-sync");
         await saveBrandGuideFromOnboarding(brandId, brandSnapshot, brandName);
         console.log("[Onboarding] ✅ Brand Guide saved for brand:", brandId);
