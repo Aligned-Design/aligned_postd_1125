@@ -212,9 +212,81 @@ router.post("/signup", (async (req, res, next) => {
     }
 
     // ✅ STEP 3: Get or create tenant/workspace
-    // For now, use userId as tenantId (1:1 relationship)
-    // In future, can support multiple users per workspace
-    const tenantId = userId; // Single user = single tenant for now
+    // ✅ CRITICAL: Create a tenant row in the tenants table
+    // This is required for the brands.tenant_id foreign key constraint
+    console.log("[Auth] 🏢 Creating tenant for new user", {
+      userId: userId,
+      email: userEmail,
+    });
+
+    let tenantId: string;
+    let tenantData;
+
+    // Check if tenant already exists (shouldn't happen for new users, but be safe)
+    const { data: existingTenant } = await supabase
+      .from("tenants")
+      .select("id")
+      .eq("id", userId)
+      .single();
+
+    if (existingTenant) {
+      console.log("[Auth] ✅ Tenant already exists", {
+        tenantId: existingTenant.id,
+      });
+      tenantId = existingTenant.id;
+      tenantData = existingTenant;
+    } else {
+      // Create new tenant row
+      const tenantName = name || email.split("@")[0] || "My Workspace";
+      const { data: newTenant, error: tenantError } = await supabase
+        .from("tenants")
+        .insert([
+          {
+            id: userId, // Use userId as tenant id for 1:1 relationship
+            name: tenantName,
+            plan: "free",
+          },
+        ])
+        .select()
+        .single();
+
+      if (tenantError) {
+        console.error("[Auth] ❌ Failed to create tenant", {
+          error: tenantError.message,
+          code: tenantError.code,
+          details: tenantError.details,
+          hint: tenantError.hint,
+        });
+        throw new AppError(
+          ErrorCode.DATABASE_ERROR,
+          `Failed to create tenant: ${tenantError.message}`,
+          HTTP_STATUS.INTERNAL_SERVER_ERROR,
+          "error",
+          {
+            details: tenantError.message,
+            code: tenantError.code,
+            hint: tenantError.hint,
+          }
+        );
+      }
+
+      if (!newTenant) {
+        console.error("[Auth] ❌ Tenant creation returned no data");
+        throw new AppError(
+          ErrorCode.DATABASE_ERROR,
+          "Tenant creation failed - no data returned",
+          HTTP_STATUS.INTERNAL_SERVER_ERROR,
+          "error"
+        );
+      }
+
+      console.log("[Auth] ✅ Tenant created successfully", {
+        tenantId: newTenant.id,
+        tenantName: newTenant.name,
+      });
+      tenantId = newTenant.id;
+      tenantData = newTenant;
+    }
 
     // ✅ STEP 4: Store tenantId in user metadata for easy retrieval
     // ✅ CRITICAL: Use admin API to update user metadata (not updateUser which requires session)
@@ -381,10 +453,57 @@ router.post("/login", (async (req, res, next) => {
       console.warn("[Auth] Profile fetch error:", profileError);
     }
 
-    // ✅ STEP 3: Get tenantId from user metadata or use userId
-    const tenantId = authData.user.user_metadata?.tenant_id || 
-                     authData.user.user_metadata?.workspace_id || 
-                     userId; // Fallback to userId
+    // ✅ STEP 3: Get or create tenant/workspace
+    // ✅ CRITICAL: Ensure tenant exists in tenants table (for foreign key constraints)
+    let tenantId: string = authData.user.user_metadata?.tenant_id || 
+                           authData.user.user_metadata?.workspace_id || 
+                           userId; // Fallback to userId
+
+    // Verify tenant exists in database, create if missing
+    const { data: existingTenant } = await supabase
+      .from("tenants")
+      .select("id")
+      .eq("id", tenantId)
+      .single();
+
+    if (!existingTenant) {
+      console.log("[Auth] ⚠️ Tenant not found, creating tenant for existing user", {
+        userId: userId,
+        tenantId: tenantId,
+      });
+
+      const tenantName = authData.user.user_metadata?.name || 
+                         authData.user.email?.split("@")[0] || 
+                         "My Workspace";
+      
+      const { data: newTenant, error: tenantError } = await supabase
+        .from("tenants")
+        .insert([
+          {
+            id: tenantId,
+            name: tenantName,
+            plan: "free",
+          },
+        ])
+        .select()
+        .single();
+
+      if (tenantError) {
+        console.error("[Auth] ❌ Failed to create tenant during login", {
+          error: tenantError.message,
+          code: tenantError.code,
+        });
+        // Continue anyway - tenantId is still set, but brand creation may fail
+      } else if (newTenant) {
+        console.log("[Auth] ✅ Tenant created during login", {
+          tenantId: newTenant.id,
+        });
+      }
+    } else {
+      console.log("[Auth] ✅ Tenant exists", {
+        tenantId: existingTenant.id,
+      });
+    }
 
     // ✅ STEP 4: Get user's brands to populate brandIds
     const { data: brandMemberships } = await supabase

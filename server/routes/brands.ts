@@ -149,7 +149,10 @@ router.post(
       }
 
       // Get user's workspace/tenant ID from auth context if not provided
-      const finalTenantId = tenant_id || workspace_id || user?.workspaceId || user?.tenantId;
+      let finalTenantId = tenant_id || workspace_id || user?.workspaceId || user?.tenantId;
+      
+      // ✅ CRITICAL: Verify tenant exists in tenants table before creating brand
+      // This prevents foreign key constraint violations
       if (!finalTenantId) {
         throw new AppError(
           ErrorCode.MISSING_REQUIRED_FIELD,
@@ -157,6 +160,73 @@ router.post(
           HTTP_STATUS.BAD_REQUEST,
           "warning"
         );
+      }
+
+      // ✅ VERIFY: Check if tenant exists in database
+      console.log("[Brands] 🔍 Verifying tenant exists", {
+        tenantId: finalTenantId,
+        userId: user?.id,
+      });
+
+      const { data: existingTenant, error: tenantCheckError } = await supabase
+        .from("tenants")
+        .select("id, name")
+        .eq("id", finalTenantId)
+        .single();
+
+      if (tenantCheckError || !existingTenant) {
+        console.error("[Brands] ❌ Tenant not found in database", {
+          tenantId: finalTenantId,
+          error: tenantCheckError?.message,
+          code: tenantCheckError?.code,
+        });
+
+        // ✅ CREATE TENANT ON THE FLY if it doesn't exist
+        // This handles edge cases where tenant wasn't created during signup
+        console.log("[Brands] 🏢 Creating missing tenant", {
+          tenantId: finalTenantId,
+          userId: user?.id,
+        });
+
+        const tenantName = user?.email?.split("@")[0] || `Workspace ${finalTenantId.substring(0, 8)}`;
+        const { data: newTenant, error: tenantCreateError } = await supabase
+          .from("tenants")
+          .insert([
+            {
+              id: finalTenantId,
+              name: tenantName,
+              plan: "free",
+            },
+          ])
+          .select()
+          .single();
+
+        if (tenantCreateError || !newTenant) {
+          console.error("[Brands] ❌ Failed to create tenant", {
+            error: tenantCreateError?.message,
+            code: tenantCreateError?.code,
+          });
+          throw new AppError(
+            ErrorCode.DATABASE_ERROR,
+            `Tenant not found and could not be created: ${tenantCreateError?.message || "Unknown error"}`,
+            HTTP_STATUS.INTERNAL_SERVER_ERROR,
+            "error",
+            {
+              tenantId: finalTenantId,
+              details: tenantCreateError?.message,
+            }
+          );
+        }
+
+        console.log("[Brands] ✅ Tenant created successfully", {
+          tenantId: newTenant.id,
+          tenantName: newTenant.name,
+        });
+      } else {
+        console.log("[Brands] ✅ Tenant verified", {
+          tenantId: existingTenant.id,
+          tenantName: existingTenant.name,
+        });
       }
 
       // ✅ LOGGING: Brand creation start with IDs
@@ -167,6 +237,7 @@ router.post(
         website_url,
         hasUser: !!user,
         userRole: user?.role,
+        tenantExists: !!existingTenant,
       });
       
       logger.info("Creating new brand", {
