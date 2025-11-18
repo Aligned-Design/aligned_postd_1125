@@ -99,15 +99,15 @@ async function getBrandAsset(
   source?: "scrape" | "stock" | "upload";
 } | null> {
   try {
-    // ✅ PRIORITY 1: Try scraped images first (source='scrape')
+    // ✅ RESILIENT: Don't use metadata column (may not exist)
+    // Filter scraped images by HTTP URLs in path column instead
+    // ✅ PRIORITY 1: Try scraped images first (have HTTP URLs in path)
     let scrapedQuery = supabase
       .from("media_assets")
-      .select("id, url, filename, metadata")
+      .select("id, path, filename, url")
       .eq("brand_id", brandId)
       .eq("status", "active")
-      .eq("metadata->>source", "scrape")
-      .order("created_at", { ascending: false })
-      .limit(1);
+      .order("created_at", { ascending: false });
 
     if (category) {
       const categoryMap: Record<string, string> = {
@@ -117,35 +117,47 @@ async function getBrandAsset(
         video: "videos",
       };
       scrapedQuery = scrapedQuery.eq("category", categoryMap[category] || category);
-      
-      // For logos, also filter by role
-      if (category === "logo") {
-        scrapedQuery = scrapedQuery.eq("metadata->>role", "logo");
+    }
+
+    const { data: scrapedAssets, error: scrapedError } = await scrapedQuery;
+
+    // Filter for scraped images (HTTP URLs in path) and apply role filter if needed
+    if (!scrapedError && scrapedAssets && scrapedAssets.length > 0) {
+      const scrapedImages = scrapedAssets.filter((asset: any) => {
+        const path = asset.path || "";
+        // Scraped images have HTTP URLs in path
+        if (!path.startsWith("http://") && !path.startsWith("https://")) return false;
+        
+        // For logos, check filename/path for "logo"
+        if (category === "logo") {
+          const filenameLower = (asset.filename || "").toLowerCase();
+          const pathLower = path.toLowerCase();
+          return filenameLower.includes("logo") || pathLower.includes("logo");
+        }
+        
+        return true;
+      });
+
+      if (scrapedImages.length > 0) {
+        const asset = scrapedImages[0];
+        return {
+          id: asset.id,
+          url: asset.path || asset.url || "", // Use path (contains URL for scraped images)
+          filename: asset.filename,
+          metadata: undefined, // Not available without metadata column
+          source: "scrape" as const,
+        };
       }
     }
 
-    const { data: scrapedAsset, error: scrapedError } = await scrapedQuery;
-
-    if (!scrapedError && scrapedAsset && scrapedAsset.length > 0) {
-      return {
-        id: scrapedAsset[0].id,
-        url: scrapedAsset[0].url,
-        filename: scrapedAsset[0].filename,
-        metadata: scrapedAsset[0].metadata as Record<string, unknown> | undefined,
-        source: "scrape" as const,
-      };
-    }
-
-    // ✅ PRIORITY 2: Try uploaded images (source='upload' or no source)
+    // ✅ PRIORITY 2: Try uploaded images (Supabase storage paths, not HTTP URLs)
     let query = supabase
       .from("media_assets")
-      .select("id, url, filename, metadata")
+      .select("id, path, filename, url")
       .eq("brand_id", brandId)
       .eq("status", "active")
-      .or("metadata->>source.is.null,metadata->>source.eq.upload")
-      .order("usage_count", { ascending: false })
       .order("created_at", { ascending: false })
-      .limit(1);
+      .limit(10); // Get more to filter in JavaScript
 
     if (category) {
       // Map category to media_assets category
@@ -158,18 +170,26 @@ async function getBrandAsset(
       query = query.eq("category", categoryMap[category] || category);
     }
 
-    const { data: mediaAsset, error: mediaError } = await query;
+    const { data: mediaAssets, error: mediaError } = await query;
 
-    if (!mediaError && mediaAsset && mediaAsset.length > 0) {
-      const metadata = mediaAsset[0].metadata as Record<string, unknown> | undefined;
-      const source = (metadata?.source as string) || "upload";
-      return {
-        id: mediaAsset[0].id,
-        url: mediaAsset[0].url,
-        filename: mediaAsset[0].filename,
-        metadata,
-        source: (source === "scrape" || source === "stock" || source === "upload") ? source as "scrape" | "stock" | "upload" : "upload",
-      };
+    // Filter for uploaded images (NOT HTTP URLs - those are scraped)
+    if (!mediaError && mediaAssets && mediaAssets.length > 0) {
+      const uploadedImages = mediaAssets.filter((asset: any) => {
+        const path = asset.path || "";
+        // Uploaded images have Supabase storage paths (not HTTP URLs)
+        return !path.startsWith("http://") && !path.startsWith("https://");
+      });
+
+      if (uploadedImages.length > 0) {
+        const asset = uploadedImages[0];
+        return {
+          id: asset.id,
+          url: asset.url || asset.path || "", // Use url if available, otherwise path
+          filename: asset.filename,
+          metadata: undefined, // Not available without metadata column
+          source: "upload" as const,
+        };
+      }
     }
 
     // Fallback to brand_assets table (legacy structure)
@@ -373,27 +393,33 @@ async function getScrapedBrandAssets(
   metadata?: Record<string, unknown>;
 }>> {
   try {
-    // ✅ ROOT FIX: Query for scraped images with proper JSONB filtering
+    // ✅ RESILIENT: Don't use metadata column (may not exist)
+    // Filter scraped images by HTTP URLs in path column instead
     const { data, error } = await supabase
       .from("media_assets")
-      .select("id, url, filename, metadata")
+      .select("id, path, filename, url")
       .eq("brand_id", brandId)
       .eq("status", "active")
-      .eq("metadata->>source", "scrape") // JSONB path query
       .in("category", ["images", "graphics", "logos"])
       .order("created_at", { ascending: false })
-      .limit(limit);
+      .limit(limit * 2); // Get more to filter in JavaScript
 
     if (error) {
       console.error("[ImageSourcing] Error querying scraped brand assets:", error);
       return [];
     }
 
-    if (!data || data.length === 0) {
+    // Filter for scraped images (HTTP URLs in path)
+    const scrapedImages = (data || []).filter((asset: any) => {
+      const path = asset.path || "";
+      return path.startsWith("http://") || path.startsWith("https://");
+    }).slice(0, limit);
+
+    if (scrapedImages.length === 0) {
       // ✅ LOGGING: Log when no images found (helps debug missing images in Creative Studio)
       console.log(`[ImageSourcing] No scraped images found`, {
         brandId: brandId,
-        query: "media_assets WHERE brand_id = ? AND metadata->>'source' = 'scrape'",
+        totalAssets: data?.length || 0,
         limit: limit,
       });
       return [];
@@ -416,16 +442,17 @@ async function getScrapedBrandAssets(
     console.log(`[ImageSourcing] Query successful`, {
       tenantId: tenantId,
       brandId: brandId,
-      count: data.length,
+      totalAssets: data?.length || 0,
+      scrapedCount: scrapedImages.length,
       limit: limit,
       categories: ["images", "graphics", "logos"],
     });
     
-    return data.map((asset) => ({
+    return scrapedImages.map((asset: any) => ({
       id: asset.id,
-      url: asset.url,
+      url: asset.path || asset.url || "", // Use path (contains URL for scraped images)
       filename: asset.filename,
-      metadata: asset.metadata as Record<string, unknown> | undefined,
+      metadata: undefined, // Not available without metadata column
     }));
   } catch (error) {
     console.error("[ImageSourcing] Error getting scraped brand assets:", error);
@@ -451,26 +478,33 @@ async function getUploadedBrandAssets(
   metadata?: Record<string, unknown>;
 }>> {
   try {
+    // ✅ RESILIENT: Don't use metadata column (may not exist)
+    // Filter uploaded images by non-HTTP paths (Supabase storage paths)
     const { data, error } = await supabase
       .from("media_assets")
-      .select("id, url, filename, metadata")
+      .select("id, path, filename, url")
       .eq("brand_id", brandId)
       .eq("status", "active")
-      .or("metadata->>source.is.null,metadata->>source.eq.upload")
       .in("category", ["images", "graphics", "logos"])
-      .order("usage_count", { ascending: false })
       .order("created_at", { ascending: false })
-      .limit(limit);
+      .limit(limit * 2); // Get more to filter in JavaScript
 
     if (error || !data) {
       return [];
     }
 
-    return data.map((asset) => ({
+    // Filter for uploaded images (NOT HTTP URLs - those are scraped)
+    const uploadedImages = data.filter((asset: any) => {
+      const path = asset.path || "";
+      // Uploaded images have Supabase storage paths (not HTTP URLs)
+      return !path.startsWith("http://") && !path.startsWith("https://");
+    }).slice(0, limit);
+
+    return uploadedImages.map((asset: any) => ({
       id: asset.id,
-      url: asset.url,
+      url: asset.url || asset.path || "", // Use url if available, otherwise path
       filename: asset.filename,
-      metadata: asset.metadata as Record<string, unknown> | undefined,
+      metadata: undefined, // Not available without metadata column
     }));
   } catch (error) {
     console.error("[ImageSourcing] Error getting uploaded brand assets:", error);

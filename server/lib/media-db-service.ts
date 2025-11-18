@@ -175,9 +175,10 @@ export class MediaDBService {
    * Get a media asset by ID
    */
   async getMediaAsset(assetId: string): Promise<MediaAssetRecord | null> {
+    // ✅ RESILIENT: Only select fields that definitely exist (avoid metadata column)
     const { data, error } = await supabase
       .from("media_assets")
-      .select("*")
+      .select("id, brand_id, tenant_id, category, filename, mime_type, path, file_size, hash, url, thumbnail_url, status, created_at, updated_at")
       .eq("id", assetId)
       .eq("status", "active")
       .single();
@@ -217,9 +218,10 @@ export class MediaDBService {
     const sortBy = filters?.sortBy || "created_at";
     const sortOrder = filters?.sortOrder || "desc";
 
+    // ✅ RESILIENT: Only select fields that definitely exist (avoid metadata column)
     let query = supabase
       .from("media_assets")
-      .select("*", { count: "exact" })
+      .select("id, brand_id, tenant_id, category, filename, mime_type, path, file_size, hash, url, thumbnail_url, status, created_at, updated_at", { count: "exact" })
       .eq("brand_id", brandId)
       .eq("status", "active");
 
