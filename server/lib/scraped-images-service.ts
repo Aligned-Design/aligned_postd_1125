@@ -88,6 +88,12 @@ export async function persistScrapedImages(
 
   for (const image of imagesToPersist) {
     try {
+      // ✅ VALIDATION: Ensure image URL is valid
+      if (!image.url || !image.url.startsWith("http")) {
+        console.warn(`[ScrapedImages] Skipping invalid image URL: ${image.url}`);
+        continue;
+      }
+      
       // Generate hash from URL for duplicate detection
       const hash = crypto.createHash("sha256").update(image.url).digest("hex");
       
@@ -95,20 +101,30 @@ export async function persistScrapedImages(
       let category: "logos" | "images" | "graphics" = "images";
       if (image.role === "logo") {
         category = "logos";
-      } else if (image.role === "hero") {
+      } else if (image.role === "hero" || image.role === "team" || image.role === "subject") {
         category = "images";
       }
 
-      // Extract filename from URL
-      const urlObj = new URL(image.url);
-      const filename = urlObj.pathname.split("/").pop() || `scraped-${Date.now()}.jpg`;
+      // Extract filename from URL (with better error handling)
+      let filename = `scraped-${Date.now()}-${Math.random().toString(36).substring(7)}.jpg`;
+      try {
+        const urlObj = new URL(image.url);
+        const pathname = urlObj.pathname;
+        const extractedFilename = pathname.split("/").pop();
+        if (extractedFilename && extractedFilename.length > 0 && extractedFilename.length < 255) {
+          filename = extractedFilename;
+        }
+      } catch (urlError) {
+        // Use default filename if URL parsing fails
+        console.warn(`[ScrapedImages] Could not extract filename from URL ${image.url}, using default`);
+      }
 
       // Create metadata with source='scrape'
       const metadata = {
         source: "scrape" as const,
-        width: image.width,
-        height: image.height,
-        alt: image.alt,
+        width: image.width || undefined,
+        height: image.height || undefined,
+        alt: image.alt || undefined,
         role: image.role || "other",
         scrapedUrl: image.url,
         scrapedAt: new Date().toISOString(),
@@ -132,13 +148,19 @@ export async function persistScrapedImages(
       );
 
       persistedIds.push(assetRecord.id);
+      console.log(`[ScrapedImages] ✅ Persisted image: ${filename} (${image.url.substring(0, 50)}...)`);
     } catch (error: any) {
       // If duplicate, skip (already exists)
       if (error?.code === ErrorCode.DUPLICATE_RESOURCE || error?.message?.includes("duplicate") || error?.message?.includes("already exists")) {
-        console.log(`[ScrapedImages] Image already exists (skipping): ${image.url}`);
+        console.log(`[ScrapedImages] Image already exists (skipping): ${image.url.substring(0, 50)}...`);
         continue;
       }
-      console.warn(`[ScrapedImages] Failed to persist image ${image.url}:`, error);
+      console.error(`[ScrapedImages] ❌ Failed to persist image ${image.url}:`, error);
+      console.error(`[ScrapedImages] Error details:`, {
+        url: image.url.substring(0, 100),
+        error: error?.message || String(error),
+        code: error?.code,
+      });
       // Continue with other images
     }
   }

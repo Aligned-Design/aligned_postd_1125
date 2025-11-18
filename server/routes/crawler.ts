@@ -362,19 +362,30 @@ async function runCrawlJobSync(url: string, brandId: string, tenantId: string | 
           return bSize - aSize;
         });
 
-        // Filter out placeholders and tiny images, limit to 15 max
+        // ✅ SIMPLIFIED FILTERING: More lenient - accept images even without dimensions
+        // Images are already filtered in extractImages(), but apply additional safety filters here
         const allImages = sortedImages
           .filter((img) => {
-            // Skip very small images (likely icons)
-            if (img.width && img.height && img.width < 100 && img.height < 100) return false;
+            // Skip data URIs (usually icons)
+            if (img.url.startsWith("data:")) return false;
+            
             // Skip placeholders
             const urlLower = img.url.toLowerCase();
             if (urlLower.includes("placeholder") || urlLower.includes("logo-placeholder")) return false;
-            // Skip data URIs
-            if (img.url.startsWith("data:")) return false;
+            
+            // Only skip very small images if we have confirmed dimensions
+            // If dimensions are missing, accept the image (it might be lazy-loaded or CSS-sized)
+            if (img.width && img.height) {
+              // Skip confirmed tiny icons (but be lenient - 50x50 instead of 100x100)
+              if (img.width < 50 && img.height < 50) return false;
+            }
+            
+            // Accept all other images (even without dimensions)
             return true;
           })
           .slice(0, 15); // Limit to 15 images (10-15 range)
+        
+        console.log(`[Crawler] Final image count after filtering: ${allImages.length} (from ${sortedImages.length} raw images)`);
         
         // Find logo (first image with role="logo")
         const logoImage = allImages.find((img) => img.role === "logo");

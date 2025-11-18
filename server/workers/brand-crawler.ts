@@ -483,6 +483,8 @@ function isLogo(
 
 /**
  * Categorize image based on context
+ * 
+ * SIMPLIFIED: More lenient categorization - accepts images even if categorization is uncertain
  */
 function categorizeImage(
   img: { url: string; alt?: string; width?: number; height?: number; role?: string },
@@ -490,15 +492,24 @@ function categorizeImage(
   pageType: "main" | "team" | "about" | "other",
   brandName?: string
 ): "logo" | "team" | "subject" | "hero" | "other" {
-  // Logo detection (highest priority)
-  if (isLogo(img, pageUrl, brandName) || img.role === "logo") {
+  // Logo detection (highest priority) - use existing role if already detected
+  if (img.role === "logo" || isLogo(img, pageUrl, brandName)) {
     return "logo";
   }
   
+  // Hero images: large images near top of page - use existing role if already detected
+  if (img.role === "hero") {
+    return "hero";
+  }
+  
   // Team images: from team/about pages, or images with faces (detected by alt text or context)
+  // More lenient - if on team/about page, prioritize team categorization
   if (pageType === "team" || pageType === "about") {
     const altLower = img.alt?.toLowerCase() || "";
     const urlLower = img.url.toLowerCase();
+    const filenameLower = img.url.split("/").pop()?.toLowerCase() || "";
+    
+    // More lenient team detection - check multiple signals
     if (
       altLower.includes("team") ||
       altLower.includes("staff") ||
@@ -506,33 +517,39 @@ function categorizeImage(
       altLower.includes("founder") ||
       altLower.includes("ceo") ||
       altLower.includes("director") ||
+      altLower.includes("employee") ||
+      altLower.includes("people") ||
       urlLower.includes("team") ||
-      urlLower.includes("staff")
+      urlLower.includes("staff") ||
+      urlLower.includes("people") ||
+      filenameLower.includes("team") ||
+      filenameLower.includes("staff")
     ) {
       return "team";
     }
   }
   
-  // Hero images: large images near top of page
-  if (img.role === "hero") {
-    return "hero";
-  }
-  
   // Subject matter: product/service images (medium priority)
-  // These are typically product photos, service illustrations, etc.
+  // More lenient - check multiple signals
   const altLower = img.alt?.toLowerCase() || "";
   const urlLower = img.url.toLowerCase();
+  const filenameLower = img.url.split("/").pop()?.toLowerCase() || "";
+  
   if (
     altLower.includes("product") ||
     altLower.includes("service") ||
     altLower.includes("feature") ||
+    altLower.includes("offering") ||
     urlLower.includes("product") ||
-    urlLower.includes("service")
+    urlLower.includes("service") ||
+    urlLower.includes("feature") ||
+    filenameLower.includes("product") ||
+    filenameLower.includes("service")
   ) {
     return "subject";
   }
   
-  // Default to other
+  // Default to other - accept all images even if we can't categorize them
   return "other";
 }
 
@@ -566,10 +583,26 @@ function calculateImagePriority(img: CrawledImage): number {
 
 /**
  * Extract images from a page with smart prioritization
+ * 
+ * SIMPLIFIED & ROBUST: 
+ * - Waits for images to load before extracting dimensions
+ * - More lenient filtering (accepts images without dimensions)
+ * - Better error handling
+ * - Logs extraction progress
  */
 async function extractImages(page: Page, baseUrl: string, brandName?: string): Promise<CrawledImage[]> {
   try {
     const pageType = detectPageType(baseUrl);
+    
+    // ✅ CRITICAL: Wait for images to load before extracting dimensions
+    // This ensures naturalWidth/naturalHeight are available
+    await page.waitForLoadState("networkidle", { timeout: 5000 }).catch(() => {
+      // Continue even if networkidle times out
+      console.log("[Crawler] Network idle timeout, continuing with image extraction");
+    });
+    
+    // Wait a bit more for lazy-loaded images
+    await page.waitForTimeout(1000);
     
     const images = await page.evaluate((url, brandName) => {
       const base = new URL(url);
@@ -616,81 +649,112 @@ async function extractImages(page: Page, baseUrl: string, brandName?: string): P
 
       // Extract <img> tags
       const imgElements = document.querySelectorAll("img");
+      console.log(`[Browser] Found ${imgElements.length} img elements`);
+      
       imgElements.forEach((img) => {
-        const src = img.getAttribute("src") || img.getAttribute("srcset")?.split(",")[0]?.trim().split(" ")[0];
-        const normalizedUrl = normalizeUrl(src);
-        if (!normalizedUrl) return;
+        try {
+          const src = img.getAttribute("src") || img.getAttribute("srcset")?.split(",")[0]?.trim().split(" ")[0];
+          const normalizedUrl = normalizeUrl(src);
+          if (!normalizedUrl) return;
 
-        const width = img.naturalWidth || img.width || undefined;
-        const height = img.naturalHeight || img.height || undefined;
-        const alt = img.getAttribute("alt") || undefined;
-        const filename = getFilename(normalizedUrl);
+          // ✅ MORE LENIENT: Try multiple ways to get dimensions
+          // naturalWidth/naturalHeight are most accurate but may be 0 if image hasn't loaded
+          // width/height attributes are fallback
+          // clientWidth/clientHeight are last resort
+          let width: number | undefined = undefined;
+          let height: number | undefined = undefined;
+          
+          if (img.naturalWidth && img.naturalHeight && img.naturalWidth > 0 && img.naturalHeight > 0) {
+            width = img.naturalWidth;
+            height = img.naturalHeight;
+          } else if (img.width && img.height && img.width > 0 && img.height > 0) {
+            width = img.width;
+            height = img.height;
+          } else if (img.clientWidth && img.clientHeight && img.clientWidth > 0 && img.clientHeight > 0) {
+            width = img.clientWidth;
+            height = img.clientHeight;
+          }
+          
+          const alt = img.getAttribute("alt") || undefined;
+          const filename = getFilename(normalizedUrl);
 
-        // Determine initial role (will be refined later)
-        let role: "logo" | "hero" | "other" = "other";
+          // Determine initial role (will be refined later)
+          let role: "logo" | "hero" | "other" = "other";
 
-        // Enhanced logo detection
-        const altLower = alt?.toLowerCase() || "";
-        const filenameLower = filename.toLowerCase();
-        const parentClasses = img.parentElement?.className?.toLowerCase() || "";
-        const parentId = img.parentElement?.id?.toLowerCase() || "";
-        const isInHeader = img.closest("header") !== null || img.closest("nav") !== null;
-        const isSmall = width && width < 400 && height && height < 400;
-        const brandNameLower = brandName?.toLowerCase().replace(/\s+/g, "-") || "";
+          // Enhanced logo detection
+          const altLower = alt?.toLowerCase() || "";
+          const filenameLower = filename.toLowerCase();
+          const parentClasses = img.parentElement?.className?.toLowerCase() || "";
+          const parentId = img.parentElement?.id?.toLowerCase() || "";
+          const isInHeader = img.closest("header") !== null || img.closest("nav") !== null;
+          const isSmall = width ? width < 400 && height ? height < 400 : false;
+          const brandNameLower = brandName?.toLowerCase().replace(/\s+/g, "-") || "";
 
-        if (
-          altLower.includes("logo") ||
-          filenameLower.includes("logo") ||
-          (brandNameLower && (filenameLower.includes(brandNameLower) || altLower.includes(brandName?.toLowerCase() || ""))) ||
-          parentClasses.includes("logo") ||
-          parentId.includes("logo") ||
-          (isInHeader && isSmall)
-        ) {
-          role = "logo";
-        } else if (
-          // Hero detection: large image near top of page
-          (width && width > 600 && height && height > 400) &&
-          img.offsetTop < window.innerHeight * 1.5
-        ) {
-          role = "hero";
+          if (
+            altLower.includes("logo") ||
+            filenameLower.includes("logo") ||
+            (brandNameLower && (filenameLower.includes(brandNameLower) || altLower.includes(brandName?.toLowerCase() || ""))) ||
+            parentClasses.includes("logo") ||
+            parentId.includes("logo") ||
+            (isInHeader && isSmall)
+          ) {
+            role = "logo";
+          } else if (
+            // Hero detection: large image near top of page (more lenient - accept if width OR height is large)
+            width && height && ((width > 600 && height > 400) || (width > 400 && height > 600)) &&
+            img.offsetTop < window.innerHeight * 2 // More lenient - check within 2 viewport heights
+          ) {
+            role = "hero";
+          }
+
+          results.push({
+            url: normalizedUrl,
+            alt,
+            width,
+            height,
+            role,
+            filename,
+          });
+        } catch (imgError) {
+          // Skip this image if there's an error, but continue with others
+          console.warn("[Browser] Error processing image:", imgError);
         }
-
-        results.push({
-          url: normalizedUrl,
-          alt,
-          width,
-          height,
-          role,
-          filename,
-        });
       });
 
       // Extract background images from major sections
       const sections = document.querySelectorAll("section, main, [class*='hero'], [class*='banner']");
       sections.forEach((section) => {
-        const style = window.getComputedStyle(section);
-        const bgImage = style.backgroundImage;
-        if (bgImage && bgImage !== "none") {
-          const match = bgImage.match(/url\(['"]?([^'"]+)['"]?\)/);
-          if (match && match[1]) {
-            const normalizedUrl = normalizeUrl(match[1]);
-            if (normalizedUrl) {
-              const rect = section.getBoundingClientRect();
-              const filename = getFilename(normalizedUrl);
-              results.push({
-                url: normalizedUrl,
-                width: rect.width || undefined,
-                height: rect.height || undefined,
-                role: rect.top < window.innerHeight ? "hero" : "other",
-                filename,
-              });
+        try {
+          const style = window.getComputedStyle(section);
+          const bgImage = style.backgroundImage;
+          if (bgImage && bgImage !== "none") {
+            const match = bgImage.match(/url\(['"]?([^'"]+)['"]?\)/);
+            if (match && match[1]) {
+              const normalizedUrl = normalizeUrl(match[1]);
+              if (normalizedUrl) {
+                const rect = section.getBoundingClientRect();
+                const filename = getFilename(normalizedUrl);
+                results.push({
+                  url: normalizedUrl,
+                  width: rect.width > 0 ? rect.width : undefined,
+                  height: rect.height > 0 ? rect.height : undefined,
+                  role: rect.top < window.innerHeight * 2 ? "hero" : "other", // More lenient
+                  filename,
+                });
+              }
             }
           }
+        } catch (sectionError) {
+          // Skip this section if there's an error
+          console.warn("[Browser] Error processing background image:", sectionError);
         }
       });
 
+      console.log(`[Browser] Extracted ${results.length} images total`);
       return results;
     }, baseUrl, brandName);
+    
+    console.log(`[Crawler] Extracted ${images.length} images from page ${baseUrl}`);
 
     // Deduplicate by URL
     const seen = new Set<string>();
@@ -726,22 +790,42 @@ async function extractImages(page: Page, baseUrl: string, brandName?: string): P
       return priorityB - priorityA; // Descending order
     });
 
-    // Filter out placeholders, icons, and tiny images
+    // ✅ SIMPLIFIED FILTERING: More lenient - accept images even without dimensions
+    // Only filter out obvious junk (placeholders, data URIs, very small confirmed icons)
     const filteredImages = sortedImages.filter((img) => {
-      // Skip very small images (likely icons)
-      if (img.width && img.height && img.width < 100 && img.height < 100) return false;
+      // Skip data URIs (usually icons or embedded images)
+      if (img.url.startsWith("data:")) return false;
+      
       // Skip common placeholder patterns
       const urlLower = img.url.toLowerCase();
       if (urlLower.includes("placeholder") || urlLower.includes("logo-placeholder")) return false;
-      // Skip data URIs (usually icons)
-      if (img.url.startsWith("data:")) return false;
+      
+      // Only skip very small images if we have confirmed dimensions
+      // If dimensions are missing, accept the image (it might be lazy-loaded)
+      if (img.width && img.height) {
+        // Skip confirmed tiny icons (but be lenient - 50x50 instead of 100x100)
+        if (img.width < 50 && img.height < 50) return false;
+      }
+      
+      // Accept all other images (even without dimensions)
       return true;
     });
 
+    console.log(`[Crawler] Filtered to ${filteredImages.length} images (from ${sortedImages.length} total)`);
+
     // Limit to 15 images max (10-15 range as specified)
-    return filteredImages.slice(0, 15);
+    const finalImages = filteredImages.slice(0, 15);
+    console.log(`[Crawler] Returning ${finalImages.length} images for page ${baseUrl}`);
+    
+    return finalImages;
   } catch (error) {
-    console.warn("[Crawler] Error extracting images:", error);
+    console.error("[Crawler] Error extracting images:", error);
+    console.error("[Crawler] Error details:", {
+      url: baseUrl,
+      error: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+    });
+    // Return empty array on error (don't crash the crawler)
     return [];
   }
 }
