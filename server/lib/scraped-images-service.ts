@@ -370,23 +370,43 @@ export async function getScrapedImages(
           return [];
         }
         
+        // ✅ LOGGING: Log fallback query results
+        console.log(`[ScrapedImages] Fallback query returned ${fallbackData?.length || 0} assets`, {
+          brandId,
+          totalAssets: fallbackData?.length || 0,
+          samplePaths: fallbackData?.slice(0, 3).map((a: any) => a.path?.substring(0, 50)) || [],
+        });
+        
         // Filter in JavaScript: scraped images have external URLs in path column
         // (not Supabase storage paths which start with bucket names)
         const scrapedImages = (fallbackData || []).filter((asset: any) => {
           const path = asset.path || "";
           // Scraped images have full HTTP URLs in path (external URLs)
           const isScraped = path.startsWith("http://") || path.startsWith("https://");
-          if (!isScraped) return false;
+          if (!isScraped) {
+            console.log(`[ScrapedImages] Filtered out non-HTTP path: ${path.substring(0, 50)}...`);
+            return false;
+          }
           
           // If role filter is specified, we can't filter without metadata
           // But we can try to infer from filename or path
           if (role === "logo") {
             const filenameLower = (asset.filename || "").toLowerCase();
             const pathLower = path.toLowerCase();
-            return filenameLower.includes("logo") || pathLower.includes("logo");
+            const isLogo = filenameLower.includes("logo") || pathLower.includes("logo");
+            if (!isLogo) {
+              console.log(`[ScrapedImages] Filtered out non-logo: ${path.substring(0, 50)}...`);
+            }
+            return isLogo;
           }
           
           return true;
+        });
+        
+        console.log(`[ScrapedImages] Filtered to ${scrapedImages.length} scraped images (from ${fallbackData?.length || 0} total assets)`, {
+          brandId,
+          role: role || "all",
+          scrapedCount: scrapedImages.length,
         });
         
         return scrapedImages.map((asset: any) => ({
