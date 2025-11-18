@@ -128,12 +128,13 @@ BEGIN
     ALTER TABLE brands ADD COLUMN visual_summary TEXT;
   END IF;
 
-  -- Ensure slug exists and is unique
+  -- Ensure slug exists (uniqueness is handled by composite index in migration 013)
+  -- Do NOT add UNIQUE constraint here as it conflicts with tenant-scoped uniqueness
   IF NOT EXISTS (
     SELECT 1 FROM information_schema.columns
     WHERE table_name = 'brands' AND column_name = 'slug'
   ) THEN
-    ALTER TABLE brands ADD COLUMN slug TEXT UNIQUE;
+    ALTER TABLE brands ADD COLUMN slug TEXT;
   END IF;
 
   -- Ensure name is NOT NULL

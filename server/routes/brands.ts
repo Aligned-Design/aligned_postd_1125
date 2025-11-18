@@ -332,7 +332,7 @@ router.post(
 
       // ✅ Generate unique slug before insert to prevent duplicate key errors
       const baseSlug = slug || name.toLowerCase().replace(/\s+/g, "-");
-      const uniqueSlug = await generateUniqueSlug(baseSlug, finalTenantId);
+      let uniqueSlug = await generateUniqueSlug(baseSlug, finalTenantId);
       
       console.log("[Brands] Generated unique slug", {
         baseSlug,
@@ -341,7 +341,7 @@ router.post(
       });
 
       // ✅ Prepare brand data for insert
-      const brandInsertData = {
+      let brandInsertData = {
         name,
         slug: uniqueSlug,
         website_url: website_url || null,
@@ -352,21 +352,58 @@ router.post(
         created_by: user?.id,
       };
 
-      console.log("[Brands] Inserting brand data", {
-        ...brandInsertData,
-        slugLength: brandInsertData.slug?.length,
-        tenantIdType: typeof finalTenantId,
-        tenantIdLength: finalTenantId?.length,
-        userIdType: typeof user?.id,
-        userIdLength: user?.id?.length,
-      });
+      // ✅ Retry logic with exponential backoff for race conditions
+      let brandData;
+      let brandError;
+      let retryCount = 0;
+      const maxRetries = 3;
 
-      // Create brand in database
-      const { data: brandData, error: brandError } = await supabase
-        .from("brands")
-        .insert([brandInsertData])
-        .select()
-        .single();
+      while (retryCount <= maxRetries) {
+        console.log("[Brands] Inserting brand data (attempt " + (retryCount + 1) + ")", {
+          ...brandInsertData,
+          slugLength: brandInsertData.slug?.length,
+          tenantIdType: typeof finalTenantId,
+          tenantIdLength: finalTenantId?.length,
+          userIdType: typeof user?.id,
+          userIdLength: user?.id?.length,
+        });
+
+        const result = await supabase
+          .from("brands")
+          .insert([brandInsertData])
+          .select()
+          .single();
+
+        brandData = result.data;
+        brandError = result.error;
+
+        // If duplicate slug error, generate new slug and retry
+        if (brandError && (
+          brandError.code === "23505" || // Unique violation
+          brandError.message?.includes("duplicate key") ||
+          brandError.message?.includes("brands_slug")
+        )) {
+          retryCount++;
+          if (retryCount <= maxRetries) {
+            console.warn("[Brands] Duplicate slug detected, generating new slug (attempt " + retryCount + ")", {
+              previousSlug: uniqueSlug,
+              error: brandError.message,
+            });
+            // Add a small random component to avoid collisions in race conditions
+            const randomSuffix = Math.floor(Math.random() * 10000);
+            const retryBaseSlug = `${baseSlug}-${retryCount}-${randomSuffix}`;
+            // Generate new slug - this will check and append -1, -2, etc. if needed
+            uniqueSlug = await generateUniqueSlug(retryBaseSlug, finalTenantId);
+            brandInsertData = { ...brandInsertData, slug: uniqueSlug };
+            // Exponential backoff
+            await new Promise(resolve => setTimeout(resolve, 100 * Math.pow(2, retryCount)));
+            continue;
+          }
+        } else {
+          // Success or non-duplicate error, break
+          break;
+        }
+      }
 
       // ✅ CRITICAL: Log detailed error information
       if (brandError) {

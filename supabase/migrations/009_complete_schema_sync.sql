@@ -13,7 +13,9 @@
 -- ============================================================================
 
 -- Verify brands table has all required columns
-ALTER TABLE brands ADD COLUMN IF NOT EXISTS slug TEXT UNIQUE;
+-- NOTE: slug uniqueness is handled by composite index (tenant_id, slug) in migration 013
+-- Do NOT add UNIQUE constraint here as it conflicts with tenant-scoped uniqueness
+ALTER TABLE brands ADD COLUMN IF NOT EXISTS slug TEXT;
 ALTER TABLE brands ADD COLUMN IF NOT EXISTS tone_keywords TEXT[];
 ALTER TABLE brands ADD COLUMN IF NOT EXISTS compliance_rules TEXT;
 
