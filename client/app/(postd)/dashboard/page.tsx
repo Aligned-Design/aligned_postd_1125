@@ -20,6 +20,7 @@ import { RecentActivityPanel } from "@/components/postd/dashboard/widgets/Recent
 import { AdvisorInsightsPanel } from "@/components/postd/dashboard/widgets/AdvisorInsightsPanel";
 import { LoadingState } from "@/components/postd/dashboard/states/LoadingState";
 import { FirstTimeWelcome } from "@/components/postd/dashboard/FirstTimeWelcome";
+import { DashboardWelcome } from "@/components/dashboard/DashboardWelcome";
 import { PageShell } from "@/components/postd/ui/layout/PageShell";
 import { PageHeader } from "@/components/postd/ui/layout/PageHeader";
 import { EmptyState } from "@/components/postd/ui/feedback/EmptyState";
@@ -77,7 +78,16 @@ export default function Dashboard() {
 
       {/* First-Time Welcome Hero */}
       {showFirstTimeWelcome && (
-        <FirstTimeWelcome onDismiss={() => setShowFirstTimeWelcome(false)} />
+        <DashboardWelcome
+          onDismiss={() => {
+            setShowFirstTimeWelcome(false);
+            localStorage.setItem("aligned:first_time_welcome:dismissed", "true");
+          }}
+          brandId={brandId}
+          hasContent={data?.topContent && data.topContent.length > 0}
+          hasBrandGuide={!!currentBrand}
+          hasConnectedAccounts={false}
+        />
       )}
 
       {/* Dashboard Content */}
