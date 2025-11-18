@@ -61,6 +61,48 @@ export enum Permission {
 const rolePermissions: Record<Role, Permission[]> = {
   [Role.SUPERADMIN]: Object.values(Permission), // All permissions
 
+  [Role.OWNER]: [
+    Permission.CREATE_CONTENT,
+    Permission.EDIT_CONTENT,
+    Permission.DELETE_CONTENT,
+    Permission.APPROVE_CONTENT,
+    Permission.PUBLISH_CONTENT,
+    Permission.VIEW_CONTENT,
+    Permission.MANAGE_BRAND,
+    Permission.VIEW_BRAND,
+    Permission.EDIT_BRAND_SETTINGS,
+    Permission.MANAGE_USERS,
+    Permission.VIEW_USERS,
+    Permission.INVITE_USERS,
+    Permission.MANAGE_INTEGRATIONS,
+    Permission.VIEW_INTEGRATIONS,
+    Permission.VIEW_ANALYTICS,
+    Permission.EXPORT_ANALYTICS,
+    Permission.MANAGE_BILLING,
+    Permission.VIEW_BILLING,
+  ],
+
+  [Role.ADMIN]: [
+    Permission.CREATE_CONTENT,
+    Permission.EDIT_CONTENT,
+    Permission.DELETE_CONTENT,
+    Permission.APPROVE_CONTENT,
+    Permission.PUBLISH_CONTENT,
+    Permission.VIEW_CONTENT,
+    Permission.MANAGE_BRAND,
+    Permission.VIEW_BRAND,
+    Permission.EDIT_BRAND_SETTINGS,
+    Permission.MANAGE_USERS,
+    Permission.VIEW_USERS,
+    Permission.INVITE_USERS,
+    Permission.MANAGE_INTEGRATIONS,
+    Permission.VIEW_INTEGRATIONS,
+    Permission.VIEW_ANALYTICS,
+    Permission.EXPORT_ANALYTICS,
+    Permission.MANAGE_BILLING,
+    Permission.VIEW_BILLING,
+  ],
+
   [Role.AGENCY_ADMIN]: [
     Permission.CREATE_CONTENT,
     Permission.EDIT_CONTENT,
