@@ -86,36 +86,36 @@ router.post("/crawl/start", async (req, res, next) => {
 
     // SYNC MODE: For onboarding, run crawl immediately and return results
     if (isSync) {
-      try {
-        // ✅ ROOT FIX: Get workspaceId/tenantId from user or request body
-        // This allows us to persist images even if brand doesn't exist yet
-        let tenantId: string | null = null;
-        const user = (req as any).user;
-        const auth = (req as any).auth;
-        
-        // Try to get tenantId from multiple sources
-        if (workspaceId && workspaceId !== "unknown") {
-          tenantId = workspaceId;
-        } else if (user?.workspaceId) {
-          tenantId = user.workspaceId;
-        } else if (auth?.workspaceId) {
-          tenantId = auth.workspaceId;
-        } else if (user?.tenantId) {
-          tenantId = user.tenantId;
-        } else if (auth?.tenantId) {
-          tenantId = auth.tenantId;
-        } else {
-          // Try to get from user's workspace via Supabase
-          if (user?.id) {
-            const { data: userData } = await supabase
-              .from("users")
-              .select("workspace_id, tenant_id")
-              .eq("id", user.id)
-              .single();
-            tenantId = (userData as any)?.workspace_id || (userData as any)?.tenant_id || null;
-          }
+      // ✅ ROOT FIX: Get workspaceId/tenantId from user or request body
+      // This allows us to persist images even if brand doesn't exist yet
+      let tenantId: string | null = null;
+      const user = (req as any).user;
+      const auth = (req as any).auth;
+      
+      // Try to get tenantId from multiple sources
+      if (workspaceId && workspaceId !== "unknown") {
+        tenantId = workspaceId;
+      } else if (user?.workspaceId) {
+        tenantId = user.workspaceId;
+      } else if (auth?.workspaceId) {
+        tenantId = auth.workspaceId;
+      } else if (user?.tenantId) {
+        tenantId = user.tenantId;
+      } else if (auth?.tenantId) {
+        tenantId = auth.tenantId;
+      } else {
+        // Try to get from user's workspace via Supabase
+        if (user?.id) {
+          const { data: userData } = await supabase
+            .from("users")
+            .select("workspace_id, tenant_id")
+            .eq("id", user.id)
+            .single();
+          tenantId = (userData as any)?.workspace_id || (userData as any)?.tenant_id || null;
         }
-        
+      }
+      
+      try {
         const result = await runCrawlJobSync(finalUrl, finalBrandId, tenantId);
         
         // ✅ LOGGING: Log crawler result (for Vercel server logs)
