@@ -165,44 +165,92 @@ router.post(
         tenantId: finalTenantId,
         brandName: name,
         website_url,
+        hasUser: !!user,
+        userRole: user?.role,
       });
       
       logger.info("Creating new brand", {
         requestId,
         userId: user?.id,
         workspaceId: finalTenantId,
-        tenantId: finalTenantId, // ✅ Added for consistency
+        tenantId: finalTenantId,
         name,
         website_url,
+      });
+
+      // ✅ Prepare brand data for insert
+      const brandInsertData = {
+        name,
+        slug: slug || name.toLowerCase().replace(/\s+/g, "-"),
+        website_url: website_url || null,
+        industry: industry || null,
+        description: description || null,
+        tenant_id: finalTenantId,
+        workspace_id: finalTenantId,
+        created_by: user?.id,
+      };
+
+      console.log("[Brands] Inserting brand data", {
+        ...brandInsertData,
+        slugLength: brandInsertData.slug?.length,
+        tenantIdType: typeof finalTenantId,
+        tenantIdLength: finalTenantId?.length,
+        userIdType: typeof user?.id,
+        userIdLength: user?.id?.length,
       });
 
       // Create brand in database
       const { data: brandData, error: brandError } = await supabase
         .from("brands")
-        .insert([
-          {
-            name,
-            slug: slug || name.toLowerCase().replace(/\s+/g, "-"),
-            website_url,
-            industry,
-            description,
-            tenant_id: finalTenantId,
-            workspace_id: finalTenantId,
-            created_by: user?.id,
-          },
-        ])
+        .insert([brandInsertData])
         .select()
         .single();
 
-      if (brandError || !brandData) {
+      // ✅ CRITICAL: Log detailed error information
+      if (brandError) {
+        console.error("[Brands] ❌ Supabase insert error", {
+          message: brandError.message,
+          code: brandError.code,
+          details: brandError.details,
+          hint: brandError.hint,
+          fullError: JSON.stringify(brandError, null, 2),
+          insertData: brandInsertData,
+        });
+        
         throw new AppError(
           ErrorCode.DATABASE_ERROR,
-          "Failed to create brand",
+          `Failed to create brand: ${brandError.message || "Database error"}`,
           HTTP_STATUS.INTERNAL_SERVER_ERROR,
           "error",
-          { details: brandError?.message }
+          { 
+            details: brandError.message,
+            code: brandError.code,
+            hint: brandError.hint,
+            insertData: brandInsertData,
+          }
         );
       }
+
+      if (!brandData) {
+        console.error("[Brands] ❌ No brand data returned from insert", {
+          hasError: !!brandError,
+          insertData: brandInsertData,
+        });
+        
+        throw new AppError(
+          ErrorCode.DATABASE_ERROR,
+          "Failed to create brand: No data returned",
+          HTTP_STATUS.INTERNAL_SERVER_ERROR,
+          "error",
+          { insertData: brandInsertData }
+        );
+      }
+
+      console.log("[Brands] ✅ Brand created successfully", {
+        brandId: brandData.id,
+        brandName: brandData.name,
+        tenantId: brandData.tenant_id || brandData.workspace_id,
+      });
 
       // Create brand membership
       const { error: memberError } = await supabase.from("brand_members").insert([

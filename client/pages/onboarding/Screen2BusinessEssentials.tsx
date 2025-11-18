@@ -115,7 +115,13 @@ export default function Screen2BusinessEssentials() {
           }
         } catch (error) {
           console.error("[Onboarding] ❌ Failed to create brand:", error);
-          // Continue anyway - we'll create it later if needed
+          const errorMessage = error instanceof Error ? error.message : "Failed to create brand";
+          
+          // ✅ Show error to user instead of silently continuing
+          alert(`Failed to create brand: ${errorMessage}\n\nPlease try again or contact support if this persists.`);
+          
+          // Don't continue - brand creation is required
+          return;
         }
       } else {
         console.error("[Onboarding] ❌ No user found - cannot create brand");

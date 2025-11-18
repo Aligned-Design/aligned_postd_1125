@@ -51,7 +51,9 @@ export default function Screen5BrandSummaryReview() {
       // ✅ Validate brandId is a UUID (not temporary brand_*)
       const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
       if (!uuidRegex.test(brandId)) {
-        console.warn("[BrandSnapshot] Invalid brand ID format:", brandId);
+        console.error("[BrandSnapshot] ❌ Invalid brand ID format:", brandId);
+        // Show error to user
+        alert(`Invalid brand ID. Please go back to step 2 and complete brand creation.`);
         return;
       }
 

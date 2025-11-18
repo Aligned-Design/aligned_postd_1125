@@ -135,13 +135,26 @@ export default function Screen3AiScrape() {
       // Do NOT create temporary IDs - brand should already exist
       const brandId = localStorage.getItem("aligned_brand_id");
       if (!brandId) {
-        throw new Error("Brand ID not found. Please go back and complete step 2.");
+        const errorMsg = "Brand ID not found. Please go back to step 2 and complete brand creation.";
+        console.error("[Onboarding] ❌", errorMsg);
+        setError(errorMsg);
+        // Show error to user
+        setTimeout(() => {
+          alert(errorMsg);
+        }, 100);
+        return;
       }
 
       // ✅ Validate brandId is a UUID (not temporary brand_*)
       const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
       if (!uuidRegex.test(brandId)) {
-        throw new Error(`Invalid brand ID format: ${brandId}. Brand must be created first.`);
+        const errorMsg = `Invalid brand ID format: ${brandId}. Brand must be created first. Please go back to step 2.`;
+        console.error("[Onboarding] ❌", errorMsg);
+        setError(errorMsg);
+        setTimeout(() => {
+          alert(errorMsg);
+        }, 100);
+        return;
       }
 
       console.log("[Onboarding] Starting scrape with real brandId", {
@@ -234,9 +247,14 @@ export default function Screen3AiScrape() {
         // Continue anyway - don't block onboarding
       }
     } catch (err) {
-      console.error("Scraping error:", err);
-      // Fall through to default generation
-      generateDefaultBrandSnapshot();
+      const errorMessage = err instanceof Error ? err.message : "Scraping failed";
+      console.error("[Onboarding] ❌ Scraping error:", err);
+      
+      // ✅ Show error to user instead of silently falling back
+      setError(errorMessage);
+      
+      // Don't generate default - show error state
+      // User can retry or go back
     }
   };
 
