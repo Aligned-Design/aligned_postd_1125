@@ -336,11 +336,11 @@ async function runCrawlJobSync(url: string, brandId: string, tenantId: string | 
           throw new Error(`Color extraction failed: ${error instanceof Error ? error.message : "Unknown error"}`);
         }
         
-        // ✅ USE AI-GENERATED BRAND KIT: Call processBrandIntake to get AI-generated about_blurb
-        // This ensures we get a proper brand story, not just meta description
+        // ✅ USE AI-GENERATED BRAND KIT: Call generateBrandKit directly with crawl results
+        // We already have crawlResults and colors, so use generateBrandKit (not processBrandIntake)
         let aiBrandKit: any = null;
         try {
-          const { processBrandIntake } = await import("../workers/brand-crawler");
+          const { generateBrandKit } = await import("../workers/brand-crawler");
           // Helper functions to extract brand name and industry
           const extractBrandNameFromUrl = (urlStr: string): string => {
             try {
@@ -360,13 +360,21 @@ async function runCrawlJobSync(url: string, brandId: string, tenantId: string | 
           };
           const brandName = extractBrandNameFromUrl(url);
           const industry = extractIndustryFromContent(crawlResults);
-          aiBrandKit = await processBrandIntake(brandId, url, tenantId, brandName, industry);
+          
+          // ✅ CRITICAL: Use generateBrandKit directly (we already have crawlResults and colors)
+          // This generates AI about_blurb without re-crawling
+          aiBrandKit = await generateBrandKit(crawlResults, colors, url, brandName, industry);
           console.log("[Crawler] ✅ AI-generated brand kit received", {
             hasAboutBlurb: !!aiBrandKit?.about_blurb,
             aboutBlurbLength: aiBrandKit?.about_blurb?.length || 0,
+            aboutBlurbPreview: aiBrandKit?.about_blurb?.substring(0, 100),
           });
         } catch (aiError) {
-          console.warn("[Crawler] AI brand kit generation failed, using fallback:", aiError);
+          console.error("[Crawler] ❌ AI brand kit generation failed:", aiError);
+          console.error("[Crawler] Error details:", {
+            error: aiError instanceof Error ? aiError.message : String(aiError),
+            stack: aiError instanceof Error ? aiError.stack : undefined,
+          });
           // Continue with fallback below
         }
         
