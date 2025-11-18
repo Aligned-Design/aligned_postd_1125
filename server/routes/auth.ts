@@ -217,16 +217,31 @@ router.post("/signup", (async (req, res, next) => {
     const tenantId = userId; // Single user = single tenant for now
 
     // ✅ STEP 4: Store tenantId in user metadata for easy retrieval
-    const { error: metadataError } = await supabase.auth.updateUser({
-      data: {
-        tenant_id: tenantId,
-        workspace_id: tenantId,
-      },
+    // ✅ CRITICAL: Use admin API to update user metadata (not updateUser which requires session)
+    console.log("[Auth] 🔄 Updating user metadata with tenantId", {
+      userId: userId,
+      tenantId: tenantId,
     });
 
+    const { error: metadataError } = await supabase.auth.admin.updateUserById(
+      userId,
+      {
+        user_metadata: {
+          ...authData.user.user_metadata,
+          tenant_id: tenantId,
+          workspace_id: tenantId,
+        },
+      }
+    );
+
     if (metadataError) {
-      console.warn("[Auth] Failed to update user metadata:", metadataError);
-      // Continue anyway - tenantId is still userId
+      console.warn("[Auth] ⚠️ Failed to update user metadata:", {
+        error: metadataError.message,
+        code: (metadataError as any).code,
+      });
+      // Continue anyway - tenantId is still userId and we can retrieve it from JWT
+    } else {
+      console.log("[Auth] ✅ User metadata updated with tenantId");
     }
 
     // ✅ STEP 5: Generate JWT tokens with tenantId
