@@ -149,30 +149,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           }
         }
 
-        // Fallback: Check localStorage for user (for backward compatibility during migration)
+        // ✅ CRITICAL: Do NOT use localStorage fallback for user data
+        // This was creating mock users and bypassing real authentication
+        // Only restore from localStorage if we have a valid token
+        // If no token, user must sign up/login through real Supabase Auth
+        
+        // Check for old localStorage user data and clear it (migration cleanup)
         const stored = localStorage.getItem("aligned_user");
-        if (stored) {
-          try {
-            const parsedUser = JSON.parse(stored);
-            // Check if user signed up with trial query param
-            const urlParams = new URLSearchParams(window.location.search);
-            if (urlParams.get("trial")) {
-              parsedUser.plan = "trial";
-              parsedUser.trial_published_count = 0;
-              const now = new Date();
-              parsedUser.trial_started_at = now.toISOString();
-              parsedUser.trial_expires_at = new Date(
-                now.getTime() + 7 * 24 * 60 * 60 * 1000,
-              ).toISOString();
-            }
-            setUser(parsedUser);
-          } catch (err) {
-            console.warn(
-              "Failed to parse aligned_user, clearing corrupted localStorage key",
-              err,
-            );
-            localStorage.removeItem("aligned_user");
-          }
+        if (stored && !token) {
+          console.warn("[Auth] Clearing old localStorage user data - authentication required");
+          localStorage.removeItem("aligned_user");
+          localStorage.removeItem("aligned_brand");
+          localStorage.removeItem("aligned_onboarding_step");
         }
       } catch (err) {
         console.error("Unexpected error loading auth state:", err);

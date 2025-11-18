@@ -98,13 +98,14 @@ export function createServer() {
     res.json({ message: process.env.PING_MESSAGE || "pong" });
   });
 
+  // ✅ CRITICAL: All routes require authentication
   // AI Agent routes (Sprint 1)
-  app.post("/api/ai/advisor", getAdvisorInsights);
-  app.post("/api/ai/doc", generateDocContent);
-  app.post("/api/ai/design", generateDesignContent);
+  app.post("/api/ai/advisor", authenticateUser, getAdvisorInsights);
+  app.post("/api/ai/doc", authenticateUser, generateDocContent);
+  app.post("/api/ai/design", authenticateUser, generateDesignContent);
   
   // Dashboard route (Sprint 1)
-  app.post("/api/dashboard", getDashboardData);
+  app.post("/api/dashboard", authenticateUser, getDashboardData);
 
   // =============================================================================
   // Mount Routers

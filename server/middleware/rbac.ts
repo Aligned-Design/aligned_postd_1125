@@ -319,25 +319,18 @@ export function getUserPermissions(role: Role): Permission[] {
 }
 
 /**
- * Mock authentication middleware for development
- * In production, this would be replaced with Supabase Auth
+ * Mock authentication middleware
+ * DEPRECATED: This function is no longer used.
+ * All authentication now uses real Supabase Auth via authenticateUser middleware.
+ * 
+ * This function is kept for backward compatibility but should not be used.
+ * @deprecated Use authenticateUser from server/middleware/security.ts instead
  */
 export function mockAuth(req: Request, _res: Response, next: NextFunction) {
-  // Check for authorization header
-  const authHeader = req.headers.authorization;
-
-  if (authHeader && authHeader.startsWith("Bearer ")) {
-    // In production, verify JWT token here
-    const token = authHeader.substring(7);
-
-    // Mock user data - in production, extract from JWT
-    (req as any).auth = {
-      userId: "user-123",
-      role: Role.AGENCY_ADMIN,
-      brandIds: ["brand-1", "brand-2"],
-      tenantId: "tenant-123",
-    };
-  }
-
-  next();
+  console.error("[Auth] ❌ CRITICAL: mockAuth is deprecated and should not be used!");
+  console.error("[Auth] All routes must use real Supabase Auth via authenticateUser middleware.");
+  console.error("[Auth] This request will be rejected to prevent security bypass.");
+  
+  // Reject the request - no mock auth allowed
+  throw new Error("Mock authentication is disabled. Use real Supabase Auth.");
 }

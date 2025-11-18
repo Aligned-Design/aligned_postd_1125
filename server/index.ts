@@ -237,7 +237,9 @@ export function createServer() {
 
   // Crawler routes (for website scraping during onboarding)
   // Note: Authentication is optional for sync mode (onboarding), handled in route
-  app.use("/api/crawl", optionalAuthForOnboarding, crawlerRouter);
+  // ✅ CRITICAL: Require real authentication for crawler routes
+  // Crawler needs tenantId to persist images correctly
+  app.use("/api/crawl", authenticateUser, crawlerRouter);
 
   // Router mounting
   app.use(

@@ -28,27 +28,12 @@ export default function Index() {
     navigate(user ? "/dashboard" : "/onboarding");
   };
 
-  // DEV ONLY: Mock auth toggle
-  const handleDevLogin = () => {
-    if (import.meta.env.DEV) {
-      localStorage.setItem("aligned_dev_auth", "true");
-      window.location.reload();
-    }
-  };
+  // ✅ REMOVED: Dev-only mock auth toggle
+  // All authentication must go through real Supabase Auth
+  // No mock/dev bypasses allowed
 
   return (
     <UnauthenticatedLayout>
-      {/* DEV ONLY: Quick login toggle */}
-      {import.meta.env.DEV && !user && (
-        <div className="fixed top-4 right-4 z-50">
-          <button
-            onClick={handleDevLogin}
-            className="px-4 py-2 bg-purple-600 text-white text-sm rounded-lg shadow-lg hover:bg-purple-700 transition-colors"
-          >
-            🔧 Login as Test User (Dev Only)
-          </button>
-        </div>
-      )}
       <HeroSection onCTA={() => handleCTA("hero")} />
       <ProblemSection />
       <InteractiveStoryFlow />

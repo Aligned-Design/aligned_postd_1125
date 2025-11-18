@@ -1,4 +1,12 @@
-import { useState, useEffect } from 'react';
+/**
+ * Authentication hook
+ * DEPRECATED: This file is kept for backward compatibility only.
+ * All authentication should use AuthContext from @/contexts/AuthContext
+ * 
+ * This file now redirects to the real AuthContext implementation.
+ */
+
+import { useAuth as useAuthContext } from "@/contexts/AuthContext";
 
 interface User {
   id: string;
@@ -18,55 +26,29 @@ interface UseAuthReturn {
   isAuthenticated: boolean;
 }
 
+/**
+ * @deprecated Use `useAuth` from `@/contexts/AuthContext` instead
+ * This hook is kept for backward compatibility but redirects to the real implementation
+ */
 export function useAuth(): UseAuthReturn {
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    // Check for existing session
-    const savedUser = localStorage.getItem('auth-user');
-    if (savedUser) {
-      try {
-        setUser(JSON.parse(savedUser));
-      } catch (_error) {
-        localStorage.removeItem('auth-user');
-      }
-    }
-    setLoading(false);
-  }, []);
-
-  const login = async (email: string, __password: string): Promise<boolean> => {
-    try {
-      // Mock authentication - replace with real API call
-      const mockUser: User = {
-        id: '1',
-        email,
-        name: 'Demo User',
-        role: email.includes('client') ? 'client' : 'agency',
-        brandId: email.includes('client') ? 'brand_1' : undefined,
-        brandName: email.includes('client') ? 'Nike' : undefined
-      };
-
-      setUser(mockUser);
-      localStorage.setItem('auth-user', JSON.stringify(mockUser));
-      return true;
-    } catch (error) {
-      console.error('Login failed:', error);
-      return false;
-    }
-  };
-
-  const logout = () => {
-    setUser(null);
-    localStorage.removeItem('auth-user');
-  };
-
+  // ✅ CRITICAL: Redirect to real AuthContext implementation
+  // This prevents mock authentication from being used
+  const context = useAuthContext();
+  
+  // Map AuthContext return to legacy format for backward compatibility
   return {
-    user,
-    userRole: user?.role || 'agency',
-    loading,
-    login,
-    logout,
-    isAuthenticated: !!user
+    user: context.user ? {
+      id: context.user.id,
+      email: context.user.email,
+      name: context.user.name,
+      role: context.user.role === "agency" ? "agency" : "client",
+      brandId: context.user.workspaceId,
+      brandName: undefined,
+    } : null,
+    userRole: context.user?.role === "agency" ? "agency" : "client",
+    loading: false,
+    login: context.login || (async () => false),
+    logout: context.logout,
+    isAuthenticated: context.isAuthenticated,
   };
 }

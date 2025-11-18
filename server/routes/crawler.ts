@@ -102,7 +102,9 @@ const crawlJobs = new Map<string, unknown>();
  * Supports both async job mode (returns job_id) and sync mode (returns results directly)
  * For onboarding, use sync mode with ?sync=true
  */
-router.post("/crawl/start", async (req, res, next) => {
+// ✅ CRITICAL: Require authentication for all crawler routes
+// Crawler needs tenantId from authenticated user to persist images correctly
+router.post("/crawl/start", authenticateUser, async (req, res, next) => {
   try {
     const { brand_id, url, sync, websiteUrl, workspaceId } = req.body;
     const isSync = sync === true || req.query.sync === "true";
@@ -670,7 +672,8 @@ function extractKeywords(text: string): string[] {
  * GET /api/crawl/result/:jobId
  * Get crawl job status and results
  */
-router.get("/crawl/result/:jobId", async (req, res) => {
+// ✅ CRITICAL: Require authentication for crawl results
+router.get("/crawl/result/:jobId", authenticateUser, async (req, res) => {
   try {
     const { jobId } = req.params;
     const job = crawlJobs.get(jobId);
@@ -702,7 +705,8 @@ router.get("/crawl/result/:jobId", async (req, res) => {
  * POST /api/brand-kit/apply
  * Apply selected changes from crawler
  */
-router.post("/brand-kit/apply", async (req, res) => {
+// ✅ CRITICAL: Require authentication for brand kit operations
+router.post("/brand-kit/apply", authenticateUser, async (req, res) => {
   try {
     const { brand_id, changes } = req.body as {
       brand_id: string;
@@ -801,7 +805,8 @@ router.post("/brand-kit/apply", async (req, res) => {
  * GET /api/brand-kit/history/:brandId
  * Get change history for a brand
  */
-router.get("/brand-kit/history/:brandId", async (req, res) => {
+// ✅ CRITICAL: Require authentication for brand kit history
+router.get("/brand-kit/history/:brandId", authenticateUser, async (req, res) => {
   try {
     const { brandId } = req.params;
     const { field } = req.query;
@@ -846,7 +851,8 @@ router.get("/brand-kit/history/:brandId", async (req, res) => {
  * POST /api/brand-kit/revert
  * Revert a field to a previous value
  */
-router.post("/brand-kit/revert", async (req, res) => {
+// ✅ CRITICAL: Require authentication for brand kit revert
+router.post("/brand-kit/revert", authenticateUser, async (req, res) => {
   try {
     const { brand_id, field, history_id } = req.body;
 
