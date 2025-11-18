@@ -151,90 +151,57 @@ export function BrandProvider({ children }: { children: React.ReactNode }) {
     }
 
     try {
-      // NOTE: BrandContext uses direct Supabase access to brand_members because:
-      // 1. It needs to find ALL brands a user belongs to (not just one brandId)
-      // 2. The API route GET /api/brands/:brandId/members requires a brandId (chicken-and-egg problem)
-      // 3. This is a foundational context that must work before any brand is selected
-      // TODO: Post-launch - Backend should provide /api/users/:userId/brands endpoint
-      // For now, this direct access is acceptable as it's read-only and uses RLS
-      let { data: memberData, error: memberError } = await supabase
-        .from("brand_members")
-        .select("brand_id")
-        .eq("user_id", user.id);
-
-      // Handle 401 or other auth errors gracefully
-      if (memberError) {
-        // If it's a dev mock user and we get an auth error, create a dev brand automatically
-        if (isDevMock) {
-          console.log("[BrandContext] Dev user auth error (expected), creating dev brand:", memberError.message);
-          await createDevBrandForUser(user.id);
-          // Retry fetching after creating brand
-          const retryResult = await supabase
-            .from("brand_members")
-            .select("brand_id")
-            .eq("user_id", user.id);
-          if (retryResult.data && retryResult.data.length > 0) {
-            memberData = retryResult.data;
-            memberError = null; // Clear error after successful retry
-          } else {
-            setBrands([]);
-            setCurrentBrand(null);
-            setLoading(false);
-            return;
-          }
-        } else {
-          console.warn("[BrandContext] Error fetching brand members:", memberError);
-          setBrands([]);
-          setCurrentBrand(null);
-          setLoading(false);
-          return;
-        }
+      // ✅ FIX: Use backend API endpoint with JWT authentication
+      // This replaces direct Supabase access which required session tokens
+      const { apiGet } = await import("@/lib/api");
+      
+      console.log("[BrandContext] Fetching brands via API", {
+        userId: user.id,
+      });
+      
+      let brandsData;
+      try {
+        const response = await apiGet<{ success: boolean; brands: any[]; total: number }>("/api/brands");
+        brandsData = response.brands || [];
+        console.log("[BrandContext] ✅ Fetched brands via API", {
+          count: brandsData.length,
+        });
+      } catch (apiError) {
+        console.error("[BrandContext] ❌ API error fetching brands:", apiError);
+        // Fallback to empty array - user may not have any brands yet
+        brandsData = [];
       }
-
-      if (!memberData || memberData.length === 0) {
-        // No brands found - for dev/mock users, create one automatically
-        if (isDevMock) {
-          console.log("[BrandContext] No brands found for dev user, creating dev brand:", user.id);
-          await createDevBrandForUser(user.id);
-          // Retry fetching after creating brand
-          const retryResult = await supabase
-            .from("brand_members")
-            .select("brand_id")
-            .eq("user_id", user.id);
-          if (retryResult.data && retryResult.data.length > 0) {
-            memberData = retryResult.data;
-          } else {
-            setBrands([]);
-            setCurrentBrand(null);
-            setLoading(false);
-            return;
-          }
-        } else {
-          // Real users should have brands - show empty state
-          console.log("[BrandContext] No brands found for user:", user.id);
-          setBrands([]);
-          setCurrentBrand(null);
-          setLoading(false);
-          return;
-        }
-      }
-
-      const brandIds = memberData.map((m) => m.brand_id);
-      const { data: brandsData, error: brandsError } = await supabase
-        .from("brands")
-        .select("*")
-        .in("id", brandIds)
-        .order("name");
-
-      if (brandsError) {
-        console.warn("[BrandContext] Error fetching brands:", brandsError);
+      
+      // ✅ API already returns full brand data, no need to fetch again
+      if (!brandsData || brandsData.length === 0) {
+        // No brands found - show empty state
+        console.log("[BrandContext] No brands found for user:", user.id);
         setBrands([]);
         setCurrentBrand(null);
         setLoading(false);
         return;
       }
 
-      if (brandsData && brandsData.length > 0) {
+      // Transform API brands to Brand type
+      const transformedBrands: Brand[] = brandsData.map((brand: any) => ({
+        id: brand.id,
+        name: brand.name,
+        slug: brand.slug,
+        logo_url: brand.logo_url,
+        primary_color: brand.primary_color,
+        website_url: brand.website_url,
+        industry: brand.industry,
+        description: brand.description,
+        tone_keywords: brand.tone_keywords,
+        compliance_rules: brand.compliance_rules,
+        brand_kit: brand.brand_kit,
+        voice_summary: brand.voice_summary,
+        visual_summary: brand.visual_summary,
+        created_at: brand.created_at,
+        updated_at: brand.updated_at,
+      }));
+
+      if (transformedBrands && transformedBrands.length > 0) {
         setBrands(brandsData);
         // Auto-select first brand if none selected
         if (!currentBrand || !brandsData.find(b => b.id === currentBrand.id)) {

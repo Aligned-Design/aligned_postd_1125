@@ -25,7 +25,7 @@ const BUSINESS_TYPES = [
 ];
 
 export default function Screen2BusinessEssentials() {
-  const { user, signUp, setOnboardingStep } = useAuth();
+  const { user, updateUser, setOnboardingStep } = useAuth();
   const [websiteUrl, setWebsiteUrl] = useState("");
   const [businessType, setBusinessType] = useState("");
   const [description, setDescription] = useState("");
@@ -63,14 +63,17 @@ export default function Screen2BusinessEssentials() {
       console.log("[Onboarding] User clicked 'Continue' with website:", normalizedUrl);
       console.log("[Onboarding] This will trigger scraping in step 4");
 
-      // Store business essentials in user object
+      // ✅ FIX: Use updateUser instead of signUp to update existing user data
+      // signUp is only for creating new accounts, not updating user info
       if (user) {
-        signUp({
-          ...user,
+        updateUser({
           website: normalizedUrl,
           industry: businessType,
           businessName: description || undefined,
         });
+        console.log("[Onboarding] ✅ Updated user with website:", normalizedUrl);
+      } else {
+        console.error("[Onboarding] ❌ No user found - cannot save website URL");
       }
 
       // Move to expectation setting step

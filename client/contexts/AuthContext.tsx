@@ -226,6 +226,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const handleSignUp = async (newUser: Partial<OnboardingUser>) => {
     try {
       // ✅ REAL AUTH: Call backend signup endpoint
+      // Note: This endpoint doesn't require auth (it's the signup endpoint)
       const response = await fetch("/api/auth/signup", {
         method: "POST",
         headers: {

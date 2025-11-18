@@ -149,36 +149,26 @@ export default function Screen3AiScrape() {
       // ✅ CRITICAL: Include workspaceId/tenantId so images can be persisted
       const workspaceId = (user as any)?.workspaceId || (user as any)?.tenantId || localStorage.getItem("aligned_workspace_id");
       
-      // ✅ Get auth token for authenticated request
-      const token = localStorage.getItem("aligned_access_token");
+      // ✅ Use centralized API utility for authenticated requests
+      const { apiPost } = await import("@/lib/api");
       
-      const response = await fetch(`/api/crawl/start`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token && { "Authorization": `Bearer ${token}` }), // ✅ Include auth token if available
-        },
-        body: JSON.stringify({
-          url: user.website,
-          brand_id: brandId, // ✅ Use consistent brandId
-          workspaceId: workspaceId, // ✅ CRITICAL: Pass workspaceId for image persistence
-          sync: true, // Use sync mode for immediate results
-        }),
+      console.log("[Onboarding] Calling crawler API with auth token", {
+        url: user.website,
+        brandId,
+        workspaceId,
+      });
+      
+      const result = await apiPost(`/api/crawl/start`, {
+        url: user.website,
+        brand_id: brandId, // ✅ Use consistent brandId
+        workspaceId: workspaceId, // ✅ CRITICAL: Pass workspaceId for image persistence
+        sync: true, // Use sync mode for immediate results
       });
 
-      console.log("[Onboarding] Crawler API response status:", response.status, response.statusText);
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error("[Onboarding] Crawler API error:", {
-          status: response.status,
-          statusText: response.statusText,
-          body: errorText,
-        });
-        throw new Error(`Failed to process website: ${response.status} ${response.statusText}`);
-      }
-
-      const result = await response.json();
+      console.log("[Onboarding] ✅ Crawler API success", {
+        hasBrandKit: !!result.brandKit,
+        hasImages: !!(result.brandKit?.images?.length),
+      });
       
       // Handle both success and fallback responses
       const brandKit = result.brandKit || result;

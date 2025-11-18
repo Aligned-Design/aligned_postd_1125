@@ -18,6 +18,92 @@ import { transferScrapedImages } from "../lib/scraped-images-service";
 const router = Router();
 
 /**
+ * GET /api/brands
+ * Get all brands for the current user
+ * 
+ * Returns brands the user is a member of via brand_members table
+ */
+router.get(
+  "/",
+  authenticateUser,
+  (async (req, res, next) => {
+    try {
+      const user = (req as any).user;
+      const userId = user?.id;
+
+      if (!userId) {
+        throw new AppError(
+          ErrorCode.UNAUTHORIZED,
+          "User ID is required",
+          HTTP_STATUS.UNAUTHORIZED,
+          "warning"
+        );
+      }
+
+      // Get all brand IDs the user is a member of
+      const { data: memberships, error: membershipError } = await supabase
+        .from("brand_members")
+        .select("brand_id, role")
+        .eq("user_id", userId);
+
+      if (membershipError) {
+        throw new AppError(
+          ErrorCode.DATABASE_ERROR,
+          "Failed to fetch brand memberships",
+          HTTP_STATUS.INTERNAL_SERVER_ERROR,
+          "error",
+          { details: membershipError.message }
+        );
+      }
+
+      if (!memberships || memberships.length === 0) {
+        res.json({
+          success: true,
+          brands: [],
+          total: 0,
+        });
+        return;
+      }
+
+      // Fetch full brand details for each brand ID
+      const brandIds = memberships.map((m) => m.brand_id);
+      const { data: brands, error: brandsError } = await supabase
+        .from("brands")
+        .select("*")
+        .in("id", brandIds)
+        .order("created_at", { ascending: false });
+
+      if (brandsError) {
+        throw new AppError(
+          ErrorCode.DATABASE_ERROR,
+          "Failed to fetch brands",
+          HTTP_STATUS.INTERNAL_SERVER_ERROR,
+          "error",
+          { details: brandsError.message }
+        );
+      }
+
+      // Map brands with membership role
+      const brandsWithRole = (brands || []).map((brand) => {
+        const membership = memberships.find((m) => m.brand_id === brand.id);
+        return {
+          ...brand,
+          userRole: membership?.role || "viewer",
+        };
+      });
+
+      res.json({
+        success: true,
+        brands: brandsWithRole || [],
+        total: brandsWithRole?.length || 0,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }) as RequestHandler
+);
+
+/**
  * POST /api/brands
  * Create a new brand and automatically trigger onboarding workflow
  * 
