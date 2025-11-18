@@ -80,6 +80,9 @@ import { assertBrandAccess } from "../lib/brand-access";
 import {
   crawlWebsite,
   extractColors,
+  generateBrandKit,
+  extractBrandNameFromUrl,
+  extractIndustryFromContent,
 } from "../workers/brand-crawler";
 import { persistScrapedImages, transferScrapedImages } from "../lib/scraped-images-service";
 import {
@@ -340,24 +343,8 @@ async function runCrawlJobSync(url: string, brandId: string, tenantId: string | 
         // We already have crawlResults and colors, so use generateBrandKit (not processBrandIntake)
         let aiBrandKit: any = null;
         try {
-          const { generateBrandKit } = await import("../workers/brand-crawler");
-          // Helper functions to extract brand name and industry
-          const extractBrandNameFromUrl = (urlStr: string): string => {
-            try {
-              const urlObj = new URL(urlStr.startsWith("http") ? urlStr : `https://${urlStr}`);
-              return urlObj.hostname.replace("www.", "").split(".")[0];
-            } catch {
-              return "Your Brand";
-            }
-          };
-          const extractIndustryFromContent = (results: any[]): string | undefined => {
-            const allText = results.map(r => `${r.title} ${r.metaDescription} ${r.bodyText}`).join(" ").toLowerCase();
-            const industries = ["technology", "healthcare", "finance", "retail", "education", "hospitality", "real estate", "consulting", "marketing", "design"];
-            for (const ind of industries) {
-              if (allText.includes(ind)) return ind;
-            }
-            return undefined;
-          };
+          // ✅ FIX: Use static imports (no dynamic import needed)
+          // Extract brand name and industry from URL and crawl results
           const brandName = extractBrandNameFromUrl(url);
           const industry = extractIndustryFromContent(crawlResults);
           
@@ -552,14 +539,6 @@ async function runCrawlJobSync(url: string, brandId: string, tenantId: string | 
         // ✅ ENSURE about_blurb is valid (not empty, not "0")
         if (!brandKit.about_blurb || brandKit.about_blurb === "0" || brandKit.about_blurb.length < 10) {
           console.warn("[Crawler] about_blurb is invalid, generating fallback");
-          const extractBrandNameFromUrl = (urlStr: string): string => {
-            try {
-              const urlObj = new URL(urlStr.startsWith("http") ? urlStr : `https://${urlStr}`);
-              return urlObj.hostname.replace("www.", "").split(".")[0];
-            } catch {
-              return "Your Brand";
-            }
-          };
           const brandName = extractBrandNameFromUrl(url);
           brandKit.about_blurb = `${brandName} is a business that connects with customers through authentic communication.`;
         }
