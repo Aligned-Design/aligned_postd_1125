@@ -9,27 +9,22 @@ async function getApp() {
   if (!app) {
     // Lazy load the server module to handle Vercel's build context
     if (!createServerFn) {
+      // Vercel compiles TypeScript in api/ directory, so we can import server/index directly
+      // The server code will be compiled by Vercel's TypeScript compiler
       try {
-        // Try to import from the built server first (for Vercel production)
-        // The server is built to dist/server/node-build.mjs and exports createServer
-        const serverModule = await import("../dist/server/node-build.mjs");
-        createServerFn = (serverModule as any).createServer;
+        const serverModule = await import("../server/index");
+        createServerFn = serverModule.createServer;
         if (!createServerFn) {
-          throw new Error("createServer not found in node-build.mjs");
+          throw new Error("createServer not exported from server/index");
         }
-      } catch (distError) {
-        // Fallback: try direct import (for local dev or if Vercel compiles TypeScript)
-        try {
-          const serverModule = await import("../server/index");
-          createServerFn = serverModule.createServer;
-          if (!createServerFn) {
-            throw new Error("createServer not exported from server/index");
-          }
-        } catch (directError) {
-          console.error("[Vercel] Failed to import server from dist:", distError);
-          console.error("[Vercel] Failed to import server directly:", directError);
-          throw new Error(`Cannot load server module. Dist error: ${distError instanceof Error ? distError.message : String(distError)}. Direct error: ${directError instanceof Error ? directError.message : String(directError)}`);
-        }
+      } catch (importError) {
+        console.error("[Vercel] Failed to import server/index:", importError);
+        console.error("[Vercel] Error details:", {
+          message: importError instanceof Error ? importError.message : String(importError),
+          stack: importError instanceof Error ? importError.stack : undefined,
+          code: (importError as any)?.code,
+        });
+        throw new Error(`Cannot load server module: ${importError instanceof Error ? importError.message : String(importError)}`);
       }
     }
     if (!createServerFn) {
