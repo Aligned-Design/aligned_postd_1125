@@ -308,23 +308,76 @@ export async function getScrapedImages(
   metadata?: Record<string, unknown>;
 }>> {
   try {
-    // ✅ FIX: media_assets table doesn't have 'url' column - use path or metadata.scrapedUrl
-    // For scraped images, URL is stored in metadata.scrapedUrl
+    // ✅ RESILIENT QUERY: Try with metadata filter first, fallback if column doesn't exist
+    // For scraped images, URL is stored in path column (external URLs)
     let query = supabase
       .from("media_assets")
       .select("id, path, filename, metadata")
       .eq("brand_id", brandId)
-      .eq("status", "active")
-      .eq("metadata->>source", "scrape");
+      .eq("status", "active");
 
-    if (role) {
-      query = query.eq("metadata->>role", role);
+    // Try to filter by metadata->>source if metadata column exists
+    // If it doesn't exist, we'll filter in JavaScript below
+    try {
+      query = query.eq("metadata->>source", "scrape");
+      if (role) {
+        query = query.eq("metadata->>role", role);
+      }
+    } catch (metadataError) {
+      // Metadata column doesn't exist - we'll filter in JavaScript
+      console.log("[ScrapedImages] Metadata column not available, will filter in JavaScript");
     }
 
     const { data, error } = await query
       .order("created_at", { ascending: false });
 
     if (error) {
+      // If error is "column metadata does not exist", try without metadata filter
+      if (error.code === "42703" || error.message?.includes("metadata") || error.message?.includes("does not exist")) {
+        console.log("[ScrapedImages] Metadata column not found, querying without metadata filter");
+        
+        // Retry without metadata filter
+        let fallbackQuery = supabase
+          .from("media_assets")
+          .select("id, path, filename")
+          .eq("brand_id", brandId)
+          .eq("status", "active");
+        
+        const { data: fallbackData, error: fallbackError } = await fallbackQuery
+          .order("created_at", { ascending: false });
+        
+        if (fallbackError) {
+          console.error("[ScrapedImages] Error querying scraped images (fallback):", fallbackError);
+          return [];
+        }
+        
+        // Filter in JavaScript: scraped images have external URLs in path column
+        // (not Supabase storage paths which start with bucket names)
+        const scrapedImages = (fallbackData || []).filter((asset: any) => {
+          const path = asset.path || "";
+          // Scraped images have full HTTP URLs in path (external URLs)
+          const isScraped = path.startsWith("http://") || path.startsWith("https://");
+          if (!isScraped) return false;
+          
+          // If role filter is specified, we can't filter without metadata
+          // But we can try to infer from filename or path
+          if (role === "logo") {
+            const filenameLower = (asset.filename || "").toLowerCase();
+            const pathLower = path.toLowerCase();
+            return filenameLower.includes("logo") || pathLower.includes("logo");
+          }
+          
+          return true;
+        });
+        
+        return scrapedImages.map((asset: any) => ({
+          id: asset.id,
+          url: asset.path || "", // For scraped images, path IS the URL
+          filename: asset.filename,
+          metadata: undefined, // Not available without metadata column
+        }));
+      }
+      
       console.error("[ScrapedImages] Error querying scraped images:", error);
       return [];
     }
