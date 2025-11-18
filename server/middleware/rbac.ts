@@ -7,6 +7,8 @@ import { ErrorCode, HTTP_STATUS } from "../lib/error-responses";
  */
 export enum Role {
   SUPERADMIN = "superadmin",
+  OWNER = "owner",
+  ADMIN = "admin",
   AGENCY_ADMIN = "agency_admin",
   BRAND_MANAGER = "brand_manager",
   CREATOR = "creator",
