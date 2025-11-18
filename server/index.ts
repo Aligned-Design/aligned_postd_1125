@@ -120,9 +120,11 @@ import {
 import studioRouter from "./routes/creative-studio";
 import reviewsRouter from "./routes/reviews";
 import brandMembersRouter from "./routes/brand-members";
+import brandsRouter from "./routes/brands";
 import healthRouter from "./routes/health";
 import crawlerRouter from "./routes/crawler";
 import notificationsRouter from "./routes/notifications";
+import agentsHealthRouter from "./routes/agents-health";
 
 export function createServer() {
   const app = express();
@@ -177,6 +179,9 @@ export function createServer() {
 
   // Health check endpoints
   app.use("/health", healthRouter);
+  
+  // Agents health endpoint (public, no auth required for monitoring)
+  app.use("/api/agents/health", agentsHealthRouter);
 
   // Basic ping endpoint
   app.get("/api/ping", (_req, res) => {
@@ -338,6 +343,9 @@ export function createServer() {
   // Reviews routes
   app.use("/api/reviews", authenticateUser, reviewsRouter);
 
+  // Brand creation route (with automatic onboarding)
+  app.use("/api/brands", authenticateUser, brandsRouter);
+  
   // Brand Members routes (prevents frontend from calling Supabase directly)
   app.use("/api/brands", authenticateUser, requireScope("content:view"), brandMembersRouter);
 

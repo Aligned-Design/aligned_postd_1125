@@ -302,6 +302,124 @@ function createOrchestrationRouter(): Router {
     });
   });
 
+  /**
+   * POST /onboarding/run-all
+   * 
+   * Execute full onboarding workflow for a new workspace/brand.
+   * This is called automatically when a workspace is created, or manually via "Run Setup" button.
+   * 
+   * Body: {
+   *   workspaceId?: string,
+   *   brandId: string,
+   *   websiteUrl?: string,
+   *   industry?: string,
+   *   goals?: string[],
+   *   regenerate?: boolean
+   * }
+   */
+  router.post(
+    "/onboarding/run-all",
+    authenticateUser,
+    requireScope("ai:generate"),
+    async (req: Request, res: Response) => {
+      try {
+        const { workspaceId, brandId, websiteUrl, industry, goals, regenerate } = req.body;
+
+        if (!brandId) {
+          return res.status(400).json({
+            error: "brandId is required",
+          });
+        }
+
+        // Verify brand access
+        assertBrandAccess(req, brandId);
+
+        // Import and run onboarding orchestrator
+        const { runOnboardingWorkflow } = await import("../lib/onboarding-orchestrator");
+        const result = await runOnboardingWorkflow({
+          workspaceId,
+          brandId,
+          websiteUrl,
+          industry,
+          goals,
+          regenerate: regenerate === true,
+        });
+
+        return res.status(200).json({
+          success: true,
+          ...result,
+        });
+      } catch (error: any) {
+        console.error("[Orchestration] Onboarding workflow error:", error);
+        return res.status(500).json({
+          error: "Onboarding workflow failed",
+          message: error.message,
+        });
+      }
+    }
+  );
+
+  /**
+   * POST /workspace/:workspaceId/run-agents
+   * 
+   * Manual trigger for running the onboarding workflow.
+   * This is the endpoint the frontend "Call Agents" / "Run Setup" button should use.
+   * 
+   * Body: {
+   *   brandId: string,
+   *   websiteUrl?: string,
+   *   regenerate?: boolean
+   * }
+   */
+  router.post(
+    "/workspace/:workspaceId/run-agents",
+    authenticateUser,
+    requireScope("ai:generate"),
+    async (req: Request, res: Response) => {
+      try {
+        const { workspaceId } = req.params;
+        const { brandId, websiteUrl, regenerate } = req.body;
+
+        if (!brandId) {
+          return res.status(400).json({
+            error: "brandId is required in request body",
+          });
+        }
+
+        // Verify brand access
+        assertBrandAccess(req, brandId);
+
+        // Import and run onboarding orchestrator
+        const { runOnboardingWorkflow } = await import("../lib/onboarding-orchestrator");
+        const result = await runOnboardingWorkflow({
+          workspaceId,
+          brandId,
+          websiteUrl,
+          regenerate: regenerate === true,
+        });
+
+        return res.status(200).json({
+          success: true,
+          workspaceId,
+          status: result.status,
+          steps: result.steps.map((s) => ({
+            id: s.id,
+            name: s.name,
+            status: s.status,
+            error: s.error,
+          })),
+          message: "Onboarding workflow started",
+        });
+      } catch (error: any) {
+        console.error("[Orchestration] Run agents error:", error);
+        return res.status(500).json({
+          error: "Failed to run agents",
+          message: error.message,
+        });
+      }
+    }
+  );
+
   return router;
 }
 
