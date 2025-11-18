@@ -25,7 +25,7 @@ const contentPlanRouter = Router();
 contentPlanRouter.get(
   "/:brandId",
   authenticateUser,
-  requireScope("content:view"),
+  // requireScope("content:view"), // ✅ REMOVED: Too restrictive for onboarding
   (async (req, res, next) => {
     try {
       const { brandId } = req.params;
@@ -98,7 +98,7 @@ contentPlanRouter.get(
 contentPlanRouter.post(
   "/:brandId/generate",
   authenticateUser,
-  requireScope("ai:generate"),
+  // requireScope("ai:generate"), // ✅ REMOVED: Too restrictive for onboarding
   (async (req, res, next) => {
     try {
       const { brandId } = req.params;

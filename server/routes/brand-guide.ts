@@ -278,7 +278,8 @@ router.put("/:brandId", authenticateUser, async (req, res, next) => {
         brand_kit: brandKit,
         voice_summary: voiceSummary,
         visual_summary: visualSummary,
-        tone_keywords: brandGuide.tone || [],
+        // tone_keywords column doesn't exist - store in brand_kit instead
+        // tone_keywords: brandGuide.tone || [],
         updated_at: new Date().toISOString(),
       })
       .eq("id", brandId)
@@ -465,9 +466,10 @@ router.patch("/:brandId", authenticateUser, async (req, res, next) => {
       updateData.name = nameUpdate;
     }
 
-    // Update tone_keywords if tone was updated
+    // Update tone in brand_kit (not tone_keywords column - that doesn't exist)
     if (updates.tone !== undefined) {
-      updateData.tone_keywords = Array.isArray(updates.tone) ? updates.tone : [];
+      // Store tone in brand_kit JSONB field, not in a separate column
+      brandKitUpdates.toneKeywords = Array.isArray(updates.tone) ? updates.tone : [];
     }
 
     const { data: updatedBrand, error } = await supabase

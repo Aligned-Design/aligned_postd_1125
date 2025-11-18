@@ -604,7 +604,8 @@ async function extractImages(page: Page, baseUrl: string, brandName?: string): P
     // Wait a bit more for lazy-loaded images
     await page.waitForTimeout(1000);
     
-    const images = await page.evaluate((url, brandName) => {
+    const images = await page.evaluate((args) => {
+      const { url, brandName } = args;
       const base = new URL(url);
       const results: Array<{
         url: string;
@@ -752,7 +753,7 @@ async function extractImages(page: Page, baseUrl: string, brandName?: string): P
 
       console.log(`[Browser] Extracted ${results.length} images total`);
       return results;
-    }, baseUrl, brandName);
+    }, { url: baseUrl, brandName: brandName || undefined });
     
     console.log(`[Crawler] Extracted ${images.length} images from page ${baseUrl}`);
 
