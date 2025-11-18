@@ -37,7 +37,7 @@ const crawlJobs = new Map<string, unknown>();
  * Supports both async job mode (returns job_id) and sync mode (returns results directly)
  * For onboarding, use sync mode with ?sync=true
  */
-router.post("/crawl/start", async (req, res) => {
+router.post("/crawl/start", async (req, res, next) => {
   try {
     const { brand_id, url, sync, websiteUrl, workspaceId } = req.body;
     const isSync = sync === true || req.query.sync === "true";
@@ -141,6 +141,13 @@ router.post("/crawl/start", async (req, res) => {
         });
       } catch (error) {
         console.error("[Crawler] Sync crawl error:", error);
+        console.error("[Crawler] Error stack:", error instanceof Error ? error.stack : "No stack trace");
+        console.error("[Crawler] Error details:", {
+          message: error instanceof Error ? error.message : String(error),
+          url: finalUrl,
+          brandId: finalBrandId,
+          tenantId: tenantId || "unknown",
+        });
         // Return fallback data instead of failing
         return res.json({
           success: false,
@@ -194,13 +201,16 @@ router.post("/crawl/start", async (req, res) => {
     res.json({ job_id, status: "pending" });
   } catch (error) {
     console.error("[Crawler] Start crawl error:", error);
-    throw new AppError(
-      ErrorCode.INTERNAL_ERROR,
-      error instanceof Error ? error.message : "Failed to start crawl",
-      HTTP_STATUS.INTERNAL_SERVER_ERROR,
-      "error",
-      error instanceof Error ? { originalError: error.message } : undefined,
-      "Please try again later or contact support"
+    // Pass error to Express error middleware
+    next(
+      new AppError(
+        ErrorCode.INTERNAL_ERROR,
+        error instanceof Error ? error.message : "Failed to start crawl",
+        HTTP_STATUS.INTERNAL_SERVER_ERROR,
+        "error",
+        error instanceof Error ? { originalError: error.message } : undefined,
+        "Please try again later or contact support"
+      )
     );
   }
 });
