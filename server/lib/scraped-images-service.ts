@@ -80,13 +80,15 @@ export async function persistScrapedImages(
     }
   }
 
-  // Limit to 15 images max (10-15 range as specified)
-  // Images should already be sorted and filtered by caller, but ensure limit here too
-  const imagesToPersist = images.slice(0, 15);
-
+  // ✅ SMART PERSISTENCE: Try to get 15 unique images
+  // If we find duplicates, keep trying more images until we get 15 unique ones
   const persistedIds: string[] = [];
+  const maxImages = 15;
+  const maxAttempts = Math.min(images.length, maxImages * 2); // Try up to 30 images to get 15 unique
 
-  for (const image of imagesToPersist) {
+  for (let i = 0; i < maxAttempts && persistedIds.length < maxImages; i++) {
+    const image = images[i];
+    if (!image) break;
     // ✅ VALIDATION: Ensure image URL is valid
     if (!image.url || !image.url.startsWith("http")) {
       console.warn(`[ScrapedImages] Skipping invalid image URL: ${image.url}`);
@@ -190,9 +192,11 @@ export async function persistScrapedImages(
   console.log(`[ScrapedImages] Persistence complete`, {
     brandId: brandId,
     tenantId: finalTenantId,
-    totalImages: images.length,
+    totalImagesAvailable: images.length,
+    imagesAttempted: Math.min(maxAttempts, images.length),
     persistedCount: persistedIds.length,
-    failedCount: images.length - persistedIds.length,
+    targetCount: maxImages,
+    success: persistedIds.length >= maxImages ? "✅ Got 15 unique images" : `⚠️ Only got ${persistedIds.length} unique images (tried ${Math.min(maxAttempts, images.length)})`,
   });
 
   return persistedIds;
@@ -327,151 +331,77 @@ export async function getScrapedImages(
   metadata?: Record<string, unknown>;
 }>> {
   try {
-    // ✅ RESILIENT QUERY: Try with metadata filter first, fallback if column doesn't exist
+    // ✅ RESILIENT QUERY: Don't select metadata (column may not exist)
     // For scraped images, URL is stored in path column (external URLs)
+    // We'll filter for HTTP URLs in JavaScript to identify scraped images
     let query = supabase
       .from("media_assets")
-      .select("id, path, filename, metadata")
+      .select("id, path, filename")
       .eq("brand_id", brandId)
       .eq("status", "active");
-
-    // Try to filter by metadata->>source if metadata column exists
-    // If it doesn't exist, we'll filter in JavaScript below
-    try {
-      query = query.eq("metadata->>source", "scrape");
-      if (role) {
-        query = query.eq("metadata->>role", role);
-      }
-    } catch (metadataError) {
-      // Metadata column doesn't exist - we'll filter in JavaScript
-      console.log("[ScrapedImages] Metadata column not available, will filter in JavaScript");
-    }
 
     const { data, error } = await query
       .order("created_at", { ascending: false });
 
     if (error) {
-      // ✅ ENHANCED ERROR DETECTION: Check for metadata column error
-      const isMetadataError = 
-        error.code === "42703" || 
-        error.code === "42704" ||
-        (typeof error.message === "string" && (
-          error.message.includes("metadata") || 
-          error.message.includes("does not exist") ||
-          error.message.includes("column") && error.message.includes("metadata")
-        ));
-      
-      console.log("[ScrapedImages] Query error detected", {
-        code: error.code,
-        message: error.message,
-        isMetadataError,
-      });
-      
-      // If error is "column metadata does not exist", try without metadata filter
-      if (isMetadataError) {
-        console.log("[ScrapedImages] Metadata column not found, querying without metadata filter");
-        
-        // Retry without metadata filter
-        let fallbackQuery = supabase
-          .from("media_assets")
-          .select("id, path, filename")
-          .eq("brand_id", brandId)
-          .eq("status", "active");
-        
-        const { data: fallbackData, error: fallbackError } = await fallbackQuery
-          .order("created_at", { ascending: false });
-        
-        if (fallbackError) {
-          console.error("[ScrapedImages] Error querying scraped images (fallback):", fallbackError);
-          return [];
-        }
-        
-        // ✅ LOGGING: Log fallback query results
-        console.log(`[ScrapedImages] Fallback query returned ${fallbackData?.length || 0} assets`, {
-          brandId,
-          totalAssets: fallbackData?.length || 0,
-          samplePaths: fallbackData?.slice(0, 3).map((a: any) => a.path?.substring(0, 50)) || [],
-        });
-        
-        // Filter in JavaScript: scraped images have external URLs in path column
-        // (not Supabase storage paths which start with bucket names)
-        const scrapedImages = (fallbackData || []).filter((asset: any) => {
-          const path = asset.path || "";
-          // Scraped images have full HTTP URLs in path (external URLs)
-          const isScraped = path.startsWith("http://") || path.startsWith("https://");
-          if (!isScraped) {
-            console.log(`[ScrapedImages] Filtered out non-HTTP path: ${path.substring(0, 50)}...`);
-            return false;
-          }
-          
-          // If role filter is specified, we can't filter without metadata
-          // But we can try to infer from filename or path
-          if (role === "logo") {
-            const filenameLower = (asset.filename || "").toLowerCase();
-            const pathLower = path.toLowerCase();
-            const isLogo = filenameLower.includes("logo") || pathLower.includes("logo");
-            if (!isLogo) {
-              console.log(`[ScrapedImages] Filtered out non-logo: ${path.substring(0, 50)}...`);
-            }
-            return isLogo;
-          }
-          
-          return true;
-        });
-        
-        console.log(`[ScrapedImages] Filtered to ${scrapedImages.length} scraped images (from ${fallbackData?.length || 0} total assets)`, {
-          brandId,
-          role: role || "all",
-          scrapedCount: scrapedImages.length,
-        });
-        
-        return scrapedImages.map((asset: any) => ({
-          id: asset.id,
-          url: asset.path || "", // For scraped images, path IS the URL
-          filename: asset.filename,
-          metadata: undefined, // Not available without metadata column
-        }));
+      // If it's not a metadata error, it's a real database error
+      if (error.code !== "42703" && error.code !== "42704" && !error.message?.includes("metadata")) {
+        console.error("[ScrapedImages] Error querying scraped images:", error);
+        return [];
       }
-      
-      console.error("[ScrapedImages] Error querying scraped images:", error);
-      return [];
+      // If it is a metadata error, fall through to fallback below
+      // Fallback: query succeeded but we need to filter for scraped images
+      // (This shouldn't happen now since we're not selecting metadata, but keep as safety)
+      console.log("[ScrapedImages] Query succeeded, filtering for scraped images by HTTP URLs");
     }
 
     if (!data || data.length === 0) {
       // ✅ LOGGING: Log when no images found (helps debug missing images)
-      console.log(`[ScrapedImages] No scraped images found`, {
+      console.log(`[ScrapedImages] No media assets found for brand`, {
         brandId: brandId,
         role: role || "all",
-        query: "media_assets WHERE brand_id = ? AND metadata->>'source' = 'scrape'",
       });
       return [];
     }
 
     // ✅ LOGGING: Log successful query
-    console.log(`[ScrapedImages] Query successful`, {
+    console.log(`[ScrapedImages] Query successful, filtering for scraped images`, {
       brandId: brandId,
       role: role || "all",
-      count: data.length,
-      imageIds: data.slice(0, 5).map(img => img.id), // Log first 5 IDs for debugging
+      totalAssets: data.length,
+      samplePaths: data.slice(0, 3).map((a: any) => a.path?.substring(0, 50)) || [],
     });
     
-    // ✅ FIX: Extract URL from metadata.scrapedUrl or use path
-    // For scraped images, the URL is stored in path column (since media_assets may not have url column)
-    return data.map((asset: any) => {
-      const metadata = asset.metadata as Record<string, unknown> | undefined;
-      // Try metadata.scrapedUrl first, then path (which contains the URL for scraped images), then asset.url if it exists
-      const url = (metadata?.scrapedUrl as string) || asset.path || asset.url || "";
+    // ✅ FILTER: Scraped images have HTTP URLs in path column (external URLs)
+    // Uploaded images have Supabase storage paths (bucket names, not HTTP URLs)
+    const scrapedImages = data.filter((asset: any) => {
+      const path = asset.path || "";
+      // Scraped images have full HTTP URLs in path (external URLs)
+      const isScraped = path.startsWith("http://") || path.startsWith("https://");
+      if (!isScraped) return false;
       
-      // Validate URL is actually a URL (starts with http)
-      const finalUrl = url.startsWith("http") ? url : "";
+      // If role filter is specified, try to infer from filename or path
+      if (role === "logo") {
+        const filenameLower = (asset.filename || "").toLowerCase();
+        const pathLower = path.toLowerCase();
+        return filenameLower.includes("logo") || pathLower.includes("logo");
+      }
       
-      return {
-        id: asset.id,
-        url: finalUrl,
-        filename: asset.filename,
-        metadata: metadata,
-      };
+      return true;
     });
+    
+    console.log(`[ScrapedImages] Filtered to ${scrapedImages.length} scraped images (from ${data.length} total assets)`, {
+      brandId,
+      role: role || "all",
+      scrapedCount: scrapedImages.length,
+    });
+    
+    return scrapedImages.map((asset: any) => ({
+      id: asset.id,
+      url: asset.path || "", // For scraped images, path IS the URL
+      filename: asset.filename,
+      metadata: undefined, // Not available without metadata column
+    }));
   } catch (error) {
     console.error("[ScrapedImages] Error getting scraped images:", error);
     console.error("[ScrapedImages] Debug info:", {
