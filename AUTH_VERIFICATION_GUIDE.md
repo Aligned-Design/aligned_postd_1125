@@ -48,7 +48,7 @@ This will show:
 ### Step 3: Check Supabase Project Status
 
 1. Go to https://app.supabase.com
-2. Select project: `xpzvtvycjsccaosahmgz`
+2. Select project: `nsrlgwimixkgwlqrpbxq`
 3. Check:
    - Project is active (not paused)
    - Auth is enabled (Settings → Authentication)
