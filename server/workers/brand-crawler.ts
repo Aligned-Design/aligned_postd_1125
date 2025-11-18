@@ -23,18 +23,36 @@ const isVercel = !!process.env.VERCEL || !!process.env.AWS_LAMBDA_FUNCTION_NAME;
  * Launch browser with Vercel-compatible setup
  */
 async function launchBrowser(): Promise<Browser> {
-  if (isVercel) {
-    const chromiumPath = await vercelChromium.executablePath();
-    return await playwrightCore.chromium.launch({
-      executablePath: chromiumPath,
-      args: [...vercelChromium.args, "--no-sandbox", "--disable-setuid-sandbox"],
-      headless: true,
+  try {
+    if (isVercel) {
+      console.log("[Crawler] Launching browser on Vercel...");
+      const chromiumPath = await vercelChromium.executablePath();
+      console.log("[Crawler] Chromium path:", chromiumPath);
+      const browser = await playwrightCore.chromium.launch({
+        executablePath: chromiumPath,
+        args: [...vercelChromium.args, "--no-sandbox", "--disable-setuid-sandbox"],
+        headless: true,
+      });
+      console.log("[Crawler] Browser launched successfully on Vercel");
+      return browser;
+    } else {
+      console.log("[Crawler] Launching browser locally...");
+      const browser = await playwrightChromium.launch({
+        headless: true,
+        args: ["--no-sandbox", "--disable-setuid-sandbox"],
+      });
+      console.log("[Crawler] Browser launched successfully locally");
+      return browser;
+    }
+  } catch (error) {
+    console.error("[Crawler] Failed to launch browser:", error);
+    console.error("[Crawler] Error details:", {
+      message: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+      isVercel,
+      hasChromium: !!vercelChromium,
     });
-  } else {
-    return await playwrightChromium.launch({
-      headless: true,
-      args: ["--no-sandbox", "--disable-setuid-sandbox"],
-    });
+    throw new Error(`Failed to launch browser: ${error instanceof Error ? error.message : String(error)}`);
   }
 }
 
@@ -197,6 +215,7 @@ export async function processBrandIntake(
  * - 1s delay between requests
  */
 export async function crawlWebsite(startUrl: string): Promise<CrawlResult[]> {
+  console.log("[Crawler] Starting crawlWebsite for:", startUrl);
   const baseUrl = new URL(startUrl);
   const baseDomain = baseUrl.hostname;
 
@@ -211,7 +230,9 @@ export async function crawlWebsite(startUrl: string): Promise<CrawlResult[]> {
   let browser: Browser | null = null;
 
   try {
+    console.log("[Crawler] Attempting to launch browser...");
     browser = await launchBrowser();
+    console.log("[Crawler] Browser launched, starting crawl...");
 
     while (queue.length > 0 && results.length < CRAWL_MAX_PAGES) {
       const { url, depth } = queue.shift()!;
@@ -275,9 +296,21 @@ export async function crawlWebsite(startUrl: string): Promise<CrawlResult[]> {
       }
     }
 
+    console.log(`[Crawler] Crawl complete: ${results.length} pages crawled`);
     return results;
+  } catch (error) {
+    console.error("[Crawler] Fatal error in crawlWebsite:", error);
+    console.error("[Crawler] Error stack:", error instanceof Error ? error.stack : "No stack");
+    throw error;
   } finally {
-    if (browser) await browser.close();
+    if (browser) {
+      try {
+        await browser.close();
+        console.log("[Crawler] Browser closed");
+      } catch (closeError) {
+        console.error("[Crawler] Error closing browser:", closeError);
+      }
+    }
   }
 }
 
