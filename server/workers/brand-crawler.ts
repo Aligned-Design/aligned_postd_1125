@@ -1156,15 +1156,13 @@ function deduplicateResults(results: CrawlResult[]): CrawlResult[] {
 }
 
 /**
- * Generate brand kit using OpenAI
+ * Generate brand kit using AI (with automatic fallback to Claude if OpenAI is down)
  */
 async function generateBrandKitWithAI(
   text: string,
   colors: ColorPalette,
   sourceUrl: string,
 ): Promise<BrandKitData> {
-  const openai = new OpenAI({ apiKey: OPENAI_API_KEY });
-
   const prompt = `Analyze this brand's website content and extract:
 1. Tone (3-5 adjectives, e.g., "professional", "friendly", "innovative")
 2. Writing style (1-2 words, e.g., "conversational", "formal")
@@ -1189,14 +1187,11 @@ Respond in JSON format:
 }`;
 
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-4-turbo-preview",
-      messages: [{ role: "user", content: prompt }],
-      response_format: { type: "json_object" },
-      temperature: 0.3,
-    });
-
-    const aiResult = JSON.parse(response.choices[0].message.content || "{}");
+    // ✅ Use centralized generateWithAI which has automatic fallback to Claude if OpenAI is down
+    // Default to OpenAI, but will automatically fallback to Claude on API errors
+    const result = await generateWithAI(prompt, "doc", "openai");
+    
+    const aiResult = JSON.parse(result.content || "{}");
 
     return {
       voice_summary: {
