@@ -52,6 +52,51 @@ export function authenticateUser(
   }
 }
 
+/**
+ * Optional authentication middleware for onboarding routes
+ * Allows requests without auth (for dev/mock users) but attaches user if token is present
+ */
+export function optionalAuthForOnboarding(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const authHeader = req.headers.authorization;
+    
+    // If no auth header, allow request to proceed (for onboarding/dev users)
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      console.log("[Auth] Optional auth: No token provided, allowing request for onboarding");
+      (req as any).user = null;
+      (req as any).auth = null;
+      return next();
+    }
+
+    // If auth header present, try to verify token
+    jwtAuth(req, res, () => {
+      // Normalize req.user for backward compatibility
+      const auth = (req as any).auth;
+      if (auth) {
+        (req as any).user = {
+          id: auth.userId,
+          email: auth.email,
+          role: auth.role,
+          brandId: auth.brandIds?.[0],
+          brandIds: auth.brandIds,
+          scopes: auth.scopes || [],
+        };
+      }
+      next();
+    });
+  } catch (error) {
+    // If token verification fails, still allow request (for dev/mock users)
+    console.warn("[Auth] Optional auth: Token verification failed, allowing request for onboarding:", error instanceof Error ? error.message : String(error));
+    (req as any).user = null;
+    (req as any).auth = null;
+    next();
+  }
+}
+
 // Rate limiting configuration
 interface RateLimitConfig {
   windowMs: number;

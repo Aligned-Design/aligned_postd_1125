@@ -13,13 +13,14 @@ import { ErrorCode, HTTP_STATUS } from "./error-responses";
 
 export interface ImageSource {
   url: string;
-  source: "brand_asset" | "stock_image" | "generic";
+  source: "scrape" | "stock" | "upload" | "generic";
   assetId?: string;
   metadata?: {
     width?: number;
     height?: number;
     alt?: string;
     attribution?: string;
+    source?: "scrape" | "stock" | "upload";
   };
 }
 
@@ -40,33 +41,36 @@ export async function getPrioritizedImage(
   category?: "logo" | "image" | "graphics" | "video"
 ): Promise<ImageSource | null> {
   try {
-    // Priority 1: Brand assets from media_assets table
+    // ✅ PRIORITY 1: Scraped images (source='scrape') from media_assets table
     const brandAsset = await getBrandAsset(brandId, category);
     if (brandAsset) {
+      const source = brandAsset.source || "upload";
       return {
         url: brandAsset.url,
-        source: "brand_asset",
+        source: source === "scrape" ? "scrape" : source === "stock" ? "stock" : "upload",
         assetId: brandAsset.id,
         metadata: {
           width: brandAsset.metadata?.width as number | undefined,
           height: brandAsset.metadata?.height as number | undefined,
           alt: brandAsset.filename,
+          source: source === "scrape" ? "scrape" : source === "stock" ? "stock" : "upload",
         },
       };
     }
 
-    // Priority 2: Approved stock images (from brand's stock image assignments)
+    // ✅ PRIORITY 2: Approved stock images (only if no scraped/uploaded images found)
     const stockImage = await getApprovedStockImage(brandId);
     if (stockImage) {
       return {
         url: stockImage.fullImageUrl || stockImage.previewUrl,
-        source: "stock_image",
+        source: "stock",
         assetId: stockImage.id,
         metadata: {
           width: stockImage.width,
           height: stockImage.height,
           alt: stockImage.title,
           attribution: stockImage.attributionText,
+          source: "stock",
         },
       };
     }
@@ -81,6 +85,8 @@ export async function getPrioritizedImage(
 
 /**
  * Get brand asset from media_assets or brand_assets table
+ * 
+ * Priority: scraped images (source='scrape') > uploaded images > legacy brand_assets
  */
 async function getBrandAsset(
   brandId: string,
@@ -90,14 +96,53 @@ async function getBrandAsset(
   url: string;
   filename: string;
   metadata?: Record<string, unknown>;
+  source?: "scrape" | "stock" | "upload";
 } | null> {
   try {
-    // Try media_assets table first (newer structure)
+    // ✅ PRIORITY 1: Try scraped images first (source='scrape')
+    let scrapedQuery = supabase
+      .from("media_assets")
+      .select("id, url, filename, metadata")
+      .eq("brand_id", brandId)
+      .eq("status", "active")
+      .eq("metadata->>source", "scrape")
+      .order("created_at", { ascending: false })
+      .limit(1);
+
+    if (category) {
+      const categoryMap: Record<string, string> = {
+        logo: "logos",
+        image: "images",
+        graphics: "graphics",
+        video: "videos",
+      };
+      scrapedQuery = scrapedQuery.eq("category", categoryMap[category] || category);
+      
+      // For logos, also filter by role
+      if (category === "logo") {
+        scrapedQuery = scrapedQuery.eq("metadata->>role", "logo");
+      }
+    }
+
+    const { data: scrapedAsset, error: scrapedError } = await scrapedQuery;
+
+    if (!scrapedError && scrapedAsset && scrapedAsset.length > 0) {
+      return {
+        id: scrapedAsset[0].id,
+        url: scrapedAsset[0].url,
+        filename: scrapedAsset[0].filename,
+        metadata: scrapedAsset[0].metadata as Record<string, unknown> | undefined,
+        source: "scrape" as const,
+      };
+    }
+
+    // ✅ PRIORITY 2: Try uploaded images (source='upload' or no source)
     let query = supabase
       .from("media_assets")
       .select("id, url, filename, metadata")
       .eq("brand_id", brandId)
       .eq("status", "active")
+      .or("metadata->>source.is.null,metadata->>source.eq.upload")
       .order("usage_count", { ascending: false })
       .order("created_at", { ascending: false })
       .limit(1);
@@ -116,11 +161,14 @@ async function getBrandAsset(
     const { data: mediaAsset, error: mediaError } = await query;
 
     if (!mediaError && mediaAsset && mediaAsset.length > 0) {
+      const metadata = mediaAsset[0].metadata as Record<string, unknown> | undefined;
+      const source = (metadata?.source as string) || "upload";
       return {
         id: mediaAsset[0].id,
         url: mediaAsset[0].url,
         filename: mediaAsset[0].filename,
-        metadata: mediaAsset[0].metadata as Record<string, unknown> | undefined,
+        metadata,
+        source: (source === "scrape" || source === "stock" || source === "upload") ? source as "scrape" | "stock" | "upload" : "upload",
       };
     }
 
@@ -181,7 +229,7 @@ async function getApprovedStockImage(
     // First, try media_assets table (newer structure) with stock source flag
     const { data: mediaStockAssets, error: mediaError } = await supabase
       .from("media_assets")
-      .select("id, url, filename, metadata")
+      .select("id, url, filename, metadata, thumbnail_url")
       .eq("brand_id", brandId)
       .eq("status", "active")
       .eq("category", "images")
@@ -191,7 +239,7 @@ async function getApprovedStockImage(
       .limit(1);
 
     if (!mediaError && mediaStockAssets && mediaStockAssets.length > 0) {
-      const asset = mediaStockAssets[0];
+      const asset = mediaStockAssets[0] as any;
       const metadata = (asset.metadata as Record<string, unknown>) || {};
       
       return {
@@ -253,31 +301,50 @@ export async function getPrioritizedImages(
 ): Promise<ImageSource[]> {
   const images: ImageSource[] = [];
 
-  // Get brand assets first
-  const brandAssets = await getBrandAssets(brandId, count);
-  images.push(...brandAssets.map((asset) => ({
+  // ✅ PRIORITY 1: Get scraped images first (source='scrape')
+  const scrapedAssets = await getScrapedBrandAssets(brandId, count);
+  images.push(...scrapedAssets.map((asset): ImageSource => ({
     url: asset.url,
-    source: "brand_asset" as const,
+    source: "scrape" as const,
     assetId: asset.id,
     metadata: {
       width: asset.metadata?.width as number | undefined,
       height: asset.metadata?.height as number | undefined,
       alt: asset.filename,
+      source: "scrape" as const,
     },
   })));
 
-  // Fill remaining slots with stock images
+  // ✅ PRIORITY 2: Get uploaded images (source='upload' or no source)
   if (images.length < count) {
+    const uploadedAssets = await getUploadedBrandAssets(brandId, count - images.length);
+    images.push(...uploadedAssets.map((asset): ImageSource => ({
+      url: asset.url,
+      source: "upload" as const,
+      assetId: asset.id,
+      metadata: {
+        width: asset.metadata?.width as number | undefined,
+        height: asset.metadata?.height as number | undefined,
+        alt: asset.filename,
+        source: "upload" as const,
+      },
+    })));
+  }
+
+  // ✅ PRIORITY 3: Fill remaining slots with stock images (only if < threshold)
+  const SCRAPED_IMAGE_THRESHOLD = 5;
+  if (images.length < SCRAPED_IMAGE_THRESHOLD) {
     const stockImages = await getApprovedStockImages(brandId, count - images.length);
-    images.push(...stockImages.map((img) => ({
+    images.push(...stockImages.map((img): ImageSource => ({
       url: img.fullImageUrl || img.previewUrl,
-      source: "stock_image" as const,
+      source: "stock" as const,
       assetId: img.id,
       metadata: {
         width: img.width,
         height: img.height,
         alt: img.title,
         attribution: img.attributionText,
+        source: "stock" as const,
       },
     })));
   }
@@ -287,9 +354,9 @@ export async function getPrioritizedImages(
 }
 
 /**
- * Get multiple brand assets
+ * Get scraped brand assets (source='scrape')
  */
-async function getBrandAssets(
+async function getScrapedBrandAssets(
   brandId: string,
   limit: number
 ): Promise<Array<{
@@ -304,6 +371,46 @@ async function getBrandAssets(
       .select("id, url, filename, metadata")
       .eq("brand_id", brandId)
       .eq("status", "active")
+      .eq("metadata->>source", "scrape")
+      .in("category", ["images", "graphics", "logos"])
+      .order("created_at", { ascending: false })
+      .limit(limit);
+
+    if (error || !data) {
+      return [];
+    }
+
+    return data.map((asset) => ({
+      id: asset.id,
+      url: asset.url,
+      filename: asset.filename,
+      metadata: asset.metadata as Record<string, unknown> | undefined,
+    }));
+  } catch (error) {
+    console.error("[ImageSourcing] Error getting scraped brand assets:", error);
+    return [];
+  }
+}
+
+/**
+ * Get uploaded brand assets (source='upload' or no source)
+ */
+async function getUploadedBrandAssets(
+  brandId: string,
+  limit: number
+): Promise<Array<{
+  id: string;
+  url: string;
+  filename: string;
+  metadata?: Record<string, unknown>;
+}>> {
+  try {
+    const { data, error } = await supabase
+      .from("media_assets")
+      .select("id, url, filename, metadata")
+      .eq("brand_id", brandId)
+      .eq("status", "active")
+      .or("metadata->>source.is.null,metadata->>source.eq.upload")
       .in("category", ["images", "graphics", "logos"])
       .order("usage_count", { ascending: false })
       .order("created_at", { ascending: false })
@@ -320,7 +427,7 @@ async function getBrandAssets(
       metadata: asset.metadata as Record<string, unknown> | undefined,
     }));
   } catch (error) {
-    console.error("[ImageSourcing] Error getting brand assets:", error);
+    console.error("[ImageSourcing] Error getting uploaded brand assets:", error);
     return [];
   }
 }

@@ -16,6 +16,7 @@ import {
   crawlWebsite,
   extractColors,
 } from "../workers/brand-crawler";
+import { persistScrapedImages } from "../lib/scraped-images-service";
 import {
   CrawlerSuggestion,
   FieldChange,
@@ -77,7 +78,7 @@ router.post("/crawl/start", async (req, res) => {
     // SYNC MODE: For onboarding, run crawl immediately and return results
     if (isSync) {
       try {
-        const result = await runCrawlJobSync(url);
+        const result = await runCrawlJobSync(url, finalBrandId);
         return res.json({
           success: true,
           brandKit: result.brandKit,
@@ -152,7 +153,7 @@ router.post("/crawl/start", async (req, res) => {
 /**
  * Sync crawl job for onboarding (runs immediately, returns results)
  */
-async function runCrawlJobSync(url: string): Promise<{ brandKit: any }> {
+async function runCrawlJobSync(url: string, brandId: string): Promise<{ brandKit: any }> {
   // TODO: Consider increasing timeout to 30-45s for JS-heavy sites if needed
   const CRAWL_TIMEOUT_MS = 25000; // 25 second timeout for onboarding
 
@@ -204,6 +205,36 @@ async function runCrawlJobSync(url: string): Promise<{ brandKit: any }> {
         
         // Extract headlines from all crawl results
         const headlines = extractHeadlinesFromCrawlResults(crawlResults);
+        
+        // ✅ PERSIST SCRAPED IMAGES: Save to media_assets table with source='scrape'
+        let persistedImageCount = 0;
+        let logoFound = false;
+        let workspaceId = "unknown";
+        if (allImages.length > 0 && brandId) {
+          try {
+            // Get tenant_id from brand if available (for onboarding, brand might not exist yet)
+            let tenantId: string | null = null;
+            if (!brandId.startsWith("brand_")) {
+              const { data: brand } = await supabase
+                .from("brands")
+                .select("tenant_id")
+                .eq("id", brandId)
+                .single();
+              tenantId = (brand as any)?.tenant_id || null;
+              workspaceId = tenantId || "unknown";
+            }
+            
+            const persistedIds = await persistScrapedImages(brandId, tenantId, allImages);
+            persistedImageCount = persistedIds.length;
+            logoFound = !!logoImage;
+            
+            // ✅ LOGGING: Log scrape results (for Vercel server logs)
+            console.log(`[Crawler] Scrape result: { workspaceId: ${workspaceId}, brandId: ${brandId}, pages: ${crawlResults.length}, images: ${allImages.length}, persisted: ${persistedImageCount}, logoFound: ${logoFound} }`);
+          } catch (persistError) {
+            console.warn("[Crawler] Failed to persist scraped images (non-critical):", persistError);
+            // Continue anyway - images are still in brandKit response
+          }
+        }
         
         // Build brand kit structure matching Edge Function format
         const brandKit = {

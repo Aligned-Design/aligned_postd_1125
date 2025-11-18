@@ -13,6 +13,8 @@ import { requireScope } from "../middleware/requireScope";
 import { assertBrandAccess } from "../lib/brand-access";
 import { AppError } from "../lib/error-middleware";
 import { ErrorCode, HTTP_STATUS } from "../lib/error-responses";
+import { getPrioritizedImage, getPrioritizedImages } from "../lib/image-sourcing";
+import { getScrapedImages } from "../lib/scraped-images-service";
 import type { BrandGuide } from "@shared/brand-guide";
 
 const router = Router();
@@ -124,7 +126,30 @@ Generate a Brand Guide in JSON format matching this structure:
         );
       }
 
+      // ✅ PRIORITY: Get scraped images for logo and hero (source='scrape')
+      const scrapedLogo = await getPrioritizedImage(brandId, "logo");
+      const scrapedHero = await getPrioritizedImage(brandId, "image");
+      const scrapedImages = await getScrapedImages(brandId);
+      
+      // ✅ FALLBACK: Only use stock images if scraped images are insufficient
+      const SCRAPED_IMAGE_THRESHOLD = 5;
+      let stockImagesCount = 0;
+      let stockImages: any[] = [];
+      
+      // Only fetch stock images if we have fewer than threshold scraped images
+      if (scrapedImages.length < SCRAPED_IMAGE_THRESHOLD) {
+        // Get additional images from prioritized images (which includes stock as fallback)
+        const additionalImages = await getPrioritizedImages(brandId, SCRAPED_IMAGE_THRESHOLD - scrapedImages.length);
+        stockImages = additionalImages.filter(img => img.source === "stock");
+        stockImagesCount = stockImages.length;
+      }
+      
+      // ✅ LOGGING: Log brand visuals selection (for Vercel server logs)
+      const workspaceId = (req as any).user?.workspaceId || (req as any).auth?.workspaceId || "unknown";
+      console.log(`[BrandGuide] Brand visuals: { workspaceId: ${workspaceId}, brandId: ${brandId}, scrapedImages: ${scrapedImages.length}, stockImages: ${stockImagesCount} }`);
+
       // Merge AI-generated data with onboarding data (onboarding takes precedence)
+      // ✅ PRIORITY: Use scraped logo/hero if available, otherwise use onboarding data
       const brandGuide: BrandGuide = {
         id: brandId,
         brandId,
@@ -156,7 +181,8 @@ Generate a Brand Guide in JSON format matching this structure:
             mustInclude: onboardingAnswers?.imageRules?.mustInclude || brandGuideData.visualIdentity?.photographyStyle?.mustInclude || [],
             mustAvoid: onboardingAnswers?.imageRules?.mustAvoid || brandGuideData.visualIdentity?.photographyStyle?.mustAvoid || [],
           },
-          logoUrl: onboardingAnswers?.logo || brandGuideData.visualIdentity?.logoUrl,
+          // ✅ PRIORITY: Use scraped logo if available, otherwise onboarding logo, otherwise AI-generated
+          logoUrl: scrapedLogo?.url || onboardingAnswers?.logo || brandGuideData.visualIdentity?.logoUrl,
           visualNotes: brandGuideData.visualIdentity?.visualNotes,
         },
         contentRules: {
@@ -169,11 +195,28 @@ Generate a Brand Guide in JSON format matching this structure:
           guardrails: brandGuideData.contentRules?.guardrails || [],
         },
         approvedAssets: {
-          uploadedPhotos: (onboardingAnswers?.images || []).map((url: string, idx: number) => ({
-            id: `img-${idx}`,
-            url,
-            category: "website_scrape",
-          })),
+          // ✅ PRIORITY: Use scraped images first, then onboarding images, then stock as fallback
+          uploadedPhotos: [
+            ...scrapedImages.map((img) => ({
+              id: img.id,
+              url: img.url,
+              category: "website_scrape",
+              source: "scrape" as const,
+            })),
+            ...(onboardingAnswers?.images || []).map((url: string, idx: number) => ({
+              id: `img-${idx}`,
+              url,
+              category: "website_scrape",
+              source: "scrape" as const,
+            })),
+            // Only include stock images if scraped images are insufficient
+            ...stockImages.map((img) => ({
+              id: img.assetId || `stock-${Date.now()}-${Math.random()}`,
+              url: img.url,
+              category: "stock",
+              source: "stock" as const,
+            })),
+          ],
           uploadedGraphics: [],
           uploadedTemplates: [],
           approvedStockImages: onboardingAnswers?.approvedStockImages || [],

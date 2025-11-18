@@ -26,7 +26,7 @@ import integrationsRouter from "./routes/integrations";
 import { searchStockImages, getStockImage } from "./routes/stock-images";
 
 // Import RBAC middleware
-import { authenticateUser } from "./middleware/security";
+import { authenticateUser, optionalAuthForOnboarding } from "./middleware/security";
 import { requireScope } from "./middleware/requireScope";
 
 import publishingRouter from "./routes/publishing-router";
@@ -232,7 +232,8 @@ export function createServer() {
   app.use("/api/onboarding", authenticateUser, onboardingRouter);
 
   // Crawler routes (for website scraping during onboarding)
-  app.use("/api/crawl", authenticateUser, crawlerRouter);
+  // Note: Authentication is optional for sync mode (onboarding), handled in route
+  app.use("/api/crawl", optionalAuthForOnboarding, crawlerRouter);
 
   // Router mounting
   app.use(

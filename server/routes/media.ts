@@ -20,6 +20,8 @@ interface MediaAsset {
   tags?: string[];
   variants?: unknown[];
   metadata?: Record<string, unknown>;
+  source?: "scrape" | "stock" | "upload";
+  url?: string;
 }
 
 interface MediaUploadResponse {
@@ -80,6 +82,9 @@ function generateSEOMetadata(
 // Helper function to convert database record to API response format
 function mapAssetRecord(record: unknown): MediaAsset {
   const r = record as any;
+  const metadata = r.metadata as Record<string, unknown> | undefined;
+  const source = (metadata?.source as string) || "upload";
+  
   return {
     id: r.id,
     filename: r.filename,
@@ -96,6 +101,11 @@ function mapAssetRecord(record: unknown): MediaAsset {
     tags: r.metadata?.tags || [],
     variants: r.variants,
     metadata: r.metadata,
+    // ✅ SOURCE FIELD: Include source in response (scrape | stock | upload)
+    source: (source === "scrape" || source === "stock" || source === "upload") 
+      ? source as "scrape" | "stock" | "upload" 
+      : "upload",
+    url: r.url,
   };
 }
 
@@ -267,7 +277,8 @@ export const getAssetUrl: RequestHandler = async (req, res, next) => {
     }
 
     // ✅ SECURITY: Get asset and verify brand access
-    const asset = await mediaDB.getMediaAsset(assetId);
+    const assetRecord = await mediaDB.getMediaAsset(assetId);
+    const asset = assetRecord ? mapAssetRecord(assetRecord) : null;
     if (!asset) {
       throw new AppError(
         ErrorCode.NOT_FOUND,

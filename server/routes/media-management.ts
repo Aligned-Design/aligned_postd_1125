@@ -301,9 +301,19 @@ router.get('/:assetId', async (req: Request, res: Response) => {
       );
     }
 
+    // ✅ SOURCE FIELD: Include source in response
+    const asset = data[0] as any;
+    const metadata = (asset.metadata as Record<string, unknown>) || {};
+    const source = (metadata.source as string) || "upload";
+    
     (res as any).json({
       success: true,
-      asset: data[0]
+      asset: {
+        ...asset,
+        source: (source === "scrape" || source === "stock" || source === "upload") 
+          ? source as "scrape" | "stock" | "upload" 
+          : "upload",
+      }
     });
   } catch (error) {
     console.error('Get asset error:', error);

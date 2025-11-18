@@ -209,6 +209,8 @@ export const searchStockImages: RequestHandler = async (req, res, next) => {
           tags: photo.alt ? [photo.alt.toLowerCase()] : [],
           colors: photo.avg_color ? [photo.avg_color] : [],
           category: undefined,
+          // ✅ SOURCE FIELD: Mark as stock
+          source: "stock" as const,
         };
       });
 
@@ -320,6 +322,8 @@ export const searchStockImages: RequestHandler = async (req, res, next) => {
           tags: hit.tags ? hit.tags.split(", ").map((t: string) => t.trim()) : [],
           colors: undefined, // Pixabay doesn't provide color info
           category: undefined,
+          // ✅ SOURCE FIELD: Mark as stock
+          source: "stock" as const,
         };
       }).filter((img) => img !== null); // Remove filtered-out images
 
@@ -446,6 +450,8 @@ export const getStockImage: RequestHandler = async (req, res, next) => {
         tags: photo.alt ? [photo.alt.toLowerCase()] : [],
         colors: photo.avg_color ? [photo.avg_color] : [],
         category: undefined,
+        // ✅ SOURCE FIELD: Mark as stock
+        source: "stock" as const,
       };
     } else if (provider === "pixabay") {
       const pixabayApiKey = process.env.PIXABAY_API_KEY;
@@ -521,6 +527,8 @@ export const getStockImage: RequestHandler = async (req, res, next) => {
         tags: hit.tags ? hit.tags.split(", ").map((t: string) => t.trim()) : [],
         colors: undefined,
         category: undefined,
+        // ✅ SOURCE FIELD: Mark as stock
+        source: "stock" as const,
       };
     }
 
