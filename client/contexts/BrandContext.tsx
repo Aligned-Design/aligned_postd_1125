@@ -202,10 +202,10 @@ export function BrandProvider({ children }: { children: React.ReactNode }) {
       }));
 
       if (transformedBrands && transformedBrands.length > 0) {
-        setBrands(brandsData);
+        setBrands(transformedBrands);
         // Auto-select first brand if none selected
-        if (!currentBrand || !brandsData.find(b => b.id === currentBrand.id)) {
-          setCurrentBrand(brandsData[0]);
+        if (!currentBrand || !transformedBrands.find(b => b.id === currentBrand.id)) {
+          setCurrentBrand(transformedBrands[0]);
         }
       } else {
         // No brands found in DB
