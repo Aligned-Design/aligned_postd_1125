@@ -24,7 +24,6 @@
     "noImplicitAny": false,
     "noFallthroughCasesInSwitch": false,
     "strictNullChecks": false,
-    "types": ["vitest/globals"],
     "typeRoots": ["./node_modules/@types", "./server/types"],
 
     "baseUrl": ".",
