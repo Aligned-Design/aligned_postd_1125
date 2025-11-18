@@ -1,13 +1,41 @@
 import "dotenv/config";
-import { createServer } from "../server/index";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 
 // Create the Express app once and cache it
 let app: any = null;
+let createServerFn: (() => any) | null = null;
 
-function getApp() {
+async function getApp() {
   if (!app) {
-    app = createServer();
+    // Lazy load the server module to handle Vercel's build context
+    if (!createServerFn) {
+      try {
+        // Try to import from the built server first (for Vercel production)
+        // The server is built to dist/server/node-build.mjs and exports createServer
+        const serverModule = await import("../dist/server/node-build.mjs");
+        createServerFn = (serverModule as any).createServer;
+        if (!createServerFn) {
+          throw new Error("createServer not found in node-build.mjs");
+        }
+      } catch (distError) {
+        // Fallback: try direct import (for local dev or if Vercel compiles TypeScript)
+        try {
+          const serverModule = await import("../server/index");
+          createServerFn = serverModule.createServer;
+          if (!createServerFn) {
+            throw new Error("createServer not exported from server/index");
+          }
+        } catch (directError) {
+          console.error("[Vercel] Failed to import server from dist:", distError);
+          console.error("[Vercel] Failed to import server directly:", directError);
+          throw new Error(`Cannot load server module. Dist error: ${distError instanceof Error ? distError.message : String(distError)}. Direct error: ${directError instanceof Error ? directError.message : String(directError)}`);
+        }
+      }
+    }
+    if (!createServerFn) {
+      throw new Error("createServer function is null");
+    }
+    app = createServerFn();
   }
   return app;
 }
@@ -15,7 +43,7 @@ function getApp() {
 // Export as a serverless handler
 export default async (req: VercelRequest, res: VercelResponse) => {
   try {
-    const application = getApp();
+    const application = await getApp();
 
     // Handle the request through the Express app
     // Express expects the app to be called as a middleware function
