@@ -210,7 +210,11 @@ export default function Screen3AiScrape() {
           : ["Professional", "Trustworthy"],
         audience: brandKit?.voice_summary?.audience || "Your target audience",
         goal: "Grow brand awareness and engagement",
-        colors: brandKit?.colors
+        colors: brandKit?.colors?.allColors && brandKit.colors.allColors.length > 0
+          ? brandKit.colors.allColors.slice(0, 6) // Use allColors array (up to 6 colors)
+          : brandKit?.colors?.primaryColors && brandKit.colors.primaryColors.length > 0
+          ? brandKit.colors.primaryColors
+          : brandKit?.colors
           ? [
               brandKit.colors.primary,
               brandKit.colors.secondary,
@@ -219,15 +223,15 @@ export default function Screen3AiScrape() {
           : ["#4F46E5", "#818CF8"],
         industry: user.industry,
         logo: brandKit?.logoUrl, // Include logo URL
-        extractedMetadata: {
-          keywords: brandKit?.keyword_themes || [],
-          coreMessaging: [],
-          dos: [],
-          donts: brandKit?.voice_summary?.avoid || [],
-          images: brandKit?.images?.map((img: any) => img.url) || [], // Extract image URLs
-          brandIdentity: brandKit?.about_blurb || "",
-          headlines: brandKit?.headlines || [], // Include headlines
-        },
+          extractedMetadata: {
+            keywords: brandKit?.keyword_themes || [],
+            coreMessaging: [],
+            dos: [],
+            donts: brandKit?.voice_summary?.avoid || [],
+            images: brandKit?.images?.map((img: any) => img.url) || [], // Extract image URLs
+            brandIdentity: brandKit?.about_blurb || generateBrandStoryFromData(brandKit, user),
+            headlines: brandKit?.headlines || [], // Include headlines
+          },
       };
       
       // Log if we got real scraped data or fallback
@@ -292,6 +296,31 @@ export default function Screen3AiScrape() {
     } catch {
       return "Your Brand";
     }
+  };
+
+  // Generate brand story from website data if about_blurb is missing
+  const generateBrandStoryFromData = (brandKit: any, user: any): string => {
+    const brandName = user?.businessName || extractBrandNameFromUrl(user?.website || "");
+    const industry = user?.industry || "business";
+    const tone = brandKit?.voice_summary?.tone?.[0] || "professional";
+    const style = brandKit?.voice_summary?.style || "clear and engaging";
+    const audience = brandKit?.voice_summary?.audience || "customers";
+    const keywords = brandKit?.keyword_themes?.slice(0, 3).join(", ") || "";
+    
+    // Build a compelling brand story from available data
+    let story = `${brandName} is a ${industry} that ${style} connects with ${audience}`;
+    
+    if (keywords) {
+      story += ` through ${keywords}`;
+    }
+    
+    if (tone && tone !== "professional") {
+      story += ` with a ${tone} approach`;
+    }
+    
+    story += ".";
+    
+    return story;
   };
 
   const getStepIcon = (step: string) => {

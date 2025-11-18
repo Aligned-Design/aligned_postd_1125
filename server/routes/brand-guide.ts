@@ -362,6 +362,8 @@ router.patch("/:brandId", authenticateUser, async (req, res, next) => {
     if (updates.mission !== undefined) brandKitUpdates.mission = updates.mission;
     if (updates.vision !== undefined) brandKitUpdates.vision = updates.vision;
     if (updates.summaryReviewedByAI !== undefined) brandKitUpdates.summaryReviewedByAI = updates.summaryReviewedByAI;
+    if (updates.longFormSummary !== undefined) brandKitUpdates.longFormSummary = updates.longFormSummary;
+    if (updates.about_blurb !== undefined) brandKitUpdates.about_blurb = updates.about_blurb;
 
     // Voice & Tone → voice_summary + brand_kit
     if (updates.tone !== undefined) {
@@ -404,6 +406,14 @@ router.patch("/:brandId", authenticateUser, async (req, res, next) => {
       visualSummaryUpdates.colors = updates.primaryColors;
       brandKitUpdates.primaryColors = updates.primaryColors;
       brandKitUpdates.colorPalette = updates.primaryColors;
+    }
+    if (updates.allColors !== undefined) {
+      // allColors is the complete palette (up to 6 colors)
+      visualSummaryUpdates.colors = updates.allColors;
+      brandKitUpdates.allColors = updates.allColors;
+      brandKitUpdates.primaryColors = updates.allColors.slice(0, 3);
+      brandKitUpdates.secondaryColors = updates.allColors.slice(3, 6);
+      brandKitUpdates.colorPalette = updates.allColors;
     }
     if (updates.primaryColor !== undefined) brandKitUpdates.primaryColor = updates.primaryColor;
     if (updates.secondaryColor !== undefined) brandKitUpdates.secondaryColor = updates.secondaryColor;

@@ -147,7 +147,7 @@ export default function Screen5BrandSummaryReview() {
   const handleSaveEdit = async () => {
     if (!editingField || !brandSnapshot) return;
     
-    // Update brandSnapshot locally
+    // Update brandSnapshot locally first for immediate UI feedback
     const updatedSnapshot = { ...brandSnapshot };
     
     if (editingField === "tone") {
@@ -166,74 +166,61 @@ export default function Screen5BrandSummaryReview() {
       updatedSnapshot.colors = editValue.split(",").map((c) => c.trim()).filter(Boolean);
     }
     
+    // Update local state immediately for responsive UI
+    setBrandSnapshot(updatedSnapshot);
+    
     // Save to Supabase via Brand Guide API
     const brandId = localStorage.getItem("aligned_brand_id");
     if (!brandId) {
       console.warn("[BrandSnapshot] No brandId found for save");
+      setShowEditModal(false);
+      setEditingField(null);
+      setEditValue("");
       return;
     }
-    const brandName = brandSnapshot.name || "Untitled Brand";
     
     // Build update object based on field being edited
     const updates: any = {};
     if (editingField === "tone") {
       updates.tone = updatedSnapshot.tone;
     } else if (editingField === "brandIdentity") {
+      // Save brand identity as both purpose and longFormSummary
       updates.purpose = editValue;
+      updates.longFormSummary = editValue; // Also save as long form summary
     } else if (editingField === "colors") {
+      // Save colors properly
       updates.primaryColors = updatedSnapshot.colors;
       updates.colorPalette = updatedSnapshot.colors;
-      updates.primaryColor = updatedSnapshot.colors[0];
-      updates.secondaryColor = updatedSnapshot.colors[1];
-      updates.secondaryColors = updatedSnapshot.colors.slice(1);
+      updates.allColors = updatedSnapshot.colors; // Also save as allColors
+      updates.primaryColor = updatedSnapshot.colors[0] || "";
+      updates.secondaryColor = updatedSnapshot.colors[1] || "";
+      updates.secondaryColors = updatedSnapshot.colors.slice(1) || [];
     } else if (editingField === "keywords") {
-      // Keywords are stored in brand_kit, need to update via PATCH
-      updates.brandName = brandName; // Ensure brand name is set
+      // Keywords need special handling - they're stored in brand_kit
+      updates.keywords = updatedSnapshot.extractedMetadata?.keywords || [];
     }
     
     try {
-      // Save via Brand Guide API (PATCH for partial update)
-      const response = await fetch(`/api/brand-guide/${brandId}`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(updates),
-      });
+      // Use centralized API utility for authenticated requests
+      const { apiPatch } = await import("@/lib/api");
       
-      if (response.ok) {
-        // Update local state
-        setBrandSnapshot(updatedSnapshot);
-        
-        // Also update keywords if that field was edited
-        if (editingField === "keywords") {
-          // Keywords are stored in brand_kit.keywords, update via PATCH
-          const keywordUpdates = {
-            keywords: updatedSnapshot.extractedMetadata?.keywords || [],
-          };
-          const keywordResponse = await fetch(`/api/brand-guide/${brandId}`, {
-            method: "PATCH",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify(keywordUpdates),
-          });
-          if (!keywordResponse.ok) {
-            console.warn("Failed to save keywords");
-          }
-        }
-      } else {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || "Failed to save edit");
-      }
+      // Save via Brand Guide API (PATCH for partial update)
+      await apiPatch(`/api/brand-guide/${brandId}`, updates);
+      
+      console.log("[BrandSnapshot] ✅ Successfully saved edit:", editingField);
+      
+      // Close modal after successful save
+      setShowEditModal(false);
+      setEditingField(null);
+      setEditValue("");
     } catch (error) {
       console.error("Failed to save edit:", error);
-      // Show error toast (will be handled by parent component if needed)
+      // Revert local state on error
+      setBrandSnapshot(brandSnapshot);
+      
+      // Show error to user
+      alert(`Failed to save changes: ${error instanceof Error ? error.message : "Unknown error"}. Please try again.`);
     }
-    
-    setShowEditModal(false);
-    setEditingField(null);
-    setEditValue("");
   };
 
   // ✅ PRIORITY: Use images from brand guide (scraped images) first, then fallback to brandSnapshot, then stock
