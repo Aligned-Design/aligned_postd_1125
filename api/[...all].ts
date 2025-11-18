@@ -9,16 +9,17 @@ async function getApp() {
   if (!app) {
     // Lazy load the server module to handle Vercel's build context
     if (!createServerFn) {
-      // Vercel compiles TypeScript in api/ directory, so we can import server/index directly
-      // The server code will be compiled by Vercel's TypeScript compiler
+      // Vercel compiles TypeScript in api/ directory
+      // We need to import from server/vercel-entry which exports createServer
+      // Vercel will compile this TypeScript file and make it available
       try {
-        const serverModule = await import("../server/index");
+        const serverModule = await import("../server/vercel-entry");
         createServerFn = serverModule.createServer;
         if (!createServerFn) {
-          throw new Error("createServer not exported from server/index");
+          throw new Error("createServer not exported from server/vercel-entry");
         }
       } catch (importError) {
-        console.error("[Vercel] Failed to import server/index:", importError);
+        console.error("[Vercel] Failed to import server/vercel-entry:", importError);
         console.error("[Vercel] Error details:", {
           message: importError instanceof Error ? importError.message : String(importError),
           stack: importError instanceof Error ? importError.stack : undefined,
