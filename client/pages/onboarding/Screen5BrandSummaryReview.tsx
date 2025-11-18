@@ -24,7 +24,7 @@ export default function Screen5BrandSummaryReview() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingField, setEditingField] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");
-  const [brandGuideImages, setBrandGuideImages] = useState<string[]>([]);
+  // ✅ SINGLE SOURCE OF TRUTH: Only use brand guide API, no local state for images
   const [logoImages, setLogoImages] = useState<string[]>([]);
   const [otherImages, setOtherImages] = useState<string[]>([]);
   const [brandGuideStory, setBrandGuideStory] = useState<string | null>(null);
@@ -127,8 +127,6 @@ export default function Screen5BrandSummaryReview() {
             console.log(`[BrandSnapshot] ✅ Found ${logos.length} logos and ${otherImgs.length} other images from brand guide`);
             setLogoImages(logos);
             setOtherImages(otherImgs);
-            // Keep brandGuideImages for backward compatibility (all images combined)
-            setBrandGuideImages([...logos, ...otherImgs]);
             return;
           } else {
             console.warn("[BrandSnapshot] No valid scraped images found in brand guide", {

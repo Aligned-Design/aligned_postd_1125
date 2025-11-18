@@ -117,13 +117,15 @@ export function brandSnapshotToBrandGuide(
     },
 
     // Legacy fields (for backward compatibility)
-    // ✅ FIX: Ensure purpose is always a valid string (not 0, not empty)
+    // ✅ SINGLE SOURCE OF TRUTH: Use brandIdentity from snapshot (comes from server-generated about_blurb)
+    // Only save if it's a valid, non-empty string (not "0", minimum 10 chars)
     purpose: (brandSnapshot.extractedMetadata?.brandIdentity && 
               typeof brandSnapshot.extractedMetadata.brandIdentity === "string" && 
-              brandSnapshot.extractedMetadata.brandIdentity.length > 10 &&
-              brandSnapshot.extractedMetadata.brandIdentity !== "0")
-      ? brandSnapshot.extractedMetadata.brandIdentity
-      : brandSnapshot.goal || "",
+              brandSnapshot.extractedMetadata.brandIdentity.trim().length > 10 &&
+              brandSnapshot.extractedMetadata.brandIdentity !== "0" &&
+              !brandSnapshot.extractedMetadata.brandIdentity.toLowerCase().includes("placeholder"))
+      ? brandSnapshot.extractedMetadata.brandIdentity.trim()
+      : "", // Empty string - don't save invalid data
     mission: brandSnapshot.goal || "",
     vision: "",
     personas: [],
