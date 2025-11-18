@@ -29,7 +29,7 @@ export interface CrawledImage {
   alt?: string;
   width?: number;
   height?: number;
-  role?: "logo" | "hero" | "other";
+  role?: "logo" | "team" | "subject" | "hero" | "other";
 }
 
 /**
