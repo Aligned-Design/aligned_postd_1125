@@ -165,7 +165,11 @@ export default function Screen5BrandSummaryReview() {
     }
     
     // Save to Supabase via Brand Guide API
-    const brandId = localStorage.getItem("aligned_brand_id") || `brand_${Date.now()}`;
+    const brandId = localStorage.getItem("aligned_brand_id");
+    if (!brandId) {
+      console.warn("[BrandSnapshot] No brandId found for save");
+      return;
+    }
     const brandName = brandSnapshot.name || "Untitled Brand";
     
     // Build update object based on field being edited
