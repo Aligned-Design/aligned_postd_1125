@@ -564,6 +564,46 @@ async function runCrawlJobSync(url: string, brandId: string, tenantId: string | 
           brandKit.about_blurb = `${brandName} is a business that connects with customers through authentic communication.`;
         }
         
+        // ✅ CRITICAL: Save brandKit directly to database (not just return it)
+        // This ensures brand story is persisted even if client save fails
+        if (brandId && !brandId.startsWith("brand_")) {
+          try {
+            const { error: updateError } = await supabase
+              .from("brands")
+              .update({
+                brand_kit: {
+                  ...brandKit,
+                  // Ensure both purpose and about_blurb are saved
+                  purpose: brandKit.about_blurb || brandKit.purpose || "",
+                  about_blurb: brandKit.about_blurb || "",
+                  longFormSummary: (brandKit as any).longFormSummary || brandKit.about_blurb || "",
+                },
+                voice_summary: brandKit.voice_summary || {},
+                visual_summary: {
+                  colors: brandKit.colors?.allColors || brandKit.colors?.primaryColors || [],
+                  fonts: brandKit.typography ? [brandKit.typography.heading, brandKit.typography.body].filter(Boolean) : [],
+                },
+                updated_at: new Date().toISOString(),
+              })
+              .eq("id", brandId);
+            
+            if (updateError) {
+              console.error("[Crawler] ❌ Failed to save brandKit to database:", updateError);
+            } else {
+              console.log("[Crawler] ✅ BrandKit saved directly to database", {
+                brandId,
+                hasAboutBlurb: !!brandKit.about_blurb,
+                aboutBlurbLength: brandKit.about_blurb?.length || 0,
+              });
+            }
+          } catch (dbError) {
+            console.error("[Crawler] ❌ Error saving brandKit to database:", dbError);
+            // Continue anyway - client will also try to save
+          }
+        } else {
+          console.warn("[Crawler] Skipping database save - brandId is temporary:", brandId);
+        }
+        
         return { brandKit };
       })(),
       new Promise<never>((_, reject) =>
