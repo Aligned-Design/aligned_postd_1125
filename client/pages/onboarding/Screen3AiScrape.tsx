@@ -195,10 +195,22 @@ export default function Screen3AiScrape() {
       console.log("[Onboarding] ✅ Crawler API success", {
         hasBrandKit: !!result.brandKit,
         hasImages: !!(result.brandKit?.images?.length),
+        hasAboutBlurb: !!result.brandKit?.about_blurb,
+        aboutBlurbLength: result.brandKit?.about_blurb?.length || 0,
+        aboutBlurbPreview: result.brandKit?.about_blurb?.substring(0, 100),
       });
       
       // Handle both success and fallback responses
       const brandKit = result.brandKit || result;
+      
+      // ✅ CRITICAL: Log if about_blurb is missing or invalid
+      if (!brandKit?.about_blurb || brandKit.about_blurb === "0" || brandKit.about_blurb.length < 10) {
+        console.error("[Onboarding] ❌ INVALID about_blurb from crawler:", {
+          aboutBlurb: brandKit?.about_blurb,
+          aboutBlurbType: typeof brandKit?.about_blurb,
+          aboutBlurbLength: brandKit?.about_blurb?.length || 0,
+        });
+      }
       
       // Transform result into BrandSnapshot format
       // Use brandKit from result (sync mode returns brandKit directly)
