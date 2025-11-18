@@ -21,9 +21,20 @@ const router = Router();
  */
 router.post("/signup", (async (req, res, next) => {
   try {
+    // ✅ STEP 0: Log incoming request
+    console.log("[Auth] 📥 Signup request received", {
+      body: { email: req.body?.email, hasPassword: !!req.body?.password, name: req.body?.name, role: req.body?.role },
+      headers: { contentType: req.headers["content-type"] },
+    });
+
     const { email, password, name, role = "single_business" } = req.body;
 
+    // ✅ STEP 1: Validate input
     if (!email || !password) {
+      console.error("[Auth] ❌ Missing required fields", {
+        hasEmail: !!email,
+        hasPassword: !!password,
+      });
       throw new AppError(
         ErrorCode.MISSING_REQUIRED_FIELD,
         "email and password are required",
@@ -33,6 +44,9 @@ router.post("/signup", (async (req, res, next) => {
     }
 
     if (password.length < 6) {
+      console.error("[Auth] ❌ Password too short", {
+        length: password.length,
+      });
       throw new AppError(
         ErrorCode.VALIDATION_ERROR,
         "Password must be at least 6 characters",
@@ -41,8 +55,7 @@ router.post("/signup", (async (req, res, next) => {
       );
     }
 
-    // ✅ STEP 1: Create user in Supabase Auth
-    // ✅ CRITICAL: Check Supabase connection before attempting signup
+    // ✅ STEP 2: Check Supabase connection
     if (!supabase) {
       console.error("[Auth] ❌ CRITICAL: Supabase client not initialized!");
       throw new AppError(
@@ -53,23 +66,57 @@ router.post("/signup", (async (req, res, next) => {
       );
     }
 
-    console.log("[Auth] Attempting signup", {
+    // ✅ STEP 3: Log environment check
+    const hasSupabaseUrl = !!(process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL);
+    const hasServiceKey = !!process.env.SUPABASE_SERVICE_ROLE_KEY;
+    
+    console.log("[Auth] 🔍 Environment check", {
       email: email,
-      hasSupabaseUrl: !!process.env.SUPABASE_URL || !!process.env.VITE_SUPABASE_URL,
-      hasServiceKey: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
+      hasSupabaseUrl: hasSupabaseUrl,
+      hasServiceKey: hasServiceKey,
+      supabaseUrl: process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || "MISSING",
+      serviceKeyLength: process.env.SUPABASE_SERVICE_ROLE_KEY?.length || 0,
     });
 
+    if (!hasSupabaseUrl || !hasServiceKey) {
+      console.error("[Auth] ❌ Missing Supabase configuration", {
+        hasSupabaseUrl,
+        hasServiceKey,
+      });
+      throw new AppError(
+        ErrorCode.INTERNAL_ERROR,
+        "Supabase configuration missing. Check environment variables.",
+        HTTP_STATUS.INTERNAL_SERVER_ERROR,
+        "critical"
+      );
+    }
+
+    // ✅ STEP 4: Create user in Supabase Auth
     // ✅ CRITICAL: Use Admin API for user creation (service role key required)
     // signUp() is for client-side with anon key, admin.createUser() is for server-side
-    const { data: authData, error: authError } = await supabase.auth.admin.createUser({
-      email,
-      password,
-      email_confirm: true, // ✅ Auto-confirm email (bypasses email confirmation requirement)
-      user_metadata: {
-        name: name || email.split("@")[0],
-        role: role,
-      },
+    console.log("[Auth] 🔐 Calling supabase.auth.admin.createUser", {
+      email: email,
+      hasPassword: !!password,
+      emailConfirm: true,
     });
+
+    let authData, authError;
+    try {
+      const result = await supabase.auth.admin.createUser({
+        email,
+        password,
+        email_confirm: true, // ✅ Auto-confirm email (bypasses email confirmation requirement)
+        user_metadata: {
+          name: name || email.split("@")[0],
+          role: role,
+        },
+      });
+      authData = result.data;
+      authError = result.error;
+    } catch (err) {
+      console.error("[Auth] ❌ Exception during createUser:", err);
+      authError = err as any;
+    }
 
     // ✅ CRITICAL: Log full error details for debugging
     if (authError) {
@@ -77,17 +124,12 @@ router.post("/signup", (async (req, res, next) => {
         message: authError.message,
         status: authError.status,
         name: authError.name,
+        code: (authError as any).code,
         error: JSON.stringify(authError, null, 2),
-      });
-    }
-
-    if (authError) {
-      console.error("[Auth] Signup failed", {
-        error: authError?.message,
-        status: authError?.status,
-        hasUser: !!authData?.user,
+        fullError: authError,
       });
       
+      // ✅ Return detailed error to help debug
       throw new AppError(
         ErrorCode.AUTHENTICATION_ERROR,
         authError?.message || "Failed to create user account",
@@ -96,11 +138,16 @@ router.post("/signup", (async (req, res, next) => {
         { 
           details: authError?.message,
           status: authError?.status,
+          code: (authError as any).code,
           // ✅ Helpful error message for common issues
           hint: !process.env.SUPABASE_URL && !process.env.VITE_SUPABASE_URL 
             ? "SUPABASE_URL environment variable is missing"
             : !process.env.SUPABASE_SERVICE_ROLE_KEY
             ? "SUPABASE_SERVICE_ROLE_KEY environment variable is missing"
+            : (authError as any).code === "invalid_api_key"
+            ? "SUPABASE_SERVICE_ROLE_KEY is invalid or expired"
+            : (authError as any).code === "invalid_request"
+            ? "Check Supabase project settings and API keys"
             : undefined
         }
       );
@@ -192,14 +239,17 @@ router.post("/signup", (async (req, res, next) => {
     });
 
     // ✅ LOGGING: Signup complete with IDs
-    console.log("[Auth] Signup complete", {
+    console.log("[Auth] ✅ Signup complete", {
       userId: userId,
       tenantId: tenantId,
       email: userEmail,
       role: role,
+      hasAccessToken: !!tokenPair.accessToken,
+      hasRefreshToken: !!tokenPair.refreshToken,
     });
 
-    (res as any).json({
+    // ✅ STEP 6: Return success response
+    const response = {
       success: true,
       user: {
         id: userId,
@@ -210,7 +260,15 @@ router.post("/signup", (async (req, res, next) => {
         workspaceId: tenantId,
       },
       tokens: tokenPair,
+    };
+
+    console.log("[Auth] 📤 Sending signup response", {
+      hasUser: !!response.user,
+      hasTokens: !!response.tokens,
+      userId: response.user.id,
     });
+
+    res.status(200).json(response);
   } catch (error) {
     next(error);
   }

@@ -240,8 +240,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       });
 
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || "Signup failed");
+        const errorData = await response.json();
+        // ✅ Handle both error formats: { error: { message } } and { message }
+        const errorMessage = errorData?.error?.message || errorData?.message || `Signup failed (${response.status})`;
+        console.error("[Auth] Signup API error", {
+          status: response.status,
+          error: errorData,
+          message: errorMessage,
+        });
+        throw new Error(errorMessage);
       }
 
       const data = await response.json();
