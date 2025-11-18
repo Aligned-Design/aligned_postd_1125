@@ -54,31 +54,67 @@ export async function assertBrandAccess(
     return;
   }
 
-  // Get user's brand IDs
-  const userBrandIds: string[] = Array.isArray(user.brandIds)
-    ? user.brandIds
-    : user.brandId
-      ? [user.brandId]
-      : [];
-
-  // In dev mode, allow access if brandIds are missing (for testing)
-  const isDev = process.env.NODE_ENV !== "production";
-  if (isDev && userBrandIds.length === 0) {
-    console.warn("[BrandAccess] Dev mode: Allowing access without brandIds for testing");
-    return;
+  // ✅ CRITICAL: Check brand_members table instead of relying on JWT brandIds
+  // JWT brandIds may be stale (brand created after JWT was issued)
+  // Always check the database for current membership
+  const userId = user.id || user.userId;
+  if (!userId) {
+    throw new AppError(
+      ErrorCode.UNAUTHORIZED,
+      "User ID not found",
+      HTTP_STATUS.UNAUTHORIZED,
+      "warning"
+    );
   }
 
-  // Check if user has access to this brand (via brand_members)
-  if (!userBrandIds.includes(brandId)) {
+  // Check if user is a member of this brand
+  const { data: membership, error: membershipError } = await supabase
+    .from("brand_members")
+    .select("id, role")
+    .eq("brand_id", brandId)
+    .eq("user_id", userId)
+    .single();
+
+  if (membershipError || !membership) {
+    // If brand was just created, membership might not exist yet
+    // Check if user created the brand (brand.created_by === userId)
+    const { data: brand, error: brandError } = await supabase
+      .from("brands")
+      .select("id, created_by, tenant_id, workspace_id")
+      .eq("id", brandId)
+      .single();
+
+    if (brandError || !brand) {
+      throw new AppError(
+        ErrorCode.INVALID_BRAND,
+        "Brand not found",
+        HTTP_STATUS.NOT_FOUND,
+        "warning",
+        { brandId },
+        "The requested brand does not exist"
+      );
+    }
+
+    // Allow access if user created the brand OR brand belongs to user's workspace
+    const userWorkspaceId = user.workspaceId || user.tenantId;
+    const brandWorkspaceId = brand.workspace_id || brand.tenant_id;
+    
+    if (brand.created_by === userId || (userWorkspaceId && brandWorkspaceId === userWorkspaceId)) {
+      // User owns the brand or it's in their workspace - allow access
+      return;
+    }
+
     throw new AppError(
       ErrorCode.FORBIDDEN,
       "Not authorized to access this brand",
       HTTP_STATUS.FORBIDDEN,
       "warning",
-      { brandId, userBrandIds, userRole: user.role },
+      { brandId, userId, userRole: user.role },
       "You don't have access to this brand. Please contact your administrator."
     );
   }
+
+  // User is a member - allow access
 
   // Verify brand belongs to user's workspace (if verifyWorkspace is true)
   if (verifyWorkspace) {
