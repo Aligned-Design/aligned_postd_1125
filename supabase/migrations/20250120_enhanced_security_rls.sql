@@ -39,6 +39,12 @@ CREATE POLICY "Users can manage own preferences"
 -- BRANDS & BRAND MEMBERS
 -- ============================================================================
 
+-- ✅ CRITICAL: Users can create brands (needed for onboarding)
+-- This allows authenticated users to create brands, then they become members
+CREATE POLICY "Users can create brands"
+  ON brands FOR INSERT
+  WITH CHECK (auth.uid() IS NOT NULL);
+
 -- Users can view brands they are members of
 CREATE POLICY "Users can view their brands"
   ON brands FOR SELECT
@@ -47,6 +53,7 @@ CREATE POLICY "Users can view their brands"
       SELECT brand_id FROM brand_members
       WHERE user_id = auth.uid()
     )
+    OR created_by = auth.uid() -- Also allow viewing brands they created
   );
 
 -- Only brand owners and admins can update brand settings
