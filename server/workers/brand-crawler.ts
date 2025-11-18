@@ -263,16 +263,23 @@ export async function crawlWebsite(startUrl: string): Promise<CrawlResult[]> {
           userAgent: CRAWL_USER_AGENT,
         });
 
-        // Fetch page with retry logic
-        await retryWithBackoff(
-          () =>
-            page.goto(url, {
-              timeout: CRAWL_TIMEOUT_MS,
-              waitUntil: "networkidle",
-            }),
-          2, // Fewer retries per page (max 3 total with main retries)
-          500, // Shorter delay for individual page fetches
-        );
+        // ✅ ENHANCED: Fetch page with retry logic and better error handling
+        try {
+          await retryWithBackoff(
+            () =>
+              page.goto(url, {
+                timeout: CRAWL_TIMEOUT_MS,
+                waitUntil: "networkidle",
+              }),
+            2, // Fewer retries per page (max 3 total with main retries)
+            500, // Shorter delay for individual page fetches
+          );
+        } catch (gotoError) {
+          console.warn(`[Crawler] Failed to load page ${url}:`, gotoError instanceof Error ? gotoError.message : String(gotoError));
+          // Continue to next page instead of failing entire crawl
+          await page.close();
+          continue;
+        }
 
         // Extract content
         const crawlData = await extractPageContent(page, url);

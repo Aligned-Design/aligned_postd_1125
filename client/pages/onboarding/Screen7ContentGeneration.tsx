@@ -128,8 +128,17 @@ export default function Screen7ContentGeneration() {
           }));
         }
       } catch (apiError) {
-        console.error("Content planning API error:", apiError);
-        // Continue with UI simulation even if API fails
+        // ✅ ENHANCED ERROR HANDLING: Log full error and show user-friendly message
+        const errorMessage = apiError instanceof Error ? apiError.message : String(apiError);
+        console.error("[Onboarding] ❌ Content planning API error:", {
+          error: errorMessage,
+          stack: apiError instanceof Error ? apiError.stack : undefined,
+          brandId: brandId,
+        });
+        
+        // Set error state so user knows generation failed
+        setError(`Content generation failed: ${errorMessage}. Please try again or contact support.`);
+        // Continue with UI simulation even if API fails (don't block onboarding)
       }
 
       // Simulate progress through each step to show UI feedback

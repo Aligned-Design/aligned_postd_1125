@@ -121,8 +121,32 @@ export default function Screen3AiScrape() {
         setOnboardingStep(5);
       }, 2000);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to scrape website");
-      // Still proceed to brand summary review with default data
+      // ✅ ENHANCED ERROR HANDLING: Log full error details and show user-friendly message
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      console.error("[Onboarding] ❌ Scraping failed:", {
+        error: errorMessage,
+        stack: err instanceof Error ? err.stack : undefined,
+        url: user.website,
+        brandId: localStorage.getItem("aligned_brand_id"),
+      });
+      
+      // Show user-friendly error message
+      let userMessage = "Failed to scrape website. ";
+      if (errorMessage.includes("timeout")) {
+        userMessage += "The website took too long to load. Please try again.";
+      } else if (errorMessage.includes("browser") || errorMessage.includes("launch")) {
+        userMessage += "Unable to access the website. Please verify the URL is correct.";
+      } else if (errorMessage.includes("network") || errorMessage.includes("connection")) {
+        userMessage += "Unable to connect to the website. Please check your internet connection.";
+      } else if (errorMessage.includes("401") || errorMessage.includes("403") || errorMessage.includes("Unauthorized")) {
+        userMessage += "Authentication error. Please refresh the page and try again.";
+      } else {
+        userMessage += "Please try again or contact support if the issue persists.";
+      }
+      
+      setError(userMessage);
+      
+      // Still proceed to brand summary review with default data (don't block onboarding)
       setTimeout(() => {
         generateDefaultBrandSnapshot();
         setOnboardingStep(5);

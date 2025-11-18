@@ -216,31 +216,42 @@ router.post("/start", authenticateUser, async (req, res, next) => {
           status: "completed",
         });
       } catch (error) {
-        console.error("[Crawler] Sync crawl error:", error);
-        console.error("[Crawler] Error stack:", error instanceof Error ? error.stack : "No stack trace");
-        console.error("[Crawler] Error details:", {
-          message: error instanceof Error ? error.message : String(error),
+        // ✅ ENHANCED ERROR LOGGING: Log full error details for debugging
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        const errorStack = error instanceof Error ? error.stack : "No stack trace";
+        
+        console.error("[Crawler] ❌ Sync crawl error:", {
+          message: errorMessage,
+          stack: errorStack,
           url: finalUrl,
           brandId: finalBrandId,
           tenantId: tenantId || "unknown",
+          errorType: error instanceof Error ? error.constructor.name : typeof error,
         });
-        // ✅ CRITICAL: Return proper error instead of fallback data
-        console.error("[Crawler] ❌ Crawl failed - returning error (no fallback)", {
-          url: finalUrl,
-          brandId: finalBrandId,
-          error: error instanceof Error ? error.message : String(error),
-        });
+        
+        // ✅ USER-FRIENDLY ERROR: Provide actionable error message
+        let userMessage = "Website scraping failed. ";
+        if (errorMessage.includes("timeout") || errorMessage.includes("Crawl timeout")) {
+          userMessage += "The website took too long to load. Please try again or check if the website is accessible.";
+        } else if (errorMessage.includes("browser") || errorMessage.includes("launch")) {
+          userMessage += "Unable to access the website. Please verify the URL is correct and try again.";
+        } else if (errorMessage.includes("network") || errorMessage.includes("ECONNREFUSED")) {
+          userMessage += "Unable to connect to the website. Please check the URL and try again.";
+        } else {
+          userMessage += "Please try again or contact support if the issue persists.";
+        }
+        
         throw new AppError(
           ErrorCode.SERVICE_UNAVAILABLE,
-          `Website scraping failed: ${error instanceof Error ? error.message : "Unknown error"}`,
+          userMessage,
           HTTP_STATUS.INTERNAL_SERVER_ERROR,
           "error",
           {
             url: finalUrl,
             brandId: finalBrandId,
-            details: error instanceof Error ? error.stack : undefined,
-          },
-          "Please check the website URL and try again, or contact support if this persists."
+            originalError: errorMessage,
+            technicalDetails: errorStack,
+          }
         );
       }
     }
@@ -610,7 +621,19 @@ async function runCrawlJobSync(url: string, brandId: string, tenantId: string | 
 
     return await crawlPromise;
   } catch (error) {
-    console.error("[Crawler] Sync crawl error:", error);
+    // ✅ ENHANCED ERROR LOGGING: Log full error details
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorStack = error instanceof Error ? error.stack : "No stack trace";
+    
+    console.error("[Crawler] ❌ runCrawlJobSync error:", {
+      message: errorMessage,
+      stack: errorStack,
+      url: url,
+      brandId: brandId,
+      tenantId: tenantId || "none",
+      errorType: error instanceof Error ? error.constructor.name : typeof error,
+    });
+    
     throw error;
   }
 }

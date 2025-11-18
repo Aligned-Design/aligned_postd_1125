@@ -68,11 +68,13 @@ export default function Screen8CalendarPreview() {
           return;
         }
         
+        // ✅ FIX: Use authenticated API utility (includes Authorization header)
+        const { apiGet } = await import("@/lib/api");
+        
         // Try new content plan API first
-        const contentPlanResponse = await fetch(`/api/content-plan/${brandId}`);
-        if (contentPlanResponse.ok) {
-          const data = await contentPlanResponse.json();
-          if (data.success && data.contentPlan && data.contentPlan.items && data.contentPlan.items.length > 0) {
+        try {
+          const data = await apiGet(`/api/content-plan/${brandId}`);
+          if (data?.success && data?.contentPlan && data.contentPlan.items && data.contentPlan.items.length > 0) {
             const items: ContentItem[] = data.contentPlan.items
               .map((item: any) => ({
                 id: item.id,
@@ -92,13 +94,14 @@ export default function Screen8CalendarPreview() {
               return;
             }
           }
+        } catch (contentPlanError) {
+          console.warn("[Onboarding] Content plan API failed, trying fallback:", contentPlanError);
         }
         
         // Fallback to old onboarding API
-        const response = await fetch(`/api/onboarding/content-package/${brandId}`);
-        if (response.ok) {
-          const data = await response.json();
-          if (data.success && data.contentPackage && data.contentPackage.items && data.contentPackage.items.length > 0) {
+        try {
+          const data = await apiGet(`/api/onboarding/content-package/${brandId}`);
+          if (data?.success && data?.contentPackage && data.contentPackage.items && data.contentPackage.items.length > 0) {
             const items: ContentItem[] = data.contentPackage.items
               .map((item: any) => ({
                 id: item.id,
@@ -118,6 +121,8 @@ export default function Screen8CalendarPreview() {
               return;
             }
           }
+        } catch (onboardingError) {
+          console.warn("[Onboarding] Onboarding API failed, trying localStorage:", onboardingError);
         }
         
         // Try localStorage as last resort
