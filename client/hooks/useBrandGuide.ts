@@ -54,10 +54,9 @@ export function useBrandGuide(): UseBrandGuideReturn {
       }
 
       try {
-        const result = await fetchJSON<{ brandGuide: BrandGuide; hasBrandGuide: boolean }>(`/api/brand-guide/${brandId}`, {
-          timeout: 30000, // 30 seconds
-          retries: 0, // Don't retry 404s
-        });
+        // ✅ Use centralized API utility which includes auth headers
+        const { apiGet } = await import("@/lib/api");
+        const result = await apiGet<{ brandGuide: BrandGuide; hasBrandGuide: boolean }>(`/api/brand-guide/${brandId}`);
         return {
           brandGuide: result.brandGuide || null,
           hasBrandGuide: result.hasBrandGuide || false,
@@ -130,12 +129,9 @@ export function useBrandGuide(): UseBrandGuideReturn {
       }
 
       try {
-        return await fetchJSON(`/api/brand-guide/${brandId}`, {
-          method: "PUT",
-          body: JSON.stringify(fullGuide),
-          timeout: 30000, // 30 seconds
-          retries: 2,
-        });
+        // ✅ Use centralized API utility which includes auth headers
+        const { apiPut } = await import("@/lib/api");
+        return await apiPut(`/api/brand-guide/${brandId}`, fullGuide);
       } catch (error) {
         if (error instanceof Error) {
           throw new Error(`Failed to save Brand Guide: ${error.message}`);

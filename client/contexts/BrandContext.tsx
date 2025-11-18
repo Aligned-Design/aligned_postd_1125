@@ -17,9 +17,18 @@ const BrandContext = createContext<BrandContextType | undefined>(undefined);
 
 /**
  * Create a dev brand for dev/mock users automatically
- * This ensures dev users always have a brand to work with
+ * ⚠️ DEPRECATED: This function uses direct Supabase calls which require session tokens.
+ * In production, this will fail with 401 errors.
+ * Use the backend API instead via POST /api/brands
  */
 async function createDevBrandForUser(userId: string): Promise<void> {
+  // ✅ DISABLED in production - use backend API instead
+  // Direct Supabase calls require session tokens which we don't have in production
+  if (process.env.NODE_ENV === "production") {
+    console.warn("[BrandContext] createDevBrandForUser is disabled in production - use backend API");
+    return;
+  }
+
   try {
     // Check if dev brand already exists for this user
     const devBrandId = `dev-brand-${userId}`;
@@ -142,6 +151,15 @@ export function BrandProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
+    // ✅ CRITICAL: Wait for auth token to be available
+    // This ensures JWT token is present before making API calls
+    const token = localStorage.getItem("aligned_access_token");
+    if (!token) {
+      console.warn("[BrandContext] No auth token available, waiting for session...");
+      setLoading(false);
+      return;
+    }
+
     // Check if this is a dev mock user - if so, try to fetch brands anyway
     // but don't use DEFAULT_BRAND as a fallback (it causes issues with API calls)
     const isDevMock = user.id === "user-dev-mock" || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(user.id);
@@ -157,6 +175,7 @@ export function BrandProvider({ children }: { children: React.ReactNode }) {
       
       console.log("[BrandContext] Fetching brands via API", {
         userId: user.id,
+        hasToken: !!token,
       });
       
       let brandsData;
@@ -168,6 +187,13 @@ export function BrandProvider({ children }: { children: React.ReactNode }) {
         });
       } catch (apiError) {
         console.error("[BrandContext] ❌ API error fetching brands:", apiError);
+        // Check if it's a 401 - token might be invalid
+        if (apiError instanceof Error && apiError.message.includes("401")) {
+          console.error("[BrandContext] 401 Unauthorized - token may be invalid or expired");
+          // Clear invalid token
+          localStorage.removeItem("aligned_access_token");
+          localStorage.removeItem("aligned_refresh_token");
+        }
         // Fallback to empty array - user may not have any brands yet
         brandsData = [];
       }

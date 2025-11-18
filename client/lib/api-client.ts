@@ -114,15 +114,20 @@ export async function fetchWithTimeout(
 
 /**
  * Fetch JSON with timeout and retry
+ * ✅ Includes Authorization header if token is available
  */
 export async function fetchJSON<T>(
   url: string,
   options: FetchOptions = {}
 ): Promise<T> {
+  // ✅ Get access token for authenticated requests
+  const token = localStorage.getItem("aligned_access_token");
+  
   const response = await fetchWithTimeout(url, {
     ...options,
     headers: {
       "Content-Type": "application/json",
+      ...(token && { "Authorization": `Bearer ${token}` }),
       ...options.headers,
     },
   });
