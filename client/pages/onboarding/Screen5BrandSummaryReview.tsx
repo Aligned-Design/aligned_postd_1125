@@ -301,8 +301,17 @@ export default function Screen5BrandSummaryReview() {
     rawBrandIdentityType: typeof rawBrandIdentity,
   });
   
-  const brandIdentity = (rawBrandIdentity && typeof rawBrandIdentity === "string" && rawBrandIdentity.trim().length > 10 && rawBrandIdentity !== "0" && !rawBrandIdentity.toLowerCase().includes("placeholder"))
-    ? rawBrandIdentity.trim()
+  // ✅ CRITICAL FIX: Clean brand story - remove "\n\n0" suffix and any trailing "0"
+  let cleanedBrandIdentity = rawBrandIdentity;
+  if (cleanedBrandIdentity && typeof cleanedBrandIdentity === "string") {
+    // Remove "\n\n0" pattern
+    cleanedBrandIdentity = cleanedBrandIdentity.replace(/\n\n0$/, "").replace(/\n0$/, "");
+    // Remove trailing "0" if it's standalone
+    cleanedBrandIdentity = cleanedBrandIdentity.replace(/ 0$/, "").trim();
+  }
+  
+  const brandIdentity = (cleanedBrandIdentity && typeof cleanedBrandIdentity === "string" && cleanedBrandIdentity.trim().length > 10 && cleanedBrandIdentity !== "0" && !cleanedBrandIdentity.toLowerCase().includes("placeholder"))
+    ? cleanedBrandIdentity.trim()
     : `${brandSnapshot.name || "Your brand"} is a ${brandSnapshot.industry || "business"} that ${brandSnapshot.voice || "connects with customers"} through ${brandSnapshot.tone?.join(" and ") || "authentic communication"}.`;
   
   // ✅ LOG FINAL RESULT
@@ -422,15 +431,15 @@ export default function Screen5BrandSummaryReview() {
           </div>
         </div>
 
-        {/* Brand Images Section (separate row for other images) */}
-        {otherImages.length > 0 && (
-          <div className="bg-white/50 backdrop-blur-xl rounded-2xl border border-white/60 p-6 mb-6">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-black text-slate-900">Brand Images</h2>
-              <span className="text-xs text-slate-500">
-                {otherImages.length} image{otherImages.length !== 1 ? 's' : ''}
-              </span>
-            </div>
+        {/* Brand Images Section (always visible, even if empty) */}
+        <div className="bg-white/50 backdrop-blur-xl rounded-2xl border border-white/60 p-6 mb-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-black text-slate-900">Brand Images</h2>
+            <span className="text-xs text-slate-500">
+              {otherImages.length > 0 ? `${otherImages.length} image${otherImages.length !== 1 ? 's' : ''}` : "No images found"}
+            </span>
+          </div>
+          {otherImages.length > 0 ? (
             <div className="grid grid-cols-3 gap-3">
               {otherImages.map((imageUrl, index) => (
                 <div
@@ -449,8 +458,13 @@ export default function Screen5BrandSummaryReview() {
                 </div>
               ))}
             </div>
-          </div>
-        )}
+          ) : (
+            <div className="text-center py-8 text-slate-500 text-sm">
+              <p>No brand images were extracted from your website.</p>
+              <p className="mt-2 text-xs">Brand images will appear here once they're scraped and saved.</p>
+            </div>
+          )}
+        </div>
 
         {/* Tone & Keywords Row */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
