@@ -903,10 +903,20 @@ async function extractPageContent(
 
   // Extract images (we don't have brand name here, but can extract from URL if needed)
   // For now, pass undefined - logo detection will work with filename/URL checks
-  const images = await extractImages(page, url).catch((error) => {
-    console.warn("[Crawler] Error extracting images from page:", error);
-    return [];
-  });
+  let images: CrawledImage[] = [];
+  try {
+    images = await extractImages(page, url);
+    console.log(`[Crawler] Extracted ${images.length} images from ${url}`);
+  } catch (error) {
+    console.error("[Crawler] Error extracting images from page:", error);
+    console.error("[Crawler] Error details:", {
+      url,
+      error: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+    });
+    // Continue with empty array - don't crash the crawler
+    images = [];
+  }
 
   // Extract headlines from this page
   const headlines = [...h1, ...h2, ...h3]
