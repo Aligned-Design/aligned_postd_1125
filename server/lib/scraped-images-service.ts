@@ -133,15 +133,17 @@ export async function persistScrapedImages(
       // Use media_assets table to persist
       // Note: We're storing the external URL directly, not uploading to Supabase Storage
       // This is acceptable for scraped images as they're reference URLs
+      // ✅ FIX: Store URL in path column (media_assets table doesn't have url column)
+      // The path column will contain the actual image URL for scraped images
       const assetRecord = await mediaDB.createMediaAsset(
         brandId,
         finalTenantId,
         filename,
         "image/jpeg", // Default MIME type
-        `scraped/${brandId}/${filename}`, // Virtual path
+        image.url, // ✅ Store actual URL in path column (for scraped images, path = URL)
         0, // File size unknown for external URLs
         hash,
-        image.url, // Store the external URL
+        image.url, // This will be ignored if url column doesn't exist, but keep for compatibility
         category,
         metadata,
         image.url // Use same URL for thumbnail
@@ -306,9 +308,11 @@ export async function getScrapedImages(
   metadata?: Record<string, unknown>;
 }>> {
   try {
+    // ✅ FIX: media_assets table doesn't have 'url' column - use path or metadata.scrapedUrl
+    // For scraped images, URL is stored in metadata.scrapedUrl
     let query = supabase
       .from("media_assets")
-      .select("id, url, filename, metadata")
+      .select("id, path, filename, metadata")
       .eq("brand_id", brandId)
       .eq("status", "active")
       .eq("metadata->>source", "scrape");
@@ -343,12 +347,23 @@ export async function getScrapedImages(
       imageIds: data.slice(0, 5).map(img => img.id), // Log first 5 IDs for debugging
     });
     
-    return data.map((asset) => ({
-      id: asset.id,
-      url: asset.url,
-      filename: asset.filename,
-      metadata: asset.metadata as Record<string, unknown> | undefined,
-    }));
+    // ✅ FIX: Extract URL from metadata.scrapedUrl or use path
+    // For scraped images, the URL is stored in path column (since media_assets may not have url column)
+    return data.map((asset: any) => {
+      const metadata = asset.metadata as Record<string, unknown> | undefined;
+      // Try metadata.scrapedUrl first, then path (which contains the URL for scraped images), then asset.url if it exists
+      const url = (metadata?.scrapedUrl as string) || asset.path || asset.url || "";
+      
+      // Validate URL is actually a URL (starts with http)
+      const finalUrl = url.startsWith("http") ? url : "";
+      
+      return {
+        id: asset.id,
+        url: finalUrl,
+        filename: asset.filename,
+        metadata: metadata,
+      };
+    });
   } catch (error) {
     console.error("[ScrapedImages] Error getting scraped images:", error);
     console.error("[ScrapedImages] Debug info:", {

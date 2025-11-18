@@ -127,22 +127,34 @@ export class MediaDBService {
       );
     }
 
+    // ✅ FIX: media_assets table may not have 'url' column (depends on migration)
+    // For scraped images, URL is stored in path column
+    // Only include url/thumbnail_url if they exist in schema (Supabase will ignore unknown columns)
+    const insertData: any = {
+      tenant_id: tenantId,
+      brand_id: brandId,
+      filename,
+      mime_type: mimeType,
+      path, // For scraped images, path contains the actual URL
+      file_size: fileSize,
+      hash,
+      category,
+      metadata,
+      status: "active",
+    };
+    
+    // Only add url/thumbnail_url if they might exist (won't error if column doesn't exist)
+    // For scraped images, we store URL in path, so url is redundant
+    if (url && url.startsWith("http")) {
+      insertData.url = url;
+    }
+    if (thumbnailUrl) {
+      insertData.thumbnail_url = thumbnailUrl;
+    }
+
     const { data, error } = await supabase
       .from("media_assets")
-      .insert({
-        tenant_id: tenantId,
-        brand_id: brandId,
-        filename,
-        mime_type: mimeType,
-        path,
-        file_size: fileSize,
-        hash,
-        url,
-        thumbnail_url: thumbnailUrl,
-        category,
-        metadata,
-        status: "active",
-      })
+      .insert(insertData)
       .select()
       .single();
 
