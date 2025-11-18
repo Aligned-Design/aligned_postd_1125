@@ -10,6 +10,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Sparkles, CheckCircle2, Loader2, Palette, Image, MessageSquare, Package, Globe } from "lucide-react";
 import { OnboardingProgress } from "@/components/onboarding/OnboardingProgress";
 import { useConfetti } from "@/hooks/useConfetti";
+import { saveBrandGuideFromOnboarding } from "@/lib/onboarding-brand-sync";
 
 interface ScrapeProgress {
   step: string;
@@ -264,7 +265,6 @@ export default function Screen3AiScrape() {
       
       // Save Brand Guide to Supabase with real brandId
       try {
-        // ✅ FIX: Use static import (already imported at top of file)
         await saveBrandGuideFromOnboarding(brandId, brandSnapshot, brandName);
         console.log("[Onboarding] ✅ Brand Guide saved for brand:", brandId);
       } catch (error) {

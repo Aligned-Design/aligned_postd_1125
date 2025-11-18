@@ -277,12 +277,11 @@ export class MediaDBService {
         errorCode: error.code,
         errorMessage: error.message,
       });
-      throw new AppError(
-        ErrorCode.DATABASE_ERROR,
-        "Failed to check for duplicate",
-        HTTP_STATUS.INTERNAL_SERVER_ERROR,
-        "critical"
-      );
+      // ✅ RESILIENT: Return null instead of throwing (allows persistence to continue)
+      // This prevents the entire image persistence from failing if duplicate check fails
+      // The image will be attempted to be created, and if it's truly a duplicate,
+      // the insert will fail with a duplicate error that we can handle
+      return null;
     }
 
     return data as MediaAssetRecord | null;
