@@ -351,8 +351,24 @@ export async function getScrapedImages(
       .order("created_at", { ascending: false });
 
     if (error) {
+      // ✅ ENHANCED ERROR DETECTION: Check for metadata column error
+      const isMetadataError = 
+        error.code === "42703" || 
+        error.code === "42704" ||
+        (typeof error.message === "string" && (
+          error.message.includes("metadata") || 
+          error.message.includes("does not exist") ||
+          error.message.includes("column") && error.message.includes("metadata")
+        ));
+      
+      console.log("[ScrapedImages] Query error detected", {
+        code: error.code,
+        message: error.message,
+        isMetadataError,
+      });
+      
       // If error is "column metadata does not exist", try without metadata filter
-      if (error.code === "42703" || error.message?.includes("metadata") || error.message?.includes("does not exist")) {
+      if (isMetadataError) {
         console.log("[ScrapedImages] Metadata column not found, querying without metadata filter");
         
         // Retry without metadata filter
