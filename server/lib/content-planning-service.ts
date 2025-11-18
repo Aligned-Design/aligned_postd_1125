@@ -458,34 +458,74 @@ async function storeContentItems(
       // Map platform for Google Business
       const platform = item.contentType === "gbp" ? "google_business" : item.platform;
       
+      // ✅ FIX: Build insert data compatible with migration 009 schema (production)
+      // Migration 009: content_type, body, scheduled_for, title, platform, media_urls
+      // Migration 012: tries to rename content_type to type, adds content JSONB
+      // We'll use migration 009 schema (most likely in production) but be resilient
+      const insertData: any = {
+        id: item.id,
+        brand_id: brandId,
+        title: item.title,
+        content_type: contentType, // ✅ Use content_type (migration 009 schema)
+        platform: platform,
+        body: item.content, // ✅ Use body (migration 009 schema)
+        media_urls: item.imageUrl ? [item.imageUrl] : [],
+        scheduled_for: scheduledFor,
+        status: "pending_review", // Set to pending_review so it appears in queue
+        generated_by_agent: "content-planning-service",
+      };
+
+      // Note: tenant_id column doesn't exist in content_items table (per migrations)
+      // Note: approval_required column doesn't exist - use status instead
+
       const { data, error } = await supabase
         .from("content_items")
-        .insert({
-          id: item.id,
-          brand_id: brandId,
-          title: item.title,
-          content_type: contentType,
-          platform: platform,
-          body: item.content,
-          media_urls: item.imageUrl ? [item.imageUrl] : [],
-          scheduled_for: scheduledFor,
-          status: "pending_review", // Set to pending_review so it appears in queue
-          approval_required: true, // Mark as requiring approval
-          generated_by_agent: "content-planning-service",
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        })
+        .insert(insertData)
         .select()
         .single();
 
       if (error) {
-        logger.warn("Failed to store content item", { brandId, itemId: item.id, error });
+        // ✅ ENHANCED LOGGING: Log full error details for debugging
+        logger.error("Failed to store content item", {
+          brandId,
+          itemId: item.id,
+          title: item.title,
+          platform: platform,
+          contentType: contentType,
+          errorCode: error.code,
+          errorMessage: error.message,
+          errorDetails: error.details,
+          errorHint: error.hint,
+          insertData: {
+            ...insertData,
+            body: insertData.body?.substring(0, 100) + "...", // Truncate for logging
+          },
+        });
+        continue;
+      }
+
+      if (!data) {
+        logger.warn("Content item insert returned no data", { brandId, itemId: item.id });
         continue;
       }
 
       storedItems.push(item);
-    } catch (error) {
-      logger.warn("Error storing content item", { brandId, itemId: item.id, error });
+      logger.info("Successfully stored content item", {
+        brandId,
+        itemId: item.id,
+        title: item.title,
+        platform: platform,
+        scheduledFor: scheduledFor,
+      });
+    } catch (error: any) {
+      // ✅ ENHANCED LOGGING: Log full error for debugging
+      logger.error("Error storing content item (exception)", {
+        brandId,
+        itemId: item.id,
+        title: item.title,
+        error: error?.message || String(error),
+        stack: error?.stack,
+      });
       continue;
     }
   }
