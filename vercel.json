@@ -11,10 +11,7 @@
   "functions": {
     "api/[...all].ts": {
       "maxDuration": 60,
-      "includeFiles": [
-        "dist/server/vercel-server.mjs",
-        "dist/server/vercel-server.js"
-      ]
+      "includeFiles": "dist/server/**"
     }
   }
 }
