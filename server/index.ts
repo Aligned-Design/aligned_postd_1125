@@ -124,6 +124,7 @@ import brandsRouter from "./routes/brands";
 import healthRouter from "./routes/health";
 import crawlerRouter from "./routes/crawler";
 import agentsHealthRouter from "./routes/agents-health";
+import contentPlanRouter from "./routes/content-plan";
 
 export function createServer() {
   const app = express();
@@ -349,6 +350,9 @@ export function createServer() {
   
   // Brand Members routes (prevents frontend from calling Supabase directly)
   app.use("/api/brands", authenticateUser, requireScope("content:view"), brandMembersRouter);
+
+  // Content Plan routes (7-day content plan)
+  app.use("/api/content-plan", contentPlanRouter);
 
   // Notifications routes (already registered above, removing duplicate)
 

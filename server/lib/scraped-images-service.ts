@@ -80,9 +80,13 @@ export async function persistScrapedImages(
     }
   }
 
+  // Limit to 15 images max (10-15 range as specified)
+  // Images should already be sorted and filtered by caller, but ensure limit here too
+  const imagesToPersist = images.slice(0, 15);
+
   const persistedIds: string[] = [];
 
-  for (const image of images) {
+  for (const image of imagesToPersist) {
     try {
       // Generate hash from URL for duplicate detection
       const hash = crypto.createHash("sha256").update(image.url).digest("hex");

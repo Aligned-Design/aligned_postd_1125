@@ -326,20 +326,14 @@ async function runCrawlJobSync(url: string, brandId: string, tenantId: string | 
           throw error;
         }
         
-        // Extract colors (with error handling)
+        // Extract colors (with error handling - NO FALLBACK)
         let colors;
         try {
           colors = await extractColors(url);
         } catch (error) {
-          console.warn("[Crawler] Error extracting colors:", error);
-          // ✅ If colors extraction fails, use null values (no hardcoded fallback)
-          colors = {
-            primary: null,
-            secondary: null,
-            accent: null,
-            confidence: 0,
-          };
-          console.log("[Crawler] ⚠️  Color extraction failed - using null values");
+          console.error("[Crawler] Error extracting colors:", error);
+          // ❌ NO FALLBACK - throw error instead of using null/mock data
+          throw new Error(`Color extraction failed: ${error instanceof Error ? error.message : "Unknown error"}`);
         }
         
         // Generate brand kit from crawl results
@@ -352,9 +346,35 @@ async function runCrawlJobSync(url: string, brandId: string, tenantId: string | 
         const keywords = extractKeywords(combinedText);
         
         // Extract images from all crawl results
-        const allImages = crawlResults
+        // Sort by relevance and limit to 10-15 images
+        const allImagesRaw = crawlResults
           .flatMap((r) => r.images || [])
           .filter((img) => img && img.url);
+
+        // Sort by relevance: logo first, then hero, then by size
+        const sortedImages = allImagesRaw.sort((a, b) => {
+          if (a.role === "logo" && b.role !== "logo") return -1;
+          if (b.role === "logo" && a.role !== "logo") return 1;
+          if (a.role === "hero" && b.role !== "hero") return -1;
+          if (b.role === "hero" && a.role !== "hero") return 1;
+          const aSize = (a.width || 0) * (a.height || 0);
+          const bSize = (b.width || 0) * (b.height || 0);
+          return bSize - aSize;
+        });
+
+        // Filter out placeholders and tiny images, limit to 15 max
+        const allImages = sortedImages
+          .filter((img) => {
+            // Skip very small images (likely icons)
+            if (img.width && img.height && img.width < 100 && img.height < 100) return false;
+            // Skip placeholders
+            const urlLower = img.url.toLowerCase();
+            if (urlLower.includes("placeholder") || urlLower.includes("logo-placeholder")) return false;
+            // Skip data URIs
+            if (img.url.startsWith("data:")) return false;
+            return true;
+          })
+          .slice(0, 15); // Limit to 15 images (10-15 range)
         
         // Find logo (first image with role="logo")
         const logoImage = allImages.find((img) => img.role === "logo");
@@ -429,6 +449,24 @@ async function runCrawlJobSync(url: string, brandId: string, tenantId: string | 
         }
         
         // Build brand kit structure matching Edge Function format
+        // Store 6-color palette: 3 primary + 3 secondary/accent
+        const colorPalette = {
+          primary: colors.primary,
+          secondary: colors.secondary,
+          accent: colors.accent,
+          confidence: colors.confidence || 0,
+          // 6-color palette structure
+          primaryColors: colors.primaryColors || (colors.primary ? [colors.primary] : []),
+          secondaryColors: colors.secondaryColors || (colors.secondary && colors.accent ? [colors.secondary, colors.accent] : colors.secondary ? [colors.secondary] : colors.accent ? [colors.accent] : []),
+          allColors: colors.allColors || [
+            colors.primary,
+            colors.secondary,
+            colors.accent,
+            ...(colors.primaryColors || []),
+            ...(colors.secondaryColors || []),
+          ].filter((c): c is string => !!c).slice(0, 6), // Max 6 colors
+        };
+
         const brandKit = {
           voice_summary: {
             tone: extractToneFromText(combinedText),
@@ -439,12 +477,7 @@ async function runCrawlJobSync(url: string, brandId: string, tenantId: string | 
           },
           keyword_themes: keywords,
           about_blurb: crawlResults[0]?.metaDescription || crawlResults[0]?.bodyText?.slice(0, 160) || "",
-          colors: {
-            primary: colors.primary || "#8B5CF6",
-            secondary: colors.secondary || "#F0F7F7",
-            accent: colors.accent || "#EC4899",
-            confidence: colors.confidence || 0,
-          },
+          colors: colorPalette,
           typography: typography || undefined,
           source_urls: crawlResults.map(r => r.url),
           images: allImages,

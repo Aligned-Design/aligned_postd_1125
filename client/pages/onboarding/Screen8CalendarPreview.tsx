@@ -51,6 +51,27 @@ export default function Screen8CalendarPreview() {
           return;
         }
         
+        // Try new content plan API first
+        const contentPlanResponse = await fetch(`/api/content-plan/${brandId}`);
+        if (contentPlanResponse.ok) {
+          const data = await contentPlanResponse.json();
+          if (data.success && data.contentPlan && data.contentPlan.items) {
+            const items: ContentItem[] = data.contentPlan.items.map((item: any) => ({
+              id: item.id,
+              title: item.title,
+              platform: item.platform.charAt(0).toUpperCase() + item.platform.slice(1),
+              type: item.contentType || "post",
+              scheduledDate: item.scheduledDate,
+              scheduledTime: item.scheduledTime,
+              preview: item.content?.substring(0, 50) + "..." || item.title,
+              imageUrl: item.imageUrl,
+            }));
+            setContentItems(items);
+            return;
+          }
+        }
+        
+        // Fallback to old onboarding API
         const response = await fetch(`/api/onboarding/content-package/${brandId}`);
         if (response.ok) {
           const data = await response.json();

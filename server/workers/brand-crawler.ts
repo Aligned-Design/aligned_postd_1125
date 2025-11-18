@@ -95,10 +95,13 @@ interface CrawlResult {
 }
 
 interface ColorPalette {
-  primary: string;
-  secondary: string;
-  accent: string;
+  primary?: string;
+  secondary?: string;
+  accent?: string;
   confidence: number;
+  primaryColors?: string[]; // Up to 3 primary colors
+  secondaryColors?: string[]; // Up to 3 secondary/accent colors
+  allColors?: string[]; // All 6 colors combined (max 6)
 }
 
 interface VoiceSummary {
@@ -439,11 +442,40 @@ async function extractImages(page: Page, baseUrl: string): Promise<CrawledImage[
 
     // Deduplicate by URL
     const seen = new Set<string>();
-    return images.filter((img) => {
+    const uniqueImages = images.filter((img) => {
       if (seen.has(img.url)) return false;
       seen.add(img.url);
       return true;
-    }).slice(0, 20); // Limit to 20 images
+    });
+
+    // Sort by relevance: logo first, then hero, then by size/position
+    const sortedImages = uniqueImages.sort((a, b) => {
+      // Prioritize logos
+      if (a.role === "logo" && b.role !== "logo") return -1;
+      if (b.role === "logo" && a.role !== "logo") return 1;
+      // Then heroes
+      if (a.role === "hero" && b.role !== "hero") return -1;
+      if (b.role === "hero" && a.role !== "hero") return 1;
+      // Then by size (larger is better)
+      const aSize = (a.width || 0) * (a.height || 0);
+      const bSize = (b.width || 0) * (b.height || 0);
+      return bSize - aSize;
+    });
+
+    // Filter out placeholders, icons, and tiny images
+    const filteredImages = sortedImages.filter((img) => {
+      // Skip very small images (likely icons)
+      if (img.width && img.height && img.width < 100 && img.height < 100) return false;
+      // Skip common placeholder patterns
+      const urlLower = img.url.toLowerCase();
+      if (urlLower.includes("placeholder") || urlLower.includes("logo-placeholder")) return false;
+      // Skip data URIs (usually icons)
+      if (img.url.startsWith("data:")) return false;
+      return true;
+    });
+
+    // Limit to 15 images max (10-15 range as specified)
+    return filteredImages.slice(0, 15);
   } catch (error) {
     console.warn("[Crawler] Error extracting images:", error);
     return [];
@@ -676,24 +708,64 @@ export async function extractColors(url: string): Promise<ColorPalette> {
     // Extract colors with vibrant
     const palette = await Vibrant.from(screenshot).getPalette();
 
+    // Extract up to 6 colors: 3 primary (most dominant) + 3 secondary/accent
+    const primaryColors: string[] = [];
+    const secondaryColors: string[] = [];
+
+    // Primary colors (most dominant)
+    if (palette.Vibrant?.hex) primaryColors.push(palette.Vibrant.hex);
+    if (palette.Muted?.hex && !primaryColors.includes(palette.Muted.hex)) {
+      primaryColors.push(palette.Muted.hex);
+    }
+    if (palette.DarkVibrant?.hex && !primaryColors.includes(palette.DarkVibrant.hex)) {
+      primaryColors.push(palette.DarkVibrant.hex);
+    }
+
+    // Secondary/accent colors
+    if (palette.LightVibrant?.hex && !primaryColors.includes(palette.LightVibrant.hex)) {
+      secondaryColors.push(palette.LightVibrant.hex);
+    }
+    if (palette.LightMuted?.hex && !primaryColors.includes(palette.LightMuted.hex) && !secondaryColors.includes(palette.LightMuted.hex)) {
+      secondaryColors.push(palette.LightMuted.hex);
+    }
+    if (palette.DarkMuted?.hex && !primaryColors.includes(palette.DarkMuted.hex) && !secondaryColors.includes(palette.DarkMuted.hex)) {
+      secondaryColors.push(palette.DarkMuted.hex);
+    }
+
+    // Normalize to hex (ensure # prefix)
+    const normalizeHex = (color: string | undefined): string | undefined => {
+      if (!color) return undefined;
+      return color.startsWith("#") ? color : `#${color}`;
+    };
+
+    // Build 6-color palette structure
+    const allColors = [
+      ...primaryColors.map(normalizeHex).filter((c): c is string => !!c),
+      ...secondaryColors.map(normalizeHex).filter((c): c is string => !!c),
+    ].slice(0, 6); // Max 6 colors
+
+    // If we have fewer than 6, that's fine - return what we have
+    const primary = allColors[0] || undefined;
+    const secondary = allColors[1] || undefined;
+    const accent = allColors[2] || undefined;
+
     const colors: ColorPalette = {
-      primary: palette.Vibrant?.hex || "#8B5CF6",
-      secondary: palette.LightVibrant?.hex || "#F0F7F7",
-      accent: palette.DarkVibrant?.hex || "#EC4899",
+      primary: primary || undefined,
+      secondary: secondary || undefined,
+      accent: accent || undefined,
       confidence: palette.Vibrant?.population || 0,
+      // Extended palette for 6-color support
+      primaryColors: allColors.slice(0, 3), // First 3 as primary
+      secondaryColors: allColors.slice(3, 6), // Next 3 as secondary/accent
+      allColors, // All 6 colors
     };
 
     await browser.close();
     return colors;
   } catch (error) {
     console.error("[Crawler] Error extracting colors:", error);
-    // Fallback to default colors
-    return {
-      primary: "#8B5CF6",
-      secondary: "#F0F7F7",
-      accent: "#EC4899",
-      confidence: 0,
-    };
+    // ❌ NO FALLBACK - throw error instead of returning mock data
+    throw new Error(`Color extraction failed: ${error instanceof Error ? error.message : "Unknown error"}`);
   } finally {
     if (browser) await browser.close();
   }

@@ -14,6 +14,8 @@ import { logger } from "./logger";
 import { supabase } from "./supabase";
 import { getCurrentBrandGuide } from "./brand-guide-service";
 import { PipelineOrchestrator } from "./pipeline-orchestrator";
+import { generateBrandNarrativeSummary } from "./brand-summary-generator";
+import { generateContentPlan } from "./content-planning-service";
 
 export interface OnboardingOptions {
   workspaceId?: string;
@@ -361,6 +363,120 @@ async function runSampleContentStep(
 }
 
 /**
+ * Step 5: Generate brand narrative summary
+ */
+async function runBrandSummaryStep(
+  brandId: string,
+  step: OnboardingStep
+): Promise<OnboardingStep> {
+  step.status = "in_progress";
+  step.startedAt = new Date().toISOString();
+
+  try {
+    logger.info("Onboarding: Starting brand summary generation", {
+      brandId,
+      stepId: step.id,
+    });
+
+    // Get tenantId from brand
+    const { data: brand } = await supabase
+      .from("brands")
+      .select("tenant_id, workspace_id")
+      .eq("id", brandId)
+      .single();
+
+    const tenantId = brand?.tenant_id || brand?.workspace_id;
+
+    // Generate summary using Doc Agent
+    const summary = await generateBrandNarrativeSummary(brandId, tenantId || undefined);
+
+    step.status = "completed";
+    step.completedAt = new Date().toISOString();
+    step.result = {
+      summaryLength: summary.length,
+      paragraphCount: summary.split(/\n\n+/).filter((p) => p.trim().length > 0).length,
+    };
+
+    logger.info("Onboarding: Brand summary step completed", {
+      brandId,
+      stepId: step.id,
+      duration: Date.now() - new Date(step.startedAt!).getTime(),
+    });
+
+    return step;
+  } catch (error: any) {
+    step.status = "failed";
+    step.completedAt = new Date().toISOString();
+    step.error = error.message || "Brand summary generation failed";
+    logger.error("Onboarding: Brand summary step failed", error, {
+      brandId,
+      stepId: step.id,
+    });
+    return step;
+  }
+}
+
+/**
+ * Step 6: Generate content plan (5 social posts, blog, email)
+ */
+async function runContentPlanningStep(
+  brandId: string,
+  workspaceId: string | undefined,
+  step: OnboardingStep
+): Promise<OnboardingStep> {
+  step.status = "in_progress";
+  step.startedAt = new Date().toISOString();
+
+  try {
+    logger.info("Onboarding: Starting content planning step", {
+      brandId,
+      workspaceId,
+      stepId: step.id,
+    });
+
+    // Get tenantId from brand if not provided
+    let tenantId = workspaceId;
+    if (!tenantId) {
+      const { data: brand } = await supabase
+        .from("brands")
+        .select("tenant_id, workspace_id")
+        .eq("id", brandId)
+        .single();
+      tenantId = brand?.tenant_id || brand?.workspace_id;
+    }
+
+    // Generate content plan using all AI agents
+    const contentPlan = await generateContentPlan(brandId, tenantId || undefined);
+
+    step.status = "completed";
+    step.completedAt = new Date().toISOString();
+    step.result = {
+      itemsCount: contentPlan.items.length,
+      recommendationsCount: contentPlan.recommendations.length,
+      generatedAt: contentPlan.generatedAt,
+    };
+
+    logger.info("Onboarding: Content planning step completed", {
+      brandId,
+      stepId: step.id,
+      duration: Date.now() - new Date(step.startedAt!).getTime(),
+      itemsCount: contentPlan.items.length,
+    });
+
+    return step;
+  } catch (error: any) {
+    step.status = "failed";
+    step.completedAt = new Date().toISOString();
+    step.error = error.message || "Content planning failed";
+    logger.error("Onboarding: Content planning step failed", error, {
+      brandId,
+      stepId: step.id,
+    });
+    return step;
+  }
+}
+
+/**
  * Execute full onboarding workflow
  */
 export async function runOnboardingWorkflow(
@@ -392,6 +508,16 @@ export async function runOnboardingWorkflow(
       {
         id: "sample-content",
         name: "Sample Content",
+        status: "pending",
+      },
+      {
+        id: "brand-summary",
+        name: "Brand Narrative Summary",
+        status: "pending",
+      },
+      {
+        id: "content-planning",
+        name: "Content Planning & Generation",
         status: "pending",
       },
     ],
@@ -476,6 +602,32 @@ export async function runOnboardingWorkflow(
         result.errors.push({
           step: "sample-content",
           error: sampleContentStep.error || "Sample content generation failed",
+          timestamp: new Date().toISOString(),
+        });
+      }
+    }
+
+    // Step 5: Brand Narrative Summary
+    const brandSummaryStep = result.steps.find((s) => s.id === "brand-summary");
+    if (brandSummaryStep) {
+      await runBrandSummaryStep(brandId, brandSummaryStep);
+      if (brandSummaryStep.status === "failed") {
+        result.errors.push({
+          step: "brand-summary",
+          error: brandSummaryStep.error || "Brand summary generation failed",
+          timestamp: new Date().toISOString(),
+        });
+      }
+    }
+
+    // Step 6: Content Planning & Generation
+    const contentPlanningStep = result.steps.find((s) => s.id === "content-planning");
+    if (contentPlanningStep) {
+      await runContentPlanningStep(brandId, workspaceId, contentPlanningStep);
+      if (contentPlanningStep.status === "failed") {
+        result.errors.push({
+          step: "content-planning",
+          error: contentPlanningStep.error || "Content planning failed",
           timestamp: new Date().toISOString(),
         });
       }
