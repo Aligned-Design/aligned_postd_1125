@@ -416,9 +416,18 @@ router.post(
           insertData: brandInsertData,
         });
         
+        // Check for duplicate slug error and provide user-friendly message
+        const isDuplicateSlug = brandError.code === "23505" || 
+          brandError.message?.includes("duplicate key") ||
+          brandError.message?.includes("brands_slug");
+        
+        const errorMessage = isDuplicateSlug
+          ? "Brand name already in use. We've automatically added a number to make it unique."
+          : `Failed to create brand: ${brandError.message || "Database error"}`;
+        
         throw new AppError(
           ErrorCode.DATABASE_ERROR,
-          `Failed to create brand: ${brandError.message || "Database error"}`,
+          errorMessage,
           HTTP_STATUS.INTERNAL_SERVER_ERROR,
           "error",
           { 

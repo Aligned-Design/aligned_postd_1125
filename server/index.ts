@@ -125,6 +125,7 @@ import healthRouter from "./routes/health";
 import crawlerRouter from "./routes/crawler";
 import agentsHealthRouter from "./routes/agents-health";
 import contentPlanRouter from "./routes/content-plan";
+import calendarRouter from "./routes/calendar";
 
 export function createServer() {
   const app = express();
@@ -353,6 +354,9 @@ export function createServer() {
 
   // Content Plan routes (7-day content plan)
   app.use("/api/content-plan", contentPlanRouter);
+
+  // Calendar routes (fetch scheduled content for calendar views)
+  app.use("/api/calendar", authenticateUser, calendarRouter);
 
   // Notifications routes (already registered above, removing duplicate)
 

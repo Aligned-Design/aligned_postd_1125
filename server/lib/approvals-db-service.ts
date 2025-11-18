@@ -539,6 +539,7 @@ export class ApprovalsDBService {
 
   /**
    * Fetch approval board items for the given brand(s)
+   * Now includes items from both scheduled_content and content_items tables
    */
   async getApprovalBoardItems(params: {
     brandIds: string[];
@@ -554,51 +555,110 @@ export class ApprovalsDBService {
       return { items: [], total: 0 };
     }
 
-    let query = supabase
+    // Fetch from scheduled_content table
+    let scheduledQuery = supabase
       .from("scheduled_content")
       .select("*", { count: "exact" })
       .in("brand_id", params.brandIds)
-      .order("updated_at", { ascending: false })
-      .range(params.offset, params.offset + params.limit - 1);
+      .order("updated_at", { ascending: false });
 
     if (params.statuses && params.statuses.length > 0) {
       if (params.statuses.length === 1) {
-        query = query.eq("status", params.statuses[0]);
+        scheduledQuery = scheduledQuery.eq("status", params.statuses[0]);
       } else {
-        query = query.in("status", params.statuses);
+        scheduledQuery = scheduledQuery.in("status", params.statuses);
       }
     }
 
     if (params.search) {
       const term = params.search.replace(/%/g, "");
-      query = query.or(
+      scheduledQuery = scheduledQuery.or(
         `headline.ilike.%${term}%,body.ilike.%${term}%,content_type.ilike.%${term}%`,
       );
     }
 
-    const { data, error, count } = await query;
+    const { data: scheduledData, error: scheduledError, count: scheduledCount } = await scheduledQuery;
 
-    if (error) {
-      throw new AppError(
-        ErrorCode.DATABASE_ERROR,
-        "Failed to load approval items",
-        HTTP_STATUS.INTERNAL_SERVER_ERROR,
-        "critical",
-        { details: error.message },
+    // Also fetch from content_items table (for content planning service items)
+    let contentItemsQuery = supabase
+      .from("content_items")
+      .select("*", { count: "exact" })
+      .in("brand_id", params.brandIds)
+      .in("status", ["pending_review", "draft"])
+      .eq("approval_required", true)
+      .order("created_at", { ascending: false });
+
+    if (params.search) {
+      const term = params.search.replace(/%/g, "");
+      contentItemsQuery = contentItemsQuery.or(
+        `title.ilike.%${term}%,body.ilike.%${term}%,content_type.ilike.%${term}%`,
       );
     }
 
-    const records = (data || []) as Record<string, any>[];
-    const brandIds = Array.from(new Set(records.map((item) => item.brand_id)));
+    const { data: contentItemsData, error: contentItemsError } = await contentItemsQuery;
+
+    // Combine results
+    const allRecords: Record<string, any>[] = [];
+    
+    if (!scheduledError && scheduledData) {
+      // Map scheduled_content to common format
+      scheduledData.forEach((item: any) => {
+        allRecords.push({
+          id: item.id,
+          brand_id: item.brand_id,
+          headline: item.headline || item.title,
+          body: item.body || item.content,
+          content_type: item.content_type,
+          platform: item.platform,
+          status: item.status,
+          scheduled_for: item.scheduled_for,
+          created_at: item.created_at,
+          updated_at: item.updated_at,
+          source: "scheduled_content",
+        });
+      });
+    }
+
+    if (!contentItemsError && contentItemsData) {
+      // Map content_items to common format
+      contentItemsData.forEach((item: any) => {
+        allRecords.push({
+          id: item.id,
+          brand_id: item.brand_id,
+          headline: item.title,
+          body: item.body,
+          content_type: item.content_type,
+          platform: item.platform,
+          status: item.status,
+          scheduled_for: item.scheduled_for,
+          created_at: item.created_at,
+          updated_at: item.updated_at,
+          source: "content_items",
+        });
+      });
+    }
+
+    // Sort by updated_at descending
+    allRecords.sort((a, b) => {
+      const aTime = new Date(a.updated_at || a.created_at).getTime();
+      const bTime = new Date(b.updated_at || b.created_at).getTime();
+      return bTime - aTime;
+    });
+
+    // Apply pagination
+    const paginatedRecords = allRecords.slice(params.offset, params.offset + params.limit);
+    const total = allRecords.length;
+
+    const brandIds = Array.from(new Set(paginatedRecords.map((item) => item.brand_id)));
     const brandMap = await this.getBrandSummaries(brandIds);
 
-    const items = records.map((record) =>
+    const items = paginatedRecords.map((record) =>
       mapScheduledRecordToBoardItem(record, brandMap),
     );
 
     return {
       items,
-      total: count || 0,
+      total,
     };
   }
 

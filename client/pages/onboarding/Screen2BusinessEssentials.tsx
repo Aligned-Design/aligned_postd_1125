@@ -23,16 +23,44 @@ const extractBrandNameFromUrl = (url: string): string => {
 };
 
 const BUSINESS_TYPES = [
-  "E-commerce",
+  "E-commerce / Online Retail",
   "SaaS / Technology",
   "Professional Services",
-  "Healthcare",
+  "Healthcare / Medical",
   "Real Estate",
-  "Education",
+  "Education / Training",
   "Food & Beverage",
   "Fitness & Wellness",
-  "Retail",
-  "Non-profit",
+  "Retail / Brick & Mortar",
+  "Non-profit / Charity",
+  "Legal Services",
+  "Financial Services / Banking",
+  "Insurance",
+  "Marketing / Advertising Agency",
+  "Consulting",
+  "Construction / Home Improvement",
+  "Automotive",
+  "Beauty / Cosmetics",
+  "Fashion / Apparel",
+  "Travel / Hospitality",
+  "Restaurant / Dining",
+  "Entertainment / Media",
+  "Sports / Recreation",
+  "Pet Services",
+  "Home Services",
+  "Photography / Videography",
+  "Event Planning",
+  "Interior Design",
+  "Architecture",
+  "Engineering",
+  "Manufacturing",
+  "Agriculture / Farming",
+  "Energy / Utilities",
+  "Transportation / Logistics",
+  "Telecommunications",
+  "Government / Public Sector",
+  "Religious Organization",
+  "Arts / Culture",
   "Other",
 ];
 
@@ -46,20 +74,20 @@ export default function Screen2BusinessEssentials() {
   const validate = () => {
     const newErrors: Record<string, string> = {};
     if (!websiteUrl.trim()) {
-      newErrors.websiteUrl = "Website URL is required";
+      newErrors.websiteUrl = "We need your website to get started. If you don't have one, click 'Skip to manual setup' below.";
     } else {
       // Basic URL validation
       try {
         const url = new URL(websiteUrl.startsWith("http") ? websiteUrl : `https://${websiteUrl}`);
         if (!url.hostname) {
-          newErrors.websiteUrl = "Please enter a valid website URL";
+          newErrors.websiteUrl = "That doesn't look like a website URL. Try: example.com or https://example.com";
         }
       } catch {
-        newErrors.websiteUrl = "Please enter a valid website URL (e.g., example.com)";
+        newErrors.websiteUrl = "That doesn't look like a website URL. Try: example.com or https://example.com";
       }
     }
     if (!businessType) {
-      newErrors.businessType = "Please select your business type";
+      newErrors.businessType = "Please select your industry to help us customize content for you";
     }
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -113,16 +141,17 @@ export default function Screen2BusinessEssentials() {
           } else {
             throw new Error("Brand creation failed");
           }
-        } catch (error) {
-          console.error("[Onboarding] ❌ Failed to create brand:", error);
-          const errorMessage = error instanceof Error ? error.message : "Failed to create brand";
-          
-          // ✅ Show error to user instead of silently continuing
-          alert(`Failed to create brand: ${errorMessage}\n\nPlease try again or contact support if this persists.`);
-          
-          // Don't continue - brand creation is required
-          return;
-        }
+          } catch (error) {
+            console.error("[Onboarding] ❌ Failed to create brand:", error);
+            const { formatErrorForUI } = await import("@/lib/user-friendly-errors");
+            const friendlyError = formatErrorForUI(error, "brand");
+            
+            // ✅ Show user-friendly error to user
+            alert(`${friendlyError.title}\n\n${friendlyError.message}\n\n${friendlyError.action}`);
+            
+            // Don't continue - brand creation is required
+            return;
+          }
       } else {
         console.error("[Onboarding] ❌ No user found - cannot create brand");
       }
@@ -139,21 +168,15 @@ export default function Screen2BusinessEssentials() {
         <OnboardingProgress currentStep={2} totalSteps={10} label="Business essentials" />
 
         {/* Header */}
-        <div className="text-center mb-12">
+        <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-12 h-12 rounded-lg bg-gradient-to-br from-indigo-600 to-blue-600 mb-4">
             <Globe className="w-6 h-6 text-white" />
           </div>
           <h1 className="text-4xl font-black text-slate-900 mb-3">
             Tell us about your business
           </h1>
-          <p className="text-slate-600 font-medium mb-1">
-            We'll use this to automatically build your brand profile
-          </p>
-          <p className="text-slate-500 text-sm">
-            Just the basics—we'll handle the rest with AI ✨
-          </p>
-          <p className="text-slate-400 text-xs mt-2">
-            Don't worry—you can change anything later in your Brand Guide
+          <p className="text-slate-600 font-medium text-lg mb-2">
+            We'll use this to create content that's perfect for your industry
           </p>
         </div>
 
@@ -162,7 +185,7 @@ export default function Screen2BusinessEssentials() {
           {/* Website URL */}
           <div>
             <label className="block text-sm font-bold text-slate-900 mb-2">
-              Business Website <span className="text-red-500">*</span>
+              Your website URL
             </label>
             <div className="relative">
               <Globe className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
@@ -181,15 +204,16 @@ export default function Screen2BusinessEssentials() {
             {errors.websiteUrl && (
               <p className="text-xs text-red-600 mt-1">{errors.websiteUrl}</p>
             )}
-            <p className="text-xs text-slate-500 mt-2">
-              💡 We'll scan your website to extract colors, voice, and brand details automatically
+            <p className="text-xs text-slate-500 mt-2 leading-relaxed">
+              💡 We'll scan your site to learn your brand voice, colors, and style. 
+              Don't have a website? No problem—click "Skip to manual setup" below.
             </p>
           </div>
 
           {/* Business Type */}
           <div>
             <label className="block text-sm font-bold text-slate-900 mb-2">
-              Business Type <span className="text-red-500">*</span>
+              What industry are you in?
             </label>
             <select
               value={businessType}
@@ -200,7 +224,7 @@ export default function Screen2BusinessEssentials() {
                   : "border-slate-200 bg-white/50 focus:border-indigo-500 focus:bg-white"
               }`}
             >
-              <option value="">Select your business type</option>
+              <option value="">Select your industry</option>
               {BUSINESS_TYPES.map((type) => (
                 <option key={type} value={type}>
                   {type}
@@ -210,13 +234,16 @@ export default function Screen2BusinessEssentials() {
             {errors.businessType && (
               <p className="text-xs text-red-600 mt-1">{errors.businessType}</p>
             )}
+            <p className="text-xs text-slate-500 mt-2 leading-relaxed">
+              💡 This helps us use the right terminology and create industry-specific content.
+            </p>
           </div>
 
           {/* Optional Description */}
           <div>
             <label className="block text-sm font-bold text-slate-900 mb-2">
-              One-line Business Description{" "}
-              <span className="text-slate-500 font-normal">(Optional)</span>
+              Tell us a bit about your business{" "}
+              <span className="text-slate-500 font-normal">(optional)</span>
             </label>
             <textarea
               value={description}
@@ -244,21 +271,63 @@ export default function Screen2BusinessEssentials() {
         <p className="text-xs text-slate-500 text-center mt-6">
           Don't have a website?{" "}
           <button
-            onClick={() => {
-              console.log("[Onboarding] User clicked 'Skip to manual setup' - will skip scraping");
-              // Store empty website so scraping step knows to skip
-              if (user) {
-                signUp({
-                  ...user,
-                  website: "", // Empty website signals to skip scraping
-                  industry: businessType || "Other",
-                });
+            onClick={async () => {
+              console.log("[Onboarding] User clicked 'Skip to manual setup' - routing to manual intake");
+              
+              // Still need to create brand even without website
+              if (user && businessType) {
+                try {
+                  const { apiPost } = await import("@/lib/api");
+                  const workspaceId = (user as any)?.workspaceId || (user as any)?.tenantId;
+                  const brandName = description || "My Brand";
+
+                  const brandResponse = await apiPost<{ success: boolean; brand: any }>("/api/brands", {
+                    name: brandName,
+                    website_url: "", // Empty for manual setup
+                    industry: businessType,
+                    description: description || undefined,
+                    tenant_id: workspaceId,
+                    workspace_id: workspaceId,
+                    autoRunOnboarding: false,
+                  });
+
+                  if (brandResponse.success && brandResponse.brand) {
+                    localStorage.setItem("aligned_brand_id", brandResponse.brand.id);
+                    console.log("[Onboarding] ✅ Brand created for manual setup:", brandResponse.brand.id);
+                  }
+
+                  // Update user with empty website to signal manual flow
+                  updateUser({
+                    website: "",
+                    industry: businessType,
+                    businessName: description || undefined,
+                  });
+
+                  // Route to manual intake screen (step 3.5 - we'll add it to router)
+                  // For now, use a special step number that we'll handle
+                  localStorage.setItem("aligned:onboarding:manual_setup", "true");
+                  setOnboardingStep(3.5); // Special step for manual intake
+                } catch (error) {
+                  console.error("[Onboarding] Failed to create brand for manual setup:", error);
+                  const { formatErrorForUI } = await import("@/lib/user-friendly-errors");
+                  const friendlyError = formatErrorForUI(error, "brand");
+                  alert(`${friendlyError.title}\n\n${friendlyError.message}\n\n${friendlyError.action}`);
+                }
+              } else {
+                // Fallback: just set empty website and continue
+                if (user) {
+                  updateUser({
+                    website: "",
+                    industry: businessType || "Other",
+                  });
+                }
+                localStorage.setItem("aligned:onboarding:manual_setup", "true");
+                setOnboardingStep(3.5);
               }
-              setOnboardingStep(3);
             }}
-            className="text-indigo-600 font-bold hover:text-indigo-700"
+            className="text-indigo-600 font-bold hover:text-indigo-700 underline"
           >
-            Skip to manual setup
+            Set up manually instead
           </button>
         </p>
       </div>

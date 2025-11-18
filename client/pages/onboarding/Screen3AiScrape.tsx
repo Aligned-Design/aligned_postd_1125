@@ -7,7 +7,7 @@
 
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { Sparkles, CheckCircle2, Loader2, Palette, Image, MessageSquare, Package } from "lucide-react";
+import { Sparkles, CheckCircle2, Loader2, Palette, Image, MessageSquare, Package, Globe } from "lucide-react";
 import { OnboardingProgress } from "@/components/onboarding/OnboardingProgress";
 import { useConfetti } from "@/hooks/useConfetti";
 
@@ -19,29 +19,34 @@ interface ScrapeProgress {
 
 const SCRAPE_STEPS: ScrapeProgress[] = [
   {
+    step: "explore",
+    status: "pending",
+    message: "Exploring your website to understand your brand",
+  },
+  {
     step: "images",
     status: "pending",
-    message: "Pulling your brand images",
+    message: "Collecting images that represent your brand",
   },
   {
     step: "colors",
     status: "pending",
-    message: "Detecting color palette",
+    message: "Identifying your brand colors and visual style",
   },
   {
     step: "voice",
     status: "pending",
-    message: "Analyzing your messaging",
+    message: "Learning how you communicate with your audience",
   },
   {
     step: "offerings",
     status: "pending",
-    message: "Identifying services & products",
+    message: "Understanding what you offer and how you describe it",
   },
   {
     step: "generate",
     status: "pending",
-    message: "Building your Brand Snapshot",
+    message: "Creating your personalized brand profile",
   },
 ];
 
@@ -291,6 +296,8 @@ export default function Screen3AiScrape() {
 
   const getStepIcon = (step: string) => {
     switch (step) {
+      case "explore":
+        return <Globe className="w-5 h-5" />;
       case "images":
         return <Image className="w-5 h-5" />;
       case "colors":
@@ -316,10 +323,10 @@ export default function Screen3AiScrape() {
             <Sparkles className="w-8 h-8 text-white" />
           </div>
           <h1 className="text-4xl font-black text-slate-900 mb-3">
-            We're scanning your brand...
+            We're learning your brand...
           </h1>
-          <p className="text-slate-600 font-medium">
-            Our AI is analyzing your website to build your brand profile
+          <p className="text-slate-600 font-medium text-lg mb-2">
+            This usually takes 30-60 seconds. Grab a coffee! ☕
           </p>
         </div>
 
@@ -381,8 +388,11 @@ export default function Screen3AiScrape() {
         {/* Error Message */}
         {error && (
           <div className="mt-6 p-4 bg-amber-50 border border-amber-200 rounded-lg">
-            <p className="text-sm text-amber-900">
-              ⚠️ {error}. Don't worry—we'll create a default profile you can customize.
+            <p className="text-sm font-semibold text-amber-900 mb-1">
+              ⚠️ Couldn't scan your website
+            </p>
+            <p className="text-xs text-amber-800">
+              {error}. Don't worry—we'll create a default profile you can customize in the next step.
             </p>
           </div>
         )}
@@ -390,8 +400,11 @@ export default function Screen3AiScrape() {
         {/* Completion Message */}
         {isComplete && (
           <div className="mt-6 p-4 bg-green-50 border border-green-200 rounded-lg text-center">
-            <p className="text-sm font-bold text-green-900">
-              ✨ Brand profile generated! Taking you to review...
+            <p className="text-lg font-bold text-green-900 mb-1">
+              🎉 We've learned your brand!
+            </p>
+            <p className="text-sm text-green-700">
+              Here's what we found... Taking you to review...
             </p>
           </div>
         )}

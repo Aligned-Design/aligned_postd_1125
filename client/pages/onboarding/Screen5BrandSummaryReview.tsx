@@ -259,13 +259,10 @@ export default function Screen5BrandSummaryReview() {
             <Sparkles className="w-8 h-8 text-white" />
           </div>
           <h1 className="text-4xl font-black text-slate-900 mb-3">
-            Here's your brand snapshot ✨
+            Here's your brand profile
           </h1>
-          <p className="text-slate-600 font-medium mb-2">
-            We've extracted everything from your website. Review and make any quick edits.
-          </p>
-          <p className="text-slate-500 text-sm">
-            💡 You can change anything later in your Brand Guide—no pressure!
+          <p className="text-slate-600 font-medium text-lg mb-2">
+            We've analyzed your brand and created a profile. Want to make any changes?
           </p>
         </div>
 
@@ -274,7 +271,7 @@ export default function Screen5BrandSummaryReview() {
           <div className="flex items-start justify-between gap-4">
             <div className="flex-1">
               <p className="text-xs font-bold text-slate-600 mb-2 uppercase tracking-wide">
-                Brand Identity
+                Your Brand Story
               </p>
               <p className="text-lg text-slate-900 font-medium leading-relaxed">
                 {brandIdentity}
@@ -434,7 +431,7 @@ export default function Screen5BrandSummaryReview() {
             className="flex-1 px-6 py-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-black rounded-lg hover:shadow-lg transition-all flex items-center justify-center gap-2"
           >
             <CheckCircle2 className="w-5 h-5" />
-            Looks Great → Continue
+            This looks perfect! Continue
           </button>
         </div>
 

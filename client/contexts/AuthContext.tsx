@@ -44,7 +44,7 @@ export interface BrandSnapshot {
   };
 }
 
-export type OnboardingStep = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | null;
+export type OnboardingStep = 1 | 2 | 3 | 3.5 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | null;
 
 // Canonical role type (matches config/permissions.json)
 export type CanonicalRole =

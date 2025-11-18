@@ -20,8 +20,8 @@ import { randomUUID } from "crypto";
 export interface ContentPlanItem {
   id: string;
   title: string;
-  contentType: "post" | "blog" | "email";
-  platform: string;
+  contentType: "post" | "blog" | "email" | "gbp";
+  platform: string; // "instagram" | "facebook" | "linkedin" | "twitter" | "blog" | "email" | "google_business"
   content: string;
   scheduledDate: string; // ISO date string
   scheduledTime: string; // HH:mm format
@@ -58,10 +58,10 @@ export async function generateContentPlan(
     const brandProfile = await getBrandProfile(brandId);
     const scrapedImages = await getScrapedImages(brandId);
 
-    // Get brand info
+    // Get brand info (including industry for better context)
     const { data: brand } = await supabase
       .from("brands")
-      .select("id, name, website_url, brand_kit")
+      .select("id, name, website_url, industry, description, brand_kit")
       .eq("id", brandId)
       .single();
 
@@ -70,6 +70,14 @@ export async function generateContentPlan(
     }
 
     const brandKit = (brand.brand_kit as any) || {};
+    
+    // Ensure industry is in brandKit for agent context
+    if (brand.industry && !brandKit.industry) {
+      brandKit.industry = brand.industry;
+    }
+    if (brand.description && !brandKit.description) {
+      brandKit.description = brand.description;
+    }
 
     // 2. Step 1: Copywriter completes brand guide
     const completedBrandGuide = await completeBrandGuideWithDocAgent(
@@ -260,22 +268,31 @@ async function planContentWithCreativeAgent(
   advisorRecommendations: string[]
 ): Promise<ContentPlanItem[]> {
   try {
-    const systemPrompt = `You are The Creative Agent for Postd. Your role is to plan and generate a 7-day content calendar.
+    const systemPrompt = `You are The Creative Agent for Postd. Your role is to plan and generate a 7-day content calendar with ready-to-post content.
+
+CRITICAL REQUIREMENTS:
+- All content must be COMPLETE and READY TO POST (not drafts or outlines)
+- Content must be industry-specific and use appropriate terminology
+- Each post must be engaging, valuable, and on-brand
+- Include full content text (not just topics or ideas)
+- Content should address industry-specific pain points, opportunities, and trends
+- Match platform best practices (character limits, hashtags, etc.)
 
 Guidelines:
 - Generate 5 social media posts (mix of platforms: Instagram, Facebook, LinkedIn, Twitter)
-- Generate 1 blog post
-- Generate 1 email campaign
+- Generate 1 blog post (in-depth, valuable content, 500+ words)
+- Generate 1 email campaign (newsletter or promotional with subject line)
+- Generate 1 Google Business Profile post (local, informative, encourages visits/calls)
 - Schedule content across 7 days (distribute evenly)
 - Each post should be on-brand, engaging, and aligned with brand guide
-- Include specific content text for each item
+- Include specific, complete content text for each item (READY TO POST)
 - Output as JSON array with this structure:
 [
   {
     "title": "Post title",
-    "contentType": "post" | "blog" | "email",
-    "platform": "instagram" | "facebook" | "linkedin" | "twitter" | "email" | "blog",
-    "content": "Full content text...",
+    "contentType": "post" | "blog" | "email" | "gbp",
+    "platform": "instagram" | "facebook" | "linkedin" | "twitter" | "email" | "blog" | "google_business",
+    "content": "Full content text (complete, ready to post)...",
     "scheduledDate": "YYYY-MM-DD",
     "scheduledTime": "HH:mm"
   }
@@ -315,17 +332,20 @@ Guidelines:
         status: "draft" as const,
       }));
 
-      // Ensure we have exactly 7 items (5 social + 1 blog + 1 email)
-      if (contentItems.length < 7) {
+      // Ensure we have exactly 8 items (5 social + 1 blog + 1 email + 1 Google Business)
+      if (contentItems.length < 8) {
         // Fill missing items with defaults
-        const needed = 7 - contentItems.length;
+        const needed = 8 - contentItems.length;
+        const defaultTypes: Array<"post" | "blog" | "email" | "gbp"> = ["blog", "email", "gbp", "post", "post"];
+        const defaultPlatforms = ["blog", "email", "google_business", "instagram", "facebook"];
         for (let i = 0; i < needed; i++) {
+          const contentType = defaultTypes[i] || "post";
           contentItems.push({
             id: randomUUID(),
-            title: `Content ${contentItems.length + 1}`,
-            contentType: i === 0 ? "blog" : i === 1 ? "email" : "post",
-            platform: i === 0 ? "blog" : i === 1 ? "email" : "instagram",
-            content: "Content to be generated...",
+            title: `${contentType === "gbp" ? "Google Business" : contentType.charAt(0).toUpperCase() + contentType.slice(1)} Post ${contentItems.length + 1}`,
+            contentType: contentType === "gbp" ? "post" : contentType,
+            platform: defaultPlatforms[i] || "instagram",
+            content: `Complete ${contentType === "gbp" ? "Google Business Profile" : contentType} content ready to post...`,
             scheduledDate: getDefaultScheduledDate(i),
             scheduledTime: "09:00",
             status: "draft",
@@ -368,18 +388,24 @@ async function storeContentItems(
       // Combine date and time for scheduled_for
       const scheduledFor = new Date(`${item.scheduledDate}T${item.scheduledTime}:00`).toISOString();
 
+      // Map contentType to content_type (handle gbp as post)
+      const contentType = item.contentType === "gbp" ? "post" : item.contentType;
+      // Map platform for Google Business
+      const platform = item.contentType === "gbp" ? "google_business" : item.platform;
+      
       const { data, error } = await supabase
         .from("content_items")
         .insert({
           id: item.id,
           brand_id: brandId,
           title: item.title,
-          content_type: item.contentType,
-          platform: item.platform,
+          content_type: contentType,
+          platform: platform,
           body: item.content,
           media_urls: item.imageUrl ? [item.imageUrl] : [],
           scheduled_for: scheduledFor,
-          status: item.status,
+          status: "pending_review", // Set to pending_review so it appears in queue
+          approval_required: true, // Mark as requiring approval
           generated_by_agent: "content-planning-service",
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
@@ -412,6 +438,12 @@ function buildBrandGuideCompletionPrompt(
 ): string {
   let prompt = `Complete and enhance the Brand Guide for this brand.\n\n`;
 
+  // Include industry context prominently
+  const industry = brandKit.industry || brandGuide?.identity?.businessType || "General Business";
+  prompt += `## Industry Context\n`;
+  prompt += `Business Type/Industry: ${industry}\n`;
+  prompt += `This is a ${industry} business. Ensure all brand guide fields reflect industry-appropriate language, values, and positioning.\n\n`;
+
   prompt += `## Current Brand Guide\n`;
   prompt += JSON.stringify(brandGuide, null, 2);
   prompt += `\n\n## Brand Profile\n`;
@@ -420,9 +452,13 @@ function buildBrandGuideCompletionPrompt(
   prompt += `Headlines: ${(brandKit.headlines || []).join(", ")}\n`;
   prompt += `About: ${brandKit.about_blurb || ""}\n`;
   prompt += `Services: ${(brandKit.keyword_themes || []).join(", ")}\n`;
+  if (brandKit.description) {
+    prompt += `Business Description: ${brandKit.description}\n`;
+  }
 
   prompt += `\n\n## Instructions\n`;
   prompt += `Fill in missing fields and enhance existing ones based on scraped content.\n`;
+  prompt += `Ensure all fields are industry-specific and appropriate for a ${industry} business.\n`;
   prompt += `Return JSON with completed/enhanced brand guide fields.`;
 
   return prompt;
@@ -435,15 +471,27 @@ function buildAdvisorRecommendationsPrompt(
 ): string {
   let prompt = `Provide content strategy recommendations for this brand.\n\n`;
 
+  const industry = brandKit.industry || brandGuide?.identity?.businessType || "General Business";
+  
   prompt += `## Brand Context\n`;
   prompt += `Brand Name: ${brandGuide?.brandName || brandProfile?.name || "Brand"}\n`;
+  prompt += `Industry/Business Type: ${industry}\n`;
   prompt += `Target Audience: ${brandProfile?.targetAudience || "General"}\n`;
   prompt += `Tone: ${brandProfile?.tone || "Professional"}\n`;
+  
+  if (brandKit.keyword_themes && brandKit.keyword_themes.length > 0) {
+    prompt += `Key Services/Products: ${brandKit.keyword_themes.join(", ")}\n`;
+  }
+  
+  if (brandKit.description) {
+    prompt += `Business Description: ${brandKit.description}\n`;
+  }
 
   prompt += `\n\n## Instructions\n`;
   prompt += `Provide 5-7 specific, actionable recommendations for content strategy.\n`;
+  prompt += `Recommendations should be industry-specific for ${industry} businesses.\n`;
+  prompt += `Focus on content types, posting frequency, platform strategy, and industry-specific opportunities.\n`;
   prompt += `Return JSON array: ["recommendation 1", "recommendation 2", ...]`;
-
   return prompt;
 }
 
@@ -456,21 +504,81 @@ function buildContentPlanningPrompt(
 ): string {
   let prompt = `Plan a 7-day content calendar for this brand.\n\n`;
 
-  prompt += `## Brand Guide\n`;
-  prompt += `Tone: ${(brandGuide?.voiceAndTone?.tone || []).join(", ")}\n`;
-  prompt += `Audience: ${brandProfile?.targetAudience || "General"}\n`;
-  prompt += `Services: ${(brandKit.keyword_themes || []).join(", ")}\n`;
+  // ✅ CRITICAL: Include comprehensive brand context
+  prompt += `## Brand Identity\n`;
+  prompt += `Brand Name: ${brandGuide?.brandName || brandProfile?.name || "Brand"}\n`;
+  
+  // Industry/Business Type (CRITICAL for generating appropriate content)
+  const industry = brandKit.industry || brandGuide?.identity?.businessType || "General Business";
+  prompt += `Industry/Business Type: ${industry}\n`;
+  prompt += `This is a ${industry} business. Generate content that is appropriate for this industry, uses industry-specific terminology, and addresses industry-specific pain points and opportunities.\n`;
+  
+  if (brandKit.description || brandGuide?.purpose) {
+    prompt += `Business Description: ${brandKit.description || brandGuide.purpose || ""}\n`;
+  }
+  
+  if (brandKit.about_blurb) {
+    prompt += `About: ${brandKit.about_blurb}\n`;
+  }
 
-  prompt += `\n\n## Advisor Recommendations\n`;
+  prompt += `\n## Brand Guide\n`;
+  prompt += `Tone: ${(brandGuide?.voiceAndTone?.tone || []).join(", ") || "Professional"}\n`;
+  prompt += `Target Audience: ${brandProfile?.targetAudience || brandGuide?.identity?.targetAudience || "General audience"}\n`;
+  
+  if (brandGuide?.voiceAndTone?.voiceDescription) {
+    prompt += `Voice Description: ${brandGuide.voiceAndTone.voiceDescription}\n`;
+  }
+  
+  if (brandKit.keyword_themes && brandKit.keyword_themes.length > 0) {
+    prompt += `Key Services/Products: ${brandKit.keyword_themes.join(", ")}\n`;
+  }
+  
+  if (brandGuide?.identity?.industryKeywords && brandGuide.identity.industryKeywords.length > 0) {
+    prompt += `Industry Keywords: ${brandGuide.identity.industryKeywords.join(", ")}\n`;
+  }
+
+  // Content rules and guardrails
+  if (brandGuide?.contentRules) {
+    if (brandGuide.contentRules.neverDo && brandGuide.contentRules.neverDo.length > 0) {
+      prompt += `\nNEVER DO: ${brandGuide.contentRules.neverDo.join(", ")}\n`;
+    }
+    if (brandGuide.contentRules.brandPhrases && brandGuide.contentRules.brandPhrases.length > 0) {
+      prompt += `Preferred Phrases: ${brandGuide.contentRules.brandPhrases.join(", ")}\n`;
+    }
+  }
+  
+  if (brandGuide?.voiceAndTone?.avoidPhrases && brandGuide.voiceAndTone.avoidPhrases.length > 0) {
+    prompt += `FORBIDDEN PHRASES: ${brandGuide.voiceAndTone.avoidPhrases.join(", ")}\n`;
+  }
+
+  // Visual context
+  if (scrapedImages && scrapedImages.length > 0) {
+    prompt += `\n## Visual Assets Available\n`;
+    prompt += `${scrapedImages.length} brand images available (logos, products, team photos, etc.)\n`;
+    prompt += `Reference these visual assets when planning content that requires imagery.\n`;
+  }
+
+  prompt += `\n## Advisor Recommendations\n`;
   prompt += advisorRecommendations.map((r, i) => `${i + 1}. ${r}`).join("\n");
 
-  prompt += `\n\n## Instructions\n`;
-  prompt += `Generate 7 content items:\n`;
-  prompt += `- 5 social media posts (mix platforms)\n`;
-  prompt += `- 1 blog post\n`;
-  prompt += `- 1 email campaign\n`;
-  prompt += `Schedule across 7 days starting from tomorrow.\n`;
-  prompt += `Each item should be on-brand and engaging.`;
+  prompt += `\n## Content Requirements\n`;
+  prompt += `Generate 8 content items (ready to post immediately):\n`;
+  prompt += `- 5 social media posts (mix of Instagram, Facebook, LinkedIn, Twitter)\n`;
+  prompt += `- 1 blog post (in-depth, valuable content for ${industry} industry, 500+ words)\n`;
+  prompt += `- 1 email campaign (newsletter or promotional email with subject line and body)\n`;
+  prompt += `- 1 Google Business Profile post (local, informative, encourages visits/calls)\n`;
+  prompt += `\nEach item must:\n`;
+  prompt += `- Be specific to the ${industry} industry\n`;
+  prompt += `- Use appropriate industry terminology and address industry-specific topics\n`;
+  prompt += `- Match the brand's tone and voice exactly\n`;
+  prompt += `- Include engaging, actionable, complete content (not outlines or drafts)\n`;
+  prompt += `- Be READY TO POST (complete, polished, on-brand, no placeholders)\n`;
+  prompt += `- Include full content text with proper formatting\n`;
+  prompt += `- For social posts: include hashtags, emojis if appropriate, and clear CTAs\n`;
+  prompt += `- For blog: include title, introduction, body paragraphs, conclusion, and CTA\n`;
+  prompt += `- For email: include subject line, greeting, body, and clear call-to-action\n`;
+  prompt += `- For Google Business: include local context, business hours/contact info if relevant, and clear CTA\n`;
+  prompt += `- Schedule across 7 days starting from tomorrow\n`;
 
   return prompt;
 }
@@ -485,14 +593,14 @@ function getDefaultScheduledDate(offset: number = 0): string {
 
 function generateDefaultContentPlan(): ContentPlanItem[] {
   const platforms = ["instagram", "facebook", "linkedin", "twitter", "instagram"];
-  const contentTypes: Array<"post" | "blog" | "email"> = ["post", "post", "post", "post", "post", "blog", "email"];
+  const contentTypes: Array<"post" | "blog" | "email" | "gbp"> = ["post", "post", "post", "post", "post", "blog", "email", "gbp"];
 
   return contentTypes.map((contentType, index) => ({
     id: randomUUID(),
-    title: `${contentType.charAt(0).toUpperCase() + contentType.slice(1)} ${index + 1}`,
-    contentType,
-    platform: contentType === "blog" ? "blog" : contentType === "email" ? "email" : platforms[index % platforms.length],
-    content: `This is a ${contentType} for your brand. Edit this content in the studio.`,
+    title: `${contentType === "gbp" ? "Google Business" : contentType.charAt(0).toUpperCase() + contentType.slice(1)} ${index + 1}`,
+    contentType: contentType === "gbp" ? "post" : contentType,
+    platform: contentType === "blog" ? "blog" : contentType === "email" ? "email" : contentType === "gbp" ? "google_business" : platforms[index % platforms.length],
+    content: `This is a ${contentType === "gbp" ? "Google Business Profile" : contentType} post for your brand. Edit this content in the studio.`,
     scheduledDate: getDefaultScheduledDate(index),
     scheduledTime: "09:00",
     status: "draft" as const,

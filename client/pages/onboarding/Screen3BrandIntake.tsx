@@ -165,44 +165,62 @@ export default function Screen3BrandIntake() {
   const generateBrandSnapshot = async () => {
     setIsGenerating(true);
 
-    // Simulate AI generation delay
-    await new Promise((resolve) => setTimeout(resolve, 2500));
+    try {
+      const brandId = localStorage.getItem("aligned_brand_id");
+      if (!brandId) {
+        throw new Error("Brand ID not found. Please go back and complete brand creation.");
+      }
 
-    const snapshot = {
-      name: form.brandName || "Your Brand",
-      voice:
-        form.businessDescription.slice(0, 150) || "Professional and engaging",
-      tone: form.tone.length > 0 ? form.tone : ["Professional"],
-      audience: form.audience || "Mixed",
-      goal: form.goal || "Strengthen brand consistency",
-      colors: form.colors.length > 0 ? form.colors : ["#312E81", "#B9F227"],
-      logo: form.logo ? URL.createObjectURL(form.logo) : undefined,
-      industry: user?.industry,
-      extractedMetadata: {
-        keywords: ["innovation", "quality", "trust"],
-        coreMessaging: [
-          "We deliver value through innovation",
-          "Customer success is our priority",
-          "Built for the modern world",
-        ],
-        dos: [
-          "Always maintain brand consistency",
-          "Use approved color palette",
-          "Include clear call-to-action",
-          "Engage authentically with audience",
-        ],
-        donts: [
-          "Don't use off-brand colors or fonts",
-          "Avoid overly promotional language",
-          "Don't post without review if approval required",
-          "Avoid controversial topics unrelated to brand",
-        ],
-      },
-    };
+      // Build brand snapshot from form data
+      const snapshot = {
+        name: form.brandName || "Your Brand",
+        voice:
+          form.businessDescription.slice(0, 150) || "Professional and engaging",
+        tone: form.tone.length > 0 ? form.tone : ["Professional"],
+        audience: form.audience || "Mixed",
+        goal: form.goal || "Strengthen brand consistency",
+        colors: form.colors.length > 0 ? form.colors : ["#312E81", "#B9F227"],
+        logo: form.logo ? URL.createObjectURL(form.logo) : undefined,
+        industry: user?.industry,
+        extractedMetadata: {
+          keywords: form.businessDescription ? form.businessDescription.split(/\s+/).slice(0, 5) : ["innovation", "quality", "trust"],
+          coreMessaging: form.businessDescription ? [form.businessDescription] : [
+            "We deliver value through innovation",
+            "Customer success is our priority",
+          ],
+          dos: [
+            "Always maintain brand consistency",
+            "Use approved color palette",
+            "Include clear call-to-action",
+            "Engage authentically with audience",
+          ],
+          donts: [
+            "Don't use off-brand colors or fonts",
+            "Avoid overly promotional language",
+            "Don't post without review if approval required",
+            "Avoid controversial topics unrelated to brand",
+          ],
+          images: [],
+          brandIdentity: form.businessDescription || `${form.brandName} is a ${user?.industry || "business"} that connects with customers through authentic communication.`,
+        },
+      };
 
-    setBrandSnapshot(snapshot);
-    setIsGenerating(false);
-    setOnboardingStep(4);
+      // ✅ CRITICAL: Save to backend via brand guide API
+      const { saveBrandGuideFromOnboarding } = await import("@/lib/onboarding-brand-sync");
+      await saveBrandGuideFromOnboarding(brandId, snapshot, form.brandName || "Your Brand");
+      
+      console.log("[Onboarding] ✅ Manual brand guide saved to backend", { brandId });
+
+      setBrandSnapshot(snapshot);
+      setIsGenerating(false);
+      
+      // Continue to brand summary review (step 5)
+      setOnboardingStep(5);
+    } catch (error) {
+      console.error("[Onboarding] Failed to save manual brand guide:", error);
+      setIsGenerating(false);
+      alert(`Failed to save brand information: ${error instanceof Error ? error.message : "Unknown error"}\n\nPlease try again.`);
+    }
   };
 
   // Minimum viable: just brand name required

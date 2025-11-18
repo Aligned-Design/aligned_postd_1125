@@ -3,6 +3,7 @@ import Screen1SignUp from "./onboarding/Screen1SignUp";
 import Screen2BusinessEssentials from "./onboarding/Screen2BusinessEssentials";
 import Screen3ExpectationSetting from "./onboarding/Screen3ExpectationSetting";
 import Screen3AiScrape from "./onboarding/Screen3AiScrape";
+import Screen3BrandIntake from "./onboarding/Screen3BrandIntake";
 import Screen5BrandSummaryReview from "./onboarding/Screen5BrandSummaryReview";
 import Screen6WeeklyFocus from "./onboarding/Screen6WeeklyFocus";
 import Screen7ContentGeneration from "./onboarding/Screen7ContentGeneration";
@@ -17,6 +18,7 @@ export default function Onboarding() {
     1: Screen1SignUp,
     2: Screen2BusinessEssentials,
     3: Screen3ExpectationSetting,
+    3.5: Screen3BrandIntake, // Manual intake screen for users without website
     4: Screen3AiScrape,
     5: Screen5BrandSummaryReview,
     6: Screen6WeeklyFocus,

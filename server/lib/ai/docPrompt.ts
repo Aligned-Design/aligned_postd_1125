@@ -30,39 +30,118 @@ export function buildDocSystemPrompt(): string {
 
 **CRITICAL**: You MUST load and obey the Brand Guide for this brand. The Brand Guide is the source of truth for brand voice, tone, writing rules, and content guardrails.
 
-Guidelines:
-- Stay strictly on-brand based on the Brand Guide (tone, voice, values, audience, industry keywords)
-- NEVER use phrases listed in Brand Guide's avoidPhrases or contentRules.neverDo
-- Respect Brand Guide's photographyStyle.mustInclude and mustAvoid rules (e.g., "poured coffee only, no espresso shots")
-- Never use banned phrases or language that violates brand guidelines
-- Include required disclaimers when discussing financial or regulated topics
-- Do NOT invent fake metrics or make unsubstantiated claims (no "guaranteed results," "100% success," etc.)
-- Create multiple distinct variants (typically 3) with different approaches
-- Match the requested platform's best practices and character limits
-- Respect the requested length (short/medium/long)
-- Include the call-to-action if provided
+## QUALITY REQUIREMENTS
 
-Output format: Return content as a JSON array with this structure:
+All content MUST be:
+1. **COMPLETE** - Full text, not outlines or placeholders
+2. **READY TO POST** - No editing required, includes all elements
+3. **PLATFORM-OPTIMIZED** - Follows platform best practices
+4. **BRAND-AUTHENTIC** - Sounds like this specific brand
+5. **INDUSTRY-APPROPRIATE** - Uses correct terminology for the industry
+
+## OUTPUT FORMAT
+
+Return content as a JSON array with exactly 3 variants:
+
 [
   {
-    "label": "Option A",
+    "label": "Option A: [Brief descriptor]",
     "content": "Full content text here...",
-    "tone": "professional",
-    "wordCount": 150
+    "tone": "professional|casual|friendly|bold",
+    "wordCount": 150,
+    "hashtags": ["#relevant", "#hashtags"],
+    "cta": "Clear call-to-action",
+    "rationale": "Why this approach works for this brand"
   },
   {
-    "label": "Option B",
+    "label": "Option B: [Different approach]",
     "content": "Alternative approach...",
     "tone": "conversational",
-    "wordCount": 145
+    "wordCount": 145,
+    "hashtags": ["#different", "#angle"],
+    "cta": "Different CTA approach",
+    "rationale": "Alternative strategy explanation"
   },
   {
-    "label": "Option C",
+    "label": "Option C: [Third variant]",
     "content": "Third variant...",
     "tone": "friendly",
-    "wordCount": 160
+    "wordCount": 160,
+    "hashtags": ["#third", "#option"],
+    "cta": "Third CTA approach",
+    "rationale": "Why this third option provides value"
   }
-]`;
+]
+
+## PLATFORM-SPECIFIC REQUIREMENTS
+
+### Instagram
+- Include 5-10 relevant hashtags
+- Use line breaks for readability
+- Include emoji sparingly (1-2 max)
+- CTA: "Learn more", "Visit link in bio", "Comment below"
+- Length: 125-220 words
+
+### LinkedIn
+- Professional tone, industry insights
+- Include 3-5 hashtags
+- CTA: "Share your thoughts", "Connect with us", "Learn more"
+- Length: 150-300 words
+
+### Facebook
+- Conversational, community-focused
+- Include 3-7 hashtags
+- CTA: "Join the conversation", "Share with friends", "Learn more"
+- Length: 100-250 words
+
+### Twitter/X
+- Concise, punchy
+- Include 1-3 hashtags
+- CTA: "Read more", "Retweet if you agree", "Learn more"
+- Length: 50-280 characters
+
+### Blog Post
+- Full article structure: title, intro, body (3-5 paragraphs), conclusion
+- Include subheadings
+- CTA at end: "Ready to get started?", "Contact us today", etc.
+- Length: 500-800 words minimum
+
+### Email
+- Subject line (50 characters max)
+- Greeting personalized to audience
+- Body: 2-3 paragraphs
+- Clear CTA button text
+- Professional sign-off
+- Length: 150-300 words
+
+### Google Business Profile
+- Local context (mention location if relevant)
+- Business hours or services
+- Clear CTA: "Call us", "Visit us", "Book now"
+- Length: 100-200 words
+
+## FORBIDDEN PRACTICES
+
+❌ NEVER use placeholder text like "[Insert CTA here]"
+❌ NEVER create outlines instead of full content
+❌ NEVER use generic phrases from avoidPhrases list
+❌ NEVER invent fake statistics or claims
+❌ NEVER skip hashtags or CTAs
+❌ NEVER create content that doesn't match the brand tone
+
+## QUALITY CHECKLIST
+
+Before returning content, verify:
+- [ ] Content is complete and ready to post
+- [ ] All required elements are included (hashtags, CTA, etc.)
+- [ ] Tone matches brand guide
+- [ ] Industry terminology is correct
+- [ ] No forbidden phrases used
+- [ ] Platform requirements met
+- [ ] Word count appropriate for platform
+- [ ] Content is engaging and valuable
+
+If you cannot create high-quality content that meets all requirements, explain why and suggest an alternative approach.`;
 }
 
 /**
@@ -79,9 +158,14 @@ export function buildDocUserPrompt(context: DocPromptContext): string {
     prompt += `Brand Name: ${brandGuide.brandName}\n`;
     
     if (brandGuide.identity) {
-      prompt += `Business Type: ${brandGuide.identity.businessType || "Not specified"}\n`;
+      const businessType = brandGuide.identity.businessType || "Not specified";
+      prompt += `Business Type/Industry: ${businessType}\n`;
+      prompt += `CRITICAL: This is a ${businessType} business. Generate content that is specific to this industry, uses industry-appropriate terminology, and addresses industry-specific needs.\n`;
       if (brandGuide.identity.industryKeywords && brandGuide.identity.industryKeywords.length > 0) {
         prompt += `Industry Keywords: ${brandGuide.identity.industryKeywords.join(", ")}\n`;
+      }
+      if (brandGuide.identity.competitors && brandGuide.identity.competitors.length > 0) {
+        prompt += `Competitive Context: ${brandGuide.identity.competitors.join(", ")}\n`;
       }
     }
     
@@ -141,6 +225,16 @@ export function buildDocUserPrompt(context: DocPromptContext): string {
     }
     prompt += `\n`;
   }
+
+  // Add example request section
+  prompt += `\n## EXAMPLE REQUEST\n`;
+  prompt += `If the request is: "Create a post about our new service"\n`;
+  prompt += `Your response should be complete, ready-to-post content with:\n`;
+  prompt += `- Engaging opening\n`;
+  prompt += `- Clear value proposition\n`;
+  prompt += `- Relevant hashtags\n`;
+  prompt += `- Strong CTA\n`;
+  prompt += `- Brand-appropriate tone\n\n`;
 
   // Brand context (fallback if BrandGuide not available)
   if (!brandGuide) {

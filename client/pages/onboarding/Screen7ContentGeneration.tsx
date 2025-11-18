@@ -27,56 +27,56 @@ interface GenerationStep {
 const GENERATION_STEPS: GenerationStep[] = [
   {
     id: "social-1",
-    label: "Social Post 1",
+    label: "Creating an engaging Instagram post with hashtags and CTA",
     platform: "Instagram",
     status: "pending",
     icon: Instagram,
   },
   {
     id: "social-2",
-    label: "Social Post 2",
-    platform: "Facebook",
-    status: "pending",
-    icon: Instagram,
-  },
-  {
-    id: "social-3",
-    label: "Social Post 3",
+    label: "Crafting a professional LinkedIn post for your audience",
     platform: "LinkedIn",
     status: "pending",
     icon: Instagram,
   },
   {
+    id: "social-3",
+    label: "Creating a Facebook post optimized for engagement",
+    platform: "Facebook",
+    status: "pending",
+    icon: Instagram,
+  },
+  {
     id: "social-4",
-    label: "Social Post 4",
+    label: "Crafting a concise, impactful Twitter post",
     platform: "Twitter",
     status: "pending",
     icon: Instagram,
   },
   {
     id: "social-5",
-    label: "Social Post 5",
+    label: "Writing another Instagram post with different angle",
     platform: "Instagram",
     status: "pending",
     icon: Instagram,
   },
   {
     id: "email",
-    label: "Email Campaign",
+    label: "Creating an email with subject line and body content",
     platform: "Email",
     status: "pending",
     icon: Mail,
   },
   {
     id: "gbp",
-    label: "Google Business Post",
-    platform: "Google",
+    label: "Creating a local-optimized Google Business Profile post",
+    platform: "Google Business",
     status: "pending",
     icon: MapPin,
   },
   {
     id: "blog",
-    label: "Blog Expansion",
+    label: "Writing a 500+ word blog post ready to publish",
     platform: "Blog",
     status: "pending",
     icon: FileText,
@@ -217,10 +217,11 @@ export default function Screen7ContentGeneration() {
             <Sparkles className="w-8 h-8 text-white" />
           </div>
           <h1 className="text-4xl font-black text-slate-900 mb-3">
-            Generating your 7-day content plan...
+            Creating your first week of content
           </h1>
-          <p className="text-slate-600 font-medium">
-            We're creating posts across all your channels
+          <p className="text-slate-600 font-medium text-lg mb-2">
+            Our AI is writing personalized content for each platform.<br />
+            This usually takes 2-3 minutes.
           </p>
         </div>
 
@@ -286,8 +287,11 @@ export default function Screen7ContentGeneration() {
         {/* Error Message */}
         {error && (
           <div className="mt-6 p-4 bg-amber-50 border border-amber-200 rounded-lg">
-            <p className="text-sm text-amber-900">
-              ⚠️ {error}. Don't worry—we'll create a default content plan you can customize.
+            <p className="text-sm font-semibold text-amber-900 mb-1">
+              ⚠️ Content generation is taking longer than expected
+            </p>
+            <p className="text-xs text-amber-800">
+              {error}. Don't worry—we'll create a default content plan you can customize.
             </p>
           </div>
         )}
@@ -295,8 +299,11 @@ export default function Screen7ContentGeneration() {
         {/* Completion Message */}
         {isComplete && (
           <div className="mt-6 p-4 bg-green-50 border border-green-200 rounded-lg text-center">
-            <p className="text-sm font-bold text-green-900">
-              ✨ Your 7-day content plan is ready! Taking you to your calendar...
+            <p className="text-lg font-bold text-green-900 mb-1">
+              🎉 Your first week of content is ready!
+            </p>
+            <p className="text-sm text-green-700">
+              8 pieces of content, ready to review and publish. Taking you to calendar...
             </p>
           </div>
         )}

@@ -45,8 +45,15 @@ export default function Screen1SignUp() {
           return;
         }
         
+        // Use user-friendly error message
+        const friendlyMessage = errorMessage.toLowerCase().includes("password")
+          ? "Password must be at least 6 characters"
+          : errorMessage.toLowerCase().includes("email")
+          ? "Please enter a valid email address"
+          : "Something went wrong. Please try again.";
+        
         setErrors({ 
-          email: errorMessage
+          email: friendlyMessage
         });
       }
     }
@@ -59,19 +66,62 @@ export default function Screen1SignUp() {
         <OnboardingProgress currentStep={1} totalSteps={10} label="Account setup" />
 
         {/* Header */}
-        <div className="text-center mb-12">
-          <div className="inline-flex items-center justify-center w-12 h-12 rounded-lg bg-gradient-to-br from-indigo-600 to-blue-600 mb-4">
-            <span className="text-white font-black text-lg">A</span>
+        <div className="text-center mb-8">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-lg bg-gradient-to-br from-indigo-600 to-blue-600 mb-4 animate-pulse">
+            <span className="text-white font-black text-xl">A</span>
           </div>
           <h1 className="text-4xl font-black text-slate-900 mb-3">
-            Welcome to Postd
+            Welcome to Aligned AI
           </h1>
-          <p className="text-slate-600 font-medium mb-1">
-            Marketing that stays true to your brand.
+          <p className="text-slate-600 font-medium text-lg mb-2">
+            We'll help you create content that sounds like you,<br />
+            looks like you, and works like magic.
           </p>
-          <p className="text-slate-500 text-sm">
-            Get started in under 2 minutes. Let's go! 🚀
-          </p>
+        </div>
+
+        {/* Value Props */}
+        <div className="grid grid-cols-1 gap-3 mb-8">
+          <div className="bg-white/50 backdrop-blur-xl rounded-xl border border-white/60 p-4">
+            <div className="flex items-start gap-3">
+              <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-indigo-100 flex items-center justify-center">
+                <span className="text-indigo-600 text-lg">✨</span>
+              </div>
+              <div>
+                <h3 className="font-bold text-sm text-slate-900 mb-1">AI that learns your brand voice</h3>
+                <p className="text-xs text-slate-600">
+                  We analyze your website, content, and style to create authentic content that matches your brand perfectly.
+                </p>
+              </div>
+            </div>
+          </div>
+          
+          <div className="bg-white/50 backdrop-blur-xl rounded-xl border border-white/60 p-4">
+            <div className="flex items-start gap-3">
+              <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center">
+                <span className="text-blue-600 text-lg">⚡</span>
+              </div>
+              <div>
+                <h3 className="font-bold text-sm text-slate-900 mb-1">Ready-to-post content in minutes</h3>
+                <p className="text-xs text-slate-600">
+                  No more staring at blank pages. Get complete, polished content with hashtags, CTAs, and platform optimization.
+                </p>
+              </div>
+            </div>
+          </div>
+          
+          <div className="bg-white/50 backdrop-blur-xl rounded-xl border border-white/60 p-4">
+            <div className="flex items-start gap-3">
+              <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-purple-100 flex items-center justify-center">
+                <span className="text-purple-600 text-lg">🚀</span>
+              </div>
+              <div>
+                <h3 className="font-bold text-sm text-slate-900 mb-1">Multi-platform publishing made simple</h3>
+                <p className="text-xs text-slate-600">
+                  Create once, publish everywhere. Instagram, LinkedIn, Facebook, email, and more—all from one place.
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Sign-Up Form */}
@@ -116,11 +166,16 @@ export default function Screen1SignUp() {
         {/* CTA Button */}
         <button
           onClick={handleContinue}
-          className="w-full px-6 py-4 bg-gradient-to-r from-indigo-600 to-blue-600 text-white font-black rounded-lg hover:shadow-lg transition-all flex items-center justify-center gap-2 group"
+          className="w-full px-6 py-4 bg-gradient-to-r from-indigo-600 to-blue-600 text-white font-black rounded-lg hover:shadow-lg hover:scale-[1.02] transition-all flex items-center justify-center gap-2 group"
         >
-          Continue
+          Let's get started
           <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
         </button>
+        
+        {/* Social Proof */}
+        <p className="text-xs text-slate-500 text-center mt-4">
+          Trusted by 500+ agencies and content teams
+        </p>
 
         {/* Footer Text */}
         <p className="text-xs text-slate-500 text-center mt-6">
