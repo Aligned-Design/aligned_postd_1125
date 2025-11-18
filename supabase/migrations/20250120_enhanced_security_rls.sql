@@ -78,6 +78,17 @@ CREATE POLICY "Brand owners can delete brand"
     )
   );
 
+-- ✅ CRITICAL: Users can create brand memberships when they create a brand
+-- This allows the brand creator to add themselves as owner
+CREATE POLICY "Users can create brand memberships"
+  ON brand_members FOR INSERT
+  WITH CHECK (
+    auth.uid() = user_id -- User can only add themselves
+    OR brand_id IN (
+      SELECT id FROM brands WHERE created_by = auth.uid()
+    ) -- Or if they created the brand
+  );
+
 -- Users can view brand members for their brands
 CREATE POLICY "Users can view brand members"
   ON brand_members FOR SELECT
@@ -86,11 +97,24 @@ CREATE POLICY "Users can view brand members"
       SELECT brand_id FROM brand_members
       WHERE user_id = auth.uid()
     )
+    OR brand_id IN (
+      SELECT id FROM brands WHERE created_by = auth.uid()
+    ) -- Also allow viewing members of brands they created
   );
 
--- Only brand owners and admins can manage brand members
+-- Only brand owners and admins can manage brand members (UPDATE/DELETE)
 CREATE POLICY "Brand owners/admins can manage members"
-  ON brand_members FOR ALL
+  ON brand_members FOR UPDATE
+  USING (
+    brand_id IN (
+      SELECT brand_id FROM brand_members
+      WHERE user_id = auth.uid()
+      AND role IN ('owner', 'admin')
+    )
+  );
+
+CREATE POLICY "Brand owners/admins can delete members"
+  ON brand_members FOR DELETE
   USING (
     brand_id IN (
       SELECT brand_id FROM brand_members
