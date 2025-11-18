@@ -54,7 +54,13 @@ export default function Screen3AiScrape() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    console.log("[Onboarding] Screen3AiScrape loaded", {
+      hasWebsite: !!user?.website,
+      website: user?.website || "none",
+    });
+
     if (!user?.website) {
+      console.warn("[Onboarding] No website provided - skipping scraping, using default data");
       // No website provided, skip scraping and generate default brand snapshot
       setTimeout(() => {
         generateDefaultBrandSnapshot();
@@ -62,6 +68,7 @@ export default function Screen3AiScrape() {
       return;
     }
 
+    console.log("[Onboarding] Starting scraping process for:", user.website);
     startScraping();
   }, []);
 
@@ -118,7 +125,10 @@ export default function Screen3AiScrape() {
   };
 
   const scrapeWebsite = async () => {
-    if (!user?.website) return;
+    if (!user?.website) {
+      console.warn("[Onboarding] scrapeWebsite called but no website provided");
+      return;
+    }
 
     try {
       // ✅ ROOT FIX: Use consistent brandId throughout onboarding
@@ -128,6 +138,12 @@ export default function Screen3AiScrape() {
         brandId = `brand_${Date.now()}`;
         localStorage.setItem("aligned_brand_id", brandId);
       }
+
+      console.log("[Onboarding] Calling crawler API", {
+        url: user.website,
+        brandId,
+        sync: true,
+      });
 
       // Call the backend crawler endpoint (sync mode for onboarding)
       const response = await fetch(`/api/crawl/start`, {
@@ -142,8 +158,16 @@ export default function Screen3AiScrape() {
         }),
       });
 
+      console.log("[Onboarding] Crawler API response status:", response.status, response.statusText);
+
       if (!response.ok) {
-        throw new Error("Failed to process website");
+        const errorText = await response.text();
+        console.error("[Onboarding] Crawler API error:", {
+          status: response.status,
+          statusText: response.statusText,
+          body: errorText,
+        });
+        throw new Error(`Failed to process website: ${response.status} ${response.statusText}`);
       }
 
       const result = await response.json();

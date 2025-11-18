@@ -60,6 +60,9 @@ export default function Screen2BusinessEssentials() {
         ? websiteUrl 
         : `https://${websiteUrl}`;
 
+      console.log("[Onboarding] User clicked 'Continue' with website:", normalizedUrl);
+      console.log("[Onboarding] This will trigger scraping in step 4");
+
       // Store business essentials in user object
       if (user) {
         signUp({
@@ -187,7 +190,18 @@ export default function Screen2BusinessEssentials() {
         <p className="text-xs text-slate-500 text-center mt-6">
           Don't have a website?{" "}
           <button
-            onClick={() => setOnboardingStep(3)}
+            onClick={() => {
+              console.log("[Onboarding] User clicked 'Skip to manual setup' - will skip scraping");
+              // Store empty website so scraping step knows to skip
+              if (user) {
+                signUp({
+                  ...user,
+                  website: "", // Empty website signals to skip scraping
+                  industry: businessType || "Other",
+                });
+              }
+              setOnboardingStep(3);
+            }}
             className="text-indigo-600 font-bold hover:text-indigo-700"
           >
             Skip to manual setup
