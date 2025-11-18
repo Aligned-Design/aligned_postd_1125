@@ -512,7 +512,17 @@ async function runCrawlJobSync(url: string, brandId: string, tenantId: string | 
           ].filter((c): c is string => !!c).slice(0, 6), // Max 6 colors
         };
 
-        const brandKit = {
+        // ✅ PRIORITY: Use AI-generated brand kit if available, otherwise use fallback
+        const brandKit = aiBrandKit ? {
+          ...aiBrandKit,
+          colors: colorPalette, // Use extracted colors (more accurate than AI)
+          typography: typography || aiBrandKit.typography,
+          source_urls: crawlResults.map(r => r.url),
+          images: allImages, // Use extracted images
+          logoUrl: logoUrl || aiBrandKit.logoUrl,
+          headlines: headlines || aiBrandKit.headlines,
+          source: "crawler" as const,
+        } : {
           voice_summary: {
             tone: extractToneFromText(combinedText),
             style: extractStyleFromText(combinedText),
@@ -530,6 +540,21 @@ async function runCrawlJobSync(url: string, brandId: string, tenantId: string | 
           headlines,
           source: "crawler" as const,
         };
+        
+        // ✅ ENSURE about_blurb is valid (not empty, not "0")
+        if (!brandKit.about_blurb || brandKit.about_blurb === "0" || brandKit.about_blurb.length < 10) {
+          console.warn("[Crawler] about_blurb is invalid, generating fallback");
+          const extractBrandNameFromUrl = (urlStr: string): string => {
+            try {
+              const urlObj = new URL(urlStr.startsWith("http") ? urlStr : `https://${urlStr}`);
+              return urlObj.hostname.replace("www.", "").split(".")[0];
+            } catch {
+              return "Your Brand";
+            }
+          };
+          const brandName = extractBrandNameFromUrl(url);
+          brandKit.about_blurb = `${brandName} is a business that connects with customers through authentic communication.`;
+        }
         
         return { brandKit };
       })(),
