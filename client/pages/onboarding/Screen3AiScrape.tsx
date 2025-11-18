@@ -229,7 +229,9 @@ export default function Screen3AiScrape() {
             dos: [],
             donts: brandKit?.voice_summary?.avoid || [],
             images: brandKit?.images?.map((img: any) => img.url) || [], // Extract image URLs
-            brandIdentity: brandKit?.about_blurb || generateBrandStoryFromData(brandKit, user),
+            brandIdentity: (brandKit?.about_blurb && typeof brandKit.about_blurb === "string" && brandKit.about_blurb.length > 0) 
+              ? brandKit.about_blurb 
+              : generateBrandStoryFromData(brandKit, user),
             headlines: brandKit?.headlines || [], // Include headlines
           },
       };
