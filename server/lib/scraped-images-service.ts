@@ -87,15 +87,16 @@ export async function persistScrapedImages(
   const persistedIds: string[] = [];
 
   for (const image of imagesToPersist) {
+    // ✅ VALIDATION: Ensure image URL is valid
+    if (!image.url || !image.url.startsWith("http")) {
+      console.warn(`[ScrapedImages] Skipping invalid image URL: ${image.url}`);
+      continue;
+    }
+    
+    // Generate hash from URL for duplicate detection (outside try block for error handling)
+    const hash = crypto.createHash("sha256").update(image.url).digest("hex");
+    
     try {
-      // ✅ VALIDATION: Ensure image URL is valid
-      if (!image.url || !image.url.startsWith("http")) {
-        console.warn(`[ScrapedImages] Skipping invalid image URL: ${image.url}`);
-        continue;
-      }
-      
-      // Generate hash from URL for duplicate detection
-      const hash = crypto.createHash("sha256").update(image.url).digest("hex");
       
       // Determine category based on role
       let category: "logos" | "images" | "graphics" = "images";
@@ -152,9 +153,27 @@ export async function persistScrapedImages(
       persistedIds.push(assetRecord.id);
       console.log(`[ScrapedImages] ✅ Persisted image: ${filename} (${image.url.substring(0, 50)}...)`);
     } catch (error: any) {
-      // If duplicate, skip (already exists)
+      // If duplicate, get the existing asset ID and add it to persistedIds
       if (error?.code === ErrorCode.DUPLICATE_RESOURCE || error?.message?.includes("duplicate") || error?.message?.includes("already exists")) {
-        console.log(`[ScrapedImages] Image already exists (skipping): ${image.url.substring(0, 50)}...`);
+        // Extract existing asset ID from error details
+        const existingAssetId = error?.details?.existingAssetId;
+        if (existingAssetId) {
+          persistedIds.push(existingAssetId);
+          console.log(`[ScrapedImages] Image already exists (using existing): ${image.url.substring(0, 50)}... (ID: ${existingAssetId})`);
+        } else {
+          // Fallback: query for existing asset by hash
+          try {
+            const existingAsset = await mediaDB.checkDuplicateAsset(brandId, hash);
+            if (existingAsset) {
+              persistedIds.push(existingAsset.id);
+              console.log(`[ScrapedImages] Image already exists (found by hash): ${image.url.substring(0, 50)}... (ID: ${existingAsset.id})`);
+            } else {
+              console.warn(`[ScrapedImages] Duplicate detected but couldn't find existing asset: ${image.url.substring(0, 50)}...`);
+            }
+          } catch (lookupError) {
+            console.warn(`[ScrapedImages] Could not lookup existing asset: ${lookupError}`);
+          }
+        }
         continue;
       }
       console.error(`[ScrapedImages] ❌ Failed to persist image ${image.url}:`, error);
