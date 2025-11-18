@@ -107,18 +107,10 @@ export default function Screen7ContentGeneration() {
       // Call the content planning API to generate content
       let contentPlanData: any = null;
       try {
-        const response = await fetch(`/api/content-plan/${brandId}/generate`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-        });
-
-        if (!response.ok) {
-          throw new Error(`Content generation failed: ${response.statusText}`);
-        }
-
-        const data = await response.json();
+        // ✅ FIX: Use authenticated API utility (includes Authorization header)
+        const { apiPost } = await import("@/lib/api");
+        const data = await apiPost(`/api/content-plan/${brandId}/generate`, {});
+        
         if (data.success && data.contentPlan) {
           contentPlanData = data.contentPlan;
           // Store content plan for Screen8CalendarPreview
