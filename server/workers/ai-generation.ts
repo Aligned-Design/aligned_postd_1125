@@ -93,26 +93,55 @@ export async function generateWithAI(
   } catch (error) {
     console.error(`AI generation failed with ${selectedProvider}:`, error);
 
-    // Try fallback provider only if the error isn't a configuration issue
-    if (error instanceof Error && !error.message.includes("not available")) {
+    // ✅ ENHANCED FALLBACK: Try fallback provider if OpenAI is down or any API error occurs
+    // Check if it's an API error (network, rate limit, service unavailable, etc.)
+    const isApiError = error instanceof Error && (
+      error.message.includes("API") ||
+      error.message.includes("timeout") ||
+      error.message.includes("network") ||
+      error.message.includes("ECONNREFUSED") ||
+      error.message.includes("503") ||
+      error.message.includes("502") ||
+      error.message.includes("500") ||
+      error.message.includes("429") ||
+      error.message.includes("rate limit") ||
+      error.message.includes("service unavailable") ||
+      error.message.includes("internal server error") ||
+      // OpenAI-specific errors
+      (error as any)?.status === 503 ||
+      (error as any)?.status === 502 ||
+      (error as any)?.status === 500 ||
+      (error as any)?.status === 429 ||
+      (error as any)?.code === "ECONNREFUSED"
+    );
+
+    // Try fallback provider if it's an API error (not a configuration issue)
+    if (isApiError || (error instanceof Error && !error.message.includes("not available"))) {
       const fallbackProvider = selectedProvider === "openai" ? "claude" : "openai";
 
       try {
+        console.log(`⚠️ ${selectedProvider} failed, attempting fallback to ${fallbackProvider}...`);
+        
         if (fallbackProvider === "openai") {
           const client = getOpenAI();
           if (client) {
-            console.log("Retrying with OpenAI...");
+            console.log("✅ Retrying with OpenAI...");
             return await generateWithOpenAI(prompt, agentType, client);
+          } else {
+            console.warn("⚠️ OpenAI fallback not available (no API key)");
           }
         } else {
           const client = getAnthropic();
           if (client) {
-            console.log("Retrying with Claude...");
+            console.log("✅ Retrying with Claude...");
             return await generateWithClaude(prompt, agentType, client);
+          } else {
+            console.warn("⚠️ Claude fallback not available (no API key)");
           }
         }
       } catch (fallbackError) {
-        console.error(`Fallback also failed:`, fallbackError);
+        console.error(`❌ Fallback to ${fallbackProvider} also failed:`, fallbackError);
+        throw new Error(`AI generation failed with both providers. Original: ${error instanceof Error ? error.message : 'Unknown error'}. Fallback: ${fallbackError instanceof Error ? fallbackError.message : 'Unknown error'}`);
       }
     }
 

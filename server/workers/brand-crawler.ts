@@ -14,6 +14,7 @@ import playwrightCore from "playwright-core";
 import { Vibrant } from "node-vibrant/node";
 import robotsParser from "robots-parser";
 import OpenAI from "openai";
+import { generateWithAI } from "./ai-generation";
 import crypto from "crypto";
 
 // Detect if running on Vercel
@@ -1038,26 +1039,13 @@ export async function extractColors(url: string): Promise<ColorPalette> {
 /**
  * Generate compelling brand summary using AI (Copywriter agent)
  * This ensures we always have a strong, engaging brand story
+ * Uses centralized generateWithAI which has automatic fallback to Claude if OpenAI is down
  */
 async function generateBrandSummaryWithAI(
   crawlResults: CrawlResult[],
   brandName?: string,
   industry?: string
 ): Promise<{ about_blurb: string; longFormSummary: string }> {
-  if (!OPENAI_API_KEY) {
-    // Fallback if no API key
-    const allText = crawlResults
-      .map((r) => [r.h1, r.h2, r.h3, r.bodyText].flat().join(" "))
-      .join(" ");
-    const aboutBlurb = crawlResults[0]?.metaDescription?.slice(0, 160) || allText.slice(0, 160) || "A professional brand committed to excellence.";
-    return {
-      about_blurb: aboutBlurb,
-      longFormSummary: allText.slice(0, 500) || aboutBlurb,
-    };
-  }
-
-  const openai = new OpenAI({ apiKey: OPENAI_API_KEY });
-
   // Collect all text from crawl results
   const allText = crawlResults
     .map((r) => `${r.title}\n${r.metaDescription}\n${r.h1.join(" ")}\n${r.h2.join(" ")}\n${r.h3.join(" ")}\n${r.bodyText}`)
@@ -1084,22 +1072,20 @@ Respond in JSON format:
 }`;
 
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-4-turbo-preview",
-      messages: [{ role: "user", content: prompt }],
-      response_format: { type: "json_object" },
-      temperature: 0.7, // Slightly higher for more creative summaries
-    });
-
-    const result = JSON.parse(response.choices[0].message.content || "{}");
+    // ✅ Use centralized generateWithAI which has automatic fallback to Claude if OpenAI is down
+    // Default to OpenAI, but will automatically fallback to Claude on API errors
+    const result = await generateWithAI(prompt, "doc", "openai");
+    
+    // Parse JSON response
+    const parsed = JSON.parse(result.content || "{}");
     
     return {
-      about_blurb: result.about_blurb || "",
-      longFormSummary: result.longFormSummary || result.about_blurb || "",
+      about_blurb: parsed.about_blurb || "",
+      longFormSummary: parsed.longFormSummary || parsed.about_blurb || "",
     };
   } catch (error) {
-    console.error("[AI] Error generating brand summary:", error);
-    // Fallback
+    console.error("[AI] Error generating brand summary (both providers failed):", error);
+    // Final fallback - extract from content
     const allTextFallback = crawlResults
       .map((r) => [r.h1, r.h2, r.h3, r.bodyText].flat().join(" "))
       .join(" ");
@@ -1112,7 +1098,7 @@ Respond in JSON format:
 }
 
 /**
- * Generate brand kit using OpenAI (or fallback)
+ * Generate brand kit using AI (with automatic fallback to Claude if OpenAI is down)
  */
 async function generateBrandKit(
   crawlResults: CrawlResult[],
@@ -1132,8 +1118,15 @@ async function generateBrandKit(
 
   let brandKit: BrandKitData;
   
-  if (OPENAI_API_KEY) {
-    brandKit = await generateBrandKitWithAI(combinedText, colors, sourceUrl);
+  // ✅ Try AI generation (will automatically fallback to Claude if OpenAI is down)
+  // Only use fallback if both API keys are missing
+  if (OPENAI_API_KEY || process.env.ANTHROPIC_API_KEY) {
+    try {
+      brandKit = await generateBrandKitWithAI(combinedText, colors, sourceUrl);
+    } catch (error) {
+      console.error("[Brand Crawler] AI generation failed, using rule-based fallback:", error);
+      brandKit = await generateBrandKitFallback(uniqueResults, colors, sourceUrl);
+    }
   } else {
     brandKit = await generateBrandKitFallback(uniqueResults, colors, sourceUrl);
   }
