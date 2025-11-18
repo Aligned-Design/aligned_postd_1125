@@ -20,12 +20,18 @@ export default function Screen1SignUp() {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleContinue = () => {
+  const handleContinue = async () => {
     if (validate()) {
-      // Extract name from email for now (can be updated later)
-      const name = email.split("@")[0];
-      signUp({ name, email, password, role: "single_business" });
-      setOnboardingStep(2);
+      try {
+        // Extract name from email for now (can be updated later)
+        const name = email.split("@")[0];
+        await signUp({ name, email, password, role: "single_business" });
+        setOnboardingStep(2);
+      } catch (error) {
+        setErrors({ 
+          email: error instanceof Error ? error.message : "Signup failed. Please try again." 
+        });
+      }
     }
   };
 

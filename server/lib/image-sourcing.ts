@@ -357,6 +357,12 @@ export async function getPrioritizedImages(
 /**
  * Get scraped brand assets (source='scrape')
  */
+/**
+ * Get scraped brand assets from media_assets table
+ * Used by Creative Studio for image sourcing
+ * 
+ * ✅ LOGGING: Logs tenantId, brandId, and asset count for ID consistency verification
+ */
 async function getScrapedBrandAssets(
   brandId: string,
   limit: number
@@ -384,11 +390,36 @@ async function getScrapedBrandAssets(
     }
 
     if (!data || data.length === 0) {
-      console.log(`[ImageSourcing] No scraped images found for brandId: ${brandId} (query returned empty)`);
+      // ✅ LOGGING: Log when no images found (helps debug missing images in Creative Studio)
+      console.log(`[ImageSourcing] No scraped images found`, {
+        brandId: brandId,
+        query: "media_assets WHERE brand_id = ? AND metadata->>'source' = 'scrape'",
+        limit: limit,
+      });
       return [];
     }
 
-    console.log(`[ImageSourcing] Found ${data.length} scraped images for brandId: ${brandId}`);
+    // ✅ LOGGING: Log successful query with tenantId (get from brand if available)
+    // Try to get tenantId from brand for logging
+    let tenantId = "unknown";
+    try {
+      const { data: brandData } = await supabase
+        .from("brands")
+        .select("tenant_id, workspace_id")
+        .eq("id", brandId)
+        .single();
+      tenantId = (brandData as any)?.tenant_id || (brandData as any)?.workspace_id || "unknown";
+    } catch {
+      // Continue without tenantId
+    }
+    
+    console.log(`[ImageSourcing] Query successful`, {
+      tenantId: tenantId,
+      brandId: brandId,
+      count: data.length,
+      limit: limit,
+      categories: ["images", "graphics", "logos"],
+    });
     
     return data.map((asset) => ({
       id: asset.id,
@@ -398,6 +429,11 @@ async function getScrapedBrandAssets(
     }));
   } catch (error) {
     console.error("[ImageSourcing] Error getting scraped brand assets:", error);
+    console.error("[ImageSourcing] Debug info:", {
+      brandId: brandId,
+      limit: limit,
+      error: error instanceof Error ? error.message : String(error),
+    });
     return [];
   }
 }

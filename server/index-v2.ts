@@ -2,6 +2,31 @@ import "dotenv/config";
 import express from "express";
 import cors from "cors";
 
+// ✅ CRITICAL: Validate Supabase environment variables on startup
+const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+if (!supabaseUrl) {
+  console.error("❌ CRITICAL: SUPABASE_URL or VITE_SUPABASE_URL is not set!");
+  console.error("   Auth and database operations will fail.");
+  console.error("   Set SUPABASE_URL or VITE_SUPABASE_URL in your environment variables.");
+}
+
+if (!supabaseServiceKey) {
+  console.error("❌ CRITICAL: SUPABASE_SERVICE_ROLE_KEY is not set!");
+  console.error("   Auth and database operations will fail.");
+  console.error("   Set SUPABASE_SERVICE_ROLE_KEY in your environment variables.");
+}
+
+if (supabaseUrl && supabaseServiceKey) {
+  console.log("✅ Supabase credentials configured", {
+    url: supabaseUrl,
+    hasServiceKey: true,
+  });
+} else {
+  console.warn("⚠️  Supabase credentials incomplete - some features may not work");
+}
+
 // Import error handling
 import { AppError, errorHandler } from "./lib/error-middleware";
 import { ErrorCode, HTTP_STATUS } from "./lib/error-responses";
@@ -11,6 +36,8 @@ import { authenticateUser } from "./middleware/security";
 import { requireScope } from "./middleware/requireScope";
 
 // Import route routers (add incrementally)
+import authRouter from "./routes/auth";
+import authDiagnosticsRouter from "./routes/auth-diagnostics";
 import milestonesRouter from "./routes/milestones";
 import agentsRouter from "./routes/agents";
 import analyticsRouter from "./routes/analytics-v2";
@@ -82,6 +109,14 @@ export function createServer() {
   // =============================================================================
   // Mount Routers
   // =============================================================================
+
+  // ✅ AUTH: Real Supabase Auth routes (must be before other routes)
+  app.use("/api/auth", authRouter);
+  
+  // ✅ AUTH DIAGNOSTICS: Only in development/staging (remove in production)
+  if (process.env.NODE_ENV !== "production") {
+    app.use("/api/auth", authDiagnosticsRouter);
+  }
 
   // Core routes that are working
   app.use("/api/milestones", milestonesRouter);

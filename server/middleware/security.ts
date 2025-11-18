@@ -20,6 +20,9 @@ export function authenticateUser(
       // Normalize req.user for backward compatibility
       const auth = (req as any).auth;
       if (auth) {
+        // ✅ CRITICAL: Extract tenantId from JWT payload
+        const tenantId = auth.tenantId || auth.workspaceId || null;
+        
         (req as any).user = {
           id: auth.userId,
           email: auth.email,
@@ -27,22 +30,33 @@ export function authenticateUser(
           brandId: auth.brandIds?.[0],
           brandIds: auth.brandIds,
           scopes: auth.scopes || [],
+          // ✅ CRITICAL: Add tenantId to user context
+          tenantId: tenantId,
+          workspaceId: tenantId, // Alias for compatibility
+        };
+        
+        // Also add to auth object for consistency
+        (req as any).auth = {
+          ...auth,
+          tenantId: tenantId,
+          workspaceId: tenantId,
         };
       }
 
       // Log auth context for debugging (remove in production if sensitive)
       const user = (req as any).user;
       if (user) {
-        console.log("[Auth]", {
+        console.log("[Auth] Request authenticated", {
           userId: user.id,
+          tenantId: user.tenantId || "unknown",
           email: user.email,
           brandIds: user.brandIds,
           scopes: user.scopes || [],
           role: user.role,
-          path: req.path,
+          path: (req as any).path || (req as any).url,
         });
       } else {
-        console.warn("[Auth] No user context found for path:", req.path);
+        console.warn("[Auth] No user context found for path:", (req as any).path || (req as any).url);
       }
 
       next();

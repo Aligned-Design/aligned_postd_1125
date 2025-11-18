@@ -9,28 +9,55 @@ async function getApp() {
   if (!app) {
     // Lazy load the server module to handle Vercel's build context
     if (!createServerFn) {
-      // Vercel compiles TypeScript in api/ directory
-      // We need to import from server/vercel-entry which exports createServer
-      // Vercel will compile this TypeScript file and make it available
-      try {
-        const serverModule = await import("../server/vercel-entry");
-        createServerFn = serverModule.createServer;
-        if (!createServerFn) {
-          throw new Error("createServer not exported from server/vercel-entry");
+      // Try multiple import strategies for Vercel deployment
+      // In Vercel, api/ is at root, so we need to go up one level to reach dist/
+      const importPaths = [
+        // Strategy 1: Built file in dist (production) - relative from api/
+        () => import("../dist/server/vercel-server.mjs"),
+        // Strategy 2: Built file with .js extension (some builds)
+        () => import("../dist/server/vercel-server.js"),
+        // Strategy 3: Source file (development or if dist not available)
+        () => import("../server/vercel-server"),
+        // Strategy 4: Alternative relative path
+        () => import("./dist/server/vercel-server.mjs"),
+      ];
+
+      let lastError: Error | null = null;
+      
+      for (let i = 0; i < importPaths.length; i++) {
+        const importPath = importPaths[i];
+        try {
+          console.log(`[Vercel] Attempting import strategy ${i + 1}/${importPaths.length}`);
+          const serverModule = await importPath();
+          createServerFn = (serverModule as any).createServer || serverModule.createServer;
+          if (createServerFn && typeof createServerFn === 'function') {
+            console.log(`[Vercel] Successfully loaded server module using strategy ${i + 1}`);
+            break;
+          } else {
+            console.warn(`[Vercel] Strategy ${i + 1} loaded module but createServer is not a function`);
+          }
+        } catch (error) {
+          const errorMsg = error instanceof Error ? error.message : String(error);
+          console.warn(`[Vercel] Import strategy ${i + 1} failed:`, errorMsg);
+          lastError = error instanceof Error ? error : new Error(String(error));
+          // Continue to next import strategy
         }
-      } catch (importError) {
-        console.error("[Vercel] Failed to import server/vercel-entry:", importError);
-        console.error("[Vercel] Error details:", {
-          message: importError instanceof Error ? importError.message : String(importError),
-          stack: importError instanceof Error ? importError.stack : undefined,
-          code: (importError as any)?.code,
-        });
-        throw new Error(`Cannot load server module: ${importError instanceof Error ? importError.message : String(importError)}`);
+      }
+
+      if (!createServerFn) {
+        const errorMessage = lastError 
+          ? `Cannot load server module. Last error: ${lastError.message}`
+          : "Cannot load server module: createServer function not found";
+        console.error("[Vercel] Failed to import server module:", errorMessage);
+        console.error("[Vercel] Tried import paths:", importPaths.map((_, i) => `Strategy ${i + 1}`).join(", "));
+        throw new Error(errorMessage);
       }
     }
+    
     if (!createServerFn) {
       throw new Error("createServer function is null");
     }
+    
     app = createServerFn();
   }
   return app;

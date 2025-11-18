@@ -41,19 +41,23 @@ export interface AdvisorResponse {
       provider?: "openai" | "claude";
     retryAttempted?: boolean;
   };
-  status?: "ok" | "partial" | "error"; // ✅ Added status property
+  status?: "ok" | "partial" | "error" | "success" | "partial_success" | "failure"; // ✅ Added status property with all possible values
 }
 
 export interface AdvisorRequest {
   brandId?: string; // ✅ Made optional to match route implementation
+  workspaceId?: string; // ✅ Added to match Zod schema
   timeRange?: "7d" | "30d" | "90d" | "all";
   period?: string; // Alternative to timeRange
+  requestId?: string; // ✅ Added to match Zod schema
+  strategyBriefId?: string; // ✅ Added to match Zod schema
+  contentPackageId?: string; // ✅ Added to match Zod schema
   metrics?: {
     topPosts?: Array<{
-      title: string;
-      platform: string;
-      engagement: number;
-      reach: number;
+      title?: string; // ✅ Made optional to match Zod schema
+      platform?: string; // ✅ Made optional to match Zod schema
+      engagement?: number; // ✅ Made optional to match Zod schema
+      reach?: number; // ✅ Made optional to match Zod schema
     }>;
     bestTimes?: string[];
     underperformingChannels?: string[];

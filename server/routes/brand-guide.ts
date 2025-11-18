@@ -11,6 +11,7 @@ import { AppError } from "../lib/error-middleware";
 import { ErrorCode, HTTP_STATUS } from "../lib/error-responses";
 import { authenticateUser } from "../middleware/security";
 import { assertBrandAccess } from "../lib/brand-access";
+import { getScrapedImages } from "../lib/scraped-images-service";
 
 const router = Router();
 
@@ -61,6 +62,30 @@ router.get("/:brandId", authenticateUser, async (req, res, next) => {
     const voiceSummary = (brand.voice_summary as any) || {};
     const visualSummary = (brand.visual_summary as any) || {};
 
+    // ✅ Get tenantId from user context for logging
+    const user = (req as any).user;
+    const auth = (req as any).auth;
+    const tenantId = user?.workspaceId || user?.tenantId || auth?.workspaceId || auth?.tenantId || (brand as any)?.tenant_id || "unknown";
+
+    // ✅ CRITICAL: Get scraped images from media_assets table
+    // This ensures Brand Guide includes images scraped during onboarding
+    let scrapedImages: Array<{ id: string; url: string; filename: string; source: string; metadata?: Record<string, unknown> }> = [];
+    try {
+      const scraped = await getScrapedImages(brandId);
+      scrapedImages = scraped.map(img => ({
+        id: img.id,
+        url: img.url,
+        filename: img.filename,
+        source: "scrape" as const,
+        metadata: img.metadata,
+      }));
+      
+      // ✅ LOGGING: Brand Guide query with IDs (moved after hasBrandGuide check)
+    } catch (error) {
+      console.error(`[BrandGuide] Error fetching scraped images for brandId ${brandId}:`, error);
+      // Continue without scraped images - don't fail the entire request
+    }
+
     // Check if brand guide has meaningful content (not just empty defaults)
     const hasBrandGuide = !!(
       brandKit.purpose ||
@@ -71,8 +96,39 @@ router.get("/:brandId", authenticateUser, async (req, res, next) => {
       brandKit.primaryColor ||
       brandKit.fontFamily ||
       brandKit.logoUrl ||
-      (brandKit.personas && brandKit.personas.length > 0)
+      (brandKit.personas && brandKit.personas.length > 0) ||
+      scrapedImages.length > 0 // Include scraped images in hasBrandGuide check
     );
+
+    // ✅ LOGGING: Brand Guide query with IDs (after hasBrandGuide calculation)
+    console.log("[BrandGuide] Query complete", {
+      tenantId: tenantId,
+      brandId: brandId,
+      assetsCount: scrapedImages.length,
+      hasBrandKit: hasBrandGuide,
+    });
+
+    // Build approvedAssets with scraped images
+    const approvedAssets = brandKit.approvedAssets || {
+      uploadedPhotos: [],
+      uploadedGraphics: [],
+      uploadedTemplates: [],
+      approvedStockImages: [],
+      productsServices: [],
+    };
+
+    // ✅ CRITICAL: Include scraped images in approvedAssets.uploadedPhotos
+    // This ensures Brand Guide UI shows scraped images
+    const uploadedPhotos = [
+      ...(approvedAssets.uploadedPhotos || []),
+      ...scrapedImages.map(img => ({
+        id: img.id,
+        url: img.url,
+        filename: img.filename,
+        source: "scrape" as const,
+        metadata: img.metadata,
+      })),
+    ];
 
     const brandGuide = {
       id: brand.id,
@@ -113,6 +169,16 @@ router.get("/:brandId", authenticateUser, async (req, res, next) => {
 
       // Guardrails
       guardrails: brandKit.guardrails || [],
+
+      // ✅ CRITICAL: Approved Assets (includes scraped images)
+      approvedAssets: {
+        ...approvedAssets,
+        uploadedPhotos: uploadedPhotos, // Includes scraped images with source='scrape'
+        uploadedGraphics: approvedAssets.uploadedGraphics || [],
+        uploadedTemplates: approvedAssets.uploadedTemplates || [],
+        approvedStockImages: approvedAssets.approvedStockImages || [],
+        productsServices: approvedAssets.productsServices || [],
+      },
 
       // Metadata
       createdAt: brand.created_at || new Date().toISOString(),

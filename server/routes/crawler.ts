@@ -6,17 +6,82 @@
  * POST /api/brand-kit/apply - Apply selected changes
  * GET /api/brand-kit/history/:brandId - Get change history
  * POST /api/brand-kit/revert - Revert a field to previous value
+ * 
+ * ============================================================================
+ * CRAWLER + SCRAPED IMAGES PIPELINE FLOW
+ * ============================================================================
+ * 
+ * This is a critical production system. If the crawler doesn't work, POSTD is broken.
+ * 
+ * FLOW FOR URL-ONLY ONBOARDING:
+ * 
+ * 1. CLIENT: User enters website URL during onboarding
+ *    - Temporary brandId created: `brand_${Date.now()}` (stored in localStorage)
+ *    - This temporary ID is used throughout onboarding until brand is created
+ * 
+ * 2. CLIENT → SERVER: POST /api/crawl/start?sync=true
+ *    - Body: { url, brand_id: "brand_1234567890", workspaceId: "uuid", sync: true }
+ *    - workspaceId comes from user's auth/workspace context
+ * 
+ * 3. SERVER: runCrawlJobSync(url, brandId, tenantId)
+ *    - tenantId MUST be provided (from workspaceId in request body or auth context)
+ *    - If tenantId is missing, images cannot be persisted (logs error, continues)
+ *    - Crawls website, extracts images, colors, typography, voice
+ *    - Calls persistScrapedImages(brandId, tenantId, images)
+ *      → Saves to media_assets table with:
+ *         - brand_id: temporary brandId (e.g., "brand_1234567890")
+ *         - tenant_id: real UUID from workspace
+ *         - metadata.source: "scrape"
+ *         - category: "logos" | "images" | "graphics"
+ * 
+ * 4. CLIENT: Brand Guide saved via saveBrandGuideFromOnboarding()
+ *    - Uses same temporary brandId
+ *    - Brand Guide stored in brands.brand_kit JSONB field
+ * 
+ * 5. CRITICAL RECONCILIATION POINT:
+ *    - When brand is created with final UUID (if different from temp ID):
+ *      → MUST call transferScrapedImages(tempBrandId, finalBrandId)
+ *      → Updates all media_assets.brand_id from temp to final UUID
+ *      → Updates tenant_id to match final brand's tenant_id
+ * 
+ * 6. BRAND GUIDE QUERIES:
+ *    - GET /api/brand-guide/:brandId
+ *    - Queries media_assets WHERE brand_id = :brandId AND metadata->>'source' = 'scrape'
+ *    - Includes in approvedAssets.uploadedPhotos with source='scrape'
+ * 
+ * 7. CREATIVE STUDIO QUERIES:
+ *    - Uses getScrapedBrandAssets(brandId) from image-sourcing.ts
+ *    - Queries media_assets WHERE brand_id = :brandId AND metadata->>'source' = 'scrape'
+ * 
+ * ID REQUIREMENTS:
+ * - tenantId: MUST be real UUID from user's workspace (required for persistence)
+ * - brandId: Can be temporary during onboarding, but MUST be reconciled to final UUID
+ * 
+ * FAILURE MODES TO PREVENT:
+ * - Missing tenantId → Images not persisted (logs error, continues)
+ * - Mismatched brandId → Images orphaned (reconciliation step required)
+ * - Race conditions → Use consistent brandId throughout flow
+ * - Partial crawls → Log summary, continue with what we have
+ * 
+ * LOGGING REQUIREMENTS:
+ * - Start crawl: { tenantId, brandId, url }
+ * - Scrape summary: { pages, images, logo, persisted }
+ * - Persistence summary: { rows inserted/updated }
+ * - Reconciliation: { fromBrandId, toBrandId, transferred }
+ * - Query results: { brandId, count, source }
  */
 
 import { Router } from "express";
 import { supabase } from "../lib/supabase";
 import { AppError } from "../lib/error-middleware";
 import { ErrorCode, HTTP_STATUS } from "../lib/error-responses";
+import { authenticateUser } from "../middleware/security";
+import { assertBrandAccess } from "../lib/brand-access";
 import {
   crawlWebsite,
   extractColors,
 } from "../workers/brand-crawler";
-import { persistScrapedImages } from "../lib/scraped-images-service";
+import { persistScrapedImages, transferScrapedImages } from "../lib/scraped-images-service";
 import {
   CrawlerSuggestion,
   FieldChange,
@@ -43,13 +108,18 @@ router.post("/crawl/start", async (req, res, next) => {
     const isSync = sync === true || req.query.sync === "true";
     const finalUrl = url || websiteUrl;
 
-    // ✅ LOGGING: Log crawler start (for Vercel server logs)
-    console.log("[CRAWLER] Start", { 
-      websiteUrl: finalUrl, 
-      brandId: brand_id || "unknown",
-      workspaceId: workspaceId || "unknown",
-      sync: isSync 
-    });
+      // ✅ Get tenantId from user context for logging
+      const user = (req as any).user;
+      const auth = (req as any).auth;
+      const userTenantId = workspaceId || user?.workspaceId || user?.tenantId || auth?.workspaceId || auth?.tenantId || "unknown";
+
+      // ✅ LOGGING: Crawl start with tenantId
+      console.log("[Crawler] Crawl start", {
+        tenantId: userTenantId,
+        brandId: brand_id || "unknown",
+        url: finalUrl,
+        sync: isSync,
+      });
 
     if (!finalUrl) {
       throw new AppError(
@@ -219,8 +289,11 @@ router.post("/crawl/start", async (req, res, next) => {
  * Sync crawl job for onboarding (runs immediately, returns results)
  * 
  * @param url - Website URL to crawl
- * @param brandId - Brand ID (may be temporary during onboarding)
- * @param tenantId - Tenant/Workspace ID (required for image persistence)
+ * @param brandId - Brand ID (may be temporary during onboarding, e.g., "brand_1234567890")
+ * @param tenantId - Tenant/Workspace ID (REQUIRED for image persistence)
+ * 
+ * CRITICAL: This function MUST receive tenantId. Without it, scraped images cannot be persisted.
+ * During onboarding, tenantId comes from user's workspace/auth context.
  */
 async function runCrawlJobSync(url: string, brandId: string, tenantId: string | null = null): Promise<{ brandKit: any }> {
   // TODO: Consider increasing timeout to 30-45s for JS-heavy sites if needed
@@ -304,14 +377,35 @@ async function runCrawlJobSync(url: string, brandId: string, tenantId: string | 
             // ✅ CRITICAL: Only persist if we have tenantId
             // During onboarding, tenantId should come from request body/auth
             if (finalTenantId) {
-              const persistedIds = await persistScrapedImages(brandId, finalTenantId, allImages);
-              persistedImageCount = persistedIds.length;
-              logoFound = !!logoImage;
-              
-              // ✅ LOGGING: Log scrape results (for Vercel server logs)
-              console.log(`[Crawler] Scrape result: { workspaceId: ${workspaceId}, brandId: ${brandId}, pages: ${crawlResults.length}, images: ${allImages.length}, persisted: ${persistedImageCount}, logoFound: ${logoFound} }`);
+              // ✅ VALIDATION: Ensure tenantId is a valid UUID (not "unknown" or empty)
+              if (finalTenantId === "unknown" || !finalTenantId.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
+                console.error(`[Crawler] CRITICAL: Invalid tenantId format: "${finalTenantId}". Cannot persist images. This is a system error - tenantId must be a valid UUID.`);
+              } else {
+                const persistedIds = await persistScrapedImages(brandId, finalTenantId, allImages);
+                persistedImageCount = persistedIds.length;
+                logoFound = !!logoImage;
+                
+                // ✅ LOGGING: Structured log for scrape results (for Vercel server logs)
+                console.log(`[Crawler] Scrape complete`, {
+                  tenantId: finalTenantId,
+                  brandId: brandId,
+                  url: url,
+                  pagesCrawled: crawlResults.length,
+                  imagesFound: allImages.length,
+                  imagesPersisted: persistedImageCount,
+                  logoFound: logoFound,
+                  logoUrl: logoUrl || null,
+                });
+                
+                // ✅ LOGGING: If no images persisted, log warning
+                if (persistedImageCount === 0 && allImages.length > 0) {
+                  console.warn(`[Crawler] WARNING: Found ${allImages.length} images but none were persisted. Check persistScrapedImages() for errors.`);
+                }
+              }
             } else {
-              console.warn(`[Crawler] Cannot persist images: no tenantId for brandId ${brandId}. Images will be in response but not saved to database.`);
+              // ✅ FAIL LOUDLY: Missing tenantId is a critical error
+              console.error(`[Crawler] CRITICAL: Cannot persist images - no tenantId for brandId ${brandId}. Images will be in response but NOT saved to database. This will cause images to be missing in Brand Guide and Creative Studio.`);
+              console.error(`[Crawler] Debug info: { brandId: "${brandId}", tenantId: ${tenantId}, workspaceId: ${workspaceId} }`);
             }
           } catch (persistError) {
             console.error("[Crawler] Failed to persist scraped images:", persistError);
@@ -879,5 +973,59 @@ function createTrackedField(value: any, source: string): any {
     updatedAt: new Date().toISOString(),
   };
 }
+
+/**
+ * POST /api/crawl/reconcile-images
+ * Reconcile scraped images from temporary brandId to final brandId
+ * 
+ * This endpoint is called when a brand is created with a final UUID that differs
+ * from the temporary brandId used during onboarding.
+ * 
+ * Body: { fromBrandId: string, toBrandId: string }
+ */
+router.post("/reconcile-images", authenticateUser, async (req, res, next) => {
+  try {
+    const { fromBrandId, toBrandId } = req.body;
+
+    if (!fromBrandId || !toBrandId) {
+      throw new AppError(
+        ErrorCode.MISSING_REQUIRED_FIELD,
+        "fromBrandId and toBrandId are required",
+        HTTP_STATUS.BAD_REQUEST,
+        "warning"
+      );
+    }
+
+    if (fromBrandId === toBrandId) {
+      return (res as any).json({
+        success: true,
+        message: "No reconciliation needed - brandIds are the same",
+        transferredCount: 0,
+      });
+    }
+
+    // ✅ SECURITY: Verify user has access to destination brand
+    await assertBrandAccess(req, toBrandId, true, true);
+
+    // Transfer images
+    const transferredCount = await transferScrapedImages(fromBrandId, toBrandId);
+
+    // ✅ LOGGING: Reconciliation result
+    console.log(`[Crawler] Reconciliation complete`, {
+      fromBrandId: fromBrandId,
+      toBrandId: toBrandId,
+      transferredCount: transferredCount,
+    });
+
+    (res as any).json({
+      success: true,
+      message: `Transferred ${transferredCount} scraped images`,
+      transferredCount: transferredCount,
+    });
+  } catch (error) {
+    console.error("[Crawler] Reconciliation error:", error);
+    next(error);
+  }
+});
 
 export default router;

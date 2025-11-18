@@ -6,7 +6,7 @@
 
 export type AiContentStatus = "draft" | "approved" | "needs_review";
 
-export type AiAgentResponseStatus = "ok" | "partial" | "error";
+export type AiAgentResponseStatus = "ok" | "partial" | "error" | "success" | "partial_success" | "failure";
 
 export interface AiAgentWarning {
   code: string;
@@ -72,25 +72,33 @@ export interface AiDesignVariant {
 
 export interface AiDocGenerationRequest {
   brandId?: string; // ✅ Made optional to match route implementation
-  topic: string;
-  platform: string;
+  workspaceId?: string; // ✅ Added to match Zod schema
+  topic?: string; // ✅ Made optional to match route implementation
+  platform?: string; // ✅ Made optional to match route implementation
   contentType: "caption" | "email" | "blog" | "ad" | "script" | "other";
   tone?: string;
   length?: "short" | "medium" | "long";
   callToAction?: string;
   additionalContext?: string;
   brandContext?: AiAgentBrandContextInput;
+  requestId?: string; // ✅ Added to match Zod schema
+  strategyBriefId?: string; // ✅ Added to match Zod schema
+  contentPackageId?: string; // ✅ Added to match Zod schema
 }
 
 export interface AiDesignGenerationRequest {
   brandId?: string; // ✅ Made optional to match route implementation
+  workspaceId?: string; // ✅ Added to match Zod schema
   campaignName?: string;
-  platform: string;
+  platform?: string; // ✅ Made optional to match route implementation (will be required by Zod schema validation)
   format: "story" | "feed" | "reel" | "short" | "ad" | "carousel" | "linkedin_post" | "quote_card" | "announcement" | "other"; // ✅ Added missing format types
   tone?: string;
   visualStyle?: string;
   additionalContext?: string;
   brandContext?: AiAgentBrandContextInput;
+  requestId?: string; // ✅ Added to match Zod schema
+  strategyBriefId?: string; // ✅ Added to match Zod schema
+  contentPackageId?: string; // ✅ Added to match Zod schema
 }
 
 export interface AiDocGenerationResponse {

@@ -146,14 +146,22 @@ export default function Screen3AiScrape() {
       });
 
       // Call the backend crawler endpoint (sync mode for onboarding)
+      // ✅ CRITICAL: Include workspaceId/tenantId so images can be persisted
+      const workspaceId = (user as any)?.workspaceId || (user as any)?.tenantId || localStorage.getItem("aligned_workspace_id");
+      
+      // ✅ Get auth token for authenticated request
+      const token = localStorage.getItem("aligned_access_token");
+      
       const response = await fetch(`/api/crawl/start`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          ...(token && { "Authorization": `Bearer ${token}` }), // ✅ Include auth token if available
         },
         body: JSON.stringify({
           url: user.website,
           brand_id: brandId, // ✅ Use consistent brandId
+          workspaceId: workspaceId, // ✅ CRITICAL: Pass workspaceId for image persistence
           sync: true, // Use sync mode for immediate results
         }),
       });

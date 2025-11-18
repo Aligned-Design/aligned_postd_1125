@@ -25,6 +25,7 @@
     "noFallthroughCasesInSwitch": false,
     "strictNullChecks": false,
     "types": ["vitest/globals"],
+    "typeRoots": ["./node_modules/@types", "./server/types"],
 
     "baseUrl": ".",
     "paths": {
@@ -40,7 +41,8 @@
     "server/**/*",
     "shared/**/*",
     "vite.config.ts",
-    "vite.config.server.ts"
+    "vite.config.server.ts",
+    "server/types/**/*"
   ],
   "exclude": ["node_modules", "dist", "**/*.stories.tsx", "**/*.stories.ts", "client/pages/**/*"]
 }

@@ -18,6 +18,7 @@ declare global {
         brandIds?: string[];
         scopes?: string[];
         workspaceId?: string;
+        tenantId?: string;
       };
       auth?: {
         userId: string;
@@ -26,16 +27,29 @@ declare global {
         brandIds?: string[];
         scopes?: string[];
         workspaceId?: string;
+        tenantId?: string;
       };
+      // Express 5 includes these by default, but we ensure they're typed
       body: any;
-      params: any;
-      query: any;
+      params: Record<string, string>;
+      query: Record<string, any>;
+      path: string;
+      method: string;
+      headers: Record<string, string | string[] | undefined>;
+      ip?: string;
+      socket?: {
+        remoteAddress?: string;
+      };
     }
 
     interface Response {
       status(code: number): Response;
       json(body: any): Response;
       setHeader(name: string, value: string | string[]): Response;
+      statusCode?: number;
+      headersSent?: boolean;
+      cookie?(name: string, value: string, options?: any): Response;
+      clearCookie?(name: string, options?: any): Response;
     }
   }
 }

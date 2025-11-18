@@ -73,10 +73,19 @@ router.post(
         );
       }
 
+      // ✅ LOGGING: Brand creation start with IDs
+      console.log("[Brands] Creating brand", {
+        userId: user?.id,
+        tenantId: finalTenantId,
+        brandName: name,
+        website_url,
+      });
+      
       logger.info("Creating new brand", {
         requestId,
         userId: user?.id,
         workspaceId: finalTenantId,
+        tenantId: finalTenantId, // ✅ Added for consistency
         name,
         website_url,
       });
@@ -127,9 +136,18 @@ router.post(
         // Continue anyway - brand is created
       }
 
+      // ✅ LOGGING: Brand creation complete with all IDs
+      console.log("[Brands] Brand created", {
+        userId: user?.id,
+        tenantId: finalTenantId,
+        brandId: brandData.id,
+        brandName: name,
+      });
+
       logger.info("Brand created successfully", {
         requestId,
         brandId: brandData.id,
+        tenantId: finalTenantId, // ✅ Added for consistency
         duration: Date.now() - startTime,
       });
 
