@@ -60,7 +60,7 @@ async function launchBrowser(): Promise<Browser> {
 // Environment configuration
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 const CRAWL_MAX_PAGES = parseInt(process.env.CRAWL_MAX_PAGES || "50", 10);
-const CRAWL_TIMEOUT_MS = parseInt(process.env.CRAWL_TIMEOUT_MS || "30000", 10);
+const CRAWL_TIMEOUT_MS = parseInt(process.env.CRAWL_TIMEOUT_MS || "60000", 10); // 60 seconds default
 const CRAWL_USER_AGENT = process.env.CRAWL_USER_AGENT || "AlignedAIBot/1.0";
 const MAX_DEPTH = 3;
 const CRAWL_DELAY_MS = 1000;

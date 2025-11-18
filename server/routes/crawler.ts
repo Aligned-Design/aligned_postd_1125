@@ -310,8 +310,8 @@ router.post("/start", authenticateUser, async (req, res, next) => {
  * During onboarding, tenantId comes from user's workspace/auth context.
  */
 async function runCrawlJobSync(url: string, brandId: string, tenantId: string | null = null): Promise<{ brandKit: any }> {
-  // TODO: Consider increasing timeout to 30-45s for JS-heavy sites if needed
-  const CRAWL_TIMEOUT_MS = 25000; // 25 second timeout for onboarding
+  // ✅ Increased timeout to 60s for JS-heavy sites and slow networks
+  const CRAWL_TIMEOUT_MS = 60000; // 60 second timeout for onboarding
 
   try {
     // Set timeout for crawl operation
