@@ -212,16 +212,50 @@ export default function Screen3AiScrape() {
 
       setBrandSnapshot(brandSnapshot);
       
-      // ✅ ROOT FIX: Use the SAME brandId that was used for crawling
-      // This ensures scraped images are associated with the same brandId
+      // ✅ CRITICAL: Create actual brand record in database
+      // This ensures the brand exists and is associated with the user/tenant
       const brandName = user.businessName || extractBrandNameFromUrl(user.website);
+      const workspaceId = (user as any)?.workspaceId || (user as any)?.tenantId;
       
-      // brandId is already set from above and stored in localStorage
+      let finalBrandId = brandId; // Use temporary ID as fallback
       
-      // Save Brand Guide to Supabase
+      try {
+        // ✅ Create brand via API
+        const { apiPost } = await import("@/lib/api");
+        console.log("[Onboarding] Creating brand record", {
+          name: brandName,
+          website: user.website,
+          workspaceId,
+        });
+        
+        const brandResponse = await apiPost<{ success: boolean; brand: any }>("/api/brands", {
+          name: brandName,
+          website_url: user.website,
+          industry: user.industry,
+          description: brandSnapshot.extractedMetadata?.brandIdentity || "",
+          tenant_id: workspaceId,
+          workspace_id: workspaceId,
+          tempBrandId: brandId, // Pass temp ID to transfer scraped images
+          autoRunOnboarding: false, // Already running onboarding
+        });
+        
+        if (brandResponse.success && brandResponse.brand) {
+          finalBrandId = brandResponse.brand.id;
+          localStorage.setItem("aligned_brand_id", finalBrandId);
+          console.log("[Onboarding] ✅ Brand created", {
+            brandId: finalBrandId,
+            name: brandName,
+          });
+        }
+      } catch (error) {
+        console.error("[Onboarding] Failed to create brand:", error);
+        // Continue with temporary brandId - brand guide save will handle it
+      }
+      
+      // Save Brand Guide to Supabase with final brandId
       try {
         const { saveBrandGuideFromOnboarding } = await import("@/lib/onboarding-brand-sync");
-        await saveBrandGuideFromOnboarding(brandId, brandSnapshot, brandName);
+        await saveBrandGuideFromOnboarding(finalBrandId, brandSnapshot, brandName);
       } catch (error) {
         console.error("Failed to save Brand Guide during scrape:", error);
         // Continue anyway - don't block onboarding

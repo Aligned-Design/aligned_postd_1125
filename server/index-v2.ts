@@ -43,6 +43,10 @@ import agentsRouter from "./routes/agents";
 import analyticsRouter from "./routes/analytics-v2";
 import approvalsRouter from "./routes/approvals-v2";
 import mediaRouter from "./routes/media-v2";
+import brandsRouter from "./routes/brands";
+import crawlerRouter from "./routes/crawler";
+import brandGuideRouter from "./routes/brand-guide";
+import onboardingRouter from "./routes/onboarding";
 import { getAdvisorInsights } from "./routes/advisor";
 import { generateDocContent } from "./routes/doc-agent";
 import { generateDesignContent } from "./routes/design-agent";
@@ -125,6 +129,12 @@ export function createServer() {
   app.use("/api/analytics", analyticsRouter);
   app.use("/api/approvals", approvalsRouter);
   app.use("/api/media", mediaRouter);
+  
+  // ✅ CRITICAL: Brand and onboarding routes (required for onboarding flow)
+  app.use("/api/brands", brandsRouter);
+  app.use("/api/crawl", crawlerRouter);
+  app.use("/api/brand-guide", brandGuideRouter);
+  app.use("/api/onboarding", onboardingRouter);
 
   // TODO: Add these routers incrementally after testing
   // app.use("/api/client-portal", clientPortalRouter);

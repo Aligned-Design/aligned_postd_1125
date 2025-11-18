@@ -43,28 +43,39 @@ export default function Screen5BrandSummaryReview() {
   useEffect(() => {
     const fetchBrandGuideImages = async () => {
       const brandId = localStorage.getItem("aligned_brand_id");
-      if (!brandId) return;
+      if (!brandId) {
+        console.warn("[BrandSnapshot] No brandId found in localStorage");
+        return;
+      }
 
       try {
-        // Try to fetch brand guide to get persisted scraped images
-        const response = await fetch(`/api/brand-guide/${brandId}`);
-        if (response.ok) {
-          const data = await response.json();
-          const brandGuide = data.brandGuide;
+        // ✅ Use centralized API utility with auth headers
+        const { apiGet } = await import("@/lib/api");
+        console.log("[BrandSnapshot] Fetching brand guide", { brandId });
+        
+        const data = await apiGet<{ brandGuide: any; hasBrandGuide: boolean }>(`/api/brand-guide/${brandId}`);
+        const brandGuide = data.brandGuide;
+        
+        // Extract scraped images from approvedAssets.uploadedPhotos (source='scrape')
+        if (brandGuide?.approvedAssets?.uploadedPhotos) {
+          const scrapedImages = brandGuide.approvedAssets.uploadedPhotos
+            .filter((img: any) => img.source === "scrape")
+            .map((img: any) => img.url)
+            .filter(Boolean);
           
-          // Extract scraped images from approvedAssets.uploadedPhotos (source='scrape')
-          if (brandGuide?.approvedAssets?.uploadedPhotos) {
-            const scrapedImages = brandGuide.approvedAssets.uploadedPhotos
-              .filter((img: any) => img.source === "scrape")
-              .map((img: any) => img.url)
-              .filter(Boolean);
-            
-            if (scrapedImages.length > 0) {
-              console.log(`[BrandSnapshot] Found ${scrapedImages.length} scraped images from brand guide`);
-              setBrandGuideImages(scrapedImages);
-              return;
-            }
+          if (scrapedImages.length > 0) {
+            console.log(`[BrandSnapshot] ✅ Found ${scrapedImages.length} scraped images from brand guide`);
+            setBrandGuideImages(scrapedImages);
+            return;
           }
+        }
+        
+        // Also check visualIdentity for logo/colors
+        if (brandGuide?.visualIdentity) {
+          console.log("[BrandSnapshot] Brand guide loaded", {
+            hasColors: !!(brandGuide.visualIdentity.colors?.length),
+            hasLogo: !!brandGuide.visualIdentity.logoUrl,
+          });
         }
       } catch (error) {
         console.warn("[BrandSnapshot] Could not fetch brand guide images:", error);

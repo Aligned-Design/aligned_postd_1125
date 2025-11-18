@@ -215,45 +215,17 @@ export async function saveBrandGuideFromOnboarding(
     // Convert to Brand Guide format
     const brandGuide = brandSnapshotToBrandGuide(brandSnapshot, brandId, brandName);
 
-    // Use the generation endpoint which handles proper structure mapping
-    const response = await fetch(`/api/ai/brand-guide/generate`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        brandId,
-        onboardingAnswers: {
-          businessName: brandName,
-          industry: brandSnapshot.industry || brandSnapshot.businessType,
-          website: brandSnapshot.website,
-          // Pass all collected data
-          tone: brandSnapshot.tone,
-          voice: brandSnapshot.voice,
-          audience: brandSnapshot.audience,
-          goal: brandSnapshot.goal,
-          colors: brandSnapshot.colors,
-          logo: brandSnapshot.logo,
-          keywords: brandSnapshot.extractedMetadata?.keywords,
-          donts: brandSnapshot.extractedMetadata?.donts,
-          dos: brandSnapshot.extractedMetadata?.dos,
-          images: brandSnapshot.extractedMetadata?.images,
-          brandIdentity: brandSnapshot.extractedMetadata?.brandIdentity,
-          preferredPlatforms: brandSnapshot.preferredPlatforms,
-          preferredPostTypes: brandSnapshot.preferredPostTypes,
-          imageRules: brandSnapshot.imageRules,
-          competitors: brandSnapshot.competitors,
-          brandPhrases: brandSnapshot.brandPhrases,
-          formalityLevel: brandSnapshot.formalityLevel,
-        },
-        websiteContent: brandSnapshot.website ? undefined : undefined, // Will be scraped if website provided
-      }),
+    // ✅ Use centralized API utility with auth headers
+    // Use PUT to save the full brand guide
+    const { apiPut } = await import("@/lib/api");
+    
+    console.log("[OnboardingBrandSync] Saving brand guide", {
+      brandId,
+      brandName,
+      hasSnapshot: !!brandSnapshot,
     });
-
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({ message: "Failed to save Brand Guide" }));
-      throw new Error(error.message || `HTTP ${response.status}`);
-    }
+    
+    const response = await apiPut(`/api/brand-guide/${brandId}`, brandGuide);
 
     console.log("[OnboardingBrandSync] Brand Guide saved to Supabase:", brandId);
   } catch (error) {
