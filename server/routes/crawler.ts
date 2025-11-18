@@ -336,6 +336,40 @@ async function runCrawlJobSync(url: string, brandId: string, tenantId: string | 
           throw new Error(`Color extraction failed: ${error instanceof Error ? error.message : "Unknown error"}`);
         }
         
+        // ✅ USE AI-GENERATED BRAND KIT: Call processBrandIntake to get AI-generated about_blurb
+        // This ensures we get a proper brand story, not just meta description
+        let aiBrandKit: any = null;
+        try {
+          const { processBrandIntake } = await import("../workers/brand-crawler");
+          // Helper functions to extract brand name and industry
+          const extractBrandNameFromUrl = (urlStr: string): string => {
+            try {
+              const urlObj = new URL(urlStr.startsWith("http") ? urlStr : `https://${urlStr}`);
+              return urlObj.hostname.replace("www.", "").split(".")[0];
+            } catch {
+              return "Your Brand";
+            }
+          };
+          const extractIndustryFromContent = (results: any[]): string | undefined => {
+            const allText = results.map(r => `${r.title} ${r.metaDescription} ${r.bodyText}`).join(" ").toLowerCase();
+            const industries = ["technology", "healthcare", "finance", "retail", "education", "hospitality", "real estate", "consulting", "marketing", "design"];
+            for (const ind of industries) {
+              if (allText.includes(ind)) return ind;
+            }
+            return undefined;
+          };
+          const brandName = extractBrandNameFromUrl(url);
+          const industry = extractIndustryFromContent(crawlResults);
+          aiBrandKit = await processBrandIntake(brandId, url, tenantId, brandName, industry);
+          console.log("[Crawler] ✅ AI-generated brand kit received", {
+            hasAboutBlurb: !!aiBrandKit?.about_blurb,
+            aboutBlurbLength: aiBrandKit?.about_blurb?.length || 0,
+          });
+        } catch (aiError) {
+          console.warn("[Crawler] AI brand kit generation failed, using fallback:", aiError);
+          // Continue with fallback below
+        }
+        
         // Generate brand kit from crawl results
         const combinedText = crawlResults
           .map((r) => `${r.title}\n${r.metaDescription}\n${r.bodyText}`)
