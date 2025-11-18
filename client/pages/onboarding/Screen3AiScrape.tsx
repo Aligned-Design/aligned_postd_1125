@@ -152,10 +152,14 @@ export default function Screen3AiScrape() {
       // ✅ Use centralized API utility for authenticated requests
       const { apiPost } = await import("@/lib/api");
       
-      console.log("[Onboarding] Calling crawler API with auth token", {
+      // ✅ Check if token exists before making request
+      const token = localStorage.getItem("aligned_access_token");
+      console.log("[Onboarding] Calling crawler API", {
         url: user.website,
         brandId,
         workspaceId: crawlerWorkspaceId,
+        hasToken: !!token,
+        tokenLength: token?.length || 0,
       });
       
       const result = await apiPost(`/api/crawl/start`, {

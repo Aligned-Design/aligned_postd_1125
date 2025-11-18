@@ -104,7 +104,8 @@ const crawlJobs = new Map<string, unknown>();
  */
 // ✅ CRITICAL: Require authentication for all crawler routes
 // Crawler needs tenantId from authenticated user to persist images correctly
-router.post("/crawl/start", authenticateUser, async (req, res, next) => {
+// ✅ FIX: Route is mounted at /api/crawl, so use /start not /crawl/start
+router.post("/start", authenticateUser, async (req, res, next) => {
   try {
     const { brand_id, url, sync, websiteUrl, workspaceId } = req.body;
     const isSync = sync === true || req.query.sync === "true";
@@ -673,7 +674,7 @@ function extractKeywords(text: string): string[] {
  * Get crawl job status and results
  */
 // ✅ CRITICAL: Require authentication for crawl results
-router.get("/crawl/result/:jobId", authenticateUser, async (req, res) => {
+router.get("/result/:jobId", authenticateUser, async (req, res) => {
   try {
     const { jobId } = req.params;
     const job = crawlJobs.get(jobId);
