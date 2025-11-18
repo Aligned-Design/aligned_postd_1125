@@ -56,6 +56,12 @@ interface CrawledImage {
   role?: "logo" | "hero" | "other";
 }
 
+interface TypographyData {
+  heading: string;
+  body: string;
+  source: "scrape" | "google" | "custom";
+}
+
 interface CrawlResult {
   url: string;
   title: string;
@@ -67,6 +73,7 @@ interface CrawlResult {
   hash: string;
   images?: CrawledImage[];
   headlines?: string[];
+  typography?: TypographyData;
 }
 
 interface ColorPalette {
@@ -89,6 +96,7 @@ interface BrandKitData {
   keyword_themes: string[];
   about_blurb: string;
   colors: ColorPalette;
+  typography?: TypographyData;
   source_urls: string[];
 }
 
@@ -492,6 +500,12 @@ async function extractPageContent(
     .filter((h) => h.length > 3)
     .slice(0, 5);
 
+  // Extract typography (fonts)
+  const typography = await extractTypography(page).catch((error) => {
+    console.warn("[Crawler] Error extracting typography:", error);
+    return undefined;
+  });
+
   // Create hash for deduplication
   const hash = crypto.createHash("md5").update(bodyText).digest("hex");
 
@@ -506,7 +520,107 @@ async function extractPageContent(
     hash,
     images,
     headlines,
+    typography,
   };
+}
+
+/**
+ * Extract typography (fonts) from page
+ * Detects heading and body fonts from computed styles
+ */
+async function extractTypography(page: Page): Promise<TypographyData | undefined> {
+  try {
+    const fontData = await page.evaluate(() => {
+      // Get heading font (from h1, h2, h3)
+      const headingElements = document.querySelectorAll("h1, h2, h3");
+      const headingFonts = new Map<string, number>();
+      
+      headingElements.forEach((el) => {
+        const computed = window.getComputedStyle(el);
+        const fontFamily = computed.fontFamily;
+        // Extract first font family (before comma)
+        const primaryFont = fontFamily.split(",")[0].replace(/['"]/g, "").trim();
+        if (primaryFont && primaryFont !== "serif" && primaryFont !== "sans-serif" && primaryFont !== "monospace") {
+          headingFonts.set(primaryFont, (headingFonts.get(primaryFont) || 0) + 1);
+        }
+      });
+
+      // Get body font (from p, body, main content)
+      const bodyElements = document.querySelectorAll("p, body, main, article, section");
+      const bodyFonts = new Map<string, number>();
+      
+      bodyElements.forEach((el) => {
+        const computed = window.getComputedStyle(el);
+        const fontFamily = computed.fontFamily;
+        const primaryFont = fontFamily.split(",")[0].replace(/['"]/g, "").trim();
+        if (primaryFont && primaryFont !== "serif" && primaryFont !== "sans-serif" && primaryFont !== "monospace") {
+          bodyFonts.set(primaryFont, (bodyFonts.get(primaryFont) || 0) + 1);
+        }
+      });
+
+      // Find most common heading font
+      let headingFont = "";
+      let maxHeadingCount = 0;
+      headingFonts.forEach((count, font) => {
+        if (count > maxHeadingCount) {
+          maxHeadingCount = count;
+          headingFont = font;
+        }
+      });
+
+      // Find most common body font
+      let bodyFont = "";
+      let maxBodyCount = 0;
+      bodyFonts.forEach((count, font) => {
+        if (count > maxBodyCount) {
+          maxBodyCount = count;
+          bodyFont = font;
+        }
+      });
+
+      // If no heading font found, use body font
+      if (!headingFont && bodyFont) {
+        headingFont = bodyFont;
+      }
+      // If no body font found, use heading font
+      if (!bodyFont && headingFont) {
+        bodyFont = headingFont;
+      }
+      // If still no fonts, use default
+      if (!headingFont && !bodyFont) {
+        return null;
+      }
+
+      return {
+        heading: headingFont || bodyFont || "Inter",
+        body: bodyFont || headingFont || "Inter",
+      };
+    });
+
+    if (!fontData) {
+      return undefined;
+    }
+
+    // Determine source (check if it's a Google Font)
+    const googleFonts = [
+      "Inter", "Roboto", "Open Sans", "Lato", "Montserrat", "Poppins", "Raleway",
+      "Oswald", "Source Sans Pro", "Playfair Display", "Merriweather", "PT Sans",
+      "Nunito", "Ubuntu", "Crimson Text", "Fira Sans", "Droid Sans", "Droid Serif"
+    ];
+    const isGoogleFont = googleFonts.some(gf => 
+      fontData.heading.toLowerCase().includes(gf.toLowerCase()) ||
+      fontData.body.toLowerCase().includes(gf.toLowerCase())
+    );
+
+    return {
+      heading: fontData.heading,
+      body: fontData.body,
+      source: isGoogleFont ? "google" : "custom",
+    };
+  } catch (error) {
+    console.error("[Crawler] Error extracting typography:", error);
+    return undefined;
+  }
 }
 
 /**

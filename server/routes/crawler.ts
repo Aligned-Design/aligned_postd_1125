@@ -122,10 +122,14 @@ router.post("/crawl/start", async (req, res) => {
         const images = result.brandKit?.images || [];
         const logo = result.brandKit?.logoUrl;
         const colors = result.brandKit?.colors;
+        const typography = result.brandKit?.typography;
         console.log("[CRAWLER] Result", {
           images: images.length,
           hasLogo: !!logo,
           colors: colors ? Object.keys(colors).length : 0,
+          hasTypography: !!typography,
+          typographyHeading: typography?.heading || "none",
+          typographyBody: typography?.body || "none",
           brandId: finalBrandId,
           tenantId: tenantId || "unknown",
         });
@@ -261,6 +265,11 @@ async function runCrawlJobSync(url: string, brandId: string, tenantId: string | 
         // Extract headlines from all crawl results
         const headlines = extractHeadlinesFromCrawlResults(crawlResults);
         
+        // Extract typography (fonts) - use first non-empty typography from crawl results
+        const typography = crawlResults
+          .map((r) => r.typography)
+          .find((t) => t && t.heading && t.body);
+        
         // ✅ PERSIST SCRAPED IMAGES: Save to media_assets table with source='scrape'
         let persistedImageCount = 0;
         let logoFound = false;
@@ -317,6 +326,7 @@ async function runCrawlJobSync(url: string, brandId: string, tenantId: string | 
             accent: colors.accent || "#EC4899",
             confidence: colors.confidence || 0,
           },
+          typography: typography || undefined,
           source_urls: crawlResults.map(r => r.url),
           images: allImages,
           logoUrl,

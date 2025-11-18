@@ -136,6 +136,20 @@ Generate a Brand Guide in JSON format matching this structure:
       const scrapedHero = await getPrioritizedImage(brandId, "image");
       const scrapedImages = await getScrapedImages(brandId);
       
+      // ✅ PRIORITY: Extract scraped typography from websiteContent (if provided)
+      // websiteContent may be a BrandKitData object from the crawler
+      let scrapedTypography: { heading: string; body: string; source: "scrape" | "google" | "custom" } | undefined;
+      if (websiteContent && typeof websiteContent === "object") {
+        const brandKit = (websiteContent as any).brandKit || websiteContent;
+        if (brandKit?.typography && brandKit.typography.heading && brandKit.typography.body) {
+          scrapedTypography = {
+            heading: brandKit.typography.heading,
+            body: brandKit.typography.body,
+            source: brandKit.typography.source || "scrape",
+          };
+        }
+      }
+      
       // ✅ FALLBACK: Only use stock images if scraped images are insufficient
       // If crawler returns ≥ 2 scraped images, use those; otherwise fall back to stock
       const SCRAPED_IMAGE_THRESHOLD = 2;
@@ -178,7 +192,12 @@ Generate a Brand Guide in JSON format matching this structure:
         },
         visualIdentity: {
           colors: onboardingAnswers?.colors || brandGuideData.visualIdentity?.colors || [],
-          typography: brandGuideData.visualIdentity?.typography || {
+          // ✅ PRIORITY: Use scraped typography first, then onboarding, then AI-generated
+          typography: scrapedTypography || (onboardingAnswers?.fontFamily ? {
+            heading: onboardingAnswers.fontFamily,
+            body: onboardingAnswers.fontFamily,
+            source: onboardingAnswers.fontSource || "google",
+          } : undefined) || brandGuideData.visualIdentity?.typography || {
             heading: "",
             body: "",
             source: "google",
