@@ -10,31 +10,20 @@ import { ErrorCode, HTTP_STATUS } from "./error-responses";
 
 /**
  * Media asset record from database
+ * ✅ Matches production schema: size_bytes not file_size
  */
 export interface MediaAssetRecord {
   id: string;
   tenant_id: string;
   brand_id: string;
-  category: "graphics" | "images" | "logos" | "videos" | "ai_exports" | "client_uploads";
+  category?: "graphics" | "images" | "logos" | "videos" | "ai_exports" | "client_uploads";
   filename: string;
   mime_type: string;
   path: string;
-  file_size: number;
-  hash: string;
-  url: string;
-  thumbnail_url?: string;
-  status: "active" | "archived" | "deleted";
+  size_bytes: number; // ✅ Column name in production
+  hash?: string;
   metadata?: Record<string, unknown>;
-  variants?: Array<{
-    size: string;
-    width?: number;
-    height?: number;
-    path: string;
-    url: string;
-    fileSize: number;
-  }>;
   used_in?: string[];
-  last_used?: string;
   usage_count: number;
   created_at: string;
   updated_at: string;
@@ -130,17 +119,17 @@ export class MediaDBService {
     // ✅ FIX: media_assets table may not have 'url' column (depends on migration)
     // For scraped images, URL is stored in path column
     // Only include url/thumbnail_url if they exist in schema (Supabase will ignore unknown columns)
+    // ✅ FIX: Column is size_bytes not file_size in production schema
     const insertData: any = {
       tenant_id: tenantId,
       brand_id: brandId,
       filename,
       mime_type: mimeType,
       path, // For scraped images, path contains the actual URL
-      file_size: fileSize,
+      size_bytes: fileSize,
       hash,
       category,
       metadata,
-      status: "active",
     };
     
     // Only add url/thumbnail_url if they might exist (won't error if column doesn't exist)
@@ -175,12 +164,11 @@ export class MediaDBService {
    * Get a media asset by ID
    */
   async getMediaAsset(assetId: string): Promise<MediaAssetRecord | null> {
-    // ✅ RESILIENT: Only select fields that definitely exist (avoid metadata column)
-    const { data, error } = await supabase
+    // ✅ FIX: Column is size_bytes not file_size in production schema
+    const { data, error} = await supabase
       .from("media_assets")
-      .select("id, brand_id, tenant_id, category, filename, mime_type, path, file_size, hash, url, thumbnail_url, status, created_at, updated_at")
+      .select("id, brand_id, tenant_id, category, filename, mime_type, path, size_bytes, hash, metadata, created_at, updated_at")
       .eq("id", assetId)
-      .eq("status", "active")
       .single();
 
     if (error && error.code === "PGRST116") {
@@ -260,13 +248,12 @@ export class MediaDBService {
     brandId: string,
     hash: string
   ): Promise<MediaAssetRecord | null> {
-    // ✅ RESILIENT: Only select fields that definitely exist (avoid metadata column)
+    // ✅ FIX: Column is size_bytes not file_size in production schema
     const { data, error } = await supabase
       .from("media_assets")
-      .select("id, brand_id, tenant_id, category, filename, mime_type, path, file_size, hash, url, thumbnail_url, status, created_at, updated_at")
+      .select("id, brand_id, tenant_id, category, filename, mime_type, path, size_bytes, hash, metadata, created_at, updated_at")
       .eq("brand_id", brandId)
       .eq("hash", hash)
-      .eq("status", "active")
       .maybeSingle();
 
     if (error && error.code !== "PGRST116") {
@@ -431,14 +418,35 @@ export class MediaDBService {
 
   /**
    * Get storage usage statistics for a brand
+   * ⚠️ TEMP FIX: Gracefully handle missing storage_quotas table until migration is run
    */
   async getStorageUsage(brandId: string): Promise<StorageUsageStats> {
-    // Get quota
+    // Get quota - gracefully handle table not existing yet
     const { data: quotaData, error: quotaError } = await supabase
       .from("storage_quotas")
       .select("*")
       .eq("brand_id", brandId)
       .single();
+
+    // ⚠️ TEMP FIX: If storage_quotas table doesn't exist, use default quota
+    if (quotaError && (quotaError.code === 'PGRST204' || quotaError.code === 'PGRST205')) {
+      console.warn(`[MediaDB] storage_quotas table not found, using default quota for brand ${brandId}`);
+      const defaultQuota = {
+        limit_bytes: 5_000_000_000, // 5GB default
+        warning_threshold_percent: 80,
+        hard_limit_percent: 95,
+      };
+      
+      // Return default values - allow uploads to proceed
+      return {
+        brandId,
+        quotaLimitBytes: defaultQuota.limit_bytes,
+        totalUsedBytes: 0,
+        percentageUsed: 0,
+        isWarning: false,
+        isHardLimit: false,
+      };
+    }
 
     if (quotaError) {
       throw new AppError(
@@ -451,12 +459,11 @@ export class MediaDBService {
 
     const quota = quotaData as StorageQuotaRecord;
 
-    // Get total used bytes
+    // Get total used bytes - ✅ FIX: Column is size_bytes not file_size
     const { data: usageData, error: usageError } = await supabase
       .from("media_assets")
-      .select("file_size")
-      .eq("brand_id", brandId)
-      .eq("status", "active");
+      .select("size_bytes")
+      .eq("brand_id", brandId);
 
     if (usageError) {
       throw new AppError(
@@ -468,7 +475,7 @@ export class MediaDBService {
     }
 
     const totalUsedBytes = (usageData || []).reduce(
-      (sum, asset: unknown) => sum + (asset.file_size || 0),
+      (sum, asset: any) => sum + (asset.size_bytes || 0),
       0
     );
 
