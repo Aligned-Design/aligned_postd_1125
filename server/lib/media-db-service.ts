@@ -206,12 +206,11 @@ export class MediaDBService {
     const sortBy = filters?.sortBy || "created_at";
     const sortOrder = filters?.sortOrder || "desc";
 
-    // ✅ RESILIENT: Only select fields that definitely exist (avoid metadata column)
+    // ✅ FIX: Column is size_bytes not file_size in production schema
     let query = supabase
       .from("media_assets")
-      .select("id, brand_id, tenant_id, category, filename, mime_type, path, file_size, hash, url, thumbnail_url, status, created_at, updated_at", { count: "exact" })
-      .eq("brand_id", brandId)
-      .eq("status", "active");
+      .select("id, brand_id, tenant_id, category, filename, mime_type, path, size_bytes, hash, metadata, usage_count, used_in, created_at, updated_at", { count: "exact" })
+      .eq("brand_id", brandId);
 
     if (filters?.category) {
       query = query.eq("category", filters.category);
@@ -439,12 +438,12 @@ export class MediaDBService {
       
       // Return default values - allow uploads to proceed
       return {
-        brandId,
         quotaLimitBytes: defaultQuota.limit_bytes,
         totalUsedBytes: 0,
         percentageUsed: 0,
         isWarning: false,
         isHardLimit: false,
+        assetCount: 0,
       };
     }
 

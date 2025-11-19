@@ -91,7 +91,7 @@ function mapAssetRecord(record: unknown): MediaAsset {
     originalName: r.filename, // Use filename as originalName
     category: r.category,
     mimeType: r.mime_type,
-    size: r.file_size,
+    size: r.size_bytes || r.file_size || 0, // ✅ FIX: size_bytes in production schema
     brandId: r.brand_id,
     tenantId: r.tenant_id,
     bucketPath: r.path,
@@ -289,10 +289,10 @@ export const getAssetUrl: RequestHandler = async (req, res, next) => {
     }
 
     // ✅ SECURITY: Verify user has access to this asset's brand
-    assertBrandAccess(req, asset.brand_id);
+    assertBrandAccess(req, asset.brandId);
 
     // Generate signed URL using asset path (generateSignedUrl expects storage path)
-    const url = await mediaDB.generateSignedUrl(asset.path, parseInt(expirationSeconds as string) || 3600);
+    const url = await mediaDB.generateSignedUrl(asset.bucketPath, parseInt(expirationSeconds as string) || 3600);
 
     (res as any).json({ url });
   } catch (error) {
@@ -428,8 +428,7 @@ export const trackAssetUsage: RequestHandler = async (req, res, next) => {
       asset: {
         id: updatedAsset.id,
         usageCount: updatedAsset.usage_count,
-        lastUsed: updatedAsset.last_used,
-        usedIn: updatedAsset.used_in,
+        usedIn: updatedAsset.used_in || [],
       },
     });
   } catch (error) {
