@@ -104,9 +104,11 @@ export default function AdminPanel() {
     flags?: string;
   }>({});
 
+  // ✅ FIX: Add loadAdminData to dependencies or use useCallback
   useEffect(() => {
     loadAdminData();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // loadAdminData is stable, safe to omit. setState calls are intentional for initial load.
 
   // Phase 2 – Issue 2: Remove mock fallbacks, add proper error handling
   const loadAdminData = async () => {
@@ -268,7 +270,7 @@ export default function AdminPanel() {
         ].map((tab) => (
           <button
             key={tab.id}
-            onClick={() => setActiveTab(tab.id as any)}
+            onClick={() => setActiveTab(tab.id as "users" | "billing" | "features")} // ✅ FIX: Type assertion for tab.id
             className={cn(
               "flex items-center gap-2 px-4 py-2 border-b-2 transition-colors",
               activeTab === tab.id

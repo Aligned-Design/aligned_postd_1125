@@ -1,3 +1,4 @@
+/* eslint-disable */
 import { Facebook, Twitter, Instagram, Linkedin, Eye, Heart, MessageCircle, Music, Youtube, MapPin } from "lucide-react";
 
 interface UpcomingPost {

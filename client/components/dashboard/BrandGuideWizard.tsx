@@ -37,10 +37,45 @@ export function BrandGuideWizard({
     setIsGenerating(true);
     setTimeout(() => {
       const aiData = generateAIBrandGuide(brandName);
+      // ✅ FIX: Create BrandGuide with required nested structure
       const newBrand: BrandGuide = {
         id: `brand-${Date.now()}`,
         brandName,
         brandId: `brand-${Date.now()}`,
+        // Required nested structure
+        identity: {
+          name: brandName,
+          businessType: undefined,
+          industryKeywords: [],
+          competitors: undefined,
+          sampleHeadlines: undefined,
+        },
+        voiceAndTone: {
+          tone: aiData.tone || [],
+          friendlinessLevel: aiData.friendlinessLevel || 50,
+          formalityLevel: aiData.formalityLevel || 50,
+          confidenceLevel: aiData.confidenceLevel || 50,
+          voiceDescription: aiData.voiceDescription || "",
+        },
+        visualIdentity: {
+          colors: ["#292661", "#12b76a"], // primary-dark, success (design tokens)
+          typography: {
+            heading: "Inter",
+            body: "Inter",
+            source: "google",
+          },
+          photographyStyle: {
+            mustInclude: [],
+            mustAvoid: [],
+          },
+          logoUrl: "",
+          visualNotes: "",
+        },
+        contentRules: {
+          neverDo: [], // ✅ FIX: Add required neverDo property
+          guardrails: [],
+        },
+        // Legacy flat fields for backward compatibility
         purpose: aiData.purpose || "",
         mission: aiData.mission || "",
         vision: aiData.vision || "",
@@ -50,8 +85,8 @@ export function BrandGuideWizard({
         confidenceLevel: aiData.confidenceLevel || 50,
         voiceDescription: aiData.voiceDescription || "",
         logoUrl: "",
-        primaryColors: ["#312E81"],
-        secondaryColors: ["#10B981"],
+        primaryColors: ["#292661"], // primary-dark (design token)
+        secondaryColors: ["#12b76a"], // success (design token)
         fontFamily: "Inter",
         visualNotes: "",
         personas: [],
@@ -71,10 +106,45 @@ export function BrandGuideWizard({
   const handleManualStart = () => {
     if (!brandName.trim()) return;
 
+    // ✅ FIX: Create BrandGuide with required nested structure
     const newBrand: BrandGuide = {
       id: `brand-${Date.now()}`,
       brandName,
       brandId: `brand-${Date.now()}`,
+      // Required nested structure
+      identity: {
+        name: brandName,
+        businessType: undefined,
+        industryKeywords: [],
+        competitors: undefined,
+        sampleHeadlines: undefined,
+      },
+      voiceAndTone: {
+        tone: [],
+        friendlinessLevel: 50,
+        formalityLevel: 50,
+        confidenceLevel: 50,
+        voiceDescription: "",
+      },
+      visualIdentity: {
+        colors: ["#3b82f6", "#12b76a"], // blue-500, success (design tokens)
+        typography: {
+          heading: "Inter",
+          body: "Inter",
+          source: "google",
+        },
+        photographyStyle: {
+          mustInclude: [],
+          mustAvoid: [],
+        },
+        logoUrl: "",
+        visualNotes: "",
+      },
+      contentRules: {
+        neverDo: [], // ✅ FIX: Add required neverDo property
+        guardrails: [],
+      },
+      // Legacy flat fields for backward compatibility
       purpose: "",
       mission: "",
       vision: "",
@@ -84,8 +154,8 @@ export function BrandGuideWizard({
       confidenceLevel: 50,
       voiceDescription: "",
       logoUrl: "",
-      primaryColors: ["#3B82F6"],
-      secondaryColors: ["#10B981"],
+      primaryColors: ["#3b82f6"], // blue-500 (design token)
+      secondaryColors: ["#12b76a"], // success (design token)
       fontFamily: "Inter",
       visualNotes: "",
       personas: [],

@@ -206,16 +206,16 @@ export function ContextualPropertiesPanel({
                 <div className="flex items-center gap-2">
                   <input
                     type="color"
-                    value={item.fontColor || "#000000"}
+                    value={item.fontColor || "#111827"}
                     onChange={(e) => onUpdateItem({ fontColor: e.target.value })}
                     className="w-10 h-10 rounded border border-slate-200 cursor-pointer"
                   />
                   <input
                     type="text"
-                    value={item.fontColor || "#000000"}
+                    value={item.fontColor || "#111827"}
                     onChange={(e) => onUpdateItem({ fontColor: e.target.value })}
                     className="flex-1 px-3 py-2 text-sm bg-white border border-slate-200 text-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-lime-500 focus:ring-offset-0 placeholder:text-slate-400"
-                    placeholder="#000000"
+                    placeholder="#111827"
                   />
                 </div>
               </div>

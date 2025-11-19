@@ -58,7 +58,8 @@ vi.mock("@/hooks/use-toast", () => ({
 describe("ClientPortal", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    (global.fetch as any).mockResolvedValue({
+    // ✅ FIX: Use proper type for fetch mock
+    (global.fetch as unknown as { mockResolvedValue: (value: unknown) => void }).mockResolvedValue({
       ok: true,
       json: async () => mockDashboardData,
     });
@@ -83,7 +84,8 @@ describe("ClientPortal", () => {
   });
 
   it("handles dashboard load error gracefully", async () => {
-    (global.fetch as any).mockResolvedValue({
+    // ✅ FIX: Use proper type for fetch mock
+    (global.fetch as unknown as { mockResolvedValue: (value: unknown) => void }).mockResolvedValue({
       ok: false,
       json: async () => ({ message: "Failed to load" }),
     });

@@ -3,7 +3,7 @@ import { StartNewCampaignModal } from "@/components/dashboard/StartNewCampaignMo
 import { CampaignInsightsPanel } from "@/components/dashboard/CampaignInsightsPanel";
 import { Campaign, CampaignIdea } from "@/types/campaign";
 import { Plus, TrendingUp, Users, Target } from "lucide-react";
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
 
 export default function Campaigns() {
@@ -173,17 +173,19 @@ export default function Campaigns() {
       0
     ) || 0;
 
+    // ✅ FIX: Calculate date in handler (not during render)
+    const now = Date.now();
     const newCampaign: Campaign = {
-      id: Date.now().toString(),
+      id: now.toString(),
       name: campaignData.name || "Untitled Campaign",
       status: campaignData.status || "draft",
       goal: campaignData.goal || "awareness",
       description: campaignData.description,
-      startDate: campaignData.startDate || new Date().toISOString().split("T")[0],
-      endDate: campaignData.endDate || new Date().toISOString().split("T")[0],
+      startDate: campaignData.startDate || new Date(now).toISOString().split("T")[0],
+      endDate: campaignData.endDate || new Date(now).toISOString().split("T")[0],
       targetPlatforms: campaignData.targetPlatforms || [],
       brand: campaignData.brand || "Aligned-20AI",
-      createdDate: new Date().toISOString().split("T")[0],
+      createdDate: new Date(now).toISOString().split("T")[0],
       tone: campaignData.tone,
       keyMessage: campaignData.keyMessage,
       audiencePersona: campaignData.audiencePersona,
@@ -209,25 +211,27 @@ export default function Campaigns() {
     }
   };
 
-  const handleConvertIdea = (idea: CampaignIdea) => {
+  // ✅ FIX: Move date calculation outside render - use useCallback
+  const handleConvertIdea = useCallback((idea: CampaignIdea) => {
+    const now = Date.now();
+    const twoWeeksFromNow = now + 14 * 24 * 60 * 60 * 1000;
     const newCampaign: Campaign = {
-      id: Date.now().toString(),
+      id: now.toString(),
       name: idea.name,
       status: "draft",
       goal: "awareness",
       description: idea.notes,
-      startDate: new Date().toISOString().split("T")[0],
-      endDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000)
-        .toISOString()
-        .split("T")[0],
+      startDate: new Date(now).toISOString().split("T")[0],
+      endDate: new Date(twoWeeksFromNow).toISOString().split("T")[0],
       targetPlatforms: [],
       brand: idea.brand,
-      createdDate: new Date().toISOString().split("T")[0],
+      createdDate: new Date(now).toISOString().split("T")[0], // ✅ FIX: Use pre-calculated now
     };
 
-    setCampaigns([newCampaign, ...campaigns]);
-    setIdeas(ideas.filter((i) => i.id !== idea.id));
-  };
+    // ✅ FIX: Use functional updates to avoid dependency on campaigns/ideas
+    setCampaigns((prev) => [newCampaign, ...prev]);
+    setIdeas((prev) => prev.filter((i) => i.id !== idea.id));
+  }, []); // Empty deps - setState functions are stable, functional updates don't need state values
 
   const handleDeleteIdea = (id: string) => {
     if (window.confirm("Are you sure you want to delete this idea?")) {

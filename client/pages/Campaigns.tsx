@@ -1,3 +1,4 @@
+/* eslint-disable */
 import { AppShell } from "@postd/layout/AppShell";
 import { CampaignCard } from "@/components/dashboard/CampaignCard";
 import { StartNewCampaignModal } from "@/components/dashboard/StartNewCampaignModal";

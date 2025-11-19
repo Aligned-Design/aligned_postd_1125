@@ -59,7 +59,7 @@ router.post(
       }
 
       // Build prompt for Brand Guide generation using onboarding data
-      let prompt = `Generate a comprehensive Brand Guide for a brand in Postd. The Brand Guide is the "source of truth" for all AI agents (Copywriter, Creative, Advisor).
+      const prompt = `Generate a comprehensive Brand Guide for a brand in Postd. The Brand Guide is the "source of truth" for all AI agents (Copywriter, Creative, Advisor).
 
 Requirements:
 1. **Identity**: Use business type and industry keywords from onboarding data

@@ -1122,7 +1122,7 @@ export class AnalyticsSync {
 
     // Patterns for common PII
     const patterns = {
-      email: /[\w\.-]+@[\w\.-]+\.\w+/g,
+      email: /[\w.-]+@[\w.-]+\.\w+/g,
       phone: /(\+?1?\d{9,15})/g,
       ssn: /\d{3}-\d{2}-\d{4}/g,
       username: /@\w+/g,

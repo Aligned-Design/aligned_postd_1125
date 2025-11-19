@@ -31,7 +31,7 @@ export default function Screen10DashboardWelcome() {
         particleCount: 200,
         spread: 90,
         origin: { y: 0.3 },
-        colors: ["#4F46E5", "#818CF8", "#C7D2FE", "#A855F7", "#10B981", "#F59E0B"],
+        colors: ["#632bf0", "#c084fc", "#e2e8f0", "#a855f7", "#12b76a", "#f59e0b"], // primary-light, purple-400, slate-200, purple-500, success, amber-600 (design tokens)
       });
     }, 300);
     return () => clearTimeout(timer);

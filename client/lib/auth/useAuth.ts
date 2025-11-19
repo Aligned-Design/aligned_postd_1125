@@ -5,7 +5,7 @@
  */
 
 import { useContext } from "react";
-import { AuthContext } from "@/contexts/AuthContext";
+import { AuthContext, type OnboardingUser } from "@/contexts/AuthContext";
 
 export type Role =
   | "SUPERADMIN"
@@ -35,7 +35,7 @@ export interface UseAuthReturn {
   loading: boolean;
   login: (email: string, password: string) => Promise<boolean>;
   logout: () => void;
-  updateUser: (updates: Partial<AuthUser>) => void;
+  updateUser: (updates: Partial<OnboardingUser>) => void; // ✅ FIX: Use OnboardingUser to match AuthContext
 }
 
 /**
@@ -80,6 +80,13 @@ export function useAuth(): UseAuthReturn {
       }
     : null;
 
+  // ✅ FIX: updateUser already accepts OnboardingUser, so we can pass it through
+  const updateUserWrapper = (updates: Partial<OnboardingUser>) => {
+    if (context.updateUser) {
+      context.updateUser(updates);
+    }
+  };
+
   return {
     user: normalizedUser,
     role: normalizedUser?.role ?? null,
@@ -89,6 +96,6 @@ export function useAuth(): UseAuthReturn {
     loading: false,
     login: context.login || (async () => false),
     logout: context.logout || (() => {}),
-    updateUser: context.updateUser || (() => {}),
+    updateUser: updateUserWrapper,
   };
 }

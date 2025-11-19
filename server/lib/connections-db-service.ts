@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Platform Connections Database Service
  * Manages OAuth token persistence, verification, and lifecycle

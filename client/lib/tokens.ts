@@ -106,20 +106,51 @@ export const tokens = {
       400: "#C084FC",
       500: "#A855F7",
     },
+    // Intelligence palette (from shared/design-tokens.ts)
+    intelligence: {
+      blue: {
+        50: "#EFF6FF",
+        100: "#DBEAFE",
+        500: "#3B82F6",
+        600: "#2563EB",
+        700: "#1D4ED8",
+      },
+      green: {
+        50: "#F0FDF4",
+        100: "#DCFCE7",
+        500: "#10B981",
+        600: "#059669",
+        700: "#047857",
+      },
+      purple: {
+        50: "#FAF5FF",
+        100: "#F3E8FF",
+        500: "#8B5CF6",
+        600: "#7C3AED",
+        700: "#6D28D9",
+      },
+      orange: {
+        50: "#FFFBEB",
+        100: "#FEF3C7",
+        500: "#F59E0B",
+        600: "#D97706",
+        700: "#B45309",
+      },
+    },
   },
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   // SPACING SYSTEM (4px base unit)
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━��━━━
   spacing: {
-    xs: "4px",
-    sm: "8px",
-    md: "16px",
-    lg: "24px",
-    xl: "32px",
-    "2xl": "40px",
-    "3xl": "48px",
-    "4xl": "64px",
+    xs: "4px", // 0.25rem
+    sm: "8px", // 0.5rem
+    md: "16px", // 1rem
+    lg: "24px", // 1.5rem
+    xl: "32px", // 2rem
+    "2xl": "48px", // 3rem (updated from 40px to match shared/design-tokens.ts)
+    "3xl": "64px", // 4rem
+    "4xl": "64px", // 4rem
   },
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -130,6 +161,15 @@ export const tokens = {
       base: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
     },
     fontSize: {
+      xs: "12px", // 0.75rem (from shared/design-tokens.ts)
+      sm: "14px", // 0.875rem (from shared/design-tokens.ts)
+      base: "16px", // 1rem (from shared/design-tokens.ts)
+      lg: "18px", // 1.125rem (from shared/design-tokens.ts)
+      xl: "20px", // 1.25rem (from shared/design-tokens.ts)
+      "2xl": "24px", // 1.5rem (from shared/design-tokens.ts)
+      "3xl": "30px", // 1.875rem (from shared/design-tokens.ts)
+      "4xl": "36px", // 2.25rem (from shared/design-tokens.ts)
+      // Legacy aliases for backward compatibility
       h1: "32px",
       h2: "24px",
       h3: "20px",
@@ -139,7 +179,7 @@ export const tokens = {
       label: "12px",
     },
     lineHeight: {
-      tight: "1.2",
+      tight: "1.25", // from shared/design-tokens.ts
       normal: "1.5",
       relaxed: "1.75",
     },
@@ -161,10 +201,10 @@ export const tokens = {
   // BORDER RADIUS
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   borderRadius: {
-    sm: "4px",
-    md: "6px",
-    lg: "8px",
-    xl: "12px",
+    sm: "6px", // 0.375rem (from shared/design-tokens.ts)
+    md: "8px", // 0.5rem (from shared/design-tokens.ts)
+    lg: "12px", // 0.75rem (from shared/design-tokens.ts)
+    xl: "16px", // 1rem (from shared/design-tokens.ts)
     "2xl": "16px",
     full: "9999px",
   },

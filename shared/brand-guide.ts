@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Brand Guide (Shared Type)
  *

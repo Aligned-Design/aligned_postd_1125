@@ -313,7 +313,7 @@ export function CreativeStudioTemplateGrid({
                           rotation: 0,
                           zIndex: 0,
                           backgroundType: "solid",
-                          backgroundColor: "#FFFFFF",
+                          backgroundColor: "#ffffff", // white (standard color)
                         },
                       ],
                       backgroundColor: "#FFFFFF",

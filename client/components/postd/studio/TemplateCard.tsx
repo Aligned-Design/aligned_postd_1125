@@ -33,9 +33,9 @@ export function TemplateCard({ template, onSelect }: TemplateCardProps) {
               className="absolute inset-0"
               style={{
                 background: `linear-gradient(135deg, ${
-                  template.design.items.find((item: any) => item.gradientFrom)?.gradientFrom || "#6366F1"
+                  template.design.items.find((item: any) => item.gradientFrom)?.gradientFrom || "var(--color-primary-light)"
                 } 0%, ${
-                  template.design.items.find((item: any) => item.gradientTo)?.gradientTo || "#8B5CF6"
+                  template.design.items.find((item: any) => item.gradientTo)?.gradientTo || "var(--color-primary)"
                 } 100%)`,
               }}
             />
@@ -54,7 +54,7 @@ export function TemplateCard({ template, onSelect }: TemplateCardProps) {
                   top: `${(item.y / (template.design?.height || 1080)) * 100}%`,
                   width: `${(item.width / (template.design?.width || 1080)) * 100}%`,
                   height: `${(item.height / (template.design?.height || 1080)) * 100}%`,
-                  color: item.fontColor || "#1F2937",
+                  color: item.fontColor || "var(--color-gray-800)",
                   fontSize: `${Math.max(8, (item.fontSize || 24) * 0.15)}px`,
                   fontWeight: item.fontWeight || "normal",
                   textAlign: item.textAlign || "left",
@@ -77,7 +77,7 @@ export function TemplateCard({ template, onSelect }: TemplateCardProps) {
                   top: `${(item.y / (template.design?.height || 1080)) * 100}%`,
                   width: `${(item.width / (template.design?.width || 1080)) * 100}%`,
                   height: `${(item.height / (template.design?.height || 1080)) * 100}%`,
-                  backgroundColor: item.fill || "#3B82F6",
+                  backgroundColor: item.fill || "var(--color-blue-500)",
                   borderRadius: item.shapeType === "circle" ? "50%" : "4px",
                 }}
               />

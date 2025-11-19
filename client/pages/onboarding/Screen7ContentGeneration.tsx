@@ -15,6 +15,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Sparkles, CheckCircle2, Loader2, Instagram, Mail, MapPin, FileText } from "lucide-react";
 import { OnboardingProgress } from "@/components/onboarding/OnboardingProgress";
 import { useConfetti } from "@/hooks/useConfetti";
+import { logError } from "@/lib/logger";
 
 interface GenerationStep {
   id: string;
@@ -122,10 +123,8 @@ export default function Screen7ContentGeneration() {
       } catch (apiError) {
         // ✅ ENHANCED ERROR HANDLING: Log full error and show user-friendly message
         const errorMessage = apiError instanceof Error ? apiError.message : String(apiError);
-        console.error("[Onboarding] ❌ Content planning API error:", {
-          error: errorMessage,
-          stack: apiError instanceof Error ? apiError.stack : undefined,
-          brandId: brandId,
+        logError("Content planning API error", apiError instanceof Error ? apiError : new Error(errorMessage), {
+          step: "content_generation",
         });
         
         // Set error state so user knows generation failed
@@ -186,7 +185,7 @@ export default function Screen7ContentGeneration() {
         particleCount: 150,
         spread: 80,
         origin: { y: 0.5 },
-        colors: ["#4F46E5", "#818CF8", "#C7D2FE", "#A855F7", "#10B981"],
+        colors: ["#632bf0", "#c084fc", "#e2e8f0", "#a855f7", "#12b76a"], // primary-light, purple-400, slate-200, purple-500, success (design tokens)
       });
 
       // Move to calendar preview after a moment
@@ -194,7 +193,9 @@ export default function Screen7ContentGeneration() {
         setOnboardingStep(8);
       }, 2500);
     } catch (err) {
-      console.error("Content generation error:", err);
+      logError("Content generation error", err instanceof Error ? err : new Error(String(err)), {
+        step: "content_generation",
+      });
       setError(err instanceof Error ? err.message : "Failed to generate content");
       // Still mark steps as complete to allow progression
       setSteps((prev) => prev.map((s) => ({ ...s, status: "complete" })));

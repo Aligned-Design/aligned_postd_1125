@@ -288,7 +288,7 @@ export const searchStockImages: RequestHandler = async (req, res, next) => {
       const pixabayData: PixabaySearchResponse = await pixabayResponse.json();
 
       // Transform Pixabay response to our StockImage format
-      let pixabayImages = pixabayData.hits.map((hit): any => {
+      const pixabayImages = pixabayData.hits.map((hit): any => {
         // Determine orientation from dimensions
         let orientation: "landscape" | "portrait" | "square" = "landscape";
         if (hit.imageHeight > hit.imageWidth) {

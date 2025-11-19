@@ -204,7 +204,7 @@ export class CreativeAgent {
 
     // Determine layout based on content and performance data
     let layoutRecommendation = "Hero with body text and CTA";
-    let componentList = ["Hero / Banner", "Text / Body", "Button / Primary"];
+    const componentList = ["Hero / Banner", "Text / Body", "Button / Primary"];
 
     if (perf && perf.visualPerformance && perf.visualPerformance.length > 0) {
       const topLayout = perf.visualPerformance[0];

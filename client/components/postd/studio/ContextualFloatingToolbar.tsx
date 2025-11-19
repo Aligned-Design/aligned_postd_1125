@@ -182,7 +182,7 @@ export function ContextualFloatingToolbar({
                 <button
                   onClick={() => {
                     // Open color picker
-                    const color = prompt("Enter hex color:", item.fontColor || "#000000");
+                    const color = prompt("Enter hex color:", item.fontColor || "#111827");
                     if (color) onColorChange(color);
                   }}
                   className="w-6 h-6 rounded border-2 border-slate-200 hover:border-slate-300 bg-white flex items-center justify-center"

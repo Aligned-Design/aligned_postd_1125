@@ -69,7 +69,7 @@ const CHAR_SETS = {
   lowercase: /[a-z]/,
   uppercase: /[A-Z]/,
   numbers: /[0-9]/,
-  special: /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/,
+  special: /[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]/,
 };
 
 /**
@@ -182,7 +182,7 @@ export function validatePassword(
     if (password.length < 12) {
       suggestions.push("Use at least 12 characters for better security");
     }
-    if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]{2,}/.test(password)) {
+    if (!/[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]{2,}/.test(password)) {
       suggestions.push("Use multiple special characters");
     }
     suggestions.push(

@@ -52,6 +52,7 @@ export interface BrandGuide extends SharedBrandGuide {
   guardrails?: Guardrail[]; // Legacy alias for contentRules.guardrails
   voiceDescription?: string; // Legacy alias for voiceAndTone.voiceDescription
   fontSource?: "google" | "custom"; // Legacy alias for visualIdentity.typography.source
+  customFontUrl?: string; // ✅ FIX: Add customFontUrl to BrandGuide (used in VisualIdentityEditor)
   visualNotes?: string; // Legacy alias for visualIdentity.visualNotes
 }
 
@@ -94,7 +95,42 @@ export const TONE_OPTIONS = [
   "Warm",
 ];
 
+// ✅ FIX: Add required nested structure to INITIAL_BRAND_GUIDE
 export const INITIAL_BRAND_GUIDE: BrandGuide = {
+  // Required nested structure
+  identity: {
+    name: "Hobby Lobby",
+    businessType: undefined,
+    industryKeywords: [],
+    competitors: undefined,
+    sampleHeadlines: undefined,
+  },
+  voiceAndTone: {
+    tone: ["Warm", "Encouraging", "Accessible", "Inspirational", "Community-Focused"],
+    friendlinessLevel: 80,
+    formalityLevel: 40,
+    confidenceLevel: 75,
+    voiceDescription: "We speak like a friendly craft mentor—approachable, encouraging, and genuinely enthusiastic about creativity.",
+  },
+  visualIdentity: {
+    colors: ["#C41E3A", "#FFD700", "#2E5090", "#F5E6D3"],
+    typography: {
+      heading: "Poppins",
+      body: "Poppins",
+      source: "google",
+    },
+    photographyStyle: {
+      mustInclude: [],
+      mustAvoid: [],
+    },
+    logoUrl: "",
+    visualNotes: "",
+  },
+  contentRules: {
+    neverDo: [],
+    guardrails: [],
+  },
+  // Legacy flat fields
   id: "brand-1",
   brandName: "Hobby Lobby",
   brandId: "brand-1",

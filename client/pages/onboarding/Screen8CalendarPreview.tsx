@@ -17,6 +17,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { ArrowRight, Calendar, Sparkles, MessageSquare, RefreshCw, X } from "lucide-react";
 import { OnboardingProgress } from "@/components/onboarding/OnboardingProgress";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { logWarning, logError } from "@/lib/logger";
 
 interface ContentItem {
   id: string;
@@ -95,7 +96,7 @@ export default function Screen8CalendarPreview() {
             }
           }
         } catch (contentPlanError) {
-          console.warn("[Onboarding] Content plan API failed, trying fallback:", contentPlanError);
+          logWarning("Content plan API failed, trying fallback", { step: "load_content" });
         }
         
         // Fallback to old onboarding API
@@ -122,7 +123,7 @@ export default function Screen8CalendarPreview() {
             }
           }
         } catch (onboardingError) {
-          console.warn("[Onboarding] Onboarding API failed, trying localStorage:", onboardingError);
+          logWarning("Onboarding API failed, trying localStorage", { step: "load_content" });
         }
         
         // Try localStorage as last resort
@@ -151,7 +152,9 @@ export default function Screen8CalendarPreview() {
               }
             }
           } catch (e) {
-            console.error("Failed to parse saved package:", e);
+            logError("Failed to parse saved package", e instanceof Error ? e : new Error(String(e)), {
+              step: "load_content",
+            });
           }
         }
         
@@ -159,7 +162,9 @@ export default function Screen8CalendarPreview() {
         setLoadError("No content found. Please go back and regenerate your content plan.");
         setContentItems([]);
       } catch (error) {
-        console.error("Failed to load content package:", error);
+        logError("Failed to load content package", error instanceof Error ? error : new Error(String(error)), {
+          step: "load_content",
+        });
         setLoadError("Failed to load content. Please try again or go back to regenerate.");
         setContentItems([]);
       } finally {
@@ -362,7 +367,9 @@ export default function Screen8CalendarPreview() {
         localStorage.setItem("aligned:onboarding:content_package", JSON.stringify(result.contentPackage));
       }
     } catch (error) {
-      console.error("Failed to regenerate content:", error);
+      logError("Failed to regenerate content", error instanceof Error ? error : new Error(String(error)), {
+        step: "regenerate_content",
+      });
     } finally {
       setIsRegenerating(false);
     }

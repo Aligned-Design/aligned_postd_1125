@@ -42,7 +42,24 @@ function generateAIPersona(): Persona {
 }
 
 export function PersonasEditor({ brand, onUpdate }: PersonasEditorProps) {
-  const personas = brand.personas || [];
+  // ✅ FIX: Ensure personas have isAIGenerated property with proper type casting
+  // Shared BrandGuide personas don't have isAIGenerated, so we add it
+  const personas: Persona[] = (brand.personas || []).map((p): Persona => {
+    // Type guard to check if persona already has isAIGenerated
+    if ("isAIGenerated" in p && typeof p.isAIGenerated === "boolean") {
+      return p as Persona;
+    }
+    // Otherwise, add it explicitly
+    return {
+      id: p.id,
+      name: p.name,
+      role: p.role,
+      description: p.description,
+      painPoints: p.painPoints || [],
+      goals: p.goals || [],
+      isAIGenerated: false,
+    };
+  });
 
   const [formState, setFormState] = useState<PersonaFormState>({
     isOpen: false,

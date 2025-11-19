@@ -56,6 +56,7 @@ async function generateUniqueSlug(baseSlug: string, tenantId: string): Promise<s
   let candidateSlug = `${normalizedSlug}-${counter}`;
   
   // Keep checking until we find an available slug
+   
   while (true) {
     const { data: existing, error: candidateError } = await supabase
       .from("brands")
@@ -226,7 +227,7 @@ router.post(
       }
 
       // Get user's workspace/tenant ID from auth context if not provided
-      let finalTenantId = tenant_id || workspace_id || user?.workspaceId || user?.tenantId;
+      const finalTenantId = tenant_id || workspace_id || user?.workspaceId || user?.tenantId;
       
       // ✅ CRITICAL: Verify tenant exists in tenants table before creating brand
       // This prevents foreign key constraint violations

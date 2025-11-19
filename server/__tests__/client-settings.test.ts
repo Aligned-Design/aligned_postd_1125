@@ -3,6 +3,7 @@
  * Tests all endpoints, validation, state management, and error handling
  */
 
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import request from 'supertest';
 import express from 'express';
 import { json } from 'express';

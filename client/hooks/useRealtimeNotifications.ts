@@ -102,15 +102,40 @@ export function useRealtimeNotifications(
 
     // Receive notifications
     socket.on("notification:received", (data: unknown) => {
+      // ✅ FIX: Type guard for notification payload
+      const isNotificationPayload = (payload: unknown): payload is {
+        id?: string;
+        type?: string;
+        title?: string;
+        message?: string;
+        severity?: "info" | "success" | "warning" | "error";
+        brandId?: string;
+        actionUrl?: string;
+        timestamp?: string;
+      } => {
+        return payload !== null && typeof payload === "object";
+      };
+      
+      const payload = isNotificationPayload(data) ? data : {};
+      // ✅ FIX: Ensure type matches NotificationType union
+      const notificationType: NotificationType = (
+        payload.type === "job-completed" ||
+        payload.type === "job-failed" ||
+        payload.type === "approval-needed" ||
+        payload.type === "insight-available" ||
+        payload.type === "sync-complete" ||
+        payload.type === "alert"
+      ) ? payload.type : "alert";
+      
       const notification: Notification = {
-        id: data.id || `notif-${Date.now()}-${Math.random()}`,
-        type: data.type,
-        title: data.title,
-        message: data.message,
-        severity: data.severity || "info",
-        brandId: data.brandId,
-        actionUrl: data.actionUrl,
-        timestamp: data.timestamp,
+        id: payload.id || `notif-${Date.now()}-${Math.random()}`,
+        type: notificationType,
+        title: payload.title || "",
+        message: payload.message || "",
+        severity: payload.severity || "info",
+        brandId: payload.brandId,
+        actionUrl: payload.actionUrl,
+        timestamp: payload.timestamp || new Date().toISOString(),
         read: false,
       };
 
@@ -128,9 +153,13 @@ export function useRealtimeNotifications(
     });
 
     socket.on("error", (err: unknown) => {
-      const error = new Error(
-        typeof err === "string" ? err : err?.message || "WebSocket error"
-      );
+      // ✅ FIX: Type guard for error payload
+      const errorMessage = typeof err === "string" 
+        ? err 
+        : (err && typeof err === "object" && "message" in err && typeof err.message === "string")
+        ? err.message
+        : "WebSocket error";
+      const error = new Error(errorMessage);
       setError(error);
       console.error("WebSocket error:", error);
 

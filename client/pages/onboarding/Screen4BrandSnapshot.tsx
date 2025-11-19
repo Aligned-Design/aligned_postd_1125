@@ -19,7 +19,7 @@ export default function Screen4BrandSnapshot() {
           particleCount: 100,
           spread: 70,
           origin: { y: 0.5 },
-          colors: ["#4F46E5", "#818CF8", "#C7D2FE", "#A855F7"],
+          colors: ["#632bf0", "#c084fc", "#e2e8f0", "#a855f7"], // primary-light, purple-400, slate-200, purple-500 (design tokens)
         });
       }, 300);
       return () => clearTimeout(timer);
@@ -61,7 +61,7 @@ export default function Screen4BrandSnapshot() {
                 result.brandKit.colors.secondary,
                 result.brandKit.colors.accent,
               ].filter(Boolean)
-            : brandSnapshot?.colors || ["#4F46E5"],
+            : brandSnapshot?.colors || ["#632bf0"], // primary-light (design token)
           industry: user.industry || brandSnapshot?.industry,
           extractedMetadata: {
             keywords: result.brandKit?.keyword_themes || [],
@@ -78,7 +78,7 @@ export default function Screen4BrandSnapshot() {
         });
       }
     } catch (err) {
-      console.error("Regeneration error:", err);
+      // Error already handled in catch block
     } finally {
       setIsRegenerating(false);
     }

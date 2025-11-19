@@ -751,10 +751,10 @@ describe("Agent Integration Tests", () => {
     ];
 
     scenarios.forEach((scenario) => {
+      // ✅ FIX: Remove linter_blocked check (property doesn't exist in type)
       const approved =
         scenario.bfs_passed &&
-        scenario.linter_passed &&
-        !scenario.linter_blocked;
+        scenario.linter_passed;
 
       if (scenario.should_approve) {
         expect(approved).toBe(true);

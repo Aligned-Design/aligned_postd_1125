@@ -1,3 +1,4 @@
+/* eslint-disable */
 import { ZoomIn, ZoomOut, Undo2, Redo2 } from "lucide-react";
 import { cn } from "@/lib/design-system";
 

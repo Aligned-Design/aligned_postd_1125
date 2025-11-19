@@ -60,10 +60,11 @@ export default function Screen6WeeklyFocus() {
     }
 
     // Store weekly focus in user object
+    // ✅ FIX: weeklyFocus expects string, not string[]. Join array into comma-separated string
     if (user) {
       signUp({
         ...user,
-        weeklyFocus: selectedFocuses,
+        weeklyFocus: selectedFocuses.join(", "),
       });
     }
 

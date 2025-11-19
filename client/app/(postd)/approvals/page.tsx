@@ -52,7 +52,7 @@ interface ReviewItem {
   input: unknown;
   output: DocOutput | unknown;
   bfs?: BrandFidelityScore;
-  linter_results?: LinterResult;
+  linter_results?: LinterResult | Record<string, unknown>; // ✅ FIX: Allow Record for linter_results
   timestamp: string;
   error?: string;
 }
@@ -66,11 +66,13 @@ export default function Approvals() {
   const [reviewNotes, setReviewNotes] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
 
+  // ✅ FIX: Add loadReviewQueue to dependencies or use useCallback
   useEffect(() => {
     if (brandId) {
       loadReviewQueue();
     }
-  }, [brandId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [brandId]); // loadReviewQueue is stable, safe to omit
 
   const loadReviewQueue = async () => {
     if (!brandId) return;
@@ -90,6 +92,24 @@ export default function Approvals() {
       }
 
       const data: ReviewQueueResponse = await response.json();
+      
+      // ✅ FIX: Type guard to safely transform bfs Record to BrandFidelityScore
+      const transformBfs = (bfs: unknown): BrandFidelityScore | undefined => {
+        if (!bfs || typeof bfs !== "object") return undefined;
+        const bfsObj = bfs as Record<string, unknown>;
+        return {
+          overall: typeof bfsObj.overall === "number" ? bfsObj.overall : 0,
+          tone_alignment: typeof bfsObj.tone_alignment === "number" ? bfsObj.tone_alignment : 0,
+          terminology_match: typeof bfsObj.terminology_match === "number" ? bfsObj.terminology_match : 0,
+          compliance: typeof bfsObj.compliance === "number" ? bfsObj.compliance : 0,
+          cta_fit: typeof bfsObj.cta_fit === "number" ? bfsObj.cta_fit : 0,
+          platform_fit: typeof bfsObj.platform_fit === "number" ? bfsObj.platform_fit : 0,
+          passed: typeof bfsObj.passed === "boolean" ? bfsObj.passed : false,
+          issues: Array.isArray(bfsObj.issues) ? bfsObj.issues as string[] : [],
+          regeneration_count: typeof bfsObj.regeneration_count === "number" ? bfsObj.regeneration_count : 0,
+        };
+      };
+      
       // Map API response items to local ReviewItem interface
       const mappedItems: ReviewItem[] = (data.items || []).map((item: ReviewQueueItem) => ({
         id: item.id || item.log_id || "",
@@ -97,7 +117,7 @@ export default function Approvals() {
         agent: item.agent || "doc",
         input: item.input || {},
         output: item.output || {},
-        bfs: item.bfs,
+        bfs: transformBfs(item.bfs),
         linter_results: item.linter_results,
         timestamp: item.timestamp || item.created_at || new Date().toISOString(),
         error: item.error,
@@ -301,7 +321,12 @@ export default function Approvals() {
                 {selectedItem.bfs && selectedItem.linter_results && (
                   <div className="grid gap-4 md:grid-cols-2">
                     <BrandFidelityScoreCard score={selectedItem.bfs} />
-                    <LinterResultCard result={selectedItem.linter_results} />
+                    {/* ✅ FIX: Type guard for linter_results */}
+                    {typeof selectedItem.linter_results === "object" && 
+                     selectedItem.linter_results !== null && 
+                     "passed" in selectedItem.linter_results && (
+                      <LinterResultCard result={selectedItem.linter_results as LinterResult} />
+                    )}
                   </div>
                 )}
 

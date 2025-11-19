@@ -9,6 +9,7 @@ import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { ArrowRight, Globe, Building2 } from "lucide-react";
 import { OnboardingProgress } from "@/components/onboarding/OnboardingProgress";
+import { logInfo, logError } from "@/lib/logger";
 
 // Helper to extract brand name from URL
 const extractBrandNameFromUrl = (url: string): string => {
@@ -100,7 +101,9 @@ export default function Screen2BusinessEssentials() {
         ? websiteUrl 
         : `https://${websiteUrl}`;
 
-      console.log("[Onboarding] User clicked 'Continue' with website:", normalizedUrl);
+      if (import.meta.env.DEV) {
+        logInfo("User clicked Continue", { step: "business_essentials" });
+      }
 
       // ✅ CRITICAL: Create brand FIRST before proceeding
       // This ensures we have a real UUID to use throughout onboarding
@@ -118,11 +121,11 @@ export default function Screen2BusinessEssentials() {
           const workspaceId = (user as any)?.workspaceId || (user as any)?.tenantId;
           const brandName = description || extractBrandNameFromUrl(normalizedUrl);
 
-          console.log("[Onboarding] Creating brand record", {
-            name: brandName,
-            website: normalizedUrl,
-            workspaceId,
-          });
+          if (import.meta.env.DEV) {
+            logInfo("Creating brand record", {
+              step: "brand_creation",
+            });
+          }
 
           const brandResponse = await apiPost<{ success: boolean; brand: any }>("/api/brands", {
             name: brandName,
@@ -137,12 +140,16 @@ export default function Screen2BusinessEssentials() {
           if (brandResponse.success && brandResponse.brand) {
             const realBrandId = brandResponse.brand.id;
             localStorage.setItem("aligned_brand_id", realBrandId);
-            console.log("[Onboarding] ✅ Brand created with UUID:", realBrandId);
+            if (import.meta.env.DEV) {
+              logInfo("Brand created", { step: "brand_creation" });
+            }
           } else {
             throw new Error("Brand creation failed");
           }
-          } catch (error) {
-            console.error("[Onboarding] ❌ Failed to create brand:", error);
+        } catch (error) {
+          logError("Failed to create brand", error instanceof Error ? error : new Error(String(error)), {
+            step: "brand_creation",
+          });
             const { formatErrorForUI } = await import("@/lib/user-friendly-errors");
             const friendlyError = formatErrorForUI(error, "brand");
             
@@ -153,7 +160,9 @@ export default function Screen2BusinessEssentials() {
             return;
           }
       } else {
-        console.error("[Onboarding] ❌ No user found - cannot create brand");
+        logError("No user found - cannot create brand", new Error("User not found"), {
+          step: "brand_creation",
+        });
       }
 
       // Move to expectation setting step
@@ -272,7 +281,9 @@ export default function Screen2BusinessEssentials() {
           Don't have a website?{" "}
           <button
             onClick={async () => {
-              console.log("[Onboarding] User clicked 'Skip to manual setup' - routing to manual intake");
+              if (import.meta.env.DEV) {
+                logInfo("User clicked Skip to manual setup", { step: "manual_setup" });
+              }
               
               // Still need to create brand even without website
               if (user && businessType) {
@@ -293,7 +304,9 @@ export default function Screen2BusinessEssentials() {
 
                   if (brandResponse.success && brandResponse.brand) {
                     localStorage.setItem("aligned_brand_id", brandResponse.brand.id);
-                    console.log("[Onboarding] ✅ Brand created for manual setup:", brandResponse.brand.id);
+                    if (import.meta.env.DEV) {
+                      logInfo("Brand created for manual setup", { step: "manual_setup" });
+                    }
                   }
 
                   // Update user with empty website to signal manual flow
@@ -308,7 +321,9 @@ export default function Screen2BusinessEssentials() {
                   localStorage.setItem("aligned:onboarding:manual_setup", "true");
                   setOnboardingStep(3.5); // Special step for manual intake
                 } catch (error) {
-                  console.error("[Onboarding] Failed to create brand for manual setup:", error);
+                  logError("Failed to create brand for manual setup", error instanceof Error ? error : new Error(String(error)), {
+                    step: "manual_setup",
+                  });
                   const { formatErrorForUI } = await import("@/lib/user-friendly-errors");
                   const friendlyError = formatErrorForUI(error, "brand");
                   alert(`${friendlyError.title}\n\n${friendlyError.message}\n\n${friendlyError.action}`);

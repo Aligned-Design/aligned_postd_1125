@@ -42,7 +42,7 @@ function generateAIToneSuggestions(selectedTones: string[]): string[] {
     ],
   };
 
-  let allSuggestions = selectedTones.length > 0
+  const allSuggestions = selectedTones.length > 0
     ? selectedTones.flatMap(tone => suggestions[tone] || suggestions.Default)
     : suggestions.Default;
 

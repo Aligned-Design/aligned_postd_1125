@@ -53,8 +53,10 @@ export const START_MODE_OPTIONS = [
 ] as const;
 
 // Initial design template
-import type { CanvasItem } from "@shared/creative-studio";
+import type { CanvasItem, DesignFormat } from "@shared/creative-studio";
+import { FORMAT_PRESETS } from "@shared/creative-studio";
 
+// ✅ FIX: Import DesignFormat and FORMAT_PRESETS from shared
 export const createInitialDesign = (format: DesignFormat, brandId: string, campaignId?: string): Design => {
   const preset = FORMAT_PRESETS[format];
   const backgroundItem: CanvasItem = {

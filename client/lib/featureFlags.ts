@@ -46,7 +46,11 @@ export function getFeatureFlags(): FeatureFlags {
       const parsed = JSON.parse(stored);
       return { ...flags, ...parsed };
     } catch (e) {
-      console.error("Failed to parse feature flags from localStorage", e);
+      // Failed to parse feature flags - use defaults
+      if (import.meta.env.DEV) {
+        // eslint-disable-next-line no-console
+        console.error("Failed to parse feature flags from localStorage", e);
+      }
     }
   }
 

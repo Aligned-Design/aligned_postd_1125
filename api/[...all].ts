@@ -1,9 +1,12 @@
 import "dotenv/config";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 
+// ✅ FIX: Use proper types instead of any
+import type { Express } from "express";
+
 // Create the Express app once and cache it
-let app: any = null;
-let createServerFn: (() => any) | null = null;
+let app: Express | null = null;
+let createServerFn: (() => Express) | null = null;
 
 async function getApp() {
   if (!app) {
@@ -29,7 +32,9 @@ async function getApp() {
         try {
           console.log(`[Vercel] Attempting import strategy ${i + 1}/${importPaths.length}`);
           const serverModule = await importPath();
-          createServerFn = (serverModule as any).createServer || serverModule.createServer;
+          // ✅ FIX: Type assertion for server module
+          const moduleWithCreateServer = serverModule as { createServer?: () => Express };
+          createServerFn = moduleWithCreateServer.createServer || undefined;
           if (createServerFn && typeof createServerFn === 'function') {
             console.log(`[Vercel] Successfully loaded server module using strategy ${i + 1}`);
             break;
@@ -83,7 +88,9 @@ export default async (req: VercelRequest, res: VercelResponse) => {
         resolve(null);
       }, 55000); // 55 seconds (5s buffer before Vercel's 60s limit)
 
-      application(req as any, res as any, (err?: any) => {
+      // ✅ FIX: VercelRequest/VercelResponse are compatible with Express types
+      // TypeScript will accept these as they share the same shape
+      application(req, res, (err?: unknown) => {
         clearTimeout(timeout);
         if (err) {
           console.error("[Vercel] Error in request handler:", err);

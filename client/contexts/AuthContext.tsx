@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
+import { logInfo, logError, logWarning } from "@/lib/logger";
 
 export interface OnboardingUser {
   id: string;
@@ -23,6 +24,14 @@ export interface OnboardingUser {
     type: "engagement" | "followers" | "leads";
     target: number;
   };
+  // ✅ FIX: Add tenantId and workspaceId for multi-tenant support
+  tenantId?: string;
+  workspaceId?: string;
+  // ✅ FIX: Add organization_id and brand_ids for compatibility
+  organization_id?: string;
+  brand_ids?: string[];
+  // ✅ FIX: Add weeklyFocus for Screen6WeeklyFocus
+  weeklyFocus?: string;
 }
 
 export interface BrandSnapshot {
@@ -129,11 +138,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
                 workspaceId: data.user.tenantId,
               };
               
-              // ✅ LOGGING: Session restored
-              console.log("[Auth] Session restored", {
+              // ✅ LOGGING: Session restored (no PII logged)
+              logInfo("Session restored", {
                 userId: data.user.id,
                 tenantId: data.user.tenantId,
-                email: data.user.email,
+                // Email not logged for security
               });
               
               setUser(user);
@@ -144,7 +153,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
               localStorage.removeItem("aligned_refresh_token");
             }
           } catch (error) {
-            console.error("[Auth] Failed to restore session:", error);
+            logError("Failed to restore session", error instanceof Error ? error : new Error(String(error)));
             // Continue to localStorage fallback
           }
         }
@@ -157,7 +166,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         // Check for old localStorage user data and clear it (migration cleanup)
         const stored = localStorage.getItem("aligned_user");
         if (stored && !token) {
-          console.warn("[Auth] Clearing old localStorage user data - authentication required");
+          logWarning("Clearing old localStorage user data - authentication required");
           localStorage.removeItem("aligned_user");
           localStorage.removeItem("aligned_brand");
           localStorage.removeItem("aligned_onboarding_step");
@@ -169,10 +178,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           try {
             setBrandSnapshot(JSON.parse(storedBrand));
           } catch (err) {
-            console.warn(
-              "Failed to parse aligned_brand, clearing corrupted key",
-              err,
-            );
+            logWarning("Failed to parse aligned_brand, clearing corrupted key", { error: String(err) });
             localStorage.removeItem("aligned_brand");
           }
         }
@@ -183,12 +189,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           try {
             setOnboardingStep(JSON.parse(storedStep));
           } catch (err) {
-            console.warn("Failed to parse onboarding_step, clearing key", err);
+            logWarning("Failed to parse onboarding_step, clearing key", { error: String(err) });
             localStorage.removeItem("aligned_onboarding_step");
           }
         }
       } catch (err) {
-        console.error("Unexpected error loading auth/brand/onboarding state:", err);
+        logError("Unexpected error loading auth/brand/onboarding state", err instanceof Error ? err : new Error(String(err)));
       }
     };
 
@@ -244,7 +250,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         const errorData = await response.json();
         // ✅ Handle both error formats: { error: { message } } and { message }
         const errorMessage = errorData?.error?.message || errorData?.message || `Signup failed (${response.status})`;
-        console.error("[Auth] Signup API error", {
+        logError("Signup API error", new Error("Signup failed"), {
           status: response.status,
           error: errorData,
           message: errorMessage,
@@ -273,16 +279,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         tenantId: data.user.tenantId,
       };
 
-      // ✅ LOGGING: Signup complete
-      console.log("[Auth] Signup complete", {
+      // ✅ LOGGING: Signup complete (no PII logged)
+      logInfo("Signup complete", {
         userId: data.user.id,
         tenantId: data.user.tenantId,
-        email: data.user.email,
+        // Email not logged for security
       });
 
       setUser(completeUser);
     } catch (error) {
-      console.error("[Auth] Signup error:", error);
+      logError("Signup error", error instanceof Error ? error : new Error(String(error)));
       throw error;
     }
   };
@@ -311,7 +317,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         });
       }
     } catch (error) {
-      console.error("[Auth] Logout error:", error);
+      logError("Logout error", error instanceof Error ? error : new Error(String(error)));
       // Continue with logout anyway
     } finally {
       setUser(null);
@@ -360,18 +366,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         tenantId: data.user.tenantId,
       };
 
-      // ✅ LOGGING: Login complete
-      console.log("[Auth] Login complete", {
+      // ✅ LOGGING: Login complete (no PII logged)
+      logInfo("Login complete", {
         userId: data.user.id,
         tenantId: data.user.tenantId,
-        email: data.user.email,
         brandCount: data.user.brandIds?.length || 0,
+        // Email not logged for security
       });
 
       setUser(user);
       return true;
     } catch (error) {
-      console.error("[Auth] Login error:", error);
+      logError("Login error", error instanceof Error ? error : new Error(String(error)));
       return false;
     }
   };

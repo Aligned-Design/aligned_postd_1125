@@ -221,8 +221,10 @@ describe.skip('Brand Intelligence API - JSON Responses', () => {
       for (const testCase of testCases) {
         const methodRequest = request[testCase.method as 'get' | 'post'](testCase.path);
 
-        if ((testCase as unknown).body) {
-          methodRequest.send((testCase as unknown).body);
+        // ✅ FIX: Type guard for testCase
+        const testCaseObj = testCase as Record<string, unknown>;
+        if (testCaseObj.body) {
+          methodRequest.send(testCaseObj.body);
         }
 
         const response = await methodRequest.expect(testCase.expectedStatus);

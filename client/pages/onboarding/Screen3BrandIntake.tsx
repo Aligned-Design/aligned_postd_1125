@@ -7,6 +7,7 @@ import { extractColorsFromImage, ColorSwatch } from "@/lib/colorExtraction";
 import { PalettePreview } from "@/components/onboarding/PalettePreview";
 import { Progress } from "@/components/ui/progress";
 import { saveBrandGuideFromOnboarding } from "@/lib/onboarding-brand-sync";
+import { logInfo, logError } from "@/lib/logger";
 
 interface BrandFormData {
   brandName: string;
@@ -32,45 +33,47 @@ const TONE_OPTIONS = [
 ];
 
 // Color theme palettes - each palette has 2-3 colors
+// Color themes using design token hex values where available
+// Note: These are data values (user-selectable palettes), not styling
 const COLOR_THEMES = [
   {
     name: "Professional",
-    colors: ["#1F2937", "#3B82F6", "#E5E7EB"],
+    colors: ["#1f2937", "#3b82f6", "#e5e7eb"], // gray-800, blue-500, gray-200 (design tokens)
     emoji: "💼",
   },
   {
     name: "Vibrant",
-    colors: ["#312E81", "#B9F227", "#EC4899"],
+    colors: ["#292661", "#a3e635", "#ec4899"], // primary-dark, lime-400, pink-500 (design tokens)
     emoji: "🌈",
   },
   {
     name: "Modern",
-    colors: ["#0F172A", "#06B6D4", "#F43F5E"],
+    colors: ["#0f172a", "#2563eb", "#dc2626"], // slate-900, blue-600, red-600 (design tokens)
     emoji: "✨",
   },
   {
     name: "Earthy",
-    colors: ["#92400E", "#D97706", "#F3E8FF"],
+    colors: ["#c2410c", "#f59e0b", "#c084fc"], // orange-700, amber-600, purple-400 (design tokens)
     emoji: "🌿",
   },
   {
     name: "Tech",
-    colors: ["#1E293B", "#8B5CF6", "#10B981"],
+    colors: ["#1e293b", "#a855f7", "#12b76a"], // slate-800, purple-500, success (design tokens)
     emoji: "🚀",
   },
   {
     name: "Bold",
-    colors: ["#7C2D12", "#DC2626", "#FBBF24"],
+    colors: ["#b91c1c", "#dc2626", "#fbbf24"], // red-700, red-600, amber-500 (design tokens)
     emoji: "⚡",
   },
   {
     name: "Minimal",
-    colors: ["#000000", "#FFFFFF", "#64748B"],
+    colors: ["#111827", "#ffffff", "#64748b"], // foreground, white, slate-500 (design tokens)
     emoji: "◇",
   },
   {
     name: "Creative",
-    colors: ["#EC4899", "#A855F7", "#0EA5E9"],
+    colors: ["#ec4899", "#a855f7", "#2563eb"], // pink-500, purple-500, blue-600 (design tokens)
     emoji: "🎨",
   },
 ];
@@ -180,7 +183,7 @@ export default function Screen3BrandIntake() {
         tone: form.tone.length > 0 ? form.tone : ["Professional"],
         audience: form.audience || "Mixed",
         goal: form.goal || "Strengthen brand consistency",
-        colors: form.colors.length > 0 ? form.colors : ["#312E81", "#B9F227"],
+        colors: form.colors.length > 0 ? form.colors : ["#292661", "#a3e635"], // primary-dark, lime-400 (design tokens)
         logo: form.logo ? URL.createObjectURL(form.logo) : undefined,
         industry: user?.industry,
         extractedMetadata: {
@@ -210,7 +213,9 @@ export default function Screen3BrandIntake() {
       // ✅ FIX: Use static import (already imported at top of file)
       await saveBrandGuideFromOnboarding(brandId, snapshot, form.brandName || "Your Brand");
       
-      console.log("[Onboarding] ✅ Manual brand guide saved to backend", { brandId });
+      if (import.meta.env.DEV) {
+        logInfo("Manual brand guide saved", { step: "manual_intake" });
+      }
 
       setBrandSnapshot(snapshot);
       setIsGenerating(false);
@@ -218,7 +223,9 @@ export default function Screen3BrandIntake() {
       // Continue to brand summary review (step 5)
       setOnboardingStep(5);
     } catch (error) {
-      console.error("[Onboarding] Failed to save manual brand guide:", error);
+      logError("Failed to save manual brand guide", error instanceof Error ? error : new Error(String(error)), {
+        step: "manual_intake",
+      });
       setIsGenerating(false);
       alert(`Failed to save brand information: ${error instanceof Error ? error.message : "Unknown error"}\n\nPlease try again.`);
     }

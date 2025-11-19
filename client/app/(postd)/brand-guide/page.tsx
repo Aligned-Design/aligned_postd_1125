@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useLayoutEffect, useCallback, useRef } from "react";
 import { FirstVisitTooltip } from "@/components/dashboard/FirstVisitTooltip";
 import { BrandGuide, INITIAL_BRAND_GUIDE, calculateCompletionPercentage } from "@/types/brandGuide";
 import { BrandDashboard } from "@/components/dashboard/BrandDashboard";
@@ -45,7 +45,13 @@ export default function BrandGuidePageComponent() {
   const [editingSection, setEditingSection] = useState<EditingSection>("dashboard");
   const [showWizard, setShowWizard] = useState(false);
   const [showStockModal, setShowStockModal] = useState(false);
-  const [brandStockImages, setBrandStockImages] = useState<any[]>([]);
+  // ✅ FIX: Define proper type for stock images
+  interface StockImage {
+    id: string;
+    previewUrl: string;
+    title: string;
+  }
+  const [brandStockImages, setBrandStockImages] = useState<StockImage[]>([]);
   const [localBrand, setLocalBrand] = useState<BrandGuide | null>(null);
 
   // Use local brand if loaded, otherwise use from hook
@@ -54,8 +60,9 @@ export default function BrandGuidePageComponent() {
   const autosaveTimerRef = useRef<NodeJS.Timeout | null>(null);
   const previousBrandIdRef = useRef<string | undefined>(currentBrandId);
 
+  // ✅ FIX: Use useLayoutEffect to avoid cascading renders
   // Reset local state when brand changes
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (previousBrandIdRef.current !== currentBrandId) {
       setLocalBrand(null);
       setShowWizard(false);
@@ -82,7 +89,8 @@ export default function BrandGuidePageComponent() {
       // No brand guide exists - show wizard
       setShowWizard(true);
     }
-  }, [brand, isLoading, currentBrand]); // Removed localBrand from deps to avoid loops
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [brand, isLoading, currentBrand]); // Removed localBrand from deps to avoid loops, setState is intentional
 
   // Autosave with debounce (sync to Supabase)
   // Use ref to avoid dependency on updateBrandGuide function
@@ -439,7 +447,7 @@ export default function BrandGuidePageComponent() {
                     <div className="bg-white rounded-xl border border-slate-200 p-6">
                       <h3 className="text-lg font-bold text-slate-900 mb-4">Assigned Stock Images ({brandStockImages.length})</h3>
                       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-                        {brandStockImages.map((image: any) => (
+                        {brandStockImages.map((image: StockImage) => (
                           <div key={image.id} className="group relative rounded-lg overflow-hidden border border-slate-200">
                             <img
                               src={image.previewUrl}
@@ -448,7 +456,7 @@ export default function BrandGuidePageComponent() {
                             />
                             <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-all flex items-center justify-center">
                               <button
-                                onClick={() => setBrandStockImages((prev: any[]) => prev.filter((img) => img.id !== image.id))}
+                                onClick={() => setBrandStockImages((prev: StockImage[]) => prev.filter((img) => img.id !== image.id))} // ✅ FIX: Use proper type
                                 className="opacity-0 group-hover:opacity-100 px-3 py-1 bg-red-600 text-white rounded font-bold text-sm transition-all"
                               >
                                 ✕ Remove

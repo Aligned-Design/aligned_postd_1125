@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useBrand } from "@/contexts/BrandContext";
+import { useAuth } from "@/lib/auth/useAuth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -74,6 +75,11 @@ export default function ClientPortal() {
     useState<ClientDashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeSection, setActiveSection] = useState("overview");
+  const { role } = useAuth();
+  
+  // Check if user is a view-only role (cannot approve)
+  // VIEWER role has no approve permissions; also check for undefined/null roles
+  const isViewOnly = role === "VIEWER" || !role;
 
   useEffect(() => {
     loadDashboardData();
@@ -203,12 +209,14 @@ export default function ClientPortal() {
                 </p>
               </div>
               <div className="flex gap-3">
-                <ActionChip
-                  icon={<CheckCircle className="h-4 w-4" />}
-                  label={`Approve items (${dashboardData.metrics.pendingApprovals})`}
-                  onClick={() => setActiveSection("approvals")}
-                  variant="primary"
-                />
+                {!isViewOnly && (
+                  <ActionChip
+                    icon={<CheckCircle className="h-4 w-4" />}
+                    label={`Approve items (${dashboardData.metrics.pendingApprovals})`}
+                    onClick={() => setActiveSection("approvals")}
+                    variant="primary"
+                  />
+                )}
                 <ActionChip
                   icon={<Upload className="h-4 w-4" />}
                   label="Upload assets"
@@ -280,6 +288,7 @@ export default function ClientPortal() {
             data={dashboardData}
             onUpdate={loadDashboardData}
             onWorkflowAction={handleWorkflowAction}
+            isViewOnly={isViewOnly}
           />
         )}
         {activeSection === "history" && (
@@ -503,10 +512,12 @@ function ApprovalsSection({
   data,
   onUpdate,
   onWorkflowAction,
+  isViewOnly,
 }: {
   data: ClientDashboardData;
   onUpdate: () => void;
   onWorkflowAction: (action: WorkflowAction) => void;
+  isViewOnly: boolean;
 }) {
   const [selectedApprovals, setSelectedApprovals] = useState<string[]>([]);
   const [previewItem, setPreviewItem] = useState<ContentItem | null>(null);
@@ -537,7 +548,7 @@ function ApprovalsSection({
     try {
       setLoading(true);
       let endpoint = `/api/client-portal/content/${action.contentId}/approve`;
-      let method = "POST";
+      const method = "POST";
       let body: { approved?: boolean; feedback?: string; rejected?: boolean };
 
       if (action.action === "approve") {
@@ -667,7 +678,7 @@ function ApprovalsSection({
               <SelectItem value="needs_changes">Needs Changes</SelectItem>
             </SelectContent>
           </Select>
-          {selectedApprovals.length > 0 && (
+          {!isViewOnly && selectedApprovals.length > 0 && (
             <Button
               onClick={handleBatchApproval}
               disabled={loading}
@@ -681,7 +692,7 @@ function ApprovalsSection({
       </div>
 
       {/* Quick Approve Section */}
-      {eligibleForBatch.length > 0 && filterStatus === "all" && (
+      {!isViewOnly && eligibleForBatch.length > 0 && filterStatus === "all" && (
         <Card className="border-green-200 bg-green-50/50">
           <CardHeader>
             <CardTitle className="text-green-800 flex items-center gap-2">
@@ -728,6 +739,7 @@ function ApprovalsSection({
           ) : (
             filteredContent.map((item) => (
               <ContentReviewCard
+                isViewOnly={isViewOnly}
                 key={item.id}
                 content={item}
                 selected={selectedApprovals.includes(item.id)}
@@ -756,6 +768,7 @@ function ApprovalsSection({
               onClose={() => setPreviewItem(null)}
               onApproval={handleApproval}
               loading={loading}
+              isViewOnly={isViewOnly}
             />
           ) : (
             <Card className="h-full flex items-center justify-center text-gray-500 sticky top-6">
@@ -993,6 +1006,7 @@ function ContentReviewCard({
   onPreview,
   onApproval,
   loading,
+  isViewOnly,
 }: {
   content: ContentItem;
   selected: boolean;
@@ -1000,6 +1014,7 @@ function ContentReviewCard({
   onPreview: () => void;
   onApproval: (action: ApprovalAction) => void;
   loading?: boolean;
+  isViewOnly: boolean;
 }) {
   // Determine if item can be batch approved (BFS ≥ 0.9, no compliance flags)
   const canBatchApprove = (content.bfsScore || 0) >= 0.9 && content.complianceBadges.length === 0;
@@ -1120,7 +1135,7 @@ function ContentReviewCard({
                 <Eye className="h-3 w-3 mr-1" />
                 Preview
               </Button>
-              {content.status !== "approved" && (
+              {!isViewOnly && content.status !== "approved" && (
                 <>
                   <Button
                     size="sm"
@@ -1174,11 +1189,13 @@ function ContentPreviewPanel({
   onClose,
   onApproval,
   loading,
+  isViewOnly,
 }: {
   content: ContentItem;
   onClose: () => void;
   onApproval: (action: ApprovalAction) => void;
   loading?: boolean;
+  isViewOnly: boolean;
 }) {
   const [comment, setComment] = useState("");
   const [showCommentBox, setShowCommentBox] = useState(false);
@@ -1311,7 +1328,7 @@ function ContentPreviewPanel({
         </div>
 
         {/* Action Buttons */}
-        {content.status !== "approved" && (
+        {!isViewOnly && content.status !== "approved" && (
           <div className="space-y-3 pt-4 border-t">
             <Button
               onClick={() =>

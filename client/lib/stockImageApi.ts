@@ -140,10 +140,14 @@ export async function searchStockImages(
       hasMore: data.hasMore || false,
     };
   } catch (error) {
-    console.error("[Stock Images] API error, falling back to mock data:", error);
+    // Log error in development only
+    if (import.meta.env.DEV) {
+      // eslint-disable-next-line no-console
+      console.error("[Stock Images] API error, falling back to mock data:", error);
+    }
     
     // Fallback to mock data if API fails
-    let results = MOCK_STOCK_IMAGES.filter((img) => {
+    const results = MOCK_STOCK_IMAGES.filter((img) => {
       const matchesQuery =
         !query ||
         img.title.toLowerCase().includes(query.toLowerCase()) ||
@@ -194,7 +198,11 @@ export async function getStockImage(id: string): Promise<StockImage | null> {
     const data = await response.json();
     return data.image || null;
   } catch (error) {
-    console.error("[Stock Images] API error, falling back to mock data:", error);
+    // Log error in development only
+    if (import.meta.env.DEV) {
+      // eslint-disable-next-line no-console
+      console.error("[Stock Images] API error, falling back to mock data:", error);
+    }
     // Fallback to mock data
     return MOCK_STOCK_IMAGES.find((img) => img.id === id) || null;
   }

@@ -6,6 +6,7 @@
  */
 
 import type { BrandGuide } from "@/types/brandGuide";
+import { logInfo, logError } from "@/lib/logger";
 
 /**
  * Convert Brand Snapshot (onboarding format) to Brand Guide format
@@ -227,17 +228,21 @@ export async function saveBrandGuideFromOnboarding(
     // Use PUT to save the full brand guide
     const { apiPut } = await import("@/lib/api");
     
-    console.log("[OnboardingBrandSync] Saving brand guide", {
-      brandId,
-      brandName,
-      hasSnapshot: !!brandSnapshot,
-    });
+    if (import.meta.env.DEV) {
+      logInfo("[OnboardingBrandSync] Saving brand guide", {
+        brandId,
+        brandName,
+        hasSnapshot: !!brandSnapshot,
+      });
+    }
     
     const response = await apiPut(`/api/brand-guide/${brandId}`, brandGuide);
 
-    console.log("[OnboardingBrandSync] Brand Guide saved to Supabase:", brandId);
+    if (import.meta.env.DEV) {
+      logInfo("[OnboardingBrandSync] Brand Guide saved to Supabase", { brandId });
+    }
   } catch (error) {
-    console.error("[OnboardingBrandSync] Error saving Brand Guide:", error);
+    logError("[OnboardingBrandSync] Error saving Brand Guide", error instanceof Error ? error : new Error(String(error)), { brandId });
     // Don't throw - onboarding should continue even if save fails
   }
 }
@@ -263,9 +268,11 @@ export async function updateBrandGuideFromSummary(
       throw new Error(error.message || `HTTP ${response.status}`);
     }
 
-    console.log("[OnboardingBrandSync] Brand Guide updated:", brandId);
+    if (import.meta.env.DEV) {
+      logInfo("[OnboardingBrandSync] Brand Guide updated", { brandId });
+    }
   } catch (error) {
-    console.error("[OnboardingBrandSync] Error updating Brand Guide:", error);
+    logError("[OnboardingBrandSync] Error updating Brand Guide", error instanceof Error ? error : new Error(String(error)), { brandId });
     // Don't throw - onboarding should continue
   }
 }

@@ -253,14 +253,15 @@ export function celebrateWinToast(
     });
   }
 
+  // ✅ FIX: toast title expects string, not ReactNode. Use description for the JSX content
   toast({
-    title: (
+    title: win.title, // Use string title
+    description: (
       <div className="flex items-center gap-2">
         <Trophy className="h-4 w-4 text-amber-500" />
-        <span>{win.title}</span>
+        <span>{win.description}</span>
       </div>
     ),
-    description: win.description,
     duration: 6000,
   });
 

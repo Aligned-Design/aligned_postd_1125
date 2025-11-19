@@ -11,6 +11,7 @@ import { Sparkles, CheckCircle2, Loader2, Palette, Image, MessageSquare, Package
 import { OnboardingProgress } from "@/components/onboarding/OnboardingProgress";
 import { useConfetti } from "@/hooks/useConfetti";
 import { saveBrandGuideFromOnboarding } from "@/lib/onboarding-brand-sync";
+import { logInfo, logWarning, logError } from "@/lib/logger";
 
 interface ScrapeProgress {
   step: string;
@@ -60,13 +61,16 @@ export default function Screen3AiScrape() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    console.log("[Onboarding] Screen3AiScrape loaded", {
-      hasWebsite: !!user?.website,
-      website: user?.website || "none",
-    });
+    if (import.meta.env.DEV) {
+      logInfo("Screen3AiScrape loaded", {
+        hasWebsite: !!user?.website,
+      });
+    }
 
     if (!user?.website) {
-      console.warn("[Onboarding] No website provided - skipping scraping, using default data");
+      if (import.meta.env.DEV) {
+        logWarning("No website provided - skipping scraping, using default data");
+      }
       // No website provided, skip scraping and generate default brand snapshot
       setTimeout(() => {
         generateDefaultBrandSnapshot();
@@ -74,7 +78,9 @@ export default function Screen3AiScrape() {
       return;
     }
 
-    console.log("[Onboarding] Starting scraping process for:", user.website);
+    if (import.meta.env.DEV) {
+      logInfo("Starting scraping process");
+    }
     startScraping();
   }, []);
 
@@ -113,7 +119,7 @@ export default function Screen3AiScrape() {
         particleCount: 120,
         spread: 70,
         origin: { y: 0.5 },
-        colors: ["#4F46E5", "#818CF8", "#C7D2FE", "#A855F7"],
+        colors: ["#632bf0", "#c084fc", "#e2e8f0", "#a855f7"], // primary-light, purple-400, slate-200, purple-500 (design tokens)
       });
 
       // Move to brand summary review after a moment
@@ -123,11 +129,8 @@ export default function Screen3AiScrape() {
     } catch (err) {
       // ✅ ENHANCED ERROR HANDLING: Log full error details and show user-friendly message
       const errorMessage = err instanceof Error ? err.message : String(err);
-      console.error("[Onboarding] ❌ Scraping failed:", {
-        error: errorMessage,
-        stack: err instanceof Error ? err.stack : undefined,
-        url: user.website,
-        brandId: localStorage.getItem("aligned_brand_id"),
+      logError("Scraping failed", err instanceof Error ? err : new Error(errorMessage), {
+        step: "scraping_process",
       });
       
       // Show user-friendly error message
@@ -156,7 +159,9 @@ export default function Screen3AiScrape() {
 
   const scrapeWebsite = async () => {
     if (!user?.website) {
-      console.warn("[Onboarding] scrapeWebsite called but no website provided");
+      if (import.meta.env.DEV) {
+        logWarning("scrapeWebsite called but no website provided");
+      }
       return;
     }
 
@@ -166,7 +171,7 @@ export default function Screen3AiScrape() {
       const brandId = localStorage.getItem("aligned_brand_id");
       if (!brandId) {
         const errorMsg = "Brand ID not found. Please go back to step 2 and complete brand creation.";
-        console.error("[Onboarding] ❌", errorMsg);
+        logError("Brand ID not found", new Error(errorMsg), { step: "scrape_validation" });
         setError(errorMsg);
         // Show error to user
         setTimeout(() => {
@@ -178,8 +183,8 @@ export default function Screen3AiScrape() {
       // ✅ Validate brandId is a UUID (not temporary brand_*)
       const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
       if (!uuidRegex.test(brandId)) {
-        const errorMsg = `Invalid brand ID format: ${brandId}. Brand must be created first. Please go back to step 2.`;
-        console.error("[Onboarding] ❌", errorMsg);
+        const errorMsg = `Invalid brand ID format. Brand must be created first. Please go back to step 2.`;
+        logError("Invalid brand ID format", new Error(errorMsg), { step: "scrape_validation" });
         setError(errorMsg);
         setTimeout(() => {
           alert(errorMsg);
@@ -187,11 +192,9 @@ export default function Screen3AiScrape() {
         return;
       }
 
-      console.log("[Onboarding] Starting scrape with real brandId", {
-        url: user.website,
-        brandId,
-        sync: true,
-      });
+      if (import.meta.env.DEV) {
+        logInfo("Starting scrape", { step: "crawl_started", sync: true });
+      }
 
       // Call the backend crawler endpoint (sync mode for onboarding)
       // ✅ CRITICAL: Include workspaceId/tenantId so images can be persisted
@@ -202,13 +205,12 @@ export default function Screen3AiScrape() {
       
       // ✅ Check if token exists before making request
       const token = localStorage.getItem("aligned_access_token");
-      console.log("[Onboarding] Calling crawler API", {
-        url: user.website,
-        brandId,
-        workspaceId: crawlerWorkspaceId,
-        hasToken: !!token,
-        tokenLength: token?.length || 0,
-      });
+      if (import.meta.env.DEV) {
+        logInfo("Calling crawler API", {
+          step: "crawl_api_call",
+          hasToken: !!token,
+        });
+      }
       
       const result = await apiPost(`/api/crawl/start`, {
         url: user.website,
@@ -217,21 +219,22 @@ export default function Screen3AiScrape() {
         sync: true, // Use sync mode for immediate results
       });
 
-      console.log("[Onboarding] ✅ Crawler API success", {
-        hasBrandKit: !!result.brandKit,
-        hasImages: !!(result.brandKit?.images?.length),
-        hasAboutBlurb: !!result.brandKit?.about_blurb,
-        aboutBlurbLength: result.brandKit?.about_blurb?.length || 0,
-        aboutBlurbPreview: result.brandKit?.about_blurb?.substring(0, 100),
-      });
+      if (import.meta.env.DEV) {
+        logInfo("Crawler API success", {
+          step: "crawl_complete",
+          hasBrandKit: !!result.brandKit,
+          hasImages: !!(result.brandKit?.images?.length),
+          hasAboutBlurb: !!result.brandKit?.about_blurb,
+        });
+      }
       
       // Handle both success and fallback responses
       const brandKit = result.brandKit || result;
       
       // ✅ CRITICAL: Log if about_blurb is missing or invalid
       if (!brandKit?.about_blurb || brandKit.about_blurb === "0" || brandKit.about_blurb.length < 10) {
-        console.error("[Onboarding] ❌ INVALID about_blurb from crawler:", {
-          aboutBlurb: brandKit?.about_blurb,
+        logError("Invalid about_blurb from crawler", new Error("about_blurb missing or invalid"), {
+          step: "crawl_validation",
           aboutBlurbType: typeof brandKit?.about_blurb,
           aboutBlurbLength: brandKit?.about_blurb?.length || 0,
         });
@@ -277,9 +280,11 @@ export default function Screen3AiScrape() {
       
       // Log if we got real scraped data or fallback
       if (result.status === "fallback") {
-        console.warn("[Onboarding] Crawler returned fallback data:", result.error);
+        logWarning("Crawler returned fallback data", { step: "crawl_fallback" });
       } else {
-        console.log("[Onboarding] Successfully scraped website data");
+        if (import.meta.env.DEV) {
+          logInfo("Successfully scraped website data", { step: "scrape_complete" });
+        }
       }
 
       setBrandSnapshot(brandSnapshot);
@@ -290,14 +295,20 @@ export default function Screen3AiScrape() {
       // Save Brand Guide to Supabase with real brandId
       try {
         await saveBrandGuideFromOnboarding(brandId, brandSnapshot, brandName);
-        console.log("[Onboarding] ✅ Brand Guide saved for brand:", brandId);
+        if (import.meta.env.DEV) {
+          logInfo("Brand Guide saved", { step: "brand_guide_saved" });
+        }
       } catch (error) {
-        console.error("[Onboarding] Failed to save Brand Guide:", error);
+        logError("Failed to save Brand Guide", error instanceof Error ? error : new Error(String(error)), {
+          step: "brand_guide_save",
+        });
         // Continue anyway - don't block onboarding
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Scraping failed";
-      console.error("[Onboarding] ❌ Scraping error:", err);
+      logError("Scraping error", err instanceof Error ? err : new Error(errorMessage), {
+        step: "scrape_error",
+      });
       
       // ✅ Show error to user instead of silently falling back
       setError(errorMessage);
@@ -314,7 +325,7 @@ export default function Screen3AiScrape() {
       tone: ["Professional", "Trustworthy", "Approachable"],
       audience: "Your target customers",
       goal: "Grow brand awareness and engagement",
-      colors: ["#4F46E5", "#818CF8", "#C7D2FE"],
+      colors: ["#632bf0", "#c084fc", "#e2e8f0"], // primary-light, purple-400, slate-200 (design tokens)
       industry: user?.industry,
       extractedMetadata: {
         keywords: [],

@@ -120,7 +120,8 @@ export async function uploadBrandFiles(
 
   const { error } = await supabase.from("brand_assets").insert(assetRecords);
 
-  if (error) {
+  if (error && import.meta.env.DEV) {
+    // eslint-disable-next-line no-console
     console.error("Error creating brand_assets records:", error);
   }
 

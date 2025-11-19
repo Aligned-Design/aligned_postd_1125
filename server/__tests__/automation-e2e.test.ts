@@ -53,11 +53,13 @@ class MockBFSScorer {
   }
 
   async scoreContent(content: unknown, brandGuide: unknown) {
+    // ✅ FIX: Type guard for content
+    const contentObj = content as Record<string, unknown>;
     // Simulate scoring logic
-    const toneScore = content.tone === "professional" ? 95 : 30;
-    const terminologyScore = content.body.includes("Solution") ? 90 : 40;
-    const complianceScore = !content.body.includes("guarantee") ? 95 : 20;
-    const ctaScore = content.cta ? 90 : 10;
+    const toneScore = contentObj.tone === "professional" ? 95 : 30;
+    const terminologyScore = typeof contentObj.body === "string" && contentObj.body.includes("Solution") ? 90 : 40;
+    const complianceScore = typeof contentObj.body === "string" && !contentObj.body.includes("guarantee") ? 95 : 20;
+    const ctaScore = contentObj.cta ? 90 : 10;
     const platformScore = 85;
 
     const overallScore =
@@ -85,17 +87,19 @@ class MockBFSScorer {
     content: unknown,
     _brandGuide: unknown,
   ): string[] {
+    // ✅ FIX: Type guard for content
+    const contentObj = content as Record<string, unknown>;
     const recommendations: string[] = [];
 
-    if (content.tone !== "professional") {
+    if (contentObj.tone !== "professional") {
       recommendations.push("Adjust tone to be more professional");
     }
 
-    if (!content.cta) {
+    if (!contentObj.cta) {
       recommendations.push("Add a clear call-to-action");
     }
 
-    if (content.body.includes("guarantee")) {
+    if (typeof contentObj.body === "string" && contentObj.body.includes("guarantee")) {
       recommendations.push("Remove guarantee claims");
     }
 
@@ -110,10 +114,13 @@ class MockSchedulingService {
   private scheduledPosts = new Map<string, unknown>();
 
   async schedulePost(postId: string, content: unknown, scheduleTime: Date) {
+    // ✅ FIX: Type guard for scheduled
     // Check for conflicts
     for (const [, scheduled] of this.scheduledPosts) {
+      const scheduledObj = scheduled as Record<string, unknown>;
+      const scheduledTime = scheduledObj.scheduleTime as Date;
       const timeDiff = Math.abs(
-        scheduled.scheduleTime.getTime() - scheduleTime.getTime(),
+        scheduledTime.getTime() - scheduleTime.getTime(),
       );
       if (timeDiff < 3600000) {
         // Less than 1 hour apart
@@ -163,8 +170,12 @@ class MockAuditLogger {
   }
 
   getLogs(action?: string) {
+    // ✅ FIX: Type guard for logs
     return action
-      ? this.logs.filter((log) => log.action === action)
+      ? this.logs.filter((log) => {
+          const logObj = log as Record<string, unknown>;
+          return logObj.action === action;
+        })
       : this.logs;
   }
 
@@ -222,9 +233,11 @@ class AutomationPipeline {
           )
         : await this.aiService.generateContent("");
 
+      // ✅ FIX: Type guard for content
+      const contentObj = content as Record<string, unknown>;
       await this.auditLogger.logAction("AI_GENERATION_COMPLETE", {
         postId: request.postId,
-        contentPreview: `${content.title} - ${content.body.substring(0, 50)}...`,
+        contentPreview: `${contentObj.title} - ${typeof contentObj.body === "string" ? contentObj.body.substring(0, 50) : ""}...`,
         generationTime: Date.now() - startTime,
       });
 
@@ -341,10 +354,12 @@ describe.skip("Automation Pipeline E2E Tests", () => {
 
       const result = await pipeline.executeAutomation(request);
 
-      expect(result.content.title).toBeTruthy();
-      expect(result.content.body).toBeTruthy();
-      expect(result.content.cta).toBeTruthy();
-      expect(result.content.hashtags).toBeInstanceOf(Array);
+      // ✅ FIX: Type guard for result.content
+      const content = result.content as Record<string, unknown>;
+      expect(content.title).toBeTruthy();
+      expect(content.body).toBeTruthy();
+      expect(content.cta).toBeTruthy();
+      expect((result.content as Record<string, unknown>).hashtags).toBeInstanceOf(Array);
     });
 
     it("should score content against brand guide", async () => {
@@ -384,18 +399,28 @@ describe.skip("Automation Pipeline E2E Tests", () => {
       const allLogs = pipeline.getAuditLogs();
       expect(allLogs.length).toBeGreaterThanOrEqual(4); // At minimum: started, generation, application, scheduling
 
-      expect(allLogs.some((log) => log.action === "AUTOMATION_STARTED")).toBe(
-        true,
-      );
+      // ✅ FIX: Type guard for logs
+      expect(allLogs.some((log) => {
+        const logObj = log as Record<string, unknown>;
+        return logObj.action === "AUTOMATION_STARTED";
+      })).toBe(true);
       expect(
-        allLogs.some((log) => log.action === "AI_GENERATION_COMPLETE"),
+        allLogs.some((log) => {
+          const logObj = log as Record<string, unknown>;
+          return logObj.action === "AI_GENERATION_COMPLETE";
+        }),
       ).toBe(true);
+      // ✅ FIX: Type guard for remaining log checks
       expect(
-        allLogs.some((log) => log.action === "BRAND_APPLICATION_COMPLETE"),
+        allLogs.some((log) => {
+          const logObj = log as Record<string, unknown>;
+          return logObj.action === "BRAND_APPLICATION_COMPLETE";
+        }),
       ).toBe(true);
-      expect(allLogs.some((log) => log.action === "SCHEDULING_COMPLETE")).toBe(
-        true,
-      );
+      expect(allLogs.some((log) => {
+        const logObj = log as Record<string, unknown>;
+        return logObj.action === "SCHEDULING_COMPLETE";
+      })).toBe(true);
     });
   });
 
@@ -439,7 +464,9 @@ describe.skip("Automation Pipeline E2E Tests", () => {
 
       const failureLogs = pipeline.getAuditLogs("AUTOMATION_FAILED");
       expect(failureLogs.length).toBeGreaterThan(0);
-      expect(failureLogs[0].metadata).toHaveProperty("failureReason");
+      // ✅ FIX: Type guard for failureLogs
+      const firstLog = failureLogs[0] as Record<string, unknown>;
+      expect(firstLog.metadata).toHaveProperty("failureReason");
     });
   });
 
@@ -554,9 +581,14 @@ describe.skip("Automation Pipeline E2E Tests", () => {
       await pipeline.executeAutomation(request);
 
       const logs = pipeline.getAuditLogs();
+      // ✅ FIX: Type guard for logs
       for (let i = 1; i < logs.length; i++) {
-        expect(logs[i].timestamp.getTime()).toBeGreaterThanOrEqual(
-          logs[i - 1].timestamp.getTime(),
+        const currentLog = logs[i] as Record<string, unknown>;
+        const previousLog = logs[i - 1] as Record<string, unknown>;
+        const currentTimestamp = currentLog.timestamp as Date;
+        const previousTimestamp = previousLog.timestamp as Date;
+        expect(currentTimestamp.getTime()).toBeGreaterThanOrEqual(
+          previousTimestamp.getTime(),
         );
       }
     });
@@ -642,11 +674,11 @@ describe.skip("Automation Pipeline E2E Tests", () => {
   describe("Error Recovery", () => {
     it("should gracefully handle and log unexpected errors", async () => {
       const request = createMockAutomationRequest({
-        contentVariant: "happy_path" as unknown, // Valid variant
+        contentVariant: "happy_path", // Valid variant
       });
 
       // Modify request to trigger error
-      const invalidRequest = { ...request, postId: null as unknown };
+      const invalidRequest = { ...request, postId: null as unknown as string };
 
       try {
         await pipeline.executeAutomation(invalidRequest);

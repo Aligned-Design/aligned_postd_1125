@@ -231,9 +231,10 @@ async function runAdvisorStep(brand_id: string): Promise<AdvisorOutput> {
 
   const aiResponse = await generateWithAI(prompt, "advisor");
 
+  // ✅ FIX: aiResponse is AIGenerationOutput, extract content property
   let output: AdvisorOutput;
   try {
-    output = JSON.parse(aiResponse);
+    output = JSON.parse(aiResponse.content);
   } catch {
     // Fallback if parsing fails
     output = {
@@ -299,19 +300,22 @@ async function runDocStep(
 
     const aiResponse = await generateWithAI(prompt, "doc");
 
+    // ✅ FIX: aiResponse is AIGenerationOutput, extract content property
     let parsedOutput;
     try {
-      parsedOutput = JSON.parse(aiResponse);
+      parsedOutput = JSON.parse(aiResponse.content);
     } catch {
+      // ✅ FIX: AIGenerationOutput has content property
+      const content = aiResponse.content;
       parsedOutput = {
-        headline: aiResponse.split("\n")[0] || "",
-        body: aiResponse,
+        headline: content.split("\n")[0] || "",
+        body: content,
         cta: "Learn more",
         hashtags: ["#YourBrand"],
         post_theme: input.format,
         tone_used: "professional",
         aspect_ratio: getAspectRatio(input.platform, input.format),
-        char_count: aiResponse.length,
+        char_count: content.length,
       };
     }
 
@@ -412,9 +416,11 @@ async function runDesignStep(
 
   const aiResponse = await generateWithAI(prompt, "design");
 
+  // ✅ FIX: aiResponse is AIGenerationOutput, extract content property
   let parsedOutput;
   try {
-    parsedOutput = JSON.parse(aiResponse);
+    const responseText = aiResponse.content; // AIGenerationOutput has content property
+    parsedOutput = JSON.parse(responseText);
   } catch {
     parsedOutput = {
       cover_title: input.headline || "Your Content",

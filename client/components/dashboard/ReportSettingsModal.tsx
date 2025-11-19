@@ -339,11 +339,9 @@ export function ReportSettingsModal({
             </button>
 
             {includeAISummary && (
-              <AlignedAISummary
-                summary={aiSummary}
-                onSummaryChange={setAiSummary}
-                readOnly={false}
-              />
+              // ✅ FIX: AlignedAISummary doesn't accept summary/onSummaryChange props
+              // It reads from context internally, so we just render it
+              <AlignedAISummary />
             )}
           </div>
 

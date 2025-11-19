@@ -94,16 +94,40 @@ export function useRealtimeAnalytics(
 
     // Receive analytics sync progress
     socket.on("analytics:sync-progress", (data: unknown) => {
+      // ✅ FIX: Type guard for WebSocket payload
+      const isAnalyticsPayload = (payload: unknown): payload is {
+        syncId?: string;
+        eventType?: string;
+        platform?: string;
+        progress?: number;
+        recordsProcessed?: number;
+        totalRecords?: number;
+        currentMetric?: string;
+        timestamp?: string;
+      } => {
+        return payload !== null && typeof payload === "object";
+      };
+      
+      const payload = isAnalyticsPayload(data) ? data : {};
+      // ✅ FIX: Ensure eventType matches the union type
+      const eventType = (
+        payload.eventType === "analytics:sync-started" ||
+        payload.eventType === "analytics:sync-progress" ||
+        payload.eventType === "analytics:sync-completed" ||
+        payload.eventType === "analytics:insights-generated" ||
+        payload.eventType === "analytics:forecast-ready"
+      ) ? payload.eventType : "analytics:sync-progress";
+      
       const event: AnalyticsEvent = {
-        syncId: data.syncId || `sync-${Date.now()}`,
-        eventType: data.eventType || "analytics:sync-progress",
+        syncId: payload.syncId || `sync-${Date.now()}`,
+        eventType,
         data: {
-          platform: data.platform,
-          progress: data.progress,
-          recordsProcessed: data.recordsProcessed,
-          totalRecords: data.totalRecords,
-          currentMetric: data.currentMetric,
-          timestamp: data.timestamp,
+          platform: payload.platform,
+          progress: payload.progress,
+          recordsProcessed: payload.recordsProcessed,
+          totalRecords: payload.totalRecords,
+          currentMetric: payload.currentMetric,
+          timestamp: payload.timestamp,
         },
       };
 
@@ -117,9 +141,13 @@ export function useRealtimeAnalytics(
     });
 
     socket.on("error", (err: unknown) => {
-      const error = new Error(
-        typeof err === "string" ? err : err?.message || "WebSocket error"
-      );
+      // ✅ FIX: Type guard for error payload
+      const errorMessage = typeof err === "string" 
+        ? err 
+        : (err && typeof err === "object" && "message" in err && typeof err.message === "string")
+        ? err.message
+        : "WebSocket error";
+      const error = new Error(errorMessage);
       setError(error);
       console.error("WebSocket error:", error);
 

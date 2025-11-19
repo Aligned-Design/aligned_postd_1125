@@ -6,7 +6,12 @@ import { SchedulingAdvisor } from "@/components/dashboard/SchedulingAdvisor";
 import { AnalyticsPanel } from "@/components/dashboard/AnalyticsPanel";
 import { FirstVisitTooltip } from "@/components/dashboard/FirstVisitTooltip";
 import { NewPostButton } from "@/components/postd/shared/NewPostButton";
-import { X, Filter } from "lucide-react";
+import { PageShell } from "@/components/postd/ui/layout/PageShell";
+import { PageHeader } from "@/components/postd/ui/layout/PageHeader";
+import { LoadingState } from "@/components/postd/dashboard/states/LoadingState";
+import { ErrorState } from "@/components/postd/ui/feedback/ErrorState";
+import { EmptyState } from "@/components/postd/ui/feedback/EmptyState";
+import { X, Filter, Calendar as CalendarIcon } from "lucide-react";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
 
 type ViewType = "day" | "week" | "month";
@@ -18,10 +23,21 @@ export default function Calendar() {
   const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>([]);
   const [selectedCampaign, setSelectedCampaign] = useState<string | null>(null);
   const [showFilters, setShowFilters] = useState(false);
+  // TODO: Replace with real data fetching hook when API is ready
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<Error | null>(null);
+  const [hasContent, setHasContent] = useState(true); // Mock: assume content exists
 
   const brands = ["Brand A", "Brand B", "Brand C"];
   const platforms = ["LinkedIn", "Instagram", "Facebook", "Twitter", "TikTok", "YouTube"];
   const campaigns = ["Product Launch", "Holiday Promo", "Brand Awareness", "Customer Spotlight"];
+
+  const handleRetry = () => {
+    setError(null);
+    setIsLoading(true);
+    // TODO: Refetch calendar data when API is ready
+    setTimeout(() => setIsLoading(false), 1000);
+  };
 
   const togglePlatform = (platform: string) => {
     setSelectedPlatforms((prev) =>
@@ -37,29 +53,71 @@ export default function Calendar() {
 
   const hasActiveFilters = selectedBrand || selectedPlatforms.length > 0 || selectedCampaign;
 
-  return (    
+  // Loading state
+  if (isLoading) {
+    return (
+      <PageShell>
+        <PageHeader
+          title="Content Calendar"
+          subtitle="Visualize and manage all your scheduled content across platforms."
+          actions={<NewPostButton variant="default" size="md" label="Create Content" />}
+        />
+        <LoadingState />
+      </PageShell>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <PageShell>
+        <PageHeader
+          title="Content Calendar"
+          subtitle="Visualize and manage all your scheduled content across platforms."
+          actions={<NewPostButton variant="default" size="md" label="Create Content" />}
+        />
+        <ErrorState onRetry={handleRetry} />
+      </PageShell>
+    );
+  }
+
+  // Empty state (when no content exists)
+  if (!hasContent) {
+    return (
+      <PageShell>
+        <PageHeader
+          title="Content Calendar"
+          subtitle="Visualize and manage all your scheduled content across platforms."
+          actions={<NewPostButton variant="default" size="md" label="Create Content" />}
+        />
+        <EmptyState
+          icon={<CalendarIcon className="w-12 h-12 text-slate-400" />}
+          title="No Scheduled Content"
+          description="Your calendar is empty. Create your first post to get started!"
+          action={{
+            label: "Create Content",
+            onClick: () => {
+              // Navigate to studio or content creation
+              window.location.href = "/studio";
+            },
+          }}
+        />
+      </PageShell>
+    );
+  }
+
+  return (
+    <PageShell>
+      <PageHeader
+        title="Content Calendar"
+        subtitle={`${currentWorkspace?.logo || ""} ${currentWorkspace?.name || ""} — Visualize and manage all your scheduled content across platforms.`}
+        actions={<NewPostButton variant="default" size="md" label="Create Content" />}
+      />
       <FirstVisitTooltip page="calendar">
-        <div className="min-h-screen bg-gradient-to-b from-indigo-50/30 via-white to-blue-50/20">
-        <div className="p-4 sm:p-6 md:p-8 max-w-7xl mx-auto">
-          {/* Page Header */}
-          <div className="mb-8 sm:mb-12">
-            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-4">
-              <div>
-                <h1 className="text-3xl sm:text-4xl font-black text-slate-900 mb-2 sm:mb-3">
-                  Content Calendar
-                </h1>
-                <p className="text-slate-600 text-xs sm:text-sm font-medium">
-                  {currentWorkspace?.logo} {currentWorkspace?.name} — Visualize and manage all your scheduled content across platforms.
-                </p>
-              </div>
-              <div className="flex-shrink-0">
-                <NewPostButton variant="default" size="md" label="Create Content" />
-              </div>
-            </div>
-          </div>
+        <div className="space-y-6">
 
           {/* ZONE 1: View Toggles & Filters */}
-          <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             {/* View Toggle */}
             <div className="inline-flex gap-2 rounded-lg bg-white/50 backdrop-blur-xl border border-white/60 p-1">
               <button
@@ -182,7 +240,7 @@ export default function Calendar() {
           )}
 
           {/* ZONE 2: Calendar Views */}
-          <div className="mb-12">
+          <div>
             {view === "day" && (
               <DayViewHourly
                 filterBrand={selectedBrand}
@@ -208,7 +266,7 @@ export default function Calendar() {
           </div>
 
           {/* ZONE 3: Scheduling Advisor */}
-          <div className="mb-12">
+          <div>
             <SchedulingAdvisor />
           </div>
 
@@ -218,8 +276,7 @@ export default function Calendar() {
             <AnalyticsPanel />
           </div>
         </div>
-      </div>
       </FirstVisitTooltip>
-    
+    </PageShell>
   );
 }

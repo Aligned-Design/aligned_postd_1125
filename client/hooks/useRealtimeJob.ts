@@ -87,9 +87,13 @@ export function useRealtimeJob(
     });
 
     socket.on("error", (err: unknown) => {
-      const error = new Error(
-        typeof err === "string" ? err : err?.message || "WebSocket error"
-      );
+      // ✅ FIX: Type guard for error payload
+      const errorMessage = typeof err === "string" 
+        ? err 
+        : (err && typeof err === "object" && "message" in err && typeof err.message === "string")
+        ? err.message
+        : "WebSocket error";
+      const error = new Error(errorMessage);
       setError(error);
       console.error("WebSocket error:", error);
 

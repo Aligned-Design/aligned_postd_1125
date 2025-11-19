@@ -140,6 +140,18 @@ export function DocAiPanel({ onUseVariant, onEditVariant }: DocAiPanelProps) {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              handleGenerate();
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+                e.preventDefault();
+                handleGenerate();
+              }
+            }}
+          >
           {/* Essential Fields Only */}
           <div className="space-y-2">
             <label htmlFor="doc-topic" className="text-sm font-semibold">
@@ -179,12 +191,12 @@ export function DocAiPanel({ onUseVariant, onEditVariant }: DocAiPanelProps) {
               </Select>
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-semibold">Content Type</label>
+              <label htmlFor="doc-content-type" className="text-sm font-semibold">Content Type</label>
               <Select
                 value={formData.contentType}
                 onValueChange={(value: any) => setFormData({ ...formData, contentType: value })}
               >
-                <SelectTrigger>
+                <SelectTrigger id="doc-content-type" aria-label="Content Type">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -206,12 +218,12 @@ export function DocAiPanel({ onUseVariant, onEditVariant }: DocAiPanelProps) {
             </summary>
             <div className="mt-3 space-y-3 pt-3 border-t border-slate-200">
               <div className="space-y-2">
-                <label className="text-sm font-medium text-slate-600">Length</label>
+                <label htmlFor="doc-length" className="text-sm font-medium text-slate-600">Length</label>
                 <Select
                   value={formData.length}
                   onValueChange={(value: any) => setFormData({ ...formData, length: value })}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger id="doc-length" aria-label="Length">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -222,27 +234,31 @@ export function DocAiPanel({ onUseVariant, onEditVariant }: DocAiPanelProps) {
                 </Select>
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-medium text-slate-600">Call-to-Action</label>
+                <label htmlFor="doc-cta" className="text-sm font-medium text-slate-600">Call-to-Action</label>
                 <Input
+                  id="doc-cta"
                   placeholder="e.g., Shop Now, Learn More"
                   value={formData.callToAction}
                   onChange={(e) => setFormData({ ...formData, callToAction: e.target.value })}
+                  aria-label="Call to action"
                 />
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-medium text-slate-600">Additional Context</label>
+                <label htmlFor="doc-context" className="text-sm font-medium text-slate-600">Additional Context</label>
                 <Textarea
+                  id="doc-context"
                   placeholder="Any specific tone, style, or requirements..."
                   value={formData.additionalContext}
                   onChange={(e) => setFormData({ ...formData, additionalContext: e.target.value })}
                   rows={2}
+                  aria-label="Additional context"
                 />
               </div>
             </div>
           </details>
 
           <Button
-            onClick={handleGenerate}
+            type="submit"
             disabled={isLoading || !formData.topic}
             className="w-full font-semibold"
             size="lg"
@@ -259,6 +275,7 @@ export function DocAiPanel({ onUseVariant, onEditVariant }: DocAiPanelProps) {
               </>
             )}
           </Button>
+          </form>
         </CardContent>
       </Card>
 

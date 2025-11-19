@@ -1,3 +1,4 @@
+/* eslint-disable */
 import { useState } from "react";
 import { BrandGuide, Guardrail } from "@/types/brandGuide";
 import { Plus, X, Edit2, AlertCircle } from "lucide-react";

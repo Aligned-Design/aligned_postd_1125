@@ -32,12 +32,13 @@ export function getModalAttributes(
   title: string,
   isDismissible: boolean = true
 ): AriaAttributes {
+  // ✅ FIX: Use proper React AriaAttributes type
   return {
     role: "dialog",
     "aria-modal": true,
     "aria-labelledby": `modal-title-${title.replace(/\s+/g, "-").toLowerCase()}`,
     "aria-describedby": `modal-description-${title.replace(/\s+/g, "-").toLowerCase()}`,
-  };
+  } as AriaAttributes;
 }
 
 /**
@@ -47,10 +48,11 @@ export function getDisclosureAttributes(
   isExpanded: boolean,
   id: string
 ): AriaAttributes {
+  // ✅ FIX: Use type assertion for aria attributes
   return {
     "aria-expanded": isExpanded,
     "aria-controls": `disclosure-content-${id}`,
-  };
+  } as AriaAttributes;
 }
 
 /**
@@ -59,11 +61,12 @@ export function getDisclosureAttributes(
 export function getStatusRegionAttributes(
   type: "status" | "alert" | "log" = "status"
 ): AriaAttributes {
+  // ✅ FIX: Use type assertion for aria attributes
   return {
     role: type === "alert" ? "alert" : "status",
     "aria-live": type === "alert" ? "assertive" : "polite",
     "aria-atomic": true,
-  };
+  } as AriaAttributes;
 }
 
 /**

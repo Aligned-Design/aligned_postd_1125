@@ -8,7 +8,7 @@
 export function calculateReadTime(content: string): number {
   // Remove markdown syntax for word count
   const plainText = content
-    .replace(/[#*`\[\]()]/g, '') // Remove markdown characters
+    .replace(/[#*`[\]()]/g, '') // Remove markdown characters
     .replace(/\s+/g, ' ') // Normalize whitespace
     .trim();
   

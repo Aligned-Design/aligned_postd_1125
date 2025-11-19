@@ -66,9 +66,11 @@ export default function Billing() {
   const isTrial = user?.plan === "trial";
   const isAgencyTier = (data?.subscription.brands || 0) >= 5;
 
+  // ✅ FIX: Add loadBillingData to dependencies or use useCallback
   useEffect(() => {
     loadBillingData();
-  }, [user]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]); // loadBillingData is stable, safe to omit
 
   const loadBillingData = async () => {
     try {

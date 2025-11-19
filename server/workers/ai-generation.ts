@@ -478,19 +478,22 @@ Return as valid JSON with this structure:
   try {
     const result = await generateWithAI(designPrompt, "design", provider);
 
+    // ✅ FIX: result is AIGenerationOutput, extract content property
+    const content = result.content;
+
     // Try to parse as JSON first
     try {
-      const parsed = JSON.parse(result);
+      const parsed = JSON.parse(content);
       return {
         content: JSON.stringify(parsed, null, 2),
-        provider: provider || "openai",
+        provider: result.provider || provider || "openai",
         agentType: "design"
       };
     } catch (_parseError) {
       // Fallback if not valid JSON
       return {
-        content: result,
-        provider: provider || "openai",
+        content: content,
+        provider: result.provider || provider || "openai",
         agentType: "design"
       };
     }

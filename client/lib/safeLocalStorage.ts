@@ -4,7 +4,11 @@ export function safeGetJSON<T = any>(key: string, defaultValue: T | null = null)
     if (!raw) return defaultValue;
     return JSON.parse(raw) as T;
   } catch (err) {
-    console.warn(`safeGetJSON: failed to parse localStorage key ${key}`, err);
+    // Failed to parse - remove corrupted data
+    if (import.meta.env.DEV) {
+      // eslint-disable-next-line no-console
+      console.warn(`safeGetJSON: failed to parse localStorage key ${key}`, err);
+    }
     try {
       localStorage.removeItem(key);
     } catch (e) {
@@ -18,6 +22,10 @@ export function safeSetJSON(key: string, value: any) {
   try {
     localStorage.setItem(key, JSON.stringify(value));
   } catch (err) {
-    console.warn(`safeSetJSON: failed to set localStorage key ${key}`, err);
+    // Failed to set - likely quota exceeded
+    if (import.meta.env.DEV) {
+      // eslint-disable-next-line no-console
+      console.warn(`safeSetJSON: failed to set localStorage key ${key}`, err);
+    }
   }
 }

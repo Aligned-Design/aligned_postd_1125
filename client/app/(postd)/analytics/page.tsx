@@ -13,6 +13,10 @@ import { useSearchParams } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PageShell } from "@/components/postd/ui/layout/PageShell";
 import { PageHeader } from "@/components/postd/ui/layout/PageHeader";
+import { LoadingState } from "@/components/postd/dashboard/states/LoadingState";
+import { ErrorState } from "@/components/postd/ui/feedback/ErrorState";
+import { EmptyState } from "@/components/postd/ui/feedback/EmptyState";
+import { BarChart3 as BarChart3Icon } from "lucide-react";
 
 export default function Analytics() {
   const { currentWorkspace } = useWorkspace();
@@ -34,7 +38,7 @@ export default function Analytics() {
   
   // Fetch analytics data with lastUpdated timestamp
   const days = dateRange.days || 30;
-  const { data: analyticsData, isLoading: isLoadingAnalytics } = useAnalytics(days);
+  const { data: analyticsData, isLoading: isLoadingAnalytics, isError: isErrorAnalytics, error: analyticsError, refetch: refetchAnalytics } = useAnalytics(days);
 
   // Phase 2 – Issue 1: Transform API platform metrics to UI format
   const platformMetrics: PlatformMetrics[] = useMemo(() => {
@@ -376,6 +380,87 @@ export default function Analytics() {
   const handleTabChange = (value: string) => {
     setSearchParams({ tab: value }, { replace: true });
   };
+
+  const handleRetry = () => {
+    refetchAnalytics();
+  };
+
+  // Loading state
+  if (isLoadingAnalytics) {
+    return (
+      <PageShell>
+        <PageHeader
+          title="Analytics"
+          subtitle={`${currentWorkspace?.name || "Workspace"} — Cross-platform performance insights and recommendations`}
+          actions={
+            <ReportingMenu
+              onSettings={handleReportSettings}
+              onRun={handleRunReport}
+              onEmail={handleEmailReport}
+              dateRangeLabel={dateRange.label}
+            />
+          }
+        />
+        <LoadingState />
+      </PageShell>
+    );
+  }
+
+  // Error state
+  if (isErrorAnalytics) {
+    return (
+      <PageShell>
+        <PageHeader
+          title="Analytics"
+          subtitle={`${currentWorkspace?.name || "Workspace"} — Cross-platform performance insights and recommendations`}
+          actions={
+            <ReportingMenu
+              onSettings={handleReportSettings}
+              onRun={handleRunReport}
+              onEmail={handleEmailReport}
+              dateRangeLabel={dateRange.label}
+            />
+          }
+        />
+        <ErrorState 
+          onRetry={handleRetry}
+          title="Failed to load analytics"
+          message={analyticsError instanceof Error ? analyticsError.message : "An unexpected error occurred"}
+        />
+      </PageShell>
+    );
+  }
+
+  // Empty state (no analytics data)
+  if (!analyticsData || (!analyticsData.platforms || Object.keys(analyticsData.platforms).length === 0)) {
+    return (
+      <PageShell>
+        <PageHeader
+          title="Analytics"
+          subtitle={`${currentWorkspace?.name || "Workspace"} — Cross-platform performance insights and recommendations`}
+          actions={
+            <ReportingMenu
+              onSettings={handleReportSettings}
+              onRun={handleRunReport}
+              onEmail={handleEmailReport}
+              dateRangeLabel={dateRange.label}
+            />
+          }
+        />
+        <EmptyState
+          icon={<BarChart3Icon className="w-12 h-12 text-slate-400" />}
+          title="No Analytics Data"
+          description="Analytics data will appear here once you start publishing content and connecting your social media accounts."
+          action={{
+            label: "Connect Accounts",
+            onClick: () => {
+              window.location.href = "/linked-accounts";
+            },
+          }}
+        />
+      </PageShell>
+    );
+  }
 
   return (
     <FirstVisitTooltip page="analytics">

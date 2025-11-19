@@ -209,16 +209,30 @@ export function DesignAiPanel({ onUseVariant }: DesignAiPanelProps) {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              handleGenerate();
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+                e.preventDefault();
+                handleGenerate();
+              }
+            }}
+          >
           {/* Essential Fields Only */}
           <div className="space-y-2">
-            <label className="text-sm font-semibold">
+            <label htmlFor="design-campaign" className="text-sm font-semibold">
               What visual concept do you need? <span className="text-red-500">*</span>
             </label>
             <Input
+              id="design-campaign"
               placeholder="e.g., Fall Promotion, Product Launch, Event Announcement"
               value={formData.campaignName}
               onChange={(e) => setFormData({ ...formData, campaignName: e.target.value })}
               className="text-base"
+              aria-label="Visual concept description"
             />
             <p className="text-xs text-slate-500">
               Describe the visual concept you want to create
@@ -227,12 +241,12 @@ export function DesignAiPanel({ onUseVariant }: DesignAiPanelProps) {
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <label className="text-sm font-semibold">Platform</label>
+              <label htmlFor="design-platform" className="text-sm font-semibold">Platform</label>
               <Select
                 value={formData.platform}
                 onValueChange={(value) => setFormData({ ...formData, platform: value })}
               >
-                <SelectTrigger>
+                <SelectTrigger id="design-platform" aria-label="Platform">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -246,12 +260,12 @@ export function DesignAiPanel({ onUseVariant }: DesignAiPanelProps) {
               </Select>
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-semibold">Format</label>
+              <label htmlFor="design-format" className="text-sm font-semibold">Format</label>
               <Select
                 value={formData.format}
                 onValueChange={(value: any) => setFormData({ ...formData, format: value })}
               >
-                <SelectTrigger>
+                <SelectTrigger id="design-format" aria-label="Format">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -273,27 +287,31 @@ export function DesignAiPanel({ onUseVariant }: DesignAiPanelProps) {
             </summary>
             <div className="mt-3 space-y-3 pt-3 border-t border-slate-200">
               <div className="space-y-2">
-                <label className="text-sm font-medium text-slate-600">Visual Style</label>
+                <label htmlFor="design-style" className="text-sm font-medium text-slate-600">Visual Style</label>
                 <Input
+                  id="design-style"
                   placeholder="e.g., minimal, bold, playful"
                   value={formData.visualStyle}
                   onChange={(e) => setFormData({ ...formData, visualStyle: e.target.value })}
+                  aria-label="Visual style"
                 />
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-medium text-slate-600">Additional Context</label>
+                <label htmlFor="design-context" className="text-sm font-medium text-slate-600">Additional Context</label>
                 <Textarea
+                  id="design-context"
                   placeholder="e.g., launching a fall promo for memberships, warm and cozy mood..."
                   value={formData.additionalContext}
                   onChange={(e) => setFormData({ ...formData, additionalContext: e.target.value })}
                   rows={2}
+                  aria-label="Additional context"
                 />
               </div>
             </div>
           </details>
 
           <Button
-            onClick={handleGenerate}
+            type="submit"
             disabled={isLoading || !formData.campaignName}
             className="w-full font-semibold"
             size="lg"
@@ -310,6 +328,7 @@ export function DesignAiPanel({ onUseVariant }: DesignAiPanelProps) {
               </>
             )}
           </Button>
+          </form>
         </CardContent>
       </Card>
 

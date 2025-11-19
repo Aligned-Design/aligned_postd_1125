@@ -1,12 +1,17 @@
-import { useState } from "react";
-import { ChevronDown, Music, Youtube, MapPin, Facebook, Twitter, Instagram, Linkedin } from "lucide-react";
+import { useState, useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { ChevronDown, Music, Youtube, MapPin, Facebook, Twitter, Instagram, Linkedin, Calendar as CalendarIcon } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useDragAndDrop } from "@/hooks/useDragAndDrop";
 import { useRescheduleContent } from "@/hooks/useRescheduleContent";
 import { useToast } from "@/hooks/use-toast";
+import { useCurrentBrand } from "@/hooks/useCurrentBrand";
 import { PostPreviewModal } from "./PostPreviewModal";
 import type { Post } from "@/types/post";
 import { cn } from "@/lib/design-system";
+import { LoadingState } from "@/components/postd/dashboard/states/LoadingState";
+import { ErrorState } from "@/components/ui/error-state";
+import { EmptyState } from "@/components/ui/empty-state";
 
 interface CalendarPost {
   id: string;
@@ -44,6 +49,86 @@ const PLATFORM_ICONS: Record<string, any> = {
   pinterest: MapPin,
 };
 
+interface CalendarApiItem {
+  id: string;
+  title: string;
+  platform: string;
+  contentType: string;
+  status: string;
+  scheduledDate: string | null;
+  scheduledTime: string | null;
+  content: string;
+  excerpt: string;
+  imageUrl: string | null;
+  brand: string;
+  campaign: string | null;
+  createdDate: string | null;
+}
+
+interface CalendarApiResponse {
+  success: boolean;
+  items: CalendarApiItem[];
+  count: number;
+}
+
+async function fetchCalendar(brandId: string, startDate?: string, endDate?: string, status?: string): Promise<CalendarApiResponse> {
+  const { apiGet } = await import("@/lib/api");
+  const params = new URLSearchParams();
+  if (startDate) params.append("startDate", startDate);
+  if (endDate) params.append("endDate", endDate);
+  if (status) params.append("status", status);
+  
+  const queryString = params.toString();
+  const url = `/api/calendar/${brandId}${queryString ? `?${queryString}` : ""}`;
+  return apiGet<CalendarApiResponse>(url);
+}
+
+function transformCalendarItemsToDaySchedules(items: CalendarApiItem[]): DaySchedule[] {
+  // Group items by date
+  const itemsByDate = new Map<string, CalendarApiItem[]>();
+  
+  items.forEach((item) => {
+    if (!item.scheduledDate) return;
+    const dateKey = item.scheduledDate;
+    if (!itemsByDate.has(dateKey)) {
+      itemsByDate.set(dateKey, []);
+    }
+    itemsByDate.get(dateKey)!.push(item);
+  });
+
+  // Convert to DaySchedule format
+  const daySchedules: DaySchedule[] = [];
+  const sortedDates = Array.from(itemsByDate.keys()).sort();
+  
+  sortedDates.forEach((dateStr) => {
+    const itemsForDate = itemsByDate.get(dateStr)!;
+    const date = new Date(dateStr);
+    const dayName = date.toLocaleDateString("en-US", { weekday: "long" });
+    const dateFormatted = date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    
+    const posts: CalendarPost[] = itemsForDate.map((item) => ({
+      id: item.id,
+      title: item.title,
+      platform: item.platform as CalendarPost["platform"],
+      status: (item.status === "pending_review" ? "reviewing" : item.status) as CalendarPost["status"],
+      scheduledTime: item.scheduledTime || "TBD",
+      excerpt: item.excerpt,
+      brand: item.brand,
+      campaign: item.campaign || undefined,
+    }));
+
+    daySchedules.push({
+      date: `${dayName.slice(0, 3)} ${dateFormatted}`,
+      dayName,
+      postCount: posts.length,
+      posts,
+      statusDots: posts.map((p) => p.status),
+    });
+  });
+
+  return daySchedules;
+}
+
 export function CalendarAccordion({
   view = "week",
   filterBrand = null,
@@ -55,6 +140,44 @@ export function CalendarAccordion({
   const [showPreview, setShowPreview] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { brandId } = useCurrentBrand();
+  
+  // Calculate date range based on view
+  const dateRange = useMemo(() => {
+    const startDate = new Date();
+    const endDate = new Date();
+    if (view === "day") {
+      endDate.setDate(endDate.getDate() + 1);
+    } else if (view === "week") {
+      endDate.setDate(endDate.getDate() + 7);
+    } else {
+      endDate.setDate(endDate.getDate() + 30);
+    }
+    return {
+      startDate: startDate.toISOString().split("T")[0],
+      endDate: endDate.toISOString().split("T")[0],
+    };
+  }, [view]);
+
+  // Fetch calendar data
+  const {
+    data: calendarData,
+    isLoading,
+    isError,
+    error,
+    refetch,
+  } = useQuery({
+    queryKey: ["calendar", brandId, dateRange.startDate, dateRange.endDate, view],
+    queryFn: () => fetchCalendar(brandId!, dateRange.startDate, dateRange.endDate),
+    enabled: !!brandId,
+    staleTime: 1000 * 60 * 5, // 5 minutes
+  });
+
+  // Transform API data to DaySchedule format
+  const daySchedules = useMemo(() => {
+    if (!calendarData?.items) return [];
+    return transformCalendarItemsToDaySchedules(calendarData.items);
+  }, [calendarData]);
   
   // Drag-and-drop functionality
   const { reschedule, preferredSchedule } = useRescheduleContent();
@@ -75,193 +198,35 @@ export function CalendarAccordion({
     preferredSchedule: preferredSchedule || null,
   });
 
-  const [daySchedules, setDaySchedules] = useState<DaySchedule[]>([
-    {
-      date: "Mon 11/18",
-      dayName: "Monday",
-      postCount: 3,
-      statusDots: ["approved", "scheduled", "scheduled"],
-      posts: [
-        {
-          id: "1",
-          title: "Introducing New Features",
-          platform: "linkedin",
-          status: "scheduled",
-          scheduledTime: "9:00 AM",
-          excerpt: "We're excited to announce our latest product updates...",
-          brand: "Aligned-20AI",
-          campaign: "Product Launch",
-        },
-        {
-          id: "2",
-          title: "Behind the Scenes",
-          platform: "instagram",
-          status: "scheduled",
-          scheduledTime: "2:30 PM",
-          excerpt: "Get a sneak peek into how our team creates content...",
-          brand: "Aligned-20AI",
-          campaign: "Brand Awareness",
-        },
-        {
-          id: "3",
-          title: "Weekly Tips",
-          platform: "twitter",
-          status: "approved",
-          scheduledTime: "10:00 AM",
-          excerpt: "Three quick ways to boost your engagement this week...",
-          brand: "Brand B",
-          campaign: "Customer Spotlight",
-        },
-      ],
-    },
-    {
-      date: "Tue 11/19",
-      dayName: "Tuesday",
-      postCount: 2,
-      statusDots: ["reviewing", "draft"],
-      posts: [
-        {
-          id: "4",
-          title: "Customer Success Story",
-          platform: "facebook",
-          status: "reviewing",
-          scheduledTime: "11:00 AM",
-          excerpt: "See how our customers are achieving their goals...",
-          brand: "Aligned-20AI",
-          campaign: "Customer Spotlight",
-        },
-        {
-          id: "5",
-          title: "Weekly Newsletter",
-          platform: "linkedin",
-          status: "draft",
-          scheduledTime: "8:00 AM",
-          excerpt: "This week's must-read insights and trends...",
-          brand: "Brand C",
-          campaign: "Brand Awareness",
-        },
-      ],
-    },
-    {
-      date: "Wed 11/20",
-      dayName: "Wednesday",
-      postCount: 4,
-      statusDots: ["scheduled", "scheduled", "approved", "scheduled"],
-      posts: [
-        {
-          id: "6",
-          title: "Trending Sounds Challenge",
-          platform: "tiktok",
-          status: "scheduled",
-          scheduledTime: "3:00 PM",
-          excerpt: "Join the latest trend and show your creative side...",
-          brand: "Aligned-20AI",
-          campaign: "Product Launch",
-        },
-        {
-          id: "7",
-          title: "Product Demo Video",
-          platform: "youtube",
-          status: "approved",
-          scheduledTime: "1:00 PM",
-          excerpt: "In-depth walkthrough of our latest features...",
-          brand: "Brand B",
-          campaign: "Product Launch",
-        },
-        {
-          id: "8",
-          title: "Design Inspiration",
-          platform: "pinterest",
-          status: "scheduled",
-          scheduledTime: "4:00 PM",
-          excerpt: "Curated collection of design inspiration...",
-          brand: "Aligned-20AI",
-          campaign: "Holiday Promo",
-        },
-        {
-          id: "9",
-          title: "Quick Tips",
-          platform: "instagram",
-          status: "scheduled",
-          scheduledTime: "2:00 PM",
-          excerpt: "Fast-paced tips for content creators...",
-          brand: "Brand C",
-          campaign: "Brand Awareness",
-        },
-      ],
-    },
-    {
-      date: "Thu 11/21",
-      dayName: "Thursday",
-      postCount: 1,
-      statusDots: ["scheduled"],
-      posts: [
-        {
-          id: "10",
-          title: "Team Highlights",
-          platform: "linkedin",
-          status: "scheduled",
-          scheduledTime: "9:00 AM",
-          excerpt: "Celebrating our amazing team this week...",
-          brand: "Aligned-20AI",
-          campaign: "Brand Awareness",
-        },
-      ],
-    },
-    {
-      date: "Fri 11/22",
-      dayName: "Friday",
-      postCount: 2,
-      statusDots: ["draft", "scheduled"],
-      posts: [
-        {
-          id: "11",
-          title: "Weekend Plans",
-          platform: "twitter",
-          status: "draft",
-          scheduledTime: "TBD",
-          excerpt: "What's on your weekend agenda?...",
-          brand: "Brand B",
-          campaign: "Customer Spotlight",
-        },
-        {
-          id: "12",
-          title: "Week Recap",
-          platform: "facebook",
-          status: "scheduled",
-          scheduledTime: "5:00 PM",
-          excerpt: "This week's highlights and key moments...",
-          brand: "Aligned-20AI",
-          campaign: "Product Launch",
-        },
-      ],
-    },
-    {
-      date: "Sat 11/23",
-      dayName: "Saturday",
-      postCount: 0,
-      statusDots: [],
-      posts: [],
-    },
-    {
-      date: "Sun 11/24",
-      dayName: "Sunday",
-      postCount: 1,
-      statusDots: ["scheduled"],
-      posts: [
-        {
-          id: "13",
-          title: "Sunday Inspiration",
-          platform: "instagram",
-          status: "scheduled",
-          scheduledTime: "10:00 AM",
-          excerpt: "Start your week with inspiration...",
-          brand: "Aligned-20AI",
-          campaign: "Holiday Promo",
-        },
-      ],
-    },
-  ]);
+  // Loading state
+  if (isLoading) {
+    return <LoadingState />;
+  }
+
+  // Error state
+  if (isError) {
+    return (
+      <ErrorState
+        message={error instanceof Error ? error.message : "Failed to load calendar"}
+        onRetry={() => refetch()}
+      />
+    );
+  }
+
+  // Empty state
+  if (!daySchedules || daySchedules.length === 0) {
+    return (
+      <EmptyState
+        icon={CalendarIcon}
+        title="No scheduled content"
+        description="You don't have any content scheduled for this period. Create some content to see it here."
+        action={{
+          label: "Go to Studio",
+          onClick: () => navigate("/studio"),
+        }}
+      />
+    );
+  }
 
   // Filter posts based on filters
   const filteredSchedules = daySchedules
@@ -365,17 +330,9 @@ export function CalendarAccordion({
         variant: "default",
       });
 
-      // Update local state to reflect approval - update the post status in the schedule
-      setDaySchedules((prevSchedule) =>
-        prevSchedule.map((day) => ({
-          ...day,
-          posts: day.posts.map((p) =>
-            p.id === post.id ? { ...p, status: "approved" as const } : p
-          ),
-        }))
-      );
+      // Refetch calendar data to reflect approval
+      refetch();
     } catch (error) {
-      console.error("Failed to approve post:", error);
       toast({
         title: "Approval Failed",
         description: error instanceof Error ? error.message : "Failed to approve post. Please try again.",

@@ -461,7 +461,7 @@ router.post("/login", (async (req, res, next) => {
 
     // ✅ STEP 3: Get or create tenant/workspace
     // ✅ CRITICAL: Ensure tenant exists in tenants table (for foreign key constraints)
-    let tenantId: string = authData.user.user_metadata?.tenant_id || 
+    const tenantId: string = authData.user.user_metadata?.tenant_id || 
                            authData.user.user_metadata?.workspace_id || 
                            userId; // Fallback to userId
 

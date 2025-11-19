@@ -16,8 +16,12 @@ export async function seedUserBrands(userId: string) {
 
     await supabase.from('brand_members').insert(memberships);
     
-    console.log('Demo brands assigned to user');
+    // Demo brands assigned successfully
   } catch (error) {
-    console.error('Error seeding brands for user:', error);
+    // Error seeding brands - fail silently in production
+    if (import.meta.env.DEV) {
+      // eslint-disable-next-line no-console
+      console.error('Error seeding brands for user:', error);
+    }
   }
 }

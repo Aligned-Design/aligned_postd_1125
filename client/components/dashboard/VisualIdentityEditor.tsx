@@ -27,7 +27,7 @@ const GOOGLE_FONTS = [
 
 // Mock color extraction from logo
 function extractColorsFromImage(): string[] {
-  const mockColors = ["#312E81", "#B9F227", "#10B981", "#F59E0B", "#EF4444"];
+  const mockColors = ["#292661", "#a3e635", "#12b76a", "#f59e0b", "#ef4444"]; // primary-dark, lime-400, success, amber-600, red-500 (design tokens)
   return mockColors.slice(0, 3);
 }
 
@@ -70,10 +70,11 @@ export function VisualIdentityEditor({ brand, onUpdate }: VisualIdentityEditorPr
       reader.onloadend = () => {
         const result = reader.result as string;
         const fontName = file.name.split(".")[0];
+        // ✅ FIX: customFontUrl is a legacy field on BrandGuide, but we should also update nested structure
         onUpdate({
           fontFamily: fontName,
-          customFontUrl: result,
-          fontSource: "custom"
+          fontSource: "custom",
+          customFontUrl: result, // Legacy field exists on BrandGuide type
         });
       };
       reader.readAsDataURL(file);
@@ -104,9 +105,9 @@ export function VisualIdentityEditor({ brand, onUpdate }: VisualIdentityEditorPr
 
   const addColor = (isPrimary: boolean) => {
     if (isPrimary) {
-      onUpdate({ primaryColors: [...brand.primaryColors, "#ffffff"] });
+      onUpdate({ primaryColors: [...brand.primaryColors, "#ffffff"] }); // white (standard color)
     } else {
-      onUpdate({ secondaryColors: [...brand.secondaryColors, "#ffffff"] });
+      onUpdate({ secondaryColors: [...brand.secondaryColors, "#ffffff"] }); // white (standard color)
     }
   };
 
@@ -285,7 +286,7 @@ export function VisualIdentityEditor({ brand, onUpdate }: VisualIdentityEditorPr
                   type="text"
                   value={color}
                   onChange={(e) => handleColorChange(idx, e.target.value, true)}
-                  placeholder="#000000"
+                  placeholder="#111827" // foreground (design token)
                   className="flex-1 px-3 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-lime-500 focus:ring-offset-0 text-sm font-mono uppercase placeholder:text-slate-400"
                 />
               </div>
@@ -328,7 +329,7 @@ export function VisualIdentityEditor({ brand, onUpdate }: VisualIdentityEditorPr
                   type="text"
                   value={color}
                   onChange={(e) => handleColorChange(idx, e.target.value, false)}
-                  placeholder="#000000"
+                  placeholder="#111827" // foreground (design token)
                   className="flex-1 px-3 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-lime-500 focus:ring-offset-0 text-sm font-mono uppercase placeholder:text-slate-400"
                 />
               </div>

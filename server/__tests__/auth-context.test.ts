@@ -284,7 +284,8 @@ describe("Auth Context", () => {
       expect(safeContext?.userId).toBe("user_123");
       expect(safeContext?.brandId).toBe("brand_456");
       expect(safeContext?.role).toBe(UserRole.EDITOR);
-      expect(safeContext?.sessionId).toBeUndefined();
+      // ✅ FIX: sessionId is not in the safe context type, so it should be undefined
+      expect((safeContext as Record<string, unknown>)?.sessionId).toBeUndefined();
     });
 
     it("should return null when context is null", () => {

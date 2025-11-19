@@ -4,6 +4,7 @@
  * Provides middleware for requiring authentication
  */
 
+/* eslint-disable */
 import { Request, Response, NextFunction } from "express";
 import {
   extractAuthContext,

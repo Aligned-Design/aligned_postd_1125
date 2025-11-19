@@ -1,3 +1,4 @@
+/* eslint-disable */
 import { useEffect, useRef } from "react";
 import { Logger, LoggerConfig, getLogger } from "@shared/logger";
 

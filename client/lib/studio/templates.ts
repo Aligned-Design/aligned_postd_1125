@@ -31,12 +31,15 @@ function adaptTemplateToBrand(
 ): CanvasItem[] {
   if (!brandKit) return items;
 
-  const primaryColor = brandKit.visualIdentity?.primaryColor || "#8B5CF6";
-  const secondaryColor = brandKit.visualIdentity?.secondaryColor || "#F0F7F7";
-  const accentColor = brandKit.visualIdentity?.accentColor || "#EC4899";
-  const textPrimary = brandKit.visualIdentity?.textColor || "#1F2937";
-  const textOnPrimary = brandKit.visualIdentity?.textOnPrimary || "#FFFFFF";
-  const fontFamily = brandKit.visualIdentity?.fontFamily || "Arial";
+  // ✅ FIX: Extract colors from colors array (visualIdentity doesn't have individual color properties)
+  const colors = brandKit.visualIdentity?.colors || [];
+  // ✅ FIX: Use legacy fields as fallback if available
+  const primaryColor = colors[0] || (brandKit as any).primaryColor || "#8B5CF6";
+  const secondaryColor = colors[1] || (brandKit as any).secondaryColor || "#F0F7F7";
+  const accentColor = colors[2] || (brandKit as any).accentColor || "#EC4899";
+  const textPrimary = (brandKit as any).textColor || "#1F2937"; // Default text color
+  const textOnPrimary = (brandKit as any).textOnPrimary || "#FFFFFF"; // Default text on primary
+  const fontFamily = brandKit.visualIdentity?.typography?.heading || (brandKit as any).fontFamily || "Arial";
 
   return items.map((item) => {
     const adapted = { ...item };

@@ -17,6 +17,7 @@ import { Edit, CheckCircle2, Sparkles, X } from "lucide-react";
 import { OnboardingProgress } from "@/components/onboarding/OnboardingProgress";
 import { useConfetti } from "@/hooks/useConfetti";
 import { saveBrandGuideFromOnboarding } from "@/lib/onboarding-brand-sync";
+import { logInfo, logWarning, logError } from "@/lib/logger";
 
 export default function Screen5BrandSummaryReview() {
   const { brandSnapshot, setBrandSnapshot, setOnboardingStep } = useAuth();
@@ -36,7 +37,7 @@ export default function Screen5BrandSummaryReview() {
         particleCount: 100,
         spread: 70,
         origin: { y: 0.5 },
-        colors: ["#4F46E5", "#818CF8", "#C7D2FE", "#A855F7"],
+        colors: ["#632bf0", "#c084fc", "#e2e8f0", "#a855f7"], // primary-light, purple-400, slate-200, purple-500 (design tokens)
       });
     }, 300);
     return () => clearTimeout(timer);
@@ -47,35 +48,41 @@ export default function Screen5BrandSummaryReview() {
     const fetchBrandGuideImages = async () => {
       const brandId = localStorage.getItem("aligned_brand_id");
       if (!brandId) {
-        console.warn("[BrandSnapshot] No brandId found in localStorage");
+        if (import.meta.env.DEV) {
+          logWarning("No brandId found in localStorage", { step: "fetch_images" });
+        }
         return;
       }
 
       // ✅ Validate brandId is a UUID (not temporary brand_*)
       const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
       if (!uuidRegex.test(brandId)) {
-        console.error("[BrandSnapshot] ❌ Invalid brand ID format:", brandId);
+        logError("Invalid brand ID format", new Error("Invalid brand ID format"), { step: "fetch_images" });
         // Don't show alert - just log and continue with fallback
-        console.warn("[BrandSnapshot] Will use images from brandSnapshot as fallback");
+        if (import.meta.env.DEV) {
+          logWarning("Will use images from brandSnapshot as fallback", { step: "fetch_images" });
+        }
         return;
       }
 
       try {
         // ✅ Use centralized API utility with auth headers
         const { apiGet } = await import("@/lib/api");
-        console.log("[BrandSnapshot] Fetching brand guide for images", { brandId });
+        if (import.meta.env.DEV) {
+          logInfo("Fetching brand guide for images", { step: "fetch_images" });
+        }
         
         const data = await apiGet<{ brandGuide: any; hasBrandGuide: boolean }>(`/api/brand-guide/${brandId}`);
         const brandGuide = data.brandGuide;
         
-        console.log("[BrandSnapshot] Brand guide response", {
-          hasBrandGuide: !!brandGuide,
-          hasApprovedAssets: !!brandGuide?.approvedAssets,
-          uploadedPhotosCount: brandGuide?.approvedAssets?.uploadedPhotos?.length || 0,
-          hasPurpose: !!brandGuide?.purpose,
-          hasLongFormSummary: !!brandGuide?.longFormSummary,
-          purposeLength: brandGuide?.purpose?.length || 0,
-        });
+        if (import.meta.env.DEV) {
+          logInfo("Brand guide response", {
+            step: "fetch_images",
+            hasBrandGuide: !!brandGuide,
+            hasApprovedAssets: !!brandGuide?.approvedAssets,
+            uploadedPhotosCount: brandGuide?.approvedAssets?.uploadedPhotos?.length || 0,
+          });
+        }
         
         // ✅ FIX: Fetch brand story from brand guide (purpose or longFormSummary)
         // This ensures we get the AI-generated story, not just the snapshot
@@ -83,7 +90,9 @@ export default function Screen5BrandSummaryReview() {
           const story = brandGuide.purpose || brandGuide.longFormSummary || "";
           // Only use if it's a valid non-empty string (not "0", not empty)
           if (story && typeof story === "string" && story.length > 10 && story !== "0") {
-            console.log("[BrandSnapshot] ✅ Found brand story from brand guide:", story.substring(0, 50));
+            if (import.meta.env.DEV) {
+              logInfo("Found brand story from brand guide", { step: "fetch_story" });
+            }
             setBrandGuideStory(story);
             // Also update brandSnapshot locally so it displays immediately
             if (brandSnapshot) {
@@ -121,33 +130,40 @@ export default function Screen5BrandSummaryReview() {
             .map((img: any) => img.url)
             .filter(Boolean);
           
-          console.log(`[BrandSnapshot] Separated images: ${logos.length} logos, ${otherImgs.length} other images from ${allScrapedImages.length} total scraped images`);
+          if (import.meta.env.DEV) {
+            logInfo("Separated images", {
+              step: "fetch_images",
+              logosCount: logos.length,
+              otherImagesCount: otherImgs.length,
+              totalCount: allScrapedImages.length,
+            });
+          }
           
           if (logos.length > 0 || otherImgs.length > 0) {
-            console.log(`[BrandSnapshot] ✅ Found ${logos.length} logos and ${otherImgs.length} other images from brand guide`);
+            if (import.meta.env.DEV) {
+              logInfo("Found images from brand guide", {
+                step: "fetch_images",
+                logosCount: logos.length,
+                otherImagesCount: otherImgs.length,
+              });
+            }
             setLogoImages(logos);
             setOtherImages(otherImgs);
             return;
           } else {
-            console.warn("[BrandSnapshot] No valid scraped images found in brand guide", {
+            logWarning("No valid scraped images found in brand guide", {
+              step: "fetch_images",
               totalPhotos: brandGuide.approvedAssets.uploadedPhotos.length,
-              photos: brandGuide.approvedAssets.uploadedPhotos.map((img: any) => ({
-                source: img.source,
-                role: img.metadata?.role,
-                hasUrl: !!img.url,
-                urlType: typeof img.url,
-                urlPreview: img.url ? img.url.substring(0, 50) : "none",
-              })),
             });
           }
         } else {
-          console.warn("[BrandSnapshot] No approvedAssets.uploadedPhotos in brand guide");
+          if (import.meta.env.DEV) {
+            logWarning("No approvedAssets.uploadedPhotos in brand guide", { step: "fetch_images" });
+          }
         }
       } catch (error) {
-        console.error("[BrandSnapshot] ❌ Error fetching brand guide images:", error);
-        console.error("[BrandSnapshot] Error details:", {
-          error: error instanceof Error ? error.message : String(error),
-          stack: error instanceof Error ? error.stack : undefined,
+        logError("Error fetching brand guide images", error instanceof Error ? error : new Error(String(error)), {
+          step: "fetch_images",
         });
         // Continue with fallback - don't block UI
       }
@@ -172,7 +188,9 @@ export default function Screen5BrandSummaryReview() {
     if (brandSnapshot) {
       const brandId = localStorage.getItem("aligned_brand_id");
       if (!brandId) {
-        console.error("[BrandSnapshot] No brandId found - cannot save brand guide");
+        logError("No brandId found - cannot save brand guide", new Error("Brand ID missing"), {
+          step: "save_brand_guide",
+        });
         setOnboardingStep(6);
         return;
       }
@@ -180,7 +198,9 @@ export default function Screen5BrandSummaryReview() {
       // ✅ Validate brandId is a UUID
       const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
       if (!uuidRegex.test(brandId)) {
-        console.error("[BrandSnapshot] Invalid brand ID format:", brandId);
+        logError("Invalid brand ID format", new Error("Invalid brand ID format"), {
+          step: "save_brand_guide",
+        });
         setOnboardingStep(6);
         return;
       }
@@ -189,9 +209,13 @@ export default function Screen5BrandSummaryReview() {
       
       try {
         await saveBrandGuideFromOnboarding(brandId, brandSnapshot, brandName);
-        console.log("[BrandSnapshot] ✅ Brand Guide saved for brand:", brandId);
+        if (import.meta.env.DEV) {
+          logInfo("Brand Guide saved", { step: "save_brand_guide" });
+        }
       } catch (error) {
-        console.error("Failed to save Brand Guide:", error);
+        logError("Failed to save Brand Guide", error instanceof Error ? error : new Error(String(error)), {
+          step: "save_brand_guide",
+        });
         // Continue anyway - don't block onboarding
       }
     }
@@ -233,7 +257,9 @@ export default function Screen5BrandSummaryReview() {
     // Save to Supabase via Brand Guide API
     const brandId = localStorage.getItem("aligned_brand_id");
     if (!brandId) {
-      console.warn("[BrandSnapshot] No brandId found for save");
+      if (import.meta.env.DEV) {
+        logWarning("No brandId found for save", { step: "save_edit" });
+      }
       setShowEditModal(false);
       setEditingField(null);
       setEditValue("");
@@ -268,14 +294,19 @@ export default function Screen5BrandSummaryReview() {
       // Save via Brand Guide API (PATCH for partial update)
       await apiPatch(`/api/brand-guide/${brandId}`, updates);
       
-      console.log("[BrandSnapshot] ✅ Successfully saved edit:", editingField);
+      if (import.meta.env.DEV) {
+        logInfo("Successfully saved edit", { step: "save_edit", field: editingField });
+      }
       
       // Close modal after successful save
       setShowEditModal(false);
       setEditingField(null);
       setEditValue("");
     } catch (error) {
-      console.error("Failed to save edit:", error);
+      logError("Failed to save edit", error instanceof Error ? error : new Error(String(error)), {
+        step: "save_edit",
+        field: editingField,
+      });
       // Revert local state on error
       setBrandSnapshot(brandSnapshot);
       
@@ -290,16 +321,19 @@ export default function Screen5BrandSummaryReview() {
   const rawBrandIdentity = brandGuideStory || brandSnapshot.extractedMetadata?.brandIdentity;
   
   // ✅ CRITICAL LOGGING: Debug brand story display
-  console.log("[BrandSnapshot] Brand identity resolution", {
-    hasBrandGuideStory: !!brandGuideStory,
-    brandGuideStoryLength: brandGuideStory?.length || 0,
-    brandGuideStoryPreview: brandGuideStory?.substring(0, 100),
-    hasSnapshotIdentity: !!brandSnapshot.extractedMetadata?.brandIdentity,
-    snapshotIdentityLength: brandSnapshot.extractedMetadata?.brandIdentity?.length || 0,
-    snapshotIdentityValue: brandSnapshot.extractedMetadata?.brandIdentity,
-    rawBrandIdentity: rawBrandIdentity,
-    rawBrandIdentityType: typeof rawBrandIdentity,
-  });
+  // Brand identity resolution (debug only)
+  if (import.meta.env.DEV) {
+    logInfo("Brand identity resolution", {
+      hasBrandGuideStory: !!brandGuideStory,
+      brandGuideStoryLength: brandGuideStory?.length || 0,
+      brandGuideStoryPreview: brandGuideStory?.substring(0, 100),
+      hasSnapshotIdentity: !!brandSnapshot.extractedMetadata?.brandIdentity,
+      snapshotIdentityLength: brandSnapshot.extractedMetadata?.brandIdentity?.length || 0,
+      snapshotIdentityValue: brandSnapshot.extractedMetadata?.brandIdentity,
+      rawBrandIdentity: rawBrandIdentity,
+      rawBrandIdentityType: typeof rawBrandIdentity,
+    });
+  }
   
   // ✅ CRITICAL FIX: Clean brand story - remove "\n\n0" suffix and any trailing "0"
   let cleanedBrandIdentity = rawBrandIdentity;
@@ -314,12 +348,14 @@ export default function Screen5BrandSummaryReview() {
     ? cleanedBrandIdentity.trim()
     : `${brandSnapshot.name || "Your brand"} is a ${brandSnapshot.industry || "business"} that ${brandSnapshot.voice || "connects with customers"} through ${brandSnapshot.tone?.join(" and ") || "authentic communication"}.`;
   
-  // ✅ LOG FINAL RESULT
-  console.log("[BrandSnapshot] Final brand identity:", {
-    finalIdentity: brandIdentity,
-    finalIdentityLength: brandIdentity.length,
-    isFallback: !rawBrandIdentity || rawBrandIdentity === "0" || rawBrandIdentity.length < 10,
-  });
+  // ✅ LOG FINAL RESULT (debug only)
+  if (import.meta.env.DEV) {
+    logInfo("Final brand identity", {
+      step: "brand_identity_resolution",
+      finalIdentityLength: brandIdentity.length,
+      isFallback: !rawBrandIdentity || rawBrandIdentity === "0" || rawBrandIdentity.length < 10,
+    });
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-indigo-50/30 via-white to-blue-50/20 p-4">
@@ -415,7 +451,12 @@ export default function Screen5BrandSummaryReview() {
                       alt={`Logo ${index + 1}`}
                       className="w-full h-full object-contain p-2"
                       onError={(e) => {
-                        console.error(`[BrandSnapshot] Failed to load logo ${index + 1}:`, imageUrl);
+                        if (import.meta.env.DEV) {
+                          logError(`Failed to load logo ${index + 1}`, new Error("Image load failed"), {
+                            step: "image_load",
+                            imageIndex: index + 1,
+                          });
+                        }
                         (e.target as HTMLImageElement).style.display = "none";
                       }}
                     />
@@ -450,10 +491,15 @@ export default function Screen5BrandSummaryReview() {
                     src={imageUrl}
                     alt={`Brand image ${index + 1}`}
                     className="w-full h-full object-cover"
-                    onError={(e) => {
-                      console.error(`[BrandSnapshot] Failed to load image ${index + 1}:`, imageUrl);
-                      (e.target as HTMLImageElement).style.display = "none";
-                    }}
+                      onError={(e) => {
+                        if (import.meta.env.DEV) {
+                          logError(`Failed to load image ${index + 1}`, new Error("Image load failed"), {
+                            step: "image_load",
+                            imageIndex: index + 1,
+                          });
+                        }
+                        (e.target as HTMLImageElement).style.display = "none";
+                      }}
                   />
                 </div>
               ))}
