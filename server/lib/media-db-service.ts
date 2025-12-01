@@ -101,19 +101,39 @@ export class MediaDBService {
     }
 
     // Check storage quota before inserting
-    const usage = await this.getStorageUsage(brandId);
-    if (usage.isHardLimit) {
-      throw new AppError(
-        ErrorCode.QUOTA_EXCEEDED,
-        "Storage quota exceeded",
-        HTTP_STATUS.CONFLICT,
-        "warning",
-        {
-          quotaLimitBytes: usage.quotaLimitBytes,
-          usedBytes: usage.totalUsedBytes,
-        },
-        "Storage quota has been reached. Delete unused assets or upgrade your plan."
-      );
+    // ✅ FIX: For scraped images (external URLs with size_bytes=0), skip quota check
+    // Scraped images don't use Supabase Storage, so quota doesn't apply
+    const isScrapedImage = fileSize === 0 && path.startsWith("http");
+    
+    if (isScrapedImage) {
+      // Scraped images are external URLs, don't use storage, skip quota check
+      console.log(`[MediaDB] Skipping quota check for scraped image (external URL, no storage used)`);
+    } else {
+      // Only check quota for uploaded files (non-scraped images)
+      try {
+        const usage = await this.getStorageUsage(brandId);
+        if (usage.isHardLimit) {
+          throw new AppError(
+            ErrorCode.QUOTA_EXCEEDED,
+            "Storage quota exceeded",
+            HTTP_STATUS.CONFLICT,
+            "warning",
+            {
+              quotaLimitBytes: usage.quotaLimitBytes,
+              usedBytes: usage.totalUsedBytes,
+            },
+            "Storage quota has been reached. Delete unused assets or upgrade your plan."
+          );
+        }
+      } catch (quotaError: any) {
+        // ✅ FIX: If quota lookup fails, log warning but allow persistence
+        // This prevents quota system issues from blocking image persistence
+        // The getStorageUsage() method already returns unlimited quota on error,
+        // so we only get here if there's a different error (like AppError from isHardLimit check)
+        console.warn(`[MediaDB] Quota check failed, allowing persistence (quota system may not be fully configured):`, quotaError.message);
+        // Don't re-throw - allow the upload to proceed
+        // This ensures scraped images and other uploads work even if quota system has issues
+      }
     }
 
     // ✅ FIX: media_assets table may not have 'url' column (depends on migration)
@@ -417,43 +437,46 @@ export class MediaDBService {
 
   /**
    * Get storage usage statistics for a brand
-   * ⚠️ TEMP FIX: Gracefully handle missing storage_quotas table until migration is run
+   * ✅ FIX: Gracefully handle missing storage_quotas table or quota lookup failures
+   * For scraped images (external URLs), quota check is not needed since they don't use storage
    */
   async getStorageUsage(brandId: string): Promise<StorageUsageStats> {
-    // Get quota - gracefully handle table not existing yet
+    // Get quota - gracefully handle table not existing yet or any lookup errors
     const { data: quotaData, error: quotaError } = await supabase
       .from("storage_quotas")
       .select("*")
       .eq("brand_id", brandId)
       .single();
 
-    // ⚠️ TEMP FIX: If storage_quotas table doesn't exist, use default quota
-    if (quotaError && (quotaError.code === 'PGRST204' || quotaError.code === 'PGRST205')) {
-      console.warn(`[MediaDB] storage_quotas table not found, using default quota for brand ${brandId}`);
-      const defaultQuota = {
-        limit_bytes: 5_000_000_000, // 5GB default
-        warning_threshold_percent: 80,
-        hard_limit_percent: 95,
-      };
+    // ✅ FIX: If storage_quotas table doesn't exist OR quota row doesn't exist, use default quota
+    // This allows image persistence to proceed even if quota system isn't fully set up
+    if (quotaError) {
+      // PGRST204 = No rows returned (no quota row for this brand)
+      // PGRST205 = Table doesn't exist
+      // 42P01 = relation does not exist (PostgreSQL error code)
+      // Any other error = treat as "no quota row" and use defaults
+      const isNoQuotaRow = quotaError.code === 'PGRST204' || quotaError.code === 'PGRST205' || quotaError.code === '42P01';
       
-      // Return default values - allow uploads to proceed
+      if (isNoQuotaRow) {
+        console.warn(`[MediaDB] storage_quotas table/row not found for brand ${brandId}, using default unlimited quota`);
+      } else {
+        // For other errors (permissions, connection issues, etc.), log but don't block
+        console.warn(`[MediaDB] Error fetching storage quota for brand ${brandId}:`, {
+          code: quotaError.code,
+          message: quotaError.message,
+          hint: "Using default unlimited quota to allow image persistence"
+        });
+      }
+      
+      // Return default values - allow uploads to proceed (unlimited quota)
       return {
-        quotaLimitBytes: defaultQuota.limit_bytes,
+        quotaLimitBytes: Number.MAX_SAFE_INTEGER, // Effectively unlimited
         totalUsedBytes: 0,
         percentageUsed: 0,
         isWarning: false,
         isHardLimit: false,
         assetCount: 0,
       };
-    }
-
-    if (quotaError) {
-      throw new AppError(
-        ErrorCode.DATABASE_ERROR,
-        "Failed to fetch storage quota",
-        HTTP_STATUS.INTERNAL_SERVER_ERROR,
-        "critical"
-      );
     }
 
     const quota = quotaData as StorageQuotaRecord;

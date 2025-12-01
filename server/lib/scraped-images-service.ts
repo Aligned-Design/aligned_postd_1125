@@ -331,12 +331,12 @@ export async function getScrapedImages(
   metadata?: Record<string, unknown>;
 }>> {
   try {
-    // ✅ RESILIENT QUERY: Don't select metadata (column may not exist)
+    // ✅ RESILIENT QUERY: Try to select metadata (may not exist in all schemas)
     // For scraped images, URL is stored in path column (external URLs)
     // We'll filter for HTTP URLs in JavaScript to identify scraped images
-    const query = supabase
+    let query = supabase
       .from("media_assets")
-      .select("id, path, filename")
+      .select("id, path, filename, metadata")
       .eq("brand_id", brandId)
       .eq("status", "active");
 
@@ -344,15 +344,41 @@ export async function getScrapedImages(
       .order("created_at", { ascending: false });
 
     if (error) {
-      // If it's not a metadata error, it's a real database error
-      if (error.code !== "42703" && error.code !== "42704" && !error.message?.includes("metadata")) {
-        console.error("[ScrapedImages] Error querying scraped images:", error);
-        return [];
+      // If it's a metadata column error, retry without metadata
+      if (error.code === "42703" || error.code === "42704" || error.message?.includes("metadata")) {
+        console.warn("[ScrapedImages] metadata column not available, retrying without it");
+        // Retry query without metadata
+        const retryQuery = supabase
+          .from("media_assets")
+          .select("id, path, filename")
+          .eq("brand_id", brandId)
+          .eq("status", "active");
+        
+        const { data: retryData, error: retryError } = await retryQuery
+          .order("created_at", { ascending: false });
+        
+        if (retryError) {
+          console.error("[ScrapedImages] Error querying scraped images (retry):", retryError);
+          return [];
+        }
+        
+        // Use retry data (without metadata)
+        const scrapedImages = (retryData || []).filter((asset: any) => {
+          const path = asset.path || "";
+          return path.startsWith("http://") || path.startsWith("https://");
+        });
+        
+        return scrapedImages.map((asset: any) => ({
+          id: asset.id,
+          url: asset.path || "",
+          filename: asset.filename,
+          metadata: undefined, // Not available
+        }));
       }
-      // If it is a metadata error, fall through to fallback below
-      // Fallback: query succeeded but we need to filter for scraped images
-      // (This shouldn't happen now since we're not selecting metadata, but keep as safety)
-      console.log("[ScrapedImages] Query succeeded, filtering for scraped images by HTTP URLs");
+      
+      // If it's not a metadata error, it's a real database error
+      console.error("[ScrapedImages] Error querying scraped images:", error);
+      return [];
     }
 
     if (!data || data.length === 0) {
@@ -400,7 +426,7 @@ export async function getScrapedImages(
       id: asset.id,
       url: asset.path || "", // For scraped images, path IS the URL
       filename: asset.filename,
-      metadata: undefined, // Not available without metadata column
+      metadata: asset.metadata || undefined, // Include metadata if available
     }));
   } catch (error) {
     console.error("[ScrapedImages] Error getting scraped images:", error);
