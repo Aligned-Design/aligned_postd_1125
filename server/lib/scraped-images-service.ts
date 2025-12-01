@@ -185,12 +185,27 @@ export async function persistScrapedImages(
         }
         continue;
       }
-      console.error(`[ScrapedImages] ❌ Failed to persist image ${image.url}:`, error);
-      console.error(`[ScrapedImages] Error details:`, {
-        url: image.url.substring(0, 100),
-        error: error?.message || String(error),
-        code: error?.code,
-      });
+      // ✅ FIX: Log quota/storage errors as warnings, not errors
+      // These are non-critical failures that shouldn't block the crawler
+      const isQuotaError = error?.code === 'DATABASE_ERROR' || 
+                          error?.message?.includes('quota') || 
+                          error?.message?.includes('storage');
+      
+      if (isQuotaError) {
+        console.warn(`[ScrapedImages] ⚠️ Quota check failed for image (continuing): ${image.url.substring(0, 100)}`, {
+          url: image.url.substring(0, 100),
+          error: error?.message || String(error),
+          code: error?.code,
+          hint: "Quota system may not be configured - image persistence will continue"
+        });
+      } else {
+        // For other errors (duplicates, validation, etc.), log as warning but continue
+        console.warn(`[ScrapedImages] ⚠️ Failed to persist image ${image.url.substring(0, 100)}:`, {
+          url: image.url.substring(0, 100),
+          error: error?.message || String(error),
+          code: error?.code,
+        });
+      }
       // Continue with other images
     }
   }

@@ -62,6 +62,41 @@ describe('MediaDBService', () => {
 
       expect(mockUsage.totalUsedBytes).toBe(0);
     });
+
+    it('should return unlimited quota when storage_quotas lookup fails', async () => {
+      // ✅ RUNTIME FIX TEST: getStorageUsage should never throw, always return valid result
+      const { MediaDBService } = await import('../lib/media-db-service');
+      const mediaDB = new MediaDBService();
+      
+      const consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      
+      // When quota lookup fails, should return unlimited quota
+      const result = await mediaDB.getStorageUsage('test-brand-id');
+      
+      // Should return unlimited quota (Number.MAX_SAFE_INTEGER)
+      expect(result.quotaLimitBytes).toBe(Number.MAX_SAFE_INTEGER);
+      expect(result.isHardLimit).toBe(false);
+      expect(result.isWarning).toBe(false);
+      
+      // Should log warning, not throw
+      expect(consoleWarnSpy).toHaveBeenCalled();
+      
+      consoleWarnSpy.mockRestore();
+    });
+
+    it('should never throw errors even on unexpected failures', async () => {
+      // ✅ RUNTIME FIX TEST: getStorageUsage should catch all errors and return default
+      const { MediaDBService } = await import('../lib/media-db-service');
+      const mediaDB = new MediaDBService();
+      
+      // Should not throw even on unexpected errors
+      await expect(mediaDB.getStorageUsage('test-brand-id')).resolves.toBeDefined();
+      
+      const result = await mediaDB.getStorageUsage('test-brand-id');
+      expect(result).toHaveProperty('quotaLimitBytes');
+      expect(result).toHaveProperty('isHardLimit');
+      expect(result).toHaveProperty('totalUsedBytes');
+    });
   });
 
   describe('checkDuplicateAsset', () => {

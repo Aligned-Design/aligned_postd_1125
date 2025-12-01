@@ -30,14 +30,29 @@ interface TokenPair {
 
 /**
  * Get JWT secret from environment
+ * 
+ * ✅ FIX: Log warning once per boot instead of on every request
  */
+let jwtSecretWarningLogged = false;
+
 function getJWTSecret(): string {
   const secret = process.env.JWT_SECRET;
 
   if (!secret) {
-    console.warn(
-      "⚠️  JWT_SECRET not set in environment. Using development secret. DO NOT USE IN PRODUCTION!",
-    );
+    // ✅ FIX: Only log warning once per boot to reduce log noise
+    if (!jwtSecretWarningLogged) {
+      const isProduction = process.env.NODE_ENV === 'production';
+      if (isProduction) {
+        console.error(
+          "❌ CRITICAL: JWT_SECRET not set in production environment. This is a security risk!"
+        );
+      } else {
+        console.warn(
+          "⚠️  JWT_SECRET not set in environment. Using development secret. DO NOT USE IN PRODUCTION!",
+        );
+      }
+      jwtSecretWarningLogged = true;
+    }
     return "dev-jwt-secret-change-in-production";
   }
 

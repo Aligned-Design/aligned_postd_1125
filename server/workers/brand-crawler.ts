@@ -1319,7 +1319,11 @@ Respond in JSON format:
       longFormSummary: parsed.longFormSummary || parsed.about_blurb || "",
     };
   } catch (error) {
-    console.error("[AI] Error generating brand summary (both providers failed):", error);
+    // ✅ FIX: Log as warning since we have a fallback - AI generation failure is non-critical
+    console.warn("[AI] ⚠️ AI generation failed for brand summary (using content fallback):", {
+      error: error instanceof Error ? error.message : String(error),
+      hint: "Crawler will continue with content-based summary extraction"
+    });
     // Final fallback - extract from content
     const allTextFallback = crawlResults
       .map((r) => [r.h1, r.h2, r.h3, r.bodyText].flat().join(" "))
@@ -1360,7 +1364,11 @@ export async function generateBrandKit(
     try {
       brandKit = await generateBrandKitWithAI(combinedText, colors, sourceUrl);
     } catch (error) {
-      console.error("[Brand Crawler] AI generation failed, using rule-based fallback:", error);
+      // ✅ FIX: Log as warning since we have fallback - AI generation failure is non-critical
+      console.warn("[Brand Crawler] ⚠️ AI generation failed, using rule-based fallback:", {
+        error: error instanceof Error ? error.message : String(error),
+        hint: "Crawler will continue with rule-based brand kit generation"
+      });
       brandKit = await generateBrandKitFallback(uniqueResults, colors, sourceUrl);
     }
   } else {
@@ -1443,7 +1451,11 @@ Respond in JSON format:
       source_urls: [sourceUrl],
     };
   } catch (error) {
-    console.error("[AI] Error generating brand kit:", error);
+    // ✅ FIX: Log as warning since we have a fallback - AI generation failure is non-critical
+    console.warn("[AI] ⚠️ AI generation failed for brand kit (using rule-based fallback):", {
+      error: error instanceof Error ? error.message : String(error),
+      hint: "Crawler will continue with fallback brand kit generation"
+    });
     return generateBrandKitFallback(
       [{ bodyText: text } as CrawlResult],
       colors,

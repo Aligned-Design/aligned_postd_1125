@@ -15,7 +15,7 @@ import { getScrapedImages } from "../lib/scraped-images-service";
 import { getCurrentBrandGuide, saveBrandGuide } from "../lib/brand-guide-service";
 import { createVersionHistory, getVersionHistory, getBrandGuideVersion } from "../lib/brand-guide-version-history";
 import { generateBFSBaseline, shouldRegenerateBaseline } from "../lib/bfs-baseline-generator";
-import { normalizeBrandGuide } from "@shared/brand-guide";
+import { normalizeBrandGuide, type BrandGuide } from "@shared/brand-guide";
 import { validateBrandGuide, applyBrandGuideDefaults } from "../lib/brand-guide-validation";
 
 const router = Router();
@@ -87,7 +87,12 @@ router.get("/:brandId", authenticateUser, async (req, res, next) => {
       
       // ✅ LOGGING: Brand Guide query with IDs (moved after hasBrandGuide check)
     } catch (error) {
-      console.error(`[BrandGuide] Error fetching scraped images for brandId ${brandId}:`, error);
+      // ✅ FIX: Log as warning since this is non-critical - route continues without scraped images
+      console.warn(`[BrandGuide] ⚠️ Error fetching scraped images for brandId ${brandId} (continuing without images):`, {
+        error: error instanceof Error ? error.message : String(error),
+        brandId,
+        hint: "Brand Guide will be returned without scraped images"
+      });
       // Continue without scraped images - don't fail the entire request
     }
 
@@ -230,8 +235,6 @@ router.put("/:brandId", authenticateUser, async (req, res, next) => {
         `Brand Guide validation failed: ${validation.errors.join(", ")}`,
         HTTP_STATUS.BAD_REQUEST,
         "warning",
-        undefined,
-        undefined,
         { validationErrors: validation.errors, validationWarnings: validation.warnings }
       );
     }
@@ -245,7 +248,7 @@ router.put("/:brandId", authenticateUser, async (req, res, next) => {
       purpose: validatedBrandGuide.purpose,
       mission: validatedBrandGuide.mission,
       vision: validatedBrandGuide.vision,
-      summaryReviewedByAI: validatedBrandGuide.summaryReviewedByAI,
+      summaryReviewedByAI: (validatedBrandGuide as any).summaryReviewedByAI,
       businessType: validatedBrandGuide.identity?.businessType,
       industry: validatedBrandGuide.identity?.industry,
       industryKeywords: validatedBrandGuide.identity?.industryKeywords || [],
@@ -360,7 +363,11 @@ router.put("/:brandId", authenticateUser, async (req, res, next) => {
           .update({ brand_kit: updatedBrandKit })
           .eq("id", brandId);
       } catch (baselineError) {
-        console.error("[BrandGuide] Error generating BFS baseline:", baselineError);
+        // ✅ FIX: Log as warning since this is non-critical - baseline generation failure doesn't block the update
+        console.warn("[BrandGuide] ⚠️ Error generating BFS baseline (non-critical, continuing):", {
+          error: baselineError instanceof Error ? baselineError.message : String(baselineError),
+          hint: "Brand Guide update succeeded, baseline generation will be retried later"
+        });
         // Non-critical, continue
       }
     }
@@ -447,8 +454,6 @@ router.patch("/:brandId", authenticateUser, async (req, res, next) => {
           `Brand Guide validation failed: ${criticalErrors.join(", ")}`,
           HTTP_STATUS.BAD_REQUEST,
           "warning",
-          undefined,
-          undefined,
           { validationErrors: validation.errors, validationWarnings: validation.warnings }
         );
       }
@@ -634,7 +639,11 @@ router.patch("/:brandId", authenticateUser, async (req, res, next) => {
           .update({ brand_kit: updatedBrandKitWithBaseline })
           .eq("id", brandId);
       } catch (baselineError) {
-        console.error("[BrandGuide] Error generating BFS baseline:", baselineError);
+        // ✅ FIX: Log as warning since this is non-critical - baseline generation failure doesn't block the update
+        console.warn("[BrandGuide] ⚠️ Error generating BFS baseline (non-critical, continuing):", {
+          error: baselineError instanceof Error ? baselineError.message : String(baselineError),
+          hint: "Brand Guide update succeeded, baseline generation will be retried later"
+        });
         // Non-critical, continue
       }
     }
@@ -869,7 +878,11 @@ router.post("/:brandId/rollback/:version", authenticateUser, async (req, res, ne
             .eq("id", brandId);
         }
       } catch (baselineError) {
-        console.error("[BrandGuide] Error generating BFS baseline after rollback:", baselineError);
+        // ✅ FIX: Log as warning since this is non-critical - baseline generation failure doesn't block the rollback
+        console.warn("[BrandGuide] ⚠️ Error generating BFS baseline after rollback (non-critical, continuing):", {
+          error: baselineError instanceof Error ? baselineError.message : String(baselineError),
+          hint: "Brand Guide rollback succeeded, baseline generation will be retried later"
+        });
         // Non-critical, continue
       }
     }

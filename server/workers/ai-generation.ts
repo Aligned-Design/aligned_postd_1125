@@ -91,7 +91,11 @@ export async function generateWithAI(
       throw new Error(`Unknown provider: ${selectedProvider}`);
     }
   } catch (error) {
-    console.error(`AI generation failed with ${selectedProvider}:`, error);
+    // ✅ FIX: Log as warning since we have fallback providers - API failures are non-critical
+    console.warn(`[AI] ⚠️ AI generation failed with ${selectedProvider} (will attempt fallback):`, {
+      error: error instanceof Error ? error.message : String(error),
+      provider: selectedProvider
+    });
 
     // ✅ ENHANCED FALLBACK: Try fallback provider if OpenAI is down or any API error occurs
     // Check if it's an API error (network, rate limit, service unavailable, etc.)
@@ -140,7 +144,12 @@ export async function generateWithAI(
           }
         }
       } catch (fallbackError) {
-        console.error(`❌ Fallback to ${fallbackProvider} also failed:`, fallbackError);
+        // ✅ FIX: Log as warning - both providers failed, but caller should handle gracefully
+        console.warn(`[AI] ⚠️ Fallback to ${fallbackProvider} also failed:`, {
+          originalError: error instanceof Error ? error.message : String(error),
+          fallbackError: fallbackError instanceof Error ? fallbackError.message : String(fallbackError),
+          hint: "Both AI providers unavailable - caller should use fallback generation"
+        });
         throw new Error(`AI generation failed with both providers. Original: ${error instanceof Error ? error.message : 'Unknown error'}. Fallback: ${fallbackError instanceof Error ? fallbackError.message : 'Unknown error'}`);
       }
     }
@@ -299,16 +308,16 @@ Return as valid JSON with this structure:
 
     // Try to parse as JSON first
     try {
-      const parsed = JSON.parse(result);
+      const parsed = JSON.parse(result.content);
       return {
-        content: parsed.content || result,
+        content: parsed.content || result.content,
         provider: provider || "openai",
         agentType: agentType
       };
     } catch (_parseError) {
       // Fallback if not valid JSON
       return {
-        content: result,
+        content: result.content,
         provider: provider || "openai",
         agentType: agentType
       };
