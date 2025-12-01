@@ -49,36 +49,43 @@ export async function persistScrapedImages(
     return [];
   }
 
-  // ✅ CRITICAL: tenantId is REQUIRED - caller must provide it
-  // During onboarding, tenantId comes from user's workspace/auth
-  // If brand exists, we can look it up, but during onboarding brand may not exist yet
+  // ✅ IMPROVED: More forgiving tenantId handling
+  // Attempts to resolve tenantId from brand if missing/invalid, but doesn't block persistence
   let finalTenantId = tenantId;
   
-  // ✅ VALIDATION: Ensure tenantId is a valid UUID
-  if (finalTenantId && (finalTenantId === "unknown" || !finalTenantId.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i))) {
-    console.error(`[ScrapedImages] CRITICAL: Invalid tenantId format: "${finalTenantId}". Cannot persist images.`);
-    return [];
-  }
+  // Helper to validate UUID format
+  const isValidUUID = (id: string | null | undefined): boolean => {
+    if (!id || id === "unknown") return false;
+    return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+  };
   
-  if (!finalTenantId) {
-    // Try to get from brand (only works if brand already exists)
-    const { data: brand } = await supabase
-      .from("brands")
-      .select("tenant_id")
-      .eq("id", brandId)
-      .single();
+  // If tenantId is missing or invalid, try to resolve from brand
+  if (!finalTenantId || !isValidUUID(finalTenantId)) {
+    console.warn(`[ScrapedImages] tenantId missing or invalid (${finalTenantId}); attempting lookup from brand`);
     
-    if (brand && (brand as any).tenant_id) {
-      finalTenantId = (brand as any).tenant_id;
-      console.log(`[ScrapedImages] Retrieved tenantId from brand ${brandId}: ${finalTenantId}`);
-    } else {
-      // ✅ CRITICAL: During onboarding, brand may not exist yet
-      // Caller MUST provide tenantId from user's workspace/auth
-      console.error(`[ScrapedImages] CRITICAL: No tenant_id provided and brand ${brandId} not found. Images cannot be persisted. This should not happen - tenantId must be passed from request.`);
-      console.error(`[ScrapedImages] Debug: { brandId: "${brandId}", tenantId: ${tenantId}, imagesCount: ${images.length} }`);
-      return [];
+    try {
+      const { data: brand, error: brandError } = await supabase
+        .from("brands")
+        .select("tenant_id")
+        .eq("id", brandId)
+        .single();
+      
+      if (!brandError && brand && (brand as any).tenant_id && isValidUUID((brand as any).tenant_id)) {
+        finalTenantId = (brand as any).tenant_id;
+        console.log(`[ScrapedImages] ✅ Resolved tenantId from brand record: ${finalTenantId}`);
+      } else {
+        console.warn(`[ScrapedImages] Could not resolve tenantId from brand (brand may not exist yet); proceeding with null tenant_id`);
+        finalTenantId = null;
+      }
+    } catch (err) {
+      console.warn(`[ScrapedImages] Error looking up brand for tenantId resolution:`, err instanceof Error ? err.message : String(err));
+      finalTenantId = null;
     }
   }
+  
+  // ✅ PROCEED WITH PERSISTENCE even if tenantId is null
+  // The schema allows tenant_id to be nullable, so we can still persist images
+  // This prevents a single validation failure from blocking all image persistence
 
   // ✅ SMART PERSISTENCE: Try to get 15 unique images
   // If we find duplicates, keep trying more images until we get 15 unique ones

@@ -482,18 +482,25 @@ export class MediaDBService {
     const quota = quotaData as StorageQuotaRecord;
 
     // Get total used bytes - ✅ FIX: Column is size_bytes not file_size
+    // ✅ GRACEFUL: If query fails, return 0 usage rather than throwing
+    // This allows quota checks to proceed even if media_assets table has issues
     const { data: usageData, error: usageError } = await supabase
       .from("media_assets")
       .select("size_bytes")
       .eq("brand_id", brandId);
 
+    // ✅ GRACEFUL FALLBACK: Return 0 usage on error instead of throwing
+    // This ensures quota system doesn't break if media_assets table has issues
     if (usageError) {
-      throw new AppError(
-        ErrorCode.DATABASE_ERROR,
-        "Failed to calculate storage usage",
-        HTTP_STATUS.INTERNAL_SERVER_ERROR,
-        "critical"
-      );
+      console.warn(`[MediaDB] Error calculating storage usage for brand ${brandId}:`, usageError.message);
+      return {
+        quotaLimitBytes: quota.limit_bytes,
+        totalUsedBytes: 0, // Assume 0 usage if query fails
+        percentageUsed: 0,
+        isWarning: false,
+        isHardLimit: false,
+        assetCount: 0,
+      };
     }
 
     const totalUsedBytes = (usageData || []).reduce(

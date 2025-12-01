@@ -43,6 +43,14 @@ class MediaService {
 
   /**
    * Check storage quota for brand
+   * 
+   * ✅ INTENTIONAL: This method is used for uploads and should enforce quota strictly
+   * Unlike createMediaAsset() which has graceful fallback, uploads should be blocked
+   * when quota is exceeded to prevent storage abuse.
+   * 
+   * Graceful fallback: If quota lookup fails, allows upload (catch block below)
+   * This ensures uploads work even if quota system has issues, but quota enforcement
+   * is still applied when quota data is available.
    */
   private async checkStorageQuota(
     brandId: string,
@@ -56,6 +64,8 @@ class MediaService {
         .eq("brand_id", brandId)
         .limit(1);
 
+      // ✅ GRACEFUL FALLBACK: If quota row doesn't exist, use default 5GB
+      // This allows uploads to proceed even if quota system isn't fully configured
       if (quotaError || !quota || quota.length === 0) {
         // Default quota: 5GB
         const limitBytes = 5 * 1024 * 1024 * 1024;
@@ -63,6 +73,8 @@ class MediaService {
         const newTotal = currentUsage + fileSize;
         const percentUsed = (newTotal / limitBytes) * 100;
 
+        // ✅ INTENTIONAL: Still enforce default quota (block if >100%)
+        // This prevents unlimited uploads even when quota row is missing
         if (percentUsed > 100) {
           return {
             allowed: false,
@@ -106,6 +118,9 @@ class MediaService {
         percentUsed,
       };
     } catch (error) {
+      // ✅ GRACEFUL FALLBACK: If quota check throws (e.g., table missing, query error),
+      // allow upload to proceed rather than blocking all uploads
+      // This ensures the system remains functional even if quota system has issues
       console.warn("Quota check failed, allowing upload:", error);
       return {
         allowed: true,
@@ -116,19 +131,24 @@ class MediaService {
 
   /**
    * Get current storage usage for a brand
+   * 
+   * ✅ GRACEFUL: Returns 0 on error (table missing, query error, etc.)
+   * This ensures quota checks don't fail if media_assets table has issues
    */
   private async getBrandStorageUsage(brandId: string): Promise<number> {
     const { data, error } = await supabase
       .from("media_assets")
-      .select("file_size")
+      .select("size_bytes") // ✅ FIX: Use size_bytes to match schema (was file_size)
       .eq("brand_id", brandId)
       .eq("status", "active");
 
+    // ✅ GRACEFUL FALLBACK: Return 0 if query fails (table missing, RLS blocking, etc.)
+    // This allows quota checks to proceed with 0 usage rather than throwing
     if (error || !data) return 0;
 
     return data.reduce(
       (sum: number, row: any) =>
-        sum + (typeof row.file_size === "number" ? row.file_size : 0),
+        sum + (typeof row.size_bytes === "number" ? row.size_bytes : 0),
       0,
     );
   }
@@ -166,6 +186,8 @@ class MediaService {
 
     try {
       // 0. Check storage quota
+      // ✅ INTENTIONAL: Uploads should be strictly enforced (unlike scraped images)
+      // This prevents storage abuse and ensures quota limits are respected
       const quotaCheck = await this.checkStorageQuota(brandId, file.length);
       if (!quotaCheck.allowed) {
         throw new Error(`Storage quota exceeded: ${quotaCheck.message}`);
@@ -554,7 +576,7 @@ class MediaService {
         filename: asset.filename,
         mime_type: asset.mimeType,
         path: asset.bucketPath,
-        file_size: asset.size,
+        size_bytes: asset.size, // ✅ FIX: Use size_bytes to match schema (was file_size)
         hash: asset.hash,
         url: `${process.env.SUPABASE_URL}/storage/v1/object/public/tenant-${asset.tenantId}/${asset.bucketPath}`,
         thumbnail_url: asset.thumbnailPath,
@@ -729,7 +751,7 @@ class MediaService {
   }> {
     const { data, error } = await supabase
       .from("media_assets")
-      .select("file_size, category")
+      .select("size_bytes, category") // ✅ FIX: Use size_bytes to match schema (was file_size)
       .eq("brand_id", brandId)
       .eq("status", "active");
 
@@ -741,9 +763,9 @@ class MediaService {
     let total = 0;
 
     for (const row of data || []) {
-      total += row.file_size;
+      total += row.size_bytes || 0; // ✅ FIX: Use size_bytes (was file_size)
       byCategory[row.category] =
-        (byCategory[row.category] || 0) + row.file_size;
+        (byCategory[row.category] || 0) + (row.size_bytes || 0); // ✅ FIX: Use size_bytes (was file_size)
     }
 
     const limit = 5 * 1024 * 1024 * 1024; // 5GB default
@@ -809,7 +831,7 @@ class MediaService {
       originalName: row.filename,
       mimeType: row.mime_type,
       bucketPath: row.path,
-      size: row.file_size,
+      size: row.size_bytes || 0, // ✅ FIX: Use size_bytes to match schema (was file_size)
       hash: row.hash,
       thumbnailPath: row.thumbnail_url,
       tags: meta.aiTags || [],

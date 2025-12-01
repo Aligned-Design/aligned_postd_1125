@@ -3,6 +3,8 @@
 **Date**: 2025-01-20  
 **Status**: ✅ Code Fixed - Ready for Testing
 
+> **See Also**: `docs/STORAGE_QUOTA_END_TO_END_VERIFICATION.md` for comprehensive verification report
+
 ---
 
 ## Quick Verification Checklist
