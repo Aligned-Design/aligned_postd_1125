@@ -29,6 +29,9 @@ import {
   Bell,
   Settings as SettingsIcon,
 } from "lucide-react";
+import { PageShell } from "@/components/postd/ui/layout/PageShell";
+import { PageHeader } from "@/components/postd/ui/layout/PageHeader";
+import { logError } from "@/lib/logger";
 import type { ClientSettings, ReminderFrequency } from "@shared/client-settings";
 import { TIMEZONE_OPTIONS, LANGUAGE_OPTIONS } from "@shared/client-settings";
 
@@ -60,7 +63,7 @@ export default function ClientSettings() {
       const data = await response.json();
       setSettings(data.settings);
     } catch (error) {
-      console.error("Failed to load settings:", error);
+      logError("Failed to load settings", error instanceof Error ? error : new Error(String(error)));
     } finally {
       setLoading(false);
     }
@@ -94,7 +97,7 @@ export default function ClientSettings() {
       // Reset success message after 3 seconds
       setTimeout(() => setSaveSuccess(false), 3000);
     } catch (error) {
-      console.error("Failed to save settings:", error);
+      logError("Failed to save settings", error instanceof Error ? error : new Error(String(error)));
     } finally {
       setSaving(false);
     }
@@ -122,7 +125,7 @@ export default function ClientSettings() {
       const data = await response.json();
       setUnsubscribeUrl(data.unsubscribeUrl);
     } catch (error) {
-      console.error("Failed to generate unsubscribe link:", error);
+      logError("Failed to generate unsubscribe link", error instanceof Error ? error : new Error(String(error)));
     }
   };
 
@@ -136,18 +139,18 @@ export default function ClientSettings() {
 
   if (loading) {
     return (
-      <div className="p-8">
+      <PageShell>
         <div className="space-y-4 animate-pulse">
           <div className="h-8 w-48 bg-gray-200 rounded" />
           <div className="h-96 bg-gray-200 rounded-lg" />
         </div>
-      </div>
+      </PageShell>
     );
   }
 
   if (!settings) {
     return (
-      <div className="p-8">
+      <PageShell>
         <div className="rounded-lg bg-red-50 border border-red-200 p-4 flex gap-3">
           <AlertCircle className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
           <div>
@@ -157,22 +160,16 @@ export default function ClientSettings() {
             </p>
           </div>
         </div>
-      </div>
+      </PageShell>
     );
   }
 
   return (
-    <div className="p-8 space-y-8 max-w-4xl">
-      {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-2">
-          <SettingsIcon className="h-8 w-8" />
-          Account Settings
-        </h1>
-        <p className="text-gray-600 mt-1">
-          Manage your email preferences and notification settings
-        </p>
-      </div>
+    <PageShell>
+      <PageHeader
+        title="Account Settings"
+        subtitle="Manage your email preferences and notification settings"
+      />
 
       {/* Success message */}
       {saveSuccess && (
@@ -584,6 +581,6 @@ export default function ClientSettings() {
           )}
         </Button>
       </div>
-    </div>
+    </PageShell>
   );
 }

@@ -42,6 +42,13 @@ export interface CanvasItem {
   // Image properties
   imageUrl?: string;
   imageName?: string;
+  crop?: {
+    x: number; // Crop area X offset (0-1, relative to image)
+    y: number; // Crop area Y offset (0-1, relative to image)
+    width: number; // Crop area width (0-1, relative to image)
+    height: number; // Crop area height (0-1, relative to image)
+    aspectRatio?: "1:1" | "9:16" | "16:9" | "free"; // Locked aspect ratio
+  };
 
   // Shape properties
   shapeType?: ShapeType;

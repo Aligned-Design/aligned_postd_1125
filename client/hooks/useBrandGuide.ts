@@ -21,6 +21,7 @@ interface UseBrandGuideReturn {
   error: Error | null;
   isSaving: boolean;
   lastSaved: string | null;
+  validationWarnings: string[];
   updateBrandGuide: (updates: Partial<BrandGuide>) => Promise<void>;
   saveBrandGuide: (fullGuide: BrandGuide) => Promise<void>;
   refetch: () => void;
@@ -32,6 +33,7 @@ export function useBrandGuide(): UseBrandGuideReturn {
   const queryClient = useQueryClient();
   const [isSaving, setIsSaving] = useState(false);
   const [lastSaved, setLastSaved] = useState<string | null>(null);
+  const [validationWarnings, setValidationWarnings] = useState<string[]>([]);
 
   // Fetch Brand Guide from API
   const {
@@ -95,14 +97,23 @@ export function useBrandGuide(): UseBrandGuideReturn {
         throw new Error("Failed to update Brand Guide");
       }
     },
-    onSuccess: (data) => {
+    onSuccess: (data: any) => {
       // Invalidate and refetch
       queryClient.invalidateQueries({ queryKey: ["brandGuide", brandId] });
       setLastSaved(new Date().toLocaleTimeString());
       
+      // Update validation warnings if present
+      if (data?.validationWarnings && Array.isArray(data.validationWarnings)) {
+        setValidationWarnings(data.validationWarnings);
+      } else {
+        setValidationWarnings([]);
+      }
+      
       toast({
         title: "✅ Saved",
-        description: "Brand Guide updated successfully",
+        description: data?.validationWarnings?.length > 0
+          ? "Brand Guide updated (see warnings below)"
+          : "Brand Guide updated successfully",
       });
     },
     onError: (error: Error) => {
@@ -136,13 +147,22 @@ export function useBrandGuide(): UseBrandGuideReturn {
         throw new Error("Failed to save Brand Guide");
       }
     },
-    onSuccess: (data) => {
+    onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ["brandGuide", brandId] });
       setLastSaved(new Date().toLocaleTimeString());
       
+      // Update validation warnings if present
+      if (data?.validationWarnings && Array.isArray(data.validationWarnings)) {
+        setValidationWarnings(data.validationWarnings);
+      } else {
+        setValidationWarnings([]);
+      }
+      
       toast({
         title: "✅ Saved",
-        description: "Brand Guide saved successfully",
+        description: data?.validationWarnings?.length > 0
+          ? "Brand Guide saved (see warnings below)"
+          : "Brand Guide saved successfully",
       });
     },
     onError: (error: Error) => {
@@ -192,6 +212,7 @@ export function useBrandGuide(): UseBrandGuideReturn {
     error: error as Error | null,
     isSaving: isSaving || updateMutation.isPending || saveMutation.isPending,
     lastSaved,
+    validationWarnings,
     updateBrandGuide,
     saveBrandGuide,
     refetch,

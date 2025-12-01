@@ -48,7 +48,8 @@ export async function unlockMilestone(workspaceId: string, key: MilestoneKey) {
 
     if (error) throw error;
 
-    // TODO: Notify clients via WebSocket when available
+    // Future work: Notify clients via WebSocket when available
+    // This would enable real-time milestone notifications in the UI
     // ws.publish(`milestones:${workspaceId}`, { key });
 
     console.log(`[Milestone] Unlocked ${key} for workspace ${workspaceId}`);

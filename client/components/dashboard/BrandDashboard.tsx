@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { BrandGuide } from "@/types/brandGuide";
-import { ArrowRight, Sparkles, RefreshCw, Check, X } from "lucide-react";
+import { ArrowRight, Sparkles, RefreshCw, Check, X, TrendingUp, Calendar } from "lucide-react";
 
 interface BrandDashboardProps {
   brand: BrandGuide;
@@ -471,6 +471,63 @@ export function BrandDashboard({ brand, onUpdate }: BrandDashboardProps) {
           </div>
         )}
       </div>
+
+      {/* BFS Baseline */}
+      {brand.performanceInsights?.bfsBaseline && (
+        <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl border border-green-200 p-6">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <TrendingUp className="w-5 h-5 text-green-600" />
+              <h3 className="text-lg font-black text-slate-900">BFS Baseline</h3>
+            </div>
+            <div className="flex items-center gap-2">
+              <Calendar className="w-4 h-4 text-slate-500" />
+              <span className="text-xs text-slate-600">
+                {brand.performanceInsights.bfsBaseline.calculatedAt
+                  ? new Date(brand.performanceInsights.bfsBaseline.calculatedAt).toLocaleDateString()
+                  : "Not calculated"}
+              </span>
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            {/* Baseline Score */}
+            <div>
+              <p className="text-xs font-bold text-slate-600 mb-2">BASELINE SCORE</p>
+              <div className="flex items-center gap-3">
+                <span className="text-4xl font-black text-green-600">
+                  {(brand.performanceInsights.bfsBaseline.score * 100).toFixed(0)}%
+                </span>
+                <div className="flex-1 h-3 bg-slate-200 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-gradient-to-r from-green-400 to-emerald-500 transition-all"
+                    style={{ width: `${brand.performanceInsights.bfsBaseline.score * 100}%` }}
+                  />
+                </div>
+              </div>
+              <p className="text-xs text-slate-600 mt-2">
+                This is the baseline score used to compare generated content against your brand guidelines.
+              </p>
+            </div>
+
+            {/* Sample Content Preview */}
+            {brand.performanceInsights.bfsBaseline.sampleContent && (
+              <details className="group">
+                <summary className="cursor-pointer text-sm font-bold text-slate-700 hover:text-slate-900 transition-colors flex items-center gap-2">
+                  <span>View Sample Baseline Content</span>
+                  <span className="text-slate-400 group-open:hidden">▼</span>
+                  <span className="text-slate-400 hidden group-open:inline">▲</span>
+                </summary>
+                <div className="mt-3 p-4 bg-white rounded-lg border border-green-200">
+                  <p className="text-sm text-slate-700 whitespace-pre-wrap">
+                    {brand.performanceInsights.bfsBaseline.sampleContent}
+                  </p>
+                </div>
+              </details>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Deep Dive CTAs */}
       <div className="grid grid-cols-2 md:grid-cols-3 gap-3">

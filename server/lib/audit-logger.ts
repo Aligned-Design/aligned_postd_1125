@@ -61,7 +61,8 @@ export async function logAuditAction(
       metadata,
     });
 
-    // TODO: Send to external audit service (Splunk, DataDog, etc.)
+    // Future work: Send to external audit service (Splunk, DataDog, etc.)
+    // This would require configuring external service credentials and client library
 
     return dbRecordToAuditLog(auditLog);
   } catch (error) {

@@ -299,12 +299,16 @@ export class CreativeAgent {
 
       const resolvedLight: Record<string, string> = {};
       for (const [key, tokenName] of Object.entries(lightTokens)) {
-        resolvedLight[key] = this.resolveTokenValue(tokenName, theme, "light");
+        // Handle both string and string[] token values
+        const token = Array.isArray(tokenName) ? tokenName[0] : tokenName;
+        resolvedLight[key] = this.resolveTokenValue(token, theme, "light");
       }
 
       const resolvedDark: Record<string, string> = {};
       for (const [key, tokenName] of Object.entries(darkTokens)) {
-        resolvedDark[key] = this.resolveTokenValue(tokenName, theme, "dark");
+        // Handle both string and string[] token values
+        const token = Array.isArray(tokenName) ? tokenName[0] : tokenName;
+        resolvedDark[key] = this.resolveTokenValue(token, theme, "dark");
       }
 
       styles[componentName] = {

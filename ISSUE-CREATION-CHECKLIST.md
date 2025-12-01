@@ -20,7 +20,7 @@
 gh --version
 
 # Verify you can access repo
-gh repo view Aligned-Design/Aligned-20ai
+gh repo view POSTD-org/POSTD
 ```
 
 ---
@@ -34,7 +34,7 @@ gh auth login
 # Choose: github.com → HTTPS → Paste your token when prompted
 
 # Step 2: Run script from project root
-cd ~/Documents/GitHub/Aligned-20ai
+cd ~/Documents/GitHub/POSTD
 bash scripts/create-github-issues.sh
 ```
 
@@ -42,13 +42,13 @@ bash scripts/create-github-issues.sh
 ```bash
 # Set token and run
 export GITHUB_TOKEN=ghp_xxxxxxxxxxxxxxxx
-cd ~/Documents/GitHub/Aligned-20ai
+cd ~/Documents/GitHub/POSTD
 bash scripts/create-github-issues.sh
 ```
 
 ### Option C: One Command
 ```bash
-GITHUB_TOKEN=ghp_xxxx bash ~/Documents/GitHub/Aligned-20ai/scripts/create-github-issues.sh
+GITHUB_TOKEN=ghp_xxxx bash ~/Documents/GitHub/POSTD/scripts/create-github-issues.sh
 ```
 
 ---
@@ -59,7 +59,7 @@ After script completes successfully:
 
 ```bash
 # Verify all issues created
-gh issue list --repo Aligned-Design/Aligned-20ai \
+gh issue list --repo POSTD-org/POSTD \
   --search "milestone:\"Audit Remediation Sprint\"" \
   --limit 100 | wc -l
 
@@ -67,19 +67,19 @@ gh issue list --repo Aligned-Design/Aligned-20ai \
 
 # Check by priority
 echo "P1 Issues:"
-gh issue list --repo Aligned-Design/Aligned-20ai \
+gh issue list --repo POSTD-org/POSTD \
   --label P1 --limit 100 | wc -l
 
 echo "P2 Issues:"
-gh issue list --repo Aligned-Design/Aligned-20ai \
+gh issue list --repo POSTD-org/POSTD \
   --label P2 --limit 100 | wc -l
 
 echo "P3 Issues:"
-gh issue list --repo Aligned-Design/Aligned-20ai \
+gh issue list --repo POSTD-org/POSTD \
   --label P3 --limit 100 | wc -l
 
 echo "P4 Issues:"
-gh issue list --repo Aligned-Design/Aligned-20ai \
+gh issue list --repo POSTD-org/POSTD \
   --label P4 --limit 100 | wc -l
 ```
 
@@ -88,14 +88,14 @@ gh issue list --repo Aligned-Design/Aligned-20ai \
 ## Post-Execution (15 minutes)
 
 ### 1. Verify in Web UI (2 min)
-Go to: https://github.com/Aligned-Design/Aligned-20ai/issues
+Go to: https://github.com/POSTD-org/POSTD/issues
 - [ ] Filter by milestone: "Audit Remediation Sprint"
 - [ ] Should see 85 issues
 - [ ] Verify labels are correct (phase-X, P1-P4, type)
 - [ ] Verify all P1 issues are marked with red/critical label
 
 ### 2. Create Project Board (5 min)
-1. Go to: https://github.com/Aligned-Design/Aligned-20ai/projects
+1. Go to: https://github.com/POSTD-org/POSTD/projects
 2. Click "New project"
 3. Name: `Audit Remediation Sprint`
 4. Template: `Board` (Kanban style recommended)
@@ -115,7 +115,7 @@ For P1 Issues (Critical - Start Here):
 | #1.4: Database Layer | DBA/Backend | 40h, foundation |
 
 ### 4. Schedule Sprint 1 (2 min)
-1. Go to milestone: https://github.com/Aligned-Design/Aligned-20ai/milestones
+1. Go to milestone: https://github.com/POSTD-org/POSTD/milestones
 2. Click "Audit Remediation Sprint"
 3. Set due date to: **End of Week 2** (2 weeks from today)
 4. Save
@@ -171,13 +171,13 @@ Let's ship it! 🎯
 
 ### Script Location
 ```
-/Users/krisfoust/Documents/GitHub/Aligned-20ai/scripts/create-github-issues.sh
+/Users/krisfoust/Documents/GitHub/POSTD/scripts/create-github-issues.sh
 ```
 
 ### Run Command
 ```bash
 export GITHUB_TOKEN=your_token_here
-bash ~/Documents/GitHub/Aligned-20ai/scripts/create-github-issues.sh
+bash ~/Documents/GitHub/POSTD/scripts/create-github-issues.sh
 ```
 
 ### Issues Created By Priority
@@ -199,7 +199,7 @@ bash ~/Documents/GitHub/Aligned-20ai/scripts/create-github-issues.sh
 - **"gh: command not found"** → Install from https://cli.github.com
 - **"authentication required"** → Run `gh auth login` or export `GITHUB_TOKEN`
 - **"Token scopes missing"** → Go to https://github.com/settings/tokens
-- **"Milestone not found"** → Create milestone first: https://github.com/Aligned-Design/Aligned-20ai/milestones
+- **"Milestone not found"** → Create milestone first: https://github.com/POSTD-org/POSTD/milestones
 - **"Permission denied"** → Check you're repo admin and token is valid
 
 ---
@@ -215,7 +215,7 @@ bash ~/Documents/GitHub/Aligned-20ai/scripts/create-github-issues.sh
 🤝 **Help:**
 - GitHub CLI help: `gh help issue`
 - Script logs: Review output carefully
-- Manual creation: Web UI at github.com/Aligned-Design/Aligned-20ai/issues/new
+- Manual creation: Web UI at github.com/POSTD-org/POSTD/issues/new
 
 ---
 
@@ -225,7 +225,7 @@ bash ~/Documents/GitHub/Aligned-20ai/scripts/create-github-issues.sh
 
 ```bash
 export GITHUB_TOKEN=your_token_here
-bash ~/Documents/GitHub/Aligned-20ai/scripts/create-github-issues.sh
+bash ~/Documents/GitHub/POSTD/scripts/create-github-issues.sh
 ```
 
 Then verify and assign team members. Sprint 1 begins immediately after! 💪

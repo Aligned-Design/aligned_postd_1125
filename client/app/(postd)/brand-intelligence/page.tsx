@@ -39,6 +39,11 @@ import {
   StrategicRecommendation,
   ContentSuggestion,
 } from "@shared/brand-intelligence";
+import { PageShell } from "@/components/postd/ui/layout/PageShell";
+import { PageHeader } from "@/components/postd/ui/layout/PageHeader";
+import { LoadingState } from "@/components/postd/dashboard/states/LoadingState";
+import { ErrorState } from "@/components/postd/ui/feedback/ErrorState";
+import { EmptyState } from "@/components/postd/ui/feedback/EmptyState";
 
 export default function BrandIntelligencePage() {
   const [activeTab, setActiveTab] = useState("overview");
@@ -49,169 +54,130 @@ export default function BrandIntelligencePage() {
   // Loading state with accessible skeleton
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50">
-        <div className="max-w-7xl mx-auto">
-          <BrandIntelligenceSkeleton />
-        </div>
-      </div>
+      <PageShell>
+        <LoadingState label="Loading brand intelligence" />
+      </PageShell>
     );
   }
 
   // Error state
   if (error) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center space-y-4 max-w-md mx-auto p-6">
-          <AlertTriangle className="h-12 w-12 text-red-500 mx-auto" />
-          <div>
-            <h3 className="text-lg font-semibold text-gray-900">
-              Unable to Load Brand Intelligence
-            </h3>
-            <p className="text-gray-600 mt-2">{error}</p>
-            {typeof error === "string" &&
-              (error.includes("<!DOCTYPE") ||
-                error.includes("Invalid response format")) && (
-                <p className="text-sm text-gray-500 mt-2">
-                  It looks like the server returned HTML instead of JSON —
-                  ensure the API server is running and
-                  /api/brand-intelligence/:id returns JSON. Check network tab
-                  for more details.
-                </p>
-              )}
-          </div>
-          <Button onClick={refresh} className="gap-2">
-            <RefreshCw className="h-4 w-4" />
-            Try Again
-          </Button>
-        </div>
-      </div>
+      <PageShell>
+        <PageHeader title="Brand Intelligence" subtitle="AI-powered insights and recommendations" />
+        <ErrorState
+          title="Unable to Load Brand Intelligence"
+          description={error}
+          onRetry={refresh}
+        />
+      </PageShell>
     );
   }
 
   // Empty state
   if (!intelligence) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center space-y-4 max-w-md mx-auto p-6">
-          <Brain className="h-12 w-12 text-gray-400 mx-auto" />
-          <div>
-            <h3 className="text-lg font-semibold text-gray-900">
-              No Intelligence Data Available
-            </h3>
-            <p className="text-gray-600 mt-2">
-              We're analyzing your brand data. This may take a few minutes.
-            </p>
-          </div>
-          <Button onClick={refresh} className="gap-2">
+      <PageShell>
+        <PageHeader title="Brand Intelligence" subtitle="AI-powered insights and recommendations" />
+        <div className="flex flex-col items-center justify-center py-12">
+          <p className="text-gray-600 mt-2">
+            We're analyzing your brand data. This may take a few minutes.
+          </p>
+          <Button onClick={refresh} className="gap-2 mt-4">
             <RefreshCw className="h-4 w-4" />
             Check Again
           </Button>
         </div>
-      </div>
+      </PageShell>
     );
   }
 
   return (
     <ErrorBoundary>
-      <div className="min-h-screen bg-gray-50">
-        <div className="max-w-7xl mx-auto p-4 sm:p-6 space-y-6 sm:space-y-8">
-          {/* Header with improved hierarchy and accessibility */}
-          <header className="space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-              <div className="space-y-2">
-                <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900 flex items-center gap-3">
-                  <Brain
-                    className="h-8 w-8 sm:h-10 sm:w-10 text-blue-600"
-                    aria-hidden="true"
-                  />
-                  Brand Intelligence
-                </h1>
-                <p className="text-base sm:text-lg text-gray-600">
-                  Insights to optimize your brand strategy
-                </p>
-              </div>
+      <PageShell>
+        <PageHeader
+          title="Brand Intelligence"
+          subtitle="Insights to optimize your brand strategy"
+        />
+        <div className="space-y-6 sm:space-y-8">
+          <div className="flex items-center gap-3 justify-end mb-6">
+            {(() => {
+              const confScore =
+                typeof intelligence.confidenceScore === "number" &&
+                Number.isFinite(intelligence.confidenceScore)
+                  ? intelligence.confidenceScore
+                  : null;
+              const confPercent =
+                confScore !== null ? Math.round(confScore * 100) : null;
+              const badgeClass = cn(
+                "text-sm font-medium",
+                confScore === null
+                  ? "bg-gray-50 text-gray-700 border-gray-200"
+                  : confScore >= 0.8
+                    ? "bg-green-50 text-green-700 border-green-200"
+                    : confScore >= 0.6
+                      ? "bg-yellow-50 text-yellow-700 border-yellow-200"
+                      : "bg-red-50 text-red-700 border-red-200",
+              );
+              const ariaLabel =
+                confPercent !== null
+                  ? `Confidence score: ${confPercent} percent`
+                  : "Confidence score: unavailable";
+              return (
+                <>
+                  <Badge
+                    variant="outline"
+                    className={badgeClass}
+                    aria-label={ariaLabel}
+                  >
+                    Confidence:{" "}
+                    {confPercent !== null ? `${confPercent}%` : "N/A"}
+                  </Badge>
+                  <Button
+                    onClick={refresh}
+                    variant="outline"
+                    size="sm"
+                    className="gap-2"
+                    aria-label="Refresh brand intelligence data"
+                  >
+                    <RefreshCw className="h-4 w-4" aria-hidden="true" />
+                    <span className="hidden sm:inline">Refresh</span>
+                  </Button>
+                </>
+              );
+            })()}
+          </div>
 
-              <div className="flex items-center gap-3">
-                {(() => {
-                  const confScore =
-                    typeof intelligence.confidenceScore === "number" &&
-                    Number.isFinite(intelligence.confidenceScore)
-                      ? intelligence.confidenceScore
-                      : null;
-                  const confPercent =
-                    confScore !== null ? Math.round(confScore * 100) : null;
-                  const badgeClass = cn(
-                    "text-sm font-medium",
-                    confScore === null
-                      ? "bg-gray-50 text-gray-700 border-gray-200"
-                      : confScore >= 0.8
-                        ? "bg-green-50 text-green-700 border-green-200"
-                        : confScore >= 0.6
-                          ? "bg-yellow-50 text-yellow-700 border-yellow-200"
-                          : "bg-red-50 text-red-700 border-red-200",
-                  );
-                  const ariaLabel =
-                    confPercent !== null
-                      ? `Confidence score: ${confPercent} percent`
-                      : "Confidence score: unavailable";
-                  return (
-                    <>
-                      <Badge
-                        variant="outline"
-                        className={badgeClass}
-                        aria-label={ariaLabel}
-                      >
-                        Confidence:{" "}
-                        {confPercent !== null ? `${confPercent}%` : "N/A"}
-                      </Badge>
-                      <Button
-                        onClick={refresh}
-                        variant="outline"
-                        size="sm"
-                        className="gap-2"
-                        aria-label="Refresh brand intelligence data"
-                      >
-                        <RefreshCw className="h-4 w-4" aria-hidden="true" />
-                        <span className="hidden sm:inline">Refresh</span>
-                      </Button>
-                    </>
-                  );
-                })()}
-              </div>
-            </div>
-
-            {/* Key Insights Summary with responsive grid */}
-            <ResponsiveGrid
-              cols={{ sm: 1, md: 2, lg: 4 }}
-              gap="md"
-              className="mt-6"
-            >
-              <InsightCard
-                title="Brand Differentiation"
-                value={`${intelligence.brandProfile.differentiators.length} key factors`}
-                icon={<Target className="h-5 w-5" aria-hidden="true" />}
-                color="blue"
-              />
-              <InsightCard
-                title="Competitive Opportunities"
-                value={`${intelligence.competitorInsights.gapAnalysis.opportunityAreas.length} identified`}
-                icon={<TrendingUp className="h-5 w-5" aria-hidden="true" />}
-                color="green"
-              />
-              <InsightCard
-                title="Content Insights"
-                value={`${intelligence.audienceInsights.contentPreferences.topPerformingTypes.length} top types`}
-                icon={<Users className="h-5 w-5" aria-hidden="true" />}
-                color="purple"
-              />
-              <InsightCard
-                title="Active Recommendations"
-                value={`${intelligence.recommendations.strategic.length + intelligence.recommendations.tactical.length} total`}
-                icon={<Lightbulb className="h-5 w-5" aria-hidden="true" />}
-                color="orange"
-              />
-            </ResponsiveGrid>
-          </header>
+          {/* Key Insights Summary with responsive grid */}
+          <ResponsiveGrid
+            cols={{ sm: 1, md: 2, lg: 4 }}
+            gap="md"
+          >
+            <InsightCard
+              title="Brand Differentiation"
+              value={`${intelligence.brandProfile.differentiators.length} key factors`}
+              icon={<Target className="h-5 w-5" aria-hidden="true" />}
+              color="blue"
+            />
+            <InsightCard
+              title="Competitive Opportunities"
+              value={`${intelligence.competitorInsights.gapAnalysis.opportunityAreas.length} identified`}
+              icon={<TrendingUp className="h-5 w-5" aria-hidden="true" />}
+              color="green"
+            />
+            <InsightCard
+              title="Content Insights"
+              value={`${intelligence.audienceInsights.contentPreferences.topPerformingTypes.length} top types`}
+              icon={<Users className="h-5 w-5" aria-hidden="true" />}
+              color="purple"
+            />
+            <InsightCard
+              title="Active Recommendations"
+              value={`${intelligence.recommendations.strategic.length + intelligence.recommendations.tactical.length} total`}
+              icon={<Lightbulb className="h-5 w-5" aria-hidden="true" />}
+              color="orange"
+            />
+          </ResponsiveGrid>
 
           {/* Main Content Tabs with improved accessibility */}
           <Tabs
@@ -307,7 +273,7 @@ export default function BrandIntelligencePage() {
             </div>
           </Tabs>
         </div>
-      </div>
+      </PageShell>
     </ErrorBoundary>
   );
 }

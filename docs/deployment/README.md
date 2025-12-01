@@ -53,7 +53,7 @@ Automated script that handles:
 
 **Run**: 
 ```bash
-cd /Users/krisfoust/Documents/Aligned-20ai
+cd /Users/krisfoust/Downloads/Aligned-20ai.posted
 bash scripts/deploy.sh
 ```
 

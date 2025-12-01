@@ -1,8 +1,11 @@
-# Trial Workflow Implementation Guide
+# POSTD Trial Workflow Implementation Guide
+
+> **Status:** ✅ Active – This is an active guide for POSTD trial workflow implementation.  
+> **Last Updated:** 2025-01-20
 
 ## Overview
 
-This document describes the complete 7-Day Guided Trial workflow implementation for Aligned AI, including frontend components, backend API, database schema, and integration examples.
+This document describes the complete 7-Day Guided Trial workflow implementation for POSTD, including frontend components, backend API, database schema, and integration examples.
 
 ---
 
@@ -251,7 +254,7 @@ router.post("/api/posts/publish", checkTrialLimit, async (req, res) => {
 
 ## Design Tokens
 
-All components follow the Aligned AI design system:
+All components follow the POSTD design system:
 
 ```css
 /* Primary Colors */

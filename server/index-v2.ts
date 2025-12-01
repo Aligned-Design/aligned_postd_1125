@@ -187,7 +187,8 @@ export function createServer() {
   // ✅ DEBUG: Health check endpoint (comprehensive system verification)
   app.use("/api/debug", debugHealthRouter);
 
-  // TODO: Add these routers incrementally after testing
+  // Future work: Add these routers incrementally after testing
+  // These routers are available but not yet enabled in production
   // app.use("/api/client-portal", clientPortalRouter);
   // app.use("/api/publishing", publishingRouter);
   // app.use("/api/integrations", integrationsRouter);

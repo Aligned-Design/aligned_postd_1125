@@ -1,8 +1,33 @@
-import { Router, Request, Response } from "express";
+/**
+ * Billing API Routes
+ * 
+ * Handles billing status, history, upgrades, and invoice management.
+ */
+
+import { Router, Request, Response, RequestHandler } from "express";
+import { z } from "zod";
 import { authenticateUser } from "../middleware/security";
 import { AppError } from "../lib/error-middleware";
+import { ErrorCode, HTTP_STATUS } from "../lib/error-responses";
+import { validateBody, validateParams } from "../lib/validation-middleware";
 
 const router = Router();
+
+// ✅ VALIDATION: Zod schemas for billing routes
+const UpgradePlanBodySchema = z.object({
+  plan: z.enum(['base', 'agency', 'enterprise'], {
+    errorMap: () => ({ message: 'Plan must be base, agency, or enterprise' }),
+  }),
+  paymentMethodId: z.string().min(1, 'Payment method ID is required'),
+}).strict();
+
+const AddBrandBodySchema = z.object({
+  brandName: z.string().min(1, 'Brand name is required').max(200),
+}).strict();
+
+const InvoiceIdParamSchema = z.object({
+  invoiceId: z.string().min(1, 'Invoice ID is required'),
+}).strict();
 
 interface BillingStatus {
   subscription: {
@@ -40,12 +65,17 @@ interface Invoice {
  * GET /api/billing/status
  * Get current billing status and subscription details
  */
-router.get("/status", authenticateUser, async (req: Request, res: Response) => {
+router.get("/status", authenticateUser, (async (req: Request, res: Response, next) => {
   try {
-    const user = req.user as any;
+    const user = (req as any).user;
 
     if (!user) {
-      throw new AppError("Unauthorized", 401, "UNAUTHORIZED");
+      throw new AppError(
+        ErrorCode.UNAUTHORIZED,
+        "Authentication required",
+        HTTP_STATUS.UNAUTHORIZED,
+        "warning"
+      );
     }
 
     // Calculate brand count from database
@@ -86,18 +116,14 @@ router.get("/status", authenticateUser, async (req: Request, res: Response) => {
       };
     }
 
-    res.json({
+    (res as any).json({
       success: true,
       data: status,
     });
   } catch (error) {
-    console.error("Error fetching billing status:", error);
-    res.status(500).json({
-      success: false,
-      error: "Failed to fetch billing status",
-    });
+    next(error);
   }
-});
+}) as RequestHandler);
 
 /**
  * GET /api/billing/history
@@ -106,12 +132,17 @@ router.get("/status", authenticateUser, async (req: Request, res: Response) => {
 router.get(
   "/history",
   authenticateUser,
-  async (req: Request, res: Response) => {
+  (async (req: Request, res: Response, next) => {
     try {
-      const user = req.user as any;
+      const user = (req as any).user;
 
       if (!user) {
-        throw new AppError("Unauthorized", 401, "UNAUTHORIZED");
+        throw new AppError(
+          ErrorCode.UNAUTHORIZED,
+          "Authentication required",
+          HTTP_STATUS.UNAUTHORIZED,
+          "warning"
+        );
       }
 
       // Trial users have no billing history
@@ -140,18 +171,14 @@ router.get(
         },
       ];
 
-      res.json({
+      (res as any).json({
         success: true,
         data: invoices,
       });
     } catch (error) {
-      console.error("Error fetching billing history:", error);
-      res.status(500).json({
-        success: false,
-        error: "Failed to fetch billing history",
-      });
+      next(error);
     }
-  },
+  }) as RequestHandler,
 );
 
 /**
@@ -161,21 +188,30 @@ router.get(
 router.post(
   "/upgrade",
   authenticateUser,
-  async (req: Request, res: Response) => {
+  validateBody(UpgradePlanBodySchema),
+  (async (req: Request, res: Response, next) => {
     try {
-      const user = req.user as any;
+      const user = (req as any).user;
 
       if (!user) {
-        throw new AppError("Unauthorized", 401, "UNAUTHORIZED");
+        throw new AppError(
+          ErrorCode.UNAUTHORIZED,
+          "Authentication required",
+          HTTP_STATUS.UNAUTHORIZED,
+          "warning"
+        );
       }
 
-      const { plan, paymentMethodId } = req.body;
+      // ✅ VALIDATION: Body is already validated by middleware
+      const { plan, paymentMethodId } = req.body as z.infer<typeof UpgradePlanBodySchema>;
 
       if (user.plan !== "trial") {
-        return res.status(400).json({
-          success: false,
-          error: "User is already on a paid plan",
-        });
+        throw new AppError(
+          ErrorCode.VALIDATION_ERROR,
+          "User is already on a paid plan",
+          HTTP_STATUS.BAD_REQUEST,
+          "warning"
+        );
       }
 
       // Process upgrade
@@ -185,7 +221,7 @@ router.post(
       // 4. Send confirmation email
 
       // Mock response
-      res.json({
+      (res as any).json({
         success: true,
         data: {
           plan,
@@ -194,13 +230,9 @@ router.post(
         },
       });
     } catch (error) {
-      console.error("Error upgrading plan:", error);
-      res.status(500).json({
-        success: false,
-        error: "Failed to upgrade plan",
-      });
+      next(error);
     }
-  },
+  }) as RequestHandler,
 );
 
 /**
@@ -210,28 +242,37 @@ router.post(
 router.post(
   "/add-brand",
   authenticateUser,
-  async (req: Request, res: Response) => {
+  validateBody(AddBrandBodySchema),
+  (async (req: Request, res: Response, next) => {
     try {
-      const user = req.user as any;
+      const user = (req as any).user;
 
       if (!user) {
-        throw new AppError("Unauthorized", 401, "UNAUTHORIZED");
+        throw new AppError(
+          ErrorCode.UNAUTHORIZED,
+          "Authentication required",
+          HTTP_STATUS.UNAUTHORIZED,
+          "warning"
+        );
       }
 
       if (user.plan === "trial") {
-        return res.status(403).json({
-          success: false,
-          error: "Trial users cannot add brands. Please upgrade first.",
-        });
+        throw new AppError(
+          ErrorCode.FORBIDDEN,
+          "Trial users cannot add brands. Please upgrade first.",
+          HTTP_STATUS.FORBIDDEN,
+          "warning"
+        );
       }
 
-      const { brandName } = req.body;
+      // ✅ VALIDATION: Body is already validated by middleware
+      const { brandName } = req.body as z.infer<typeof AddBrandBodySchema>;
 
       // Add brand to database
       // Update subscription quantity in payment provider
       // Recalculate pricing (auto-switch to Agency at 5+)
 
-      res.json({
+      (res as any).json({
         success: true,
         data: {
           message: "Brand added successfully",
@@ -239,13 +280,9 @@ router.post(
         },
       });
     } catch (error) {
-      console.error("Error adding brand:", error);
-      res.status(500).json({
-        success: false,
-        error: "Failed to add brand",
-      });
+      next(error);
     }
-  },
+  }) as RequestHandler,
 );
 
 /**
@@ -255,32 +292,35 @@ router.post(
 router.get(
   "/invoice/:invoiceId/download",
   authenticateUser,
-  async (req: Request, res: Response) => {
+  validateParams(InvoiceIdParamSchema),
+  (async (req: Request, res: Response, next) => {
     try {
-      const user = req.user as any;
-      const { invoiceId } = req.params;
+      const user = (req as any).user;
+      // ✅ VALIDATION: Params are already validated by middleware
+      const { invoiceId } = req.params as z.infer<typeof InvoiceIdParamSchema>;
 
       if (!user) {
-        throw new AppError("Unauthorized", 401, "UNAUTHORIZED");
+        throw new AppError(
+          ErrorCode.UNAUTHORIZED,
+          "Authentication required",
+          HTTP_STATUS.UNAUTHORIZED,
+          "warning"
+        );
       }
 
       // Fetch invoice from payment provider
       // Generate PDF or redirect to hosted invoice URL
 
-      res.json({
+      (res as any).json({
         success: true,
         data: {
           downloadUrl: `https://example.com/invoices/${invoiceId}.pdf`,
         },
       });
     } catch (error) {
-      console.error("Error downloading invoice:", error);
-      res.status(500).json({
-        success: false,
-        error: "Failed to download invoice",
-      });
+      next(error);
     }
-  },
+  }) as RequestHandler,
 );
 
 export default router;

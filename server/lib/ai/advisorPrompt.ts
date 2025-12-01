@@ -6,6 +6,7 @@
 
 import type { BrandProfile, AdvisorRequest } from "@shared/advisor";
 import type { BrandGuide } from "@shared/brand-guide";
+import { buildFullBrandGuidePrompt } from "../prompts/brand-guide-prompts";
 
 export interface AdvisorPromptContext {
   brand: BrandProfile;
@@ -49,40 +50,9 @@ export function buildAdvisorUserPrompt(context: AdvisorPromptContext): string {
   
   let prompt = `Analyze the following brand and analytics data to generate marketing insights.\n\n`;
 
-  // ✅ BRAND GUIDE (Source of Truth) - Include first
+  // ✅ BRAND GUIDE (Source of Truth) - Use centralized prompt library
   if (brandGuide) {
-    prompt += `## Brand Guide (Source of Truth)\n`;
-    prompt += `Brand Name: ${brandGuide.brandName}\n`;
-    
-    if (brandGuide.identity) {
-      prompt += `Business Type: ${brandGuide.identity.businessType || "Not specified"}\n`;
-      if (brandGuide.identity.industryKeywords && brandGuide.identity.industryKeywords.length > 0) {
-        prompt += `Industry Keywords: ${brandGuide.identity.industryKeywords.join(", ")}\n`;
-      }
-    }
-    
-    if (brandGuide.contentRules) {
-      prompt += `\n### Content Rules\n`;
-      if (brandGuide.contentRules.neverDo && brandGuide.contentRules.neverDo.length > 0) {
-        prompt += `NEVER DO: ${brandGuide.contentRules.neverDo.join(", ")}\n`;
-      }
-      if (brandGuide.contentRules.guardrails && brandGuide.contentRules.guardrails.length > 0) {
-        const activeGuardrails = brandGuide.contentRules.guardrails.filter(g => g.isActive);
-        if (activeGuardrails.length > 0) {
-          prompt += `Active Guardrails: ${activeGuardrails.map(g => g.title).join(", ")}\n`;
-        }
-      }
-    }
-    
-    if (brandGuide.performanceInsights) {
-      prompt += `\n### Historical Performance Patterns\n`;
-      if (brandGuide.performanceInsights.visualPatterns && brandGuide.performanceInsights.visualPatterns.length > 0) {
-        prompt += `Visual Patterns: ${brandGuide.performanceInsights.visualPatterns.map(p => `${p.pattern} (${p.performance}% performance)`).join(", ")}\n`;
-      }
-      if (brandGuide.performanceInsights.copyPatterns && brandGuide.performanceInsights.copyPatterns.length > 0) {
-        prompt += `Copy Patterns: ${brandGuide.performanceInsights.copyPatterns.map(p => `${p.pattern} (${p.performance}% performance)`).join(", ")}\n`;
-      }
-    }
+    prompt += buildFullBrandGuidePrompt(brandGuide);
     prompt += `\n`;
   }
 

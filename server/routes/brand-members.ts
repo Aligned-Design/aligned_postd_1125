@@ -6,12 +6,18 @@
  */
 
 import { RequestHandler, Router } from "express";
+import { z } from "zod";
 import { supabase } from "../lib/supabase";
 import { AppError } from "../lib/error-middleware";
 import { ErrorCode, HTTP_STATUS } from "../lib/error-responses";
 import { assertBrandAccess } from "../lib/brand-access";
 
 const brandMembersRouter = Router();
+
+// Validation schema for brand ID parameter
+const BrandIdParamSchema = z.object({
+  brandId: z.string().uuid("Invalid brand ID format"),
+});
 
 /**
  * GET /api/brands/:brandId/members
@@ -24,10 +30,26 @@ brandMembersRouter.get(
   "/:brandId/members",
   (async (req, res, next) => {
     try {
-      const { brandId } = req.params;
+      // ✅ VALIDATION: Validate brandId parameter
+      let brandId: string;
+      try {
+        const validated = BrandIdParamSchema.parse(req.params);
+        brandId = validated.brandId;
+      } catch (validationError) {
+        if (validationError instanceof z.ZodError) {
+          throw new AppError(
+            ErrorCode.VALIDATION_ERROR,
+            "Invalid brand ID format",
+            HTTP_STATUS.BAD_REQUEST,
+            "warning",
+            { validationErrors: validationError.errors }
+          );
+        }
+        throw validationError;
+      }
 
       // Verify user has access to this brand
-      assertBrandAccess(req, brandId);
+      await assertBrandAccess(req, brandId);
 
       // Fetch brand members from database
       // Using user token (anon/user) - RLS will enforce tenant isolation

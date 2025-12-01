@@ -1,8 +1,8 @@
-# Aligned-20AI Dashboard Codebase - Complete Architecture Overview
+# POSTD Dashboard Codebase - Complete Architecture Overview
 
 ## EXECUTIVE SUMMARY
 
-The Aligned-20AI dashboard is a comprehensive social media management platform built with React (Vite) on the frontend and Node.js/Express on the backend. It implements AI-powered advisors, multi-platform publishing, real-time analytics, and content creation tools across 12 major dashboard sections.
+The POSTD dashboard is a comprehensive social media management platform built with React (Vite) on the frontend and Node.js/Express on the backend. It implements AI-powered advisors, multi-platform publishing, real-time analytics, and content creation tools across 12 major dashboard sections.
 
 **Key Stack:**
 - Frontend: React 18, TypeScript, Vite, TailwindCSS, Recharts
@@ -33,6 +33,45 @@ The Aligned-20AI dashboard is a comprehensive social media management platform b
    - Components: CreativeStudioCanvas, BrandKit, TemplateGrid, Advisor
    - Features: Autosave, multi-platform preview, smart resize
    - State: Design objects, undo/redo history, zoom tracking
+
+   #### Creative Studio UI Structure
+
+   **Entry Flow:**
+   - Users enter Creative Studio via three paths:
+     1. **Blank Canvas**: Start with an empty canvas and build from scratch
+     2. **Templates**: Select from a grid of starter templates (social post, reel, story formats)
+     3. **AI → Canvas**: Generate designs using AI based on brand guide, then edit on canvas
+   - Entry screen (`StudioEntryScreen`) displays when no design is active (`state.design === null`)
+   - Format presets are mapped from quick template IDs for consistent sizing
+
+   **Main Layout Regions:**
+   - **Header** (`StudioHeader`): Back button, editable design name, save status indicator, primary actions (Publish, Save dropdown, More Options)
+   - **Left Sidebar**: Elements drawer for adding design elements (text, shapes, images)
+   - **Center Canvas** (`CreativeStudioCanvas`): Main design editing area with zoom controls and selection handling
+   - **Right Sidebar**: Contextual properties panel (`ContextualPropertiesPanel`) for selected element editing
+   - **Floating Toolbar** (`ContextualFloatingToolbar`): Appears above selected elements for quick actions (delete, duplicate, alignment)
+
+   **BrandKit Panel:**
+   - Displays brand colors, fonts, and assets from the active brand guide
+   - Provides quick access to brand tokens for consistent design application
+   - Integrated with `useBrandGuide` hook for real-time brand data
+
+   **Advisor Panel:**
+   - `CreativeStudioAdvisor` component provides design recommendations
+   - Shows color suggestions from brand guide
+   - Provides typography recommendations
+   - Offers layout tips for selected format
+   - Performs branding compliance checks
+   - Adjusts recommendations based on current design state
+
+   **Integration with Brand Fidelity Score (BFS) and Approvals:**
+   - Creative Studio outputs (designs) can be saved and sent to the content queue
+   - When a design is sent to queue, it triggers Brand Fidelity Score calculation via `/api/agents/review/queue/:brandId`
+   - BFS evaluates design against brand guide (voice, visual identity, compliance rules)
+   - Designs with BFS scores are displayed in the Content Queue with score indicators
+   - Users can review, edit, approve, or reject designs in the approvals workflow
+   - Approved designs can be scheduled for publishing via the publishing system
+   - All Creative Studio outputs require human approval before publishing (HITL safeguard)
 
 4. **Content Queue** (`/content-queue`)
    - Post review and management
@@ -544,6 +583,7 @@ Execution:
 
 #### 4. **CreativeStudioAdvisor** (Creative Studio)
 - Location: `/client/components/dashboard/CreativeStudioAdvisor.tsx`
+- **Note:** For comprehensive Creative Studio documentation, see the Creative Studio section in this document (Section 3: Creative Studio).
 - Provides: Design recommendations
 - Shows:
   - Color suggestions from brand guide

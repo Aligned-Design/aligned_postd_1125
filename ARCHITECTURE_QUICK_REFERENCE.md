@@ -1,4 +1,4 @@
-# Aligned-20AI Dashboard - Quick Reference Guide
+# POSTD Dashboard - Quick Reference Guide
 
 ## Dashboard Sections (20 Implemented)
 

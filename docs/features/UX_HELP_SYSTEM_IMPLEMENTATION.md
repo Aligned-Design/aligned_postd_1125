@@ -8,7 +8,7 @@
 
 ## Overview
 
-Comprehensive UX help system implemented across Aligned AI with 50+ contextual tooltips, searchable Help Library, and agency-focused positioning messaging.
+Comprehensive UX help system implemented across POSTD with 50+ contextual tooltips, searchable Help Library, and agency-focused positioning messaging.
 
 ## What Was Implemented
 
@@ -325,7 +325,7 @@ client/pages/
 
 ## Summary
 
-A comprehensive UX help system has been built and integrated into Aligned AI. The system includes:
+A comprehensive UX help system has been built and integrated into POSTD. The system includes:
 - **50+ contextual tooltips** with agency-focused guidance
 - **Help Library** with 8 categories and 40+ detailed articles
 - **Enhanced tooltip component** with Learn More linking

@@ -3,6 +3,15 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { useCurrentBrand } from "@/hooks/useCurrentBrand";
+import { useBrandGuide } from "@/hooks/useBrandGuide";
+import { useWorkspace } from "@/contexts/WorkspaceContext";
+import { useToast } from "@/hooks/use-toast";
+import { AlertTriangle } from "lucide-react";
+import { Link } from "react-router-dom";
+import { logTelemetry, logError } from "@/lib/logger";
+import { PageShell } from "@/components/postd/ui/layout/PageShell";
+import { PageHeader } from "@/components/postd/ui/layout/PageHeader";
 import {
   Select,
   SelectContent,
@@ -48,6 +57,14 @@ const DEFAULT_STATE: GenerationState = {
 };
 
 export default function ContentGenerator() {
+  const { brandId: contextBrandId } = useCurrentBrand();
+  const { currentWorkspace } = useWorkspace();
+  const { hasBrandGuide, isLoading: brandGuideLoading } = useBrandGuide();
+  const { toast } = useToast();
+  
+  // Auto-detect brand from workspace if no explicit brand exists
+  const brandId = contextBrandId || (currentWorkspace?.id ? `workspace-${currentWorkspace.id}` : null);
+  
   const [formState, setFormState] = useState<GenerationState>(DEFAULT_STATE);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -60,21 +77,27 @@ export default function ContentGenerator() {
       return;
     }
 
+    // Use workspace-level brand if no explicit brand
+    const effectiveBrandId = brandId || (currentWorkspace?.id ? `workspace-${currentWorkspace.id}` : "workspace-default");
+
     try {
       setLoading(true);
       setError(null);
 
+      // ✅ FIX: Include brandId in API request (required by backend)
+      // ✅ FIX: Map format to contentType (backend expects contentType, not format)
       const response = await fetch("/api/agents/generate/doc", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          brandId: effectiveBrandId, // ✅ CRITICAL: Backend requires brandId
           topic: formState.topic,
-          tone: formState.tone,
+          tone: formState.tone || undefined, // Only send if provided
           platform: formState.platform,
-          format: formState.format,
-          max_length: formState.maxLength,
-          include_cta: formState.includeCTA,
-          cta_type: formState.ctaType,
+          contentType: formState.format === "post" ? "caption" : formState.format, // Map format to contentType
+          length: formState.maxLength ? (formState.maxLength < 150 ? "short" : formState.maxLength < 500 ? "medium" : "long") : undefined,
+          callToAction: formState.includeCTA ? formState.ctaType : undefined,
+          additionalContext: undefined, // Not in form, but can be added later
         }),
       });
 
@@ -83,15 +106,43 @@ export default function ContentGenerator() {
       }
 
       const data = await response.json();
-      setResult({
-        content: data.content,
-        bfsScore: data.bfs_score,
-        linterResult: data.linter_result,
-        timestamp: new Date().toISOString(),
-      });
+      
+      // ✅ FIX: Handle new API response format with variants
+      // The new API returns variants array, not single content
+      if (data.variants && Array.isArray(data.variants) && data.variants.length > 0) {
+        // Use first variant for backward compatibility
+        const firstVariant = data.variants[0];
+        setResult({
+          content: firstVariant.content,
+          bfsScore: firstVariant.brandFidelityScore ? { overall: firstVariant.brandFidelityScore } : undefined,
+          linterResult: firstVariant.complianceTags ? { passed: firstVariant.complianceTags.length === 0, issues: firstVariant.complianceTags } : undefined,
+          timestamp: new Date().toISOString(),
+        });
+      } else if (data.content) {
+        // Fallback to old format
+        setResult({
+          content: data.content,
+          bfsScore: data.bfs_score,
+          linterResult: data.linter_result,
+          timestamp: new Date().toISOString(),
+        });
+      } else {
+        throw new Error("Invalid response format from API");
+      }
+      
+      logTelemetry("Content generated successfully", { brandId: effectiveBrandId, platform: formState.platform, contentType: formState.format });
       setRegenerationCount(0);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Generation failed");
+      const errorMessage = err instanceof Error ? err.message : "Generation failed";
+      setError(errorMessage);
+      logError("Content generation failed", err instanceof Error ? err : new Error(errorMessage), { brandId: effectiveBrandId, topic: formState.topic });
+      
+      // Show toast for user feedback
+      toast({
+        title: "Generation Failed",
+        description: errorMessage,
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }
@@ -134,17 +185,47 @@ export default function ContentGenerator() {
     }
   };
 
+  // Show brand guide missing state
+  if (!brandGuideLoading && !hasBrandGuide && brandId) {
+    return (
+      <PageShell>
+        <PageHeader
+          title="AI Content Generator"
+          subtitle="Generate on-brand content with AI and guaranteed compliance"
+        />
+        <Card className="w-full max-w-2xl mx-auto">
+          <CardContent className="pt-6">
+            <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
+              <div className="flex items-start gap-3">
+                <AlertTriangle className="w-5 h-5 text-amber-600 mt-0.5" />
+                <div className="flex-1">
+                  <h3 className="text-sm font-semibold text-amber-900 mb-1">
+                    Brand Guide Required
+                  </h3>
+                  <p className="text-sm text-amber-800 mb-3">
+                    This brand doesn't have a Brand Guide yet. Create one to unlock AI content generation.
+                  </p>
+                  <Link
+                    to={`/brand-guide?brandId=${brandId}`}
+                    className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-amber-600 hover:bg-amber-700 rounded-lg transition-colors"
+                  >
+                    Create Brand Guide
+                  </Link>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </PageShell>
+    );
+  }
+
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold flex items-center gap-2 mb-2">
-          <Sparkles className="h-8 w-8" />
-          AI Content Generator
-        </h1>
-        <p className="text-gray-600">
-          Generate on-brand content with AI and guaranteed compliance
-        </p>
-      </div>
+    <PageShell>
+      <PageHeader
+        title="AI Content Generator"
+        subtitle="Generate on-brand content with AI and guaranteed compliance"
+      />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Generation Form */}
@@ -351,13 +432,13 @@ export default function ContentGenerator() {
               onRegenerate={handleRegenerate}
               onEdit={() => {
                 // In a full implementation, this would open an editor modal
-                console.log("Edit draft:", result.content);
+                logTelemetry("Edit draft requested", { contentLength: result.content.length });
               }}
               isLoading={loading}
             />
           )}
         </div>
       </div>
-    </div>
+    </PageShell>
   );
 }

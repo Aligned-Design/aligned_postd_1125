@@ -252,7 +252,7 @@ export class CanvaConnector extends BaseConnector {
           throw new Error('No access token available');
         }
 
-        // TODO: Implement actual Canva design creation/import
+        // Future work: Implement actual Canva design creation/import
         // This is a placeholder - Canva API may require different endpoints
 
         logger.info(
@@ -301,7 +301,7 @@ export class CanvaConnector extends BaseConnector {
           throw new Error('No access token available');
         }
 
-        // TODO: Implement actual Canva design deletion
+        // Future work: Implement actual Canva design deletion
         // DELETE ${BASE_URL}/designs/${postId}
 
         logger.info(
@@ -339,7 +339,7 @@ export class CanvaConnector extends BaseConnector {
           throw new Error('No access token available');
         }
 
-        // TODO: Implement actual Canva analytics fetch
+        // Future work: Implement actual Canva analytics fetch
         // GET ${BASE_URL}/designs/${postId}/analytics
 
         return {
@@ -426,7 +426,7 @@ export class CanvaConnector extends BaseConnector {
    * Validate webhook signature
    */
   validateWebhookSignature(signature: string, payload: string): boolean {
-    // TODO: Implement Canva webhook signature validation
+    // Future work: Implement Canva webhook signature validation
     // Canva uses HMAC-SHA256 with webhook secret
     return false;
   }
@@ -435,7 +435,7 @@ export class CanvaConnector extends BaseConnector {
    * Parse webhook event
    */
   parseWebhookEvent(payload: any): any {
-    // TODO: Implement Canva webhook event parsing
+    // Future work: Implement Canva webhook event parsing
     return payload;
   }
 }

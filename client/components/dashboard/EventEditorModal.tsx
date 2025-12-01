@@ -22,7 +22,7 @@ const EMPTY_EVENT: Omit<Event, "id" | "createdDate" | "updatedDate"> = {
   status: "draft",
   visibility: "public",
   tags: [],
-  brand: "Aligned-20AI",
+  brand: "POSTD",
   platforms: [],
   promotionSchedule: [],
 };

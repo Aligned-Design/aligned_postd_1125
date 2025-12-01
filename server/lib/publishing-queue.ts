@@ -46,7 +46,17 @@ export class PublishingQueue {
         scheduledAt: job.scheduledAt,
       });
     } catch (error) {
-      console.warn(`Failed to broadcast job created event: ${error}`);
+      // Non-critical: event broadcast failure doesn't affect job creation
+      const logger = (await import("./logger")).logger;
+      logger.warn(
+        "Failed to broadcast job created event",
+        {
+          jobId: job.id,
+          brandId: job.brandId,
+          platform: job.platform,
+          error: error instanceof Error ? error.message : String(error),
+        }
+      );
     }
 
     if (job.status === "pending") {
@@ -521,7 +531,7 @@ export class PublishingQueue {
 
     job.retryCount++;
     job.lastError = error;
-    job.errorDetails = errorDetails;
+    job.errorDetails = errorDetails as Record<string, unknown> | undefined;
 
     if (job.retryCount < job.maxRetries) {
       // Schedule retry with exponential backoff
@@ -536,7 +546,18 @@ export class PublishingQueue {
           nextAttemptAt,
         });
       } catch (broadcastError) {
-        console.warn(`Failed to broadcast retry event: ${broadcastError}`);
+        // Non-critical: event broadcast failure doesn't affect retry
+        const logger = (await import("./logger")).logger;
+        logger.warn(
+          "Failed to broadcast retry event",
+          {
+            jobId,
+            brandId: job.brandId,
+            platform: job.platform,
+            retryCount: job.retryCount,
+            error: broadcastError instanceof Error ? broadcastError.message : String(broadcastError),
+          }
+        );
       }
 
       setTimeout(() => {
@@ -565,9 +586,24 @@ export class PublishingQueue {
 
     // Persist to database
     try {
-      await publishingDBService.updateJobStatus(jobId, update.status as unknown);
+      // Convert status to string for database update
+      const statusString = update.status ? String(update.status) : undefined;
+      if (statusString) {
+        await publishingDBService.updateJobStatus(jobId, statusString as "pending" | "processing" | "published" | "failed" | "cancelled" | "scheduled");
+      }
     } catch (error) {
-      console.error(`Failed to update job status in database: ${error}`);
+      // Critical: log database update failure
+      const logger = (await import("./logger")).logger;
+      logger.error(
+        "Failed to update job status in database",
+        error instanceof Error ? error : new Error(String(error)),
+        {
+          jobId,
+          brandId: job.brandId,
+          platform: job.platform,
+          status: String(update.status),
+        }
+      );
     }
 
     // Emit status update event
@@ -625,10 +661,19 @@ export class PublishingQueue {
           break;
       }
     } catch (error) {
-      console.warn(`Failed to emit status update for job ${job.id}: ${error}`);
+      // Non-critical: event emission failure doesn't affect job processing
+      const logger = (await import("./logger")).logger;
+      logger.warn(
+        "Failed to emit status update",
+        {
+          jobId: job.id,
+          brandId: job.brandId,
+          platform: job.platform,
+          status: job.status,
+          error: error instanceof Error ? error.message : String(error),
+        }
+      );
     }
-
-    console.log(`Job ${job.id} status: ${job.status}`);
   }
 
   getJob(jobId: string): PublishingJob | undefined {
@@ -663,6 +708,77 @@ export class PublishingQueue {
     return true;
   }
 
+  /**
+   * Update scheduled time for a job
+   * This updates both the in-memory job and ensures the queue respects the new time
+   */
+  /**
+   * Update scheduled time for a job in the in-memory queue
+   * 
+   * Handles state transitions:
+   * - Future → Future: Update scheduled time, keep as "scheduled"
+   * - Future → Past: Change to "pending" and process immediately
+   * - Past → Future: Change to "scheduled" and schedule for later
+   * 
+   * @param jobId - Job ID to update
+   * @param scheduledAt - New scheduled time (ISO string)
+   * @returns true if job was updated, false if job not found in memory
+   */
+  async updateScheduledTime(jobId: string, scheduledAt: string): Promise<boolean> {
+    const job = this.jobs.get(jobId);
+    if (!job) {
+      // Job not in memory - might need to load from DB
+      // This is OK - the DB update succeeded, queue will resync on next job load
+      return false;
+    }
+
+    const previousScheduledAt = job.scheduledAt;
+    const previousStatus = job.status;
+
+    // Update in-memory job
+    job.scheduledAt = scheduledAt;
+    job.updatedAt = new Date().toISOString();
+
+    // Determine new status based on scheduled time
+    const scheduledDate = new Date(scheduledAt);
+    const now = new Date();
+    
+    if (scheduledDate > now) {
+      // Future time - mark as pending (will be checked by processJob)
+      // Note: The database uses "scheduled" status, but the in-memory queue uses "pending"
+      // with a future scheduledAt. The processJob method checks scheduledAt before processing.
+      // We keep it as "pending" here to match the shared type, and processJob will handle the delay.
+      job.status = "pending";
+      // Note: processJob will check scheduledAt and delay processing if it's in the future
+    } else {
+      // Past or current time - mark as pending and process immediately
+      job.status = "pending";
+      // Only process if not already processing
+      if (!this.processing.has(jobId)) {
+        this.processJob(jobId);
+      }
+    }
+
+    // Log state transition for observability
+    if (previousScheduledAt !== scheduledAt || previousStatus !== job.status) {
+      const logger = (await import("./logger")).logger;
+      logger.info(
+        "Job scheduled time updated in queue",
+        {
+          jobId,
+          brandId: job.brandId,
+          platform: job.platform,
+          previousScheduledAt,
+          newScheduledAt: scheduledAt,
+          previousStatus,
+          newStatus: job.status,
+        }
+      );
+    }
+
+    return true;
+  }
+
   private async getBrandPostingConfig(brandId: string): Promise<unknown> {
     try {
       // Fetch brand posting config from database
@@ -670,9 +786,14 @@ export class PublishingQueue {
       const config = await publishingDBService.getBrandPostingConfig(brandId);
       return config;
     } catch (error) {
-      console.error(
-        `Failed to get posting config for brand ${brandId}:`,
-        error,
+      // Non-critical: use default config if fetch fails
+      const logger = (await import("./logger")).logger;
+      logger.warn(
+        "Failed to get posting config, using defaults",
+        {
+          brandId,
+          error: error instanceof Error ? error.message : String(error),
+        }
       );
       // Default config: no restrictions
       return {

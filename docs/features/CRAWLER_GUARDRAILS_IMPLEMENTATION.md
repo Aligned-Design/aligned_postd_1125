@@ -403,7 +403,7 @@ Create a popover showing change history per field:
 
 ```json
 {
-  "brandName": "Aligned AI",
+  "brandName": "POSTD",
   "primaryColor": "#8B5CF6",
   "toneKeywords": ["professional", "innovative"]
 }
@@ -414,7 +414,7 @@ Create a popover showing change history per field:
 ```json
 {
   "brandName": {
-    "value": "Aligned AI",
+    "value": "POSTD",
     "source": "user",
     "last_updated_at": "2025-01-16T10:30:00Z"
   },

@@ -53,17 +53,17 @@ export class TwitterConnector extends BaseConnector {
   }
 
   async authenticate(_code: string, _state: string): Promise<OAuthResult> {
-    // TODO: Implement OAuth 2.0 PKCE flow for Twitter/X
+    // Future work: Implement OAuth 2.0 PKCE flow for Twitter/X
     throw new Error("Twitter OAuth not implemented yet");
   }
 
   async refreshToken(_refreshToken: string): Promise<OAuthResult> {
-    // TODO: Implement token refresh if using OAuth 2.0
+    // Future work: Implement token refresh if using OAuth 2.0
     throw new Error("Twitter token refresh not implemented yet");
   }
 
   async fetchAccounts(): Promise<Account[]> {
-    // TODO: Map brand → Twitter handle / account via stored credentials
+    // Future work: Map brand → Twitter handle / account via stored credentials
     return [];
   }
 
@@ -74,7 +74,7 @@ export class TwitterConnector extends BaseConnector {
     _mediaUrls?: string[],
     _options?: PublishOptions,
   ): Promise<PublishResult> {
-    // TODO:
+    // Future work:
     // - Call Twitter/X API to create a tweet
     // - Attach media via upload endpoints when available
     // - Store tweet ID + URL in DB for tracking
@@ -89,14 +89,14 @@ export class TwitterConnector extends BaseConnector {
   }
 
   async deletePost(_accountId: string, _postId: string): Promise<void> {
-    // TODO: Implement tweet deletion endpoint call
+    // Future work: Implement tweet deletion endpoint call
   }
 
   async getPostAnalytics(
     _accountId: string,
     _postId: string,
   ): Promise<AnalyticsMetrics> {
-    // TODO: Implement analytics fetch using Twitter/X API
+    // Future work: Implement analytics fetch using Twitter/X API
     return {};
   }
 
@@ -117,12 +117,12 @@ export class TwitterConnector extends BaseConnector {
   }
 
   validateWebhookSignature(_signature: string, _payload: string): boolean {
-    // TODO: Implement webhook validation once webhooks are used
+    // Future work: Implement webhook validation once webhooks are used
     return false;
   }
 
   parseWebhookEvent(payload: any): any {
-    // TODO: Normalize webhook events when using Account Activity API
+    // Future work: Normalize webhook events when using Account Activity API
     return payload;
   }
 }

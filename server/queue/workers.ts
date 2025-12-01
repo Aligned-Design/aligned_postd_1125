@@ -66,7 +66,7 @@ async function processPublishJob(job: Queue.Job<PublishJobData>): Promise<any> {
   );
 
   try {
-    // TODO: Implement actual platform publishing logic
+    // Future work: Implement actual platform publishing logic
     // This is a placeholder that simulates the publishing process
 
     // Step 1: Load encrypted token from vault
@@ -164,7 +164,7 @@ async function processHealthCheck(job: Queue.Job<HealthCheckJobData>): Promise<a
   );
 
   try {
-    // TODO: Implement platform-specific health check
+    // Future work: Implement platform-specific health check
     // 1. Get token from vault
     // 2. Call platform /me or equivalent endpoint
     // 3. Update connection.last_health_check and connection.health_status
@@ -207,7 +207,7 @@ async function processTokenRefresh(job: Queue.Job<TokenRefreshJobData>): Promise
   );
 
   try {
-    // TODO: Implement token refresh
+    // Future work: Implement token refresh
     // 1. Get refresh token from vault
     // 2. Call platform OAuth /token endpoint
     // 3. Get new access token
@@ -258,7 +258,7 @@ async function processDLQJob(job: Queue.Job<any>): Promise<any> {
     'Job in DLQ awaiting manual intervention'
   );
 
-  // TODO: Implement DLQ handling
+  // Future work: Implement Dead Letter Queue (DLQ) handling for failed jobs
   // 1. Update publish_jobs.status = 'dlq'
   // 2. Send alert to #engineering-alerts in Slack
   // 3. Log to DLQ dashboard in Datadog

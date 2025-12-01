@@ -23,7 +23,7 @@ import {
  */
 export function addRequestId(req: Request, _res: Response, next: NextFunction): void {
   const requestId = req.get("X-Request-ID") || uuidv4();
-  req.id = requestId;
+  (req as any).id = requestId;
   next();
 }
 
@@ -68,7 +68,7 @@ export function errorHandler(
   res: Response,
   _next: NextFunction
 ): void {
-  const requestId = req.id;
+  const requestId = (req as any).id;
 
   // Ensure we only respond once
   if (res.headersSent) {

@@ -60,7 +60,8 @@ class NotificationService {
       }
 
       // Send emails (if enabled)
-      // TODO: Implement email sending
+      // Future work: Implement email sending via SendGrid or similar service
+      // This requires email service configuration and template management
       // await this.sendEmailNotifications(recipients, event);
 
       console.log(`[Notification] Emitted ${event.type} for brand ${event.brandId}`);

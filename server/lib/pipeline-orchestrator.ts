@@ -403,7 +403,7 @@ export class PipelineOrchestrator {
           const { performanceLog: newLog, learnings: analyticsLearnings } =
             await this.performanceTracker.executePollCycle(
               publishedContent,
-              undefined // TODO: pass previous log here
+              undefined // Future enhancement: Pass previous log for trend analysis
             );
 
           performanceLog = newLog;

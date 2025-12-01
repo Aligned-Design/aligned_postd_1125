@@ -10,6 +10,7 @@ import { supabase } from "../lib/supabase";
 import { AppError } from "../lib/error-middleware";
 import { ErrorCode, HTTP_STATUS } from "../lib/error-responses";
 import { requireScope } from "../middleware/requireScope";
+import { assertBrandAccess } from "../lib/brand-access";
 import {
   SaveDesignRequest,
   SaveDesignResponse,
@@ -120,19 +121,12 @@ studioRouter.post(
 
       const designData = saveDesignSchema.parse(req.body) as SaveDesignRequest;
 
-      // Verify user has access to the brand
-      if (!userBrandIds.includes(designData.brandId) && authReq.user?.role?.toUpperCase() !== "SUPERADMIN") {
-        throw new AppError(
-          ErrorCode.FORBIDDEN,
-          "Not authorized for this brand",
-          HTTP_STATUS.FORBIDDEN,
-          "warning",
-        );
-      }
+      // ✅ CRITICAL: Verify user has access to the brand using database-backed check
+      await assertBrandAccess(req, designData.brandId, true, true);
 
-      // TODO: Create creative_designs table migration
-      // For now, use safe mock data that matches expected structure
-      // In production, this should insert into creative_designs table
+      // Future work: Create creative_designs table migration
+      // The creative_designs table does not exist in the current schema
+      // For now, using content_items table as fallback with mock data structure
       
       // Try to use content_items table as fallback, otherwise return mock
       const designId = randomUUID();
@@ -145,14 +139,14 @@ studioRouter.post(
           .insert({
             brand_id: designData.brandId,
             title: designData.name || "Untitled Design",
-            content_type: "creative_studio",
-            body: JSON.stringify({
+            type: "creative_studio",
+            content: {
               format: designData.format,
               width: designData.width,
               height: designData.height,
               items: designData.items,
               backgroundColor: designData.backgroundColor,
-            }),
+            },
             status: designData.savedToLibrary ? "saved" : "draft",
             created_by: userId,
           })
@@ -234,7 +228,7 @@ studioRouter.put(
         );
       }
 
-      // TODO: Use creative_designs table when available
+      // Future work: Use creative_designs table when migration is created
       // For now, try content_items or return mock
       const updateData = updateDesignSchema.parse({ ...req.body, id: designId }) as UpdateDesignRequest;
       const userBrandIds = authReq.user?.brandIds || authReq.auth?.brandIds || [];
@@ -248,30 +242,29 @@ studioRouter.put(
           .single();
 
         if (!fetchError && existingItem) {
-          // Verify access
-          if (!userBrandIds.includes(existingItem.brand_id) && authReq.user?.role?.toUpperCase() !== "SUPERADMIN") {
-            throw new AppError(
-              ErrorCode.FORBIDDEN,
-              "Not authorized to update this design",
-              HTTP_STATUS.FORBIDDEN,
-              "warning",
-            );
-          }
+          // ✅ CRITICAL: Verify access using database-backed check
+          await assertBrandAccess(req, existingItem.brand_id, true, true);
 
           // Build update payload
           const bodyUpdate: Record<string, any> = {};
           if (updateData.name !== undefined) bodyUpdate.title = updateData.name;
           if (updateData.items !== undefined || updateData.backgroundColor !== undefined) {
-            // existingItem is from content_items table, body is stored as JSON string
-            const existingBody = (existingItem as any).body ? JSON.parse((existingItem as any).body as string) : {};
-            bodyUpdate.body = JSON.stringify({
-              ...existingBody,
-              format: updateData.format || existingBody.format,
-              width: updateData.width || existingBody.width,
-              height: updateData.height || existingBody.height,
-              items: updateData.items || existingBody.items,
-              backgroundColor: updateData.backgroundColor || existingBody.backgroundColor,
-            });
+            // Fetch existing content to merge updates
+            const { data: existingContentItem } = await supabase
+              .from("content_items")
+              .select("content")
+              .eq("id", designId)
+              .single();
+            
+            const existingContent = (existingContentItem as any)?.content || {};
+            bodyUpdate.content = {
+              ...existingContent,
+              format: updateData.format || existingContent.format,
+              width: updateData.width || existingContent.width,
+              height: updateData.height || existingContent.height,
+              items: updateData.items || existingContent.items,
+              backgroundColor: updateData.backgroundColor || existingContent.backgroundColor,
+            };
           }
 
           const { data: updatedItem, error: updateError } = await supabase
@@ -282,19 +275,19 @@ studioRouter.put(
             .single();
 
           if (!updateError && updatedItem) {
-            const bodyData = (updatedItem as any).body ? JSON.parse((updatedItem as any).body as string) : {};
+            const contentData = (updatedItem as any).content || {};
             const response: UpdateDesignResponse = {
               success: true,
               design: {
                 id: updatedItem.id,
                 name: updatedItem.title,
-                format: (bodyData.format || updateData.format || "social_square") as CreativeStudioDesign["format"],
-                width: bodyData.width || updateData.width || 1080,
-                height: bodyData.height || updateData.height || 1080,
+                format: (contentData.format || updateData.format || "social_square") as CreativeStudioDesign["format"],
+                width: contentData.width || updateData.width || 1080,
+                height: contentData.height || updateData.height || 1080,
                 brandId: updatedItem.brand_id,
                 campaignId: null,
-                items: (bodyData.items || []) as CanvasItem[],
-                backgroundColor: bodyData.backgroundColor || "#FFFFFF",
+                items: (contentData.items || []) as CanvasItem[],
+                backgroundColor: contentData.backgroundColor || "#FFFFFF",
                 createdAt: updatedItem.created_at,
                 updatedAt: updatedItem.updated_at,
                 savedToLibrary: updatedItem.status === "saved",
@@ -348,7 +341,7 @@ studioRouter.get(
       const authReq = req as AuthenticatedRequest;
       const designId = req.params.id;
 
-      // TODO: Use creative_designs table when available
+      // Future work: Use creative_designs table when migration is created
       // Try content_items first, then mock
       const userBrandIds = authReq.user?.brandIds || authReq.auth?.brandIds || [];
 
@@ -357,33 +350,26 @@ studioRouter.get(
           .from("content_items")
           .select("*")
           .eq("id", designId)
-          .eq("content_type", "creative_studio")
+          .eq("type", "creative_studio")
           .single();
 
         if (!error && contentItem) {
-          // Verify access
-          if (!userBrandIds.includes(contentItem.brand_id) && authReq.user?.role?.toUpperCase() !== "SUPERADMIN") {
-            throw new AppError(
-              ErrorCode.FORBIDDEN,
-              "Not authorized to view this design",
-              HTTP_STATUS.FORBIDDEN,
-              "warning",
-            );
-          }
+          // ✅ CRITICAL: Verify access using database-backed check
+          await assertBrandAccess(req, contentItem.brand_id, true, true);
 
-          const bodyData = (contentItem as any).body ? JSON.parse((contentItem as any).body as string) : {};
+          const contentData = (contentItem as any).content || {};
           const response: { success: true; design: CreativeStudioDesign } = {
             success: true,
             design: {
               id: contentItem.id,
               name: contentItem.title,
-              format: (bodyData.format || "social_square") as CreativeStudioDesign["format"],
-              width: bodyData.width || 1080,
-              height: bodyData.height || 1080,
+              format: (contentData.format || "social_square") as CreativeStudioDesign["format"],
+              width: contentData.width || 1080,
+              height: contentData.height || 1080,
               brandId: contentItem.brand_id,
               campaignId: null,
-              items: (bodyData.items || []) as CanvasItem[],
-              backgroundColor: bodyData.backgroundColor || "#FFFFFF",
+              items: (contentData.items || []) as CanvasItem[],
+              backgroundColor: contentData.backgroundColor || "#FFFFFF",
               createdAt: contentItem.created_at,
               updatedAt: contentItem.updated_at,
               savedToLibrary: contentItem.status === "saved",
@@ -445,15 +431,8 @@ studioRouter.post(
 
         if (!fetchError && contentItem) {
           brandId = contentItem.brand_id;
-          // Verify access
-          if (!userBrandIds.includes(brandId) && authReq.user?.role?.toUpperCase() !== "SUPERADMIN") {
-            throw new AppError(
-              ErrorCode.FORBIDDEN,
-              "Not authorized to schedule this design",
-              HTTP_STATUS.FORBIDDEN,
-              "warning",
-            );
-          }
+          // ✅ CRITICAL: Verify access using database-backed check
+          await assertBrandAccess(req, brandId, true, true);
         }
       } catch (err) {
         // Fall through - will use user's brand
@@ -474,17 +453,36 @@ studioRouter.post(
       // Combine date and time into ISO datetime
       const scheduledAt = new Date(`${scheduleData.scheduledDate}T${scheduleData.scheduledTime}`).toISOString();
 
+      // Get design data to include in publishing job content
+      let designContent: any = {};
+      try {
+        const { data: designItem } = await supabase
+          .from("content_items")
+          .select("content")
+          .eq("id", designId)
+          .single();
+        
+        if (designItem) {
+          designContent = (designItem as any).content || {};
+        }
+      } catch (err) {
+        // Design not found, continue with empty content
+      }
+
       // Create publishing job (use existing publishing_jobs table)
       const { data: job, error: jobError } = await supabase
         .from("publishing_jobs")
         .insert({
           brand_id: brandId,
-          content_id: designId, // Reference to design
+          content: {
+            designId: designId,
+            autoPublish: scheduleData.autoPublish,
+            createdBy: userId,
+            ...designContent, // Include design data
+          },
           platforms: scheduleData.scheduledPlatforms,
           scheduled_at: scheduledAt,
-          auto_publish: scheduleData.autoPublish,
           status: "scheduled",
-          created_by: userId,
         })
         .select()
         .single();
@@ -547,22 +545,15 @@ studioRouter.get(
         );
       }
 
-      // Verify user has access to the brand
-      if (!userBrandIds.includes(brandId) && authReq.user?.role?.toUpperCase() !== "SUPERADMIN") {
-        throw new AppError(
-          ErrorCode.FORBIDDEN,
-          "Not authorized for this brand",
-          HTTP_STATUS.FORBIDDEN,
-          "warning",
-        );
-      }
+      // ✅ CRITICAL: Verify user has access to the brand using database-backed check
+      await assertBrandAccess(req, brandId, true, true);
 
       // Try to fetch from content_items, otherwise return empty array
       const { data: contentItems, error } = await supabase
         .from("content_items")
         .select("*")
         .eq("brand_id", brandId)
-        .eq("content_type", "creative_studio")
+        .eq("type", "creative_studio")
         .order("updated_at", { ascending: false })
         .limit(100);
 
@@ -578,17 +569,17 @@ studioRouter.get(
       const response: ListDesignsResponse = {
         success: true,
         designs: (contentItems || []).map((item): CreativeStudioDesign => {
-          const bodyData = item.body ? JSON.parse(item.body as string) : {};
+          const contentData = (item as any).content || {};
           return {
             id: item.id,
             name: item.title,
-            format: (bodyData.format || "social_square") as CreativeStudioDesign["format"],
-            width: bodyData.width || 1080,
-            height: bodyData.height || 1080,
+            format: (contentData.format || "social_square") as CreativeStudioDesign["format"],
+            width: contentData.width || 1080,
+            height: contentData.height || 1080,
             brandId: item.brand_id,
             campaignId: null,
-            items: (bodyData.items || []) as CanvasItem[],
-            backgroundColor: bodyData.backgroundColor || "#FFFFFF",
+            items: (contentData.items || []) as CanvasItem[],
+            backgroundColor: contentData.backgroundColor || "#FFFFFF",
             createdAt: item.created_at,
             updatedAt: item.updated_at,
             savedToLibrary: item.status === "saved",

@@ -1,6 +1,6 @@
 # Design System Integration Guide
 
-Step-by-step guide to integrating the Aligned-20AI design system into your development workflow.
+Step-by-step guide to integrating the POSTD design system into your development workflow.
 
 ## Quick Start (5 minutes)
 

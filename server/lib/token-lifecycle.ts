@@ -213,7 +213,8 @@ export async function dailyTokenHealthCheck(): Promise<{
       }
     }
 
-    // TODO: Send daily digest email with findings
+    // Future work: Send daily digest email with token health findings
+    // This would require email service integration and template management
     console.log(
       `Daily token health check: ${allAccounts.length} checked, ${unhealthyCount} unhealthy, ${expiredCount} expired`
     );

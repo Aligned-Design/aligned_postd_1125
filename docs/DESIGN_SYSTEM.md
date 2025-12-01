@@ -1,6 +1,9 @@
-# Aligned-20AI Design System
+# POSTD Design System
 
-Complete reference for the Aligned-20AI design system, including colors, typography, spacing, animations, and component guidelines.
+> **Status:** ✅ Active – This is an active reference for POSTD design system.  
+> **Last Updated:** 2025-01-20
+
+Complete reference for the POSTD design system, including colors, typography, spacing, animations, and component guidelines.
 
 ## Table of Contents
 

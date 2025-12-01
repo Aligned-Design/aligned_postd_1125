@@ -8,7 +8,7 @@
 
 ## Overview
 
-The Aligned AI platform previously used **5+ overlapping role systems** across different parts of the codebase:
+The POSTD platform previously used **5+ overlapping role systems** across different parts of the codebase:
 
 1. **Server RBAC** (`server/middleware/rbac.ts`) - Full permission enum system
 2. **Server Auth Context** (`server/lib/auth-context.ts`) - Hierarchy-based system

@@ -1,6 +1,6 @@
 # Setup & Quick Start Guide
 
-Get started with the Aligned-20AI design system in minutes.
+Get started with the POSTD design system in minutes.
 
 ## Prerequisites
 

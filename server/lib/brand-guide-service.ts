@@ -45,10 +45,16 @@ export async function saveBrandGuide(brandId: string, guide: Partial<BrandGuide>
       mission: guide.mission,
       vision: guide.vision,
       businessType: guide.identity?.businessType,
+      industry: guide.identity?.industry,
       keywords: guide.identity?.industryKeywords || [],
       industryKeywords: guide.identity?.industryKeywords || [],
       competitors: guide.identity?.competitors || [],
       sampleHeadlines: guide.identity?.sampleHeadlines || [],
+      values: guide.identity?.values || [],
+      coreValues: guide.identity?.values || [], // Legacy alias
+      targetAudience: guide.identity?.targetAudience,
+      primaryAudience: guide.identity?.targetAudience, // Legacy alias
+      painPoints: guide.identity?.painPoints || [],
       toneKeywords: guide.voiceAndTone?.tone || [],
       friendlinessLevel: guide.voiceAndTone?.friendlinessLevel,
       formalityLevel: guide.voiceAndTone?.formalityLevel,
@@ -72,6 +78,8 @@ export async function saveBrandGuide(brandId: string, guide: Partial<BrandGuide>
       preferredPostTypes: guide.contentRules?.preferredPostTypes || [],
       brandPhrases: guide.contentRules?.brandPhrases || [],
       contentFormalityLevel: guide.contentRules?.formalityLevel, // String enum, different from voiceAndTone.formalityLevel (number)
+      contentPillars: guide.contentRules?.contentPillars || [],
+      messagingPillars: guide.contentRules?.contentPillars || [], // Legacy alias
       neverDo: guide.contentRules?.neverDo || [],
       guardrails: guide.contentRules?.guardrails || [],
       approvedAssets: guide.approvedAssets || {
@@ -83,7 +91,11 @@ export async function saveBrandGuide(brandId: string, guide: Partial<BrandGuide>
       },
       personas: guide.personas || [],
       goals: guide.goals || [],
-      performanceInsights: guide.performanceInsights || {},
+      performanceInsights: guide.performanceInsights || {
+        visualPatterns: [],
+        copyPatterns: [],
+        bfsBaseline: guide.performanceInsights?.bfsBaseline,
+      },
       version: guide.version || 1,
       setupMethod: guide.setupMethod || "detailed",
     };

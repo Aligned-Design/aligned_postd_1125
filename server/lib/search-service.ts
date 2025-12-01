@@ -108,10 +108,13 @@ export class SearchService {
     options: SearchOptions,
     limit: number,
   ): Promise<SearchResult[]> {
+    // ✅ SCHEMA ALIGNMENT: scheduled_content doesn't have headline/body/platform columns
+    // It only has: id, brand_id, content_id, scheduled_at, platforms[], status
+    // Need to search in content_items instead (or join)
     let builder = supabase
-      .from("scheduled_content")
-      .select("id,brand_id,headline,body,status,platform,created_at,updated_at")
-      .or(`headline.ilike.%${query}%,body.ilike.%${query}%`)
+      .from("content_items")
+      .select("id,brand_id,title,type,content,platform,status,scheduled_for,created_at,updated_at")
+      .or(`title.ilike.%${query}%,type.ilike.%${query}%,content.ilike.%${query}%`)
       .order("updated_at", { ascending: false })
       .limit(limit);
 
@@ -128,17 +131,25 @@ export class SearchService {
       throw this.databaseError("Failed to search content", error);
     }
 
-    return (data || []).map((content) => ({
-      id: content.id,
-      type: "content" as const,
-      title: content.headline || "Content Draft",
-      subtitle: content.body?.slice(0, 120) || undefined,
-      url: `/queue?content=${content.id}`,
-      brandId: content.brand_id,
-      platform: content.platform,
-      createdAt: content.created_at,
-      updatedAt: content.updated_at,
-    }));
+    return (data || []).map((content: any) => {
+      // Extract text from content JSONB
+      const contentObj = content.content || {};
+      const bodyText = typeof contentObj === "string" 
+        ? contentObj 
+        : contentObj?.body || contentObj?.text || JSON.stringify(contentObj);
+      
+      return {
+        id: content.id,
+        type: "content" as const,
+        title: content.title || "Content Draft",
+        subtitle: bodyText?.slice(0, 120) || undefined,
+        url: `/queue?content=${content.id}`,
+        brandId: content.brand_id,
+        platform: content.platform,
+        createdAt: content.created_at,
+        updatedAt: content.updated_at,
+      };
+    });
   }
 
   private async searchPosts(
@@ -254,12 +265,12 @@ export class SearchService {
     options: SearchOptions,
     limit: number,
   ): Promise<SearchResult[]> {
-    // Campaigns are stored in scheduled_content with campaign metadata
-    // or we can search for content grouped by campaign_id if it exists
+    // ✅ SCHEMA ALIGNMENT: scheduled_content doesn't have headline/body/platform columns
+    // Search in content_items instead (or join with scheduled_content if needed)
     let builder = supabase
-      .from("scheduled_content")
-      .select("id,brand_id,headline,body,platform,status,metadata,created_at,updated_at")
-      .or(`headline.ilike.%${query}%,body.ilike.%${query}%`)
+      .from("content_items")
+      .select("id,brand_id,title,type,content,platform,status,scheduled_for,created_at,updated_at")
+      .or(`title.ilike.%${query}%,type.ilike.%${query}%,content.ilike.%${query}%`)
       .order("created_at", { ascending: false })
       .limit(limit * 2); // Get more to group by campaign
 
@@ -279,7 +290,13 @@ export class SearchService {
     // Group by campaign_id from metadata if available
     const campaignMap = new Map<string, SearchResult>();
     
-    (data || []).forEach((content) => {
+    (data || []).forEach((content: any) => {
+      // Extract text from content JSONB
+      const contentObj = content.content || {};
+      const bodyText = typeof contentObj === "string" 
+        ? contentObj 
+        : contentObj?.body || contentObj?.text || JSON.stringify(contentObj);
+      
       const metadata = content.metadata as Record<string, unknown> | null;
       const campaignId = metadata?.campaign_id as string | undefined;
       const campaignName = metadata?.campaign_name as string | undefined;
@@ -298,14 +315,14 @@ export class SearchService {
             updatedAt: content.updated_at,
           });
         }
-      } else if (content.headline?.toLowerCase().includes(query.toLowerCase())) {
-        // If no campaign metadata, treat headline as campaign name
+      } else if (content.title?.toLowerCase().includes(query.toLowerCase())) {
+        // If no campaign metadata, treat title as campaign name
         const tempId = `temp-${content.id}`;
         if (!campaignMap.has(tempId)) {
           campaignMap.set(tempId, {
             id: content.id,
             type: "campaign" as const,
-            title: content.headline || "Untitled Campaign",
+            title: content.title || "Untitled Campaign",
             subtitle: `Content Campaign • ${content.platform || "Multiple platforms"}`,
             url: `/queue?content=${content.id}`,
             brandId: content.brand_id,

@@ -42,7 +42,7 @@ Working tree: CLEAN (no uncommitted changes)
 **Builder.json Content:**
 ```json
 {
-  "name": "aligned-ai",
+  "name": "postd",
   "publicApiKey": "your_builder_public_k39bfc067b694403ca329597d360f18f4",
   "runtime": {
     "node": "22",
@@ -186,24 +186,24 @@ gh auth login
 **View Recent Workflow Runs:**
 ```bash
 # List last 10 runs
-gh run list --repo Aligned-Design/Aligned-20ai --limit 10
+gh run list --repo POSTD-org/POSTD --limit 10
 
 # Get details of most recent run
-gh run view <RUN_ID> --repo Aligned-Design/Aligned-20ai
+gh run view <RUN_ID> --repo POSTD-org/POSTD
 
 # Download failure logs
-gh run view <RUN_ID> --repo Aligned-Design/Aligned-20ai --log-failed
+gh run view <RUN_ID> --repo POSTD-org/POSTD --log-failed
 ```
 
 **Find Failed Job Details:**
 ```bash
 # This shows which of the 6 jobs failed
-gh run view <RUN_ID> --repo Aligned-Design/Aligned-20ai --json jobs
+gh run view <RUN_ID> --repo POSTD-org/POSTD --json jobs
 ```
 
 ### Option B: Browser Access
 
-Navigate to: **https://github.com/Aligned-Design/Aligned-20ai/actions**
+Navigate to: **https://github.com/POSTD-org/POSTD/actions**
 
 1. Click on most recent workflow run (at the top)
 2. Look for red ❌ marks indicating failed jobs
@@ -779,7 +779,7 @@ git log --oneline -5
 
 ### Step 6.4: Monitor GitHub Actions
 
-1. Go to: **https://github.com/Aligned-Design/Aligned-20ai/actions**
+1. Go to: **https://github.com/POSTD-org/POSTD/actions**
 2. Click on the latest workflow run
 3. Watch all 6 jobs:
    - 🟦 Jobs running (blue)
@@ -799,7 +799,7 @@ If GitHub Actions CI still fails after pushing:
 git diff HEAD~1
 
 # View CI logs from GitHub:
-# https://github.com/Aligned-Design/Aligned-20ai/actions
+# https://github.com/POSTD-org/POSTD/actions
 
 # Use GitHub CLI to get detailed logs
 gh run view <LATEST_RUN_ID> --log-failed
@@ -892,7 +892,7 @@ pnpm run lint && pnpm run typecheck && pnpm run test:ci && pnpm run build
 pnpm run lint --fix
 
 # Check GitHub Actions status
-gh run list --repo Aligned-Design/Aligned-20ai --limit 5
+gh run list --repo POSTD-org/POSTD --limit 5
 gh run view <RUN_ID> --log-failed
 
 # Commit and push
@@ -976,7 +976,7 @@ Once all 6 CI jobs pass on GitHub:
 
 ## Contact & Support
 
-- **Repository:** https://github.com/Aligned-Design/Aligned-20ai
+- **Repository:** https://github.com/POSTD-org/POSTD
 - **Builder.io Docs:** https://builder.io/docs
 - **GitHub Actions Docs:** https://docs.github.com/en/actions
 - **Claude Desktop Docs:** https://docs.claude.com

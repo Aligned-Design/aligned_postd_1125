@@ -91,7 +91,7 @@ Successfully completed a comprehensive Role-Based Access Control (RBAC) consolid
 | `WhiteLabelSettings.tsx`    | ✅     | Admin-only white label access      |
 | `ActionButtonsHeader.tsx`   | ✅     | Content action buttons             |
 | `DashboardWidgets.tsx`      | ✅     | Approval permission checks         |
-| `AlignedAISummary.tsx`      | ✅     | Edit capability gating             |
+| `POSTDSummary.tsx`      | ✅     | Edit capability gating             |
 | `SmartDashboard.tsx`        | ✅     | Analytics export permission        |
 | `RoleBasedApprovalFlow.tsx` | ✅     | 4-way approval UI flows            |
 | `Dashboard.tsx`             | ✅     | Full RBAC integration              |

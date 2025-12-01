@@ -5,7 +5,7 @@
  * This file provides the structure and types needed for Canva integration
  * without hard-coding API keys or secrets.
  * 
- * TODO: When Canva API credentials are available:
+ * Future work: When Canva API credentials are available:
  * 1. Add CANVA_CLIENT_ID and CANVA_CLIENT_SECRET to environment variables
  * 2. Implement actual API calls to Canva endpoints
  * 3. Replace placeholder functions with real implementations
@@ -99,7 +99,7 @@ export function isCanvaConfigured(): boolean {
  * @param templateId - Optional Canva template ID (if starting from template)
  * @returns Editor session with URL to open in Canva
  * 
- * TODO: Implement actual Canva API call
+ * Future work: Implement actual Canva API call
  * - POST to Canva API /v1/designs/{designId}/editor or /v1/templates/{templateId}/editor
  * - Return editor URL with state token for CSRF protection
  */
@@ -112,14 +112,14 @@ export async function initiateCanvaEditorSession(
   
   if (!config) {
     throw new AppError(
-      ErrorCode.MISSING_CONFIGURATION,
+      ErrorCode.CONFIGURATION_ERROR,
       "Canva integration is not configured. Please add CANVA_CLIENT_ID and CANVA_CLIENT_SECRET to environment variables.",
       HTTP_STATUS.SERVICE_UNAVAILABLE,
       "warning"
     );
   }
 
-  // TODO: Implement actual Canva API call
+  // Future work: Implement actual Canva API call
   // Example:
   // const response = await fetch(`https://api.canva.com/v1/designs/${designId}/editor`, {
   //   method: 'POST',
@@ -154,7 +154,7 @@ export async function initiateCanvaEditorSession(
  * @param brandId - Brand ID for multi-tenant scoping
  * @returns Connection record with access token
  * 
- * TODO: Implement actual OAuth token exchange
+ * Future work: Implement actual OAuth token exchange
  * - POST to Canva OAuth token endpoint
  * - Store access_token, refresh_token in platform_connections table
  * - Return connection record
@@ -168,14 +168,14 @@ export async function handleCanvaCallback(
   
   if (!config) {
     throw new AppError(
-      ErrorCode.MISSING_CONFIGURATION,
+      ErrorCode.CONFIGURATION_ERROR,
       "Canva integration is not configured",
       HTTP_STATUS.SERVICE_UNAVAILABLE,
       "warning"
     );
   }
 
-  // TODO: Implement actual OAuth token exchange
+  // Future work: Implement actual OAuth token exchange
   // Example:
   // const response = await fetch('https://www.canva.com/api/oauth/token', {
   //   method: 'POST',
@@ -208,7 +208,7 @@ export async function handleCanvaCallback(
  * @param accessToken - Canva access token
  * @returns Asset record saved to library
  * 
- * TODO: Implement actual Canva API call and media service integration
+ * Future work: Implement actual Canva API call and media service integration
  * - GET design export from Canva API
  * - Download image file
  * - Upload to Supabase Storage via MediaService
@@ -224,7 +224,7 @@ export async function saveCanvaDesignToLibrary(
   url: string;
   filename: string;
 }> {
-  // TODO: Implement actual Canva API call
+  // Future work: Implement actual Canva API call
   // Example:
   // const design = await fetch(`https://api.canva.com/v1/designs/${designId}`, {
   //   headers: {
@@ -273,13 +273,13 @@ export async function saveCanvaDesignToLibrary(
  * @param accessToken - Canva access token
  * @returns Design metadata
  * 
- * TODO: Implement actual Canva API call
+ * Future work: Implement actual Canva API call
  */
 export async function getCanvaDesignMetadata(
   designId: CanvaDesignId,
   accessToken: string
 ): Promise<CanvaDesignMetadata> {
-  // TODO: Implement actual Canva API call
+  // Future work: Implement actual Canva API call
   // const response = await fetch(`https://api.canva.com/v1/designs/${designId}`, {
   //   headers: {
   //     'Authorization': `Bearer ${accessToken}`,

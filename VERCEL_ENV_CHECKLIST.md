@@ -5,7 +5,7 @@ Use this checklist to manually add environment variables to Vercel if you don't 
 ## How to Add Environment Variables in Vercel UI
 
 1. Go to **[Vercel Dashboard](https://vercel.com/dashboard)**
-2. Select your project: **Aligned-20ai**
+2. Select your project: **POSTD** (or your project name)
 3. Go to **Settings** (top menu)
 4. Click **Environment Variables** (left sidebar)
 5. For each variable below:
@@ -15,7 +15,7 @@ Use this checklist to manually add environment variables to Vercel if you don't 
    - Select **Production** (only environment)
    - Click **Save**
 
-**⚠️ Important:** Replace `your-domain` with your actual Vercel domain (e.g., `aligned-20ai.vercel.app`)
+**⚠️ Important:** Replace `your-domain` with your actual Vercel domain (e.g., `postd.vercel.app`)
 
 ---
 

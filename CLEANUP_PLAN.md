@@ -1,183 +1,116 @@
 # Codebase Cleanup Plan
 
-## Scope Analysis
+## Overview
+Safe, non-destructive cleanup pass focused on:
+- Removing unused imports
+- Replacing console statements with logger utilities
+- Removing dead code and commented blocks
+- Fixing simple lint issues
+- Cleaning JSX structure
 
-- **Total TypeScript files**: ~799 files
-- **Files with console statements**: ~60 files (client + server)
-- **Files with TODO comments**: ~163 TODOs across 51 files
-- **Comment lines**: ~1,580 comments across 247 files
+## Scope: CLIENT/ Directory
 
-## Proposed Cleanup Tasks (NON-DESTRUCTIVE)
+### 1. Console Statement Replacements
+**Files to update (replace console.log/warn/error with logger):**
 
-### 1. ✅ Remove Console Statements (Priority: HIGH)
-**Impact**: Cleaner production logs, better debugging infrastructure
+- `client/lib/fileUpload.ts` - Replace console.error with logError
+- `client/lib/safeLocalStorage.ts` - Replace console.warn with logWarning
+- `client/lib/seedUserBrands.ts` - Replace console.error with logError
+- `client/lib/featureFlags.ts` - Replace console.error with logError
+- `client/lib/stockImageApi.ts` - Replace console.error with logError
+- `client/lib/analytics.ts` - Replace console.log with logTelemetry
+- `client/components/ui/error-boundary.tsx` - Replace console.error with logError
+- `client/pages/Campaigns.tsx` - Replace console.log with logTelemetry
+- `client/app/(postd)/campaigns/page.tsx` - Replace console.log with logTelemetry
+- `client/app/(postd)/client-portal/page.tsx` - Replace console.error with logError (multiple)
+- `client/app/(postd)/admin/page.tsx` - Replace console.error with logError (multiple)
+- `client/utils/monitoring.ts` - Replace console.log/warn with logTelemetry/logWarning
+- `client/app/(postd)/billing/page.tsx` - Replace console.error with logError
+- `client/app/(postd)/approvals/page.tsx` - Replace console.warn/error with logWarning/logError
+- `client/hooks/useRealtimeAnalytics.ts` - Replace console.log/error with logTelemetry/logError
+- `client/hooks/useRealtimeNotifications.ts` - Replace console.log/error with logTelemetry/logError
+- `client/hooks/useRealtimeJob.ts` - Replace console.log/error with logTelemetry/logError
+- `client/components/postd/studio/DocAiPanel.tsx` - Replace console.error with logError
+- `client/components/postd/studio/DesignAiPanel.tsx` - Replace console.error with logError
+- `client/app/(postd)/brands/page.tsx` - Replace console.error with logError
+- `client/pages/Brands.tsx` - Replace console.error with logError
+- `client/contexts/BrandContext.tsx` - Replace console.warn/log/error with logWarning/logTelemetry/logError
+- `client/app/(postd)/queue/page.tsx` - Replace console.error with logError
+- `client/app/(postd)/studio/page.tsx` - Replace console.error/log/warn with logError/logTelemetry/logWarning
+- `client/components/settings/SchedulingPreferences.tsx` - Replace console.warn/error with logWarning/logError
+- `client/hooks/useRescheduleContent.ts` - Replace console.warn/error with logWarning/logError
+- `client/app/(postd)/reviews/page.tsx` - Replace console.warn/log/error with logWarning/logTelemetry/logError
+- `client/components/dashboard/CreativeStudioCanvas.tsx` - Replace console.error with logError
+- `client/components/dashboard/StockImageModal.tsx` - Replace console.error with logError
+- `client/contexts/WorkspaceContext.tsx` - Replace console.error/log with logError/logTelemetry
+- `client/pages/ClientPortal.tsx` - Replace console.error with logError (multiple)
+- `client/pages/ClientSettings.tsx` - Replace console.error with logError (multiple)
+- `client/hooks/use-paid-ads.ts` - Replace console.warn with logWarning
+- `client/utils/performance.ts` - Replace console.warn/debug with logWarning/logTelemetry
+- `client/components/dashboard/AnalyticsAdvisor.tsx` - Replace console.error with logError
+- `client/components/dashboard/ActionableAdvisor.tsx` - Replace console.error with logError
+- `client/app/(public)/blog/[slug]/page.tsx` - Replace console.error with logError
+- `client/pages/Approvals.tsx` - Replace console.warn/error with logWarning/logError
+- `client/hooks/useBrandIntelligence.ts` - Replace console.debug/error with logTelemetry/logError
+- `client/components/media/MediaBrowser.tsx` - Replace console.error with logError
+- `client/app/(postd)/content-generator/page.tsx` - Replace console.log with logTelemetry
 
-**Files to clean** (~30 client files):
-- `client/app/(postd)/client-portal/page.tsx`
-- `client/app/(postd)/admin/page.tsx`
-- `client/app/(postd)/campaigns/page.tsx`
-- `client/app/(postd)/billing/page.tsx`
-- `client/app/(postd)/approvals/page.tsx`
-- `client/utils/monitoring.ts`
-- `client/hooks/useRealtimeAnalytics.ts`
-- `client/hooks/useRealtimeNotifications.ts`
-- `client/hooks/useRealtimeJob.ts`
-- `client/components/postd/studio/DocAiPanel.tsx`
-- `client/components/postd/studio/DesignAiPanel.tsx`
-- `client/lib/analytics.ts`
-- `client/lib/stockImageApi.ts`
-- `client/lib/onboarding-brand-sync.ts`
-- And ~15 more files
+### 2. Unused Imports
+- Scan each file for unused imports and remove them
+- Focus on: React imports, unused hooks, unused components, unused types
 
-**Server files** (~30 files):
-- Keep strategic console statements in server for debugging
-- Comment out or replace with logger where appropriate
+### 3. Dead Code Removal
+- Remove commented-out code blocks that are no longer needed
+- Remove unreachable code branches
+- Remove unused variables
 
-**Strategy**:
-- Replace `console.log` with existing `logInfo()` from `@/lib/logger`
-- Replace `console.warn` with `logWarning()`
-- Replace `console.error` with `logError()`
-- Keep console statements in development-only blocks (`if (import.meta.env.DEV)`)
+### 4. Simple Lint Fixes
+- Add missing dependencies to useEffect hooks (only when safe)
+- Replace hasOwnProperty checks with Object.prototype.hasOwnProperty.call when necessary
+- Replace trivial `any` types only when trivially inferrable
 
-### 2. ✅ Remove Unused Imports (Priority: HIGH)
-**Impact**: Faster builds, cleaner code
+### 5. JSX Cleanup
+- Remove unnecessary fragments where single child exists
+- Collapse unnecessary wrapper divs
 
-**Approach**:
-- Use ESLint's `--fix` flag to auto-remove unused imports
-- Manually review and remove obvious unused imports in critical files
-- Focus on high-traffic files (pages, components, contexts)
+## Scope: SERVER/ Directory
 
-**Target files** (~50 files with likely unused imports):
-- All page files in `client/app/(postd)/`
-- Component files in `client/components/`
-- Hook files in `client/hooks/`
-- Server route files in `server/routes/`
+### Console Statement Replacements
+**Files to update (replace with pino logger from observability.ts):**
 
-### 3. ✅ Clean Unnecessary Fragments & Wrappers (Priority: MEDIUM)
-**Impact**: Cleaner JSX, better performance
+**Production code only (NOT scripts):**
+- `server/lib/media-db-service.ts` - Replace console.error/warn with logger
+- `server/routes/media.ts` - Replace console.warn with logger
+- `server/routes/brands.ts` - Replace console.log/warn/error with logger
 
-**Patterns to fix**:
-- Empty fragments: `<></>`  that wrap a single element
-- Double wrappers: `<div><div>content</div></div>` where one div suffices
-- Unnecessary fragments around single returns
+**Note:** Scripts in `server/scripts/` are allowed to keep console statements as they are CLI tools.
 
-**Files to review**:
-- Focus on component files in `client/components/`
-- Page files in `client/app/(postd)/`
+### Unused Imports
+- Scan production server files for unused imports
 
-### 4. ✅ Remove Dead Code & Commented Blocks (Priority: MEDIUM)
-**Impact**: Reduced cognitive load
+## Scope: SHARED/ Directory
 
-**Patterns to remove**:
-- Large commented-out code blocks (>5 lines)
-- Old implementation attempts left as comments
-- Debug code that's commented out
+### Unused Imports
+- Scan shared files for unused imports
 
-**Exceptions** (KEEP):
-- TODO comments that are actionable
-- Comments explaining complex business logic
-- Type definitions and interface comments
-- JSDoc comments
+## Execution Order
 
-### 5. ⚠️ Replace hasOwnProperty (Priority: LOW)
-**Impact**: Better type safety
+1. ✅ Document plan (this file)
+2. ⏳ Replace console statements in client/
+3. ⏳ Replace console statements in server/ (production code only)
+4. ⏳ Remove unused imports in client/
+5. ⏳ Remove unused imports in server/
+6. ⏳ Remove unused imports in shared/
+7. ⏳ Remove dead code and commented blocks
+8. ⏳ Fix simple lint issues
+9. ⏳ Clean JSX structure
+10. ⏳ Run lint fix and verify no errors
 
-**Files already fixed**:
-- ✅ `server/lib/preferences-db-service.ts`
+## Notes
 
-**Additional files to check**:
-- Search for `.hasOwnProperty(` in server/client code
-- Replace with `Object.prototype.hasOwnProperty.call(obj, key)`
-
-### 6. ⚠️ Trivial `any` Replacements (Priority: LOW)
-**Impact**: Better type safety
-
-**Strategy**: VERY CONSERVATIVE
-- Only replace `any` where type is OBVIOUS and TRIVIAL
-- Examples: `event: any` → `event: React.ChangeEvent<HTMLInputElement>`
-- **DO NOT** replace `any` in:
-  - API response types (may change)
-  - Complex object shapes
-  - Third-party library types
-  - Type assertions that might break
-
-**Estimated impact**: 5-10 trivial replacements max
-
-### 7. ❌ NO Design Token Replacements (Deferred)
-**Reason**: Too risky for cleanup pass
-- Hardcoded colors often have specific UX reasons
-- Design tokens might not cover all use cases
-- Risk of breaking visual consistency
-- **Decision**: Defer to dedicated design system audit
-
-## Exclusions (DO NOT TOUCH)
-
-### ❌ Files to SKIP:
-1. **Test files** (`*.test.ts`, `*.test.tsx`, `*.spec.ts`)
-   - May use mocks, console, and patterns that are acceptable in tests
-2. **Documentation files** (`*.md`)
-3. **Config files** (`*.config.ts`, `*.config.js`)
-4. **Generated files** (`dist/`, `node_modules/`)
-5. **Third-party integrations** that might have specific patterns
-6. **Migration scripts** and one-off utilities
-
-### ❌ Code patterns to PRESERVE:
-1. Any code in onboarding flow (critical user path)
-2. API client wrappers and authentication logic
-3. Brand sync and content generation logic
-4. Studio/canvas/creative components (complex state)
-5. Analytics and reporting logic
-6. Database queries and RLS policies
-
-## Execution Plan
-
-### Phase 1: Safe Automated Cleanup (15 minutes)
-1. Run `pnpm lint --fix` to auto-remove unused imports
-2. Run prettier/format on all files
-3. Verify no new errors introduced
-
-### Phase 2: Manual Console Statement Cleanup (30 minutes)
-1. Start with client files (high priority for production)
-2. Replace console.log/warn/error with logger
-3. Keep dev-only console statements
-
-### Phase 3: Manual Code Review (20 minutes)
-1. Remove obvious dead code and large commented blocks
-2. Clean unnecessary JSX fragments
-3. Fix any remaining hasOwnProperty calls
-
-### Phase 4: Verification (10 minutes)
-1. Run `pnpm lint` - ensure no new errors
-2. Run `pnpm typecheck` - ensure types still valid
-3. Run `pnpm build` - ensure clean build
-4. Spot-check a few pages in dev mode
-
-## Success Criteria
-
-✅ **No behavior changes**
-✅ **No new lint/type errors**
-✅ **Clean build**
-✅ **Reduced console noise in production**
-✅ **Cleaner codebase for next dev**
-
-## Risk Assessment
-
-**Low Risk**:
-- Removing unused imports (auto-detected by tooling)
-- Removing console statements (non-functional)
-- Cleaning JSX fragments (visual no-op)
-
-**Medium Risk**:
-- Removing commented code (might be needed for reference)
-- Replacing `any` types (might break inference)
-
-**High Risk** (AVOID):
-- Refactoring components
-- Changing business logic
-- Moving files
-- Renaming exports
-
-## Estimated Time
-**Total**: ~75 minutes of focused work
-**Impact**: Cleaner, more maintainable codebase with ZERO behavior changes
-
+- **NEVER** change business logic
+- **NEVER** refactor components
+- **NEVER** alter architecture
+- **NEVER** remove code that might be used by onboarding, approvals, studio, API calls, or brand sync
+- Only replace console statements in production code, not in scripts or test files
+- Keep test files unchanged (they may intentionally use console for test output)

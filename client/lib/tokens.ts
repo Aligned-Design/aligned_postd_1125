@@ -1,5 +1,5 @@
 /**
- * Design Tokens for Aligned-20AI
+ * Design Tokens for POSTD
  *
  * All component styles must consume tokens from this file.
  * No ad-hoc hex codes, spacing values, or shadow definitions allowed.

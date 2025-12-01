@@ -202,7 +202,7 @@
 
 ---
 
-## Product & Experience Checks (Aligned-20AI-specific)
+## Product & Experience Checks (POSTD-specific)
 
 - ⚠️ Onboarding flow works end-to-end (all 10 steps) (needs end-to-end testing)
 - ✅ Brand Guide syncs to Supabase (not localStorage) (completed)

@@ -3,7 +3,7 @@
  * Phase 1: Quick Wins - Simplified header with clear hierarchy
  */
 
-import { ArrowLeft, Save, Send, MoreVertical, CheckCircle2, Loader2 } from "lucide-react";
+import { ArrowLeft, Save, Send, MoreVertical, CheckCircle2, Loader2, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -28,6 +28,9 @@ interface StudioHeaderProps {
   onDownload?: () => void;
   onSaveToLibrary?: () => void;
   onDesignInCanva?: () => void;
+  onMakeOnBrand?: () => void;
+  isMakingOnBrand?: boolean;
+  showMakeOnBrand?: boolean; // Show when template is loaded
   userRole?: string;
 }
 
@@ -45,6 +48,9 @@ export function StudioHeader({
   onDownload,
   onSaveToLibrary,
   onDesignInCanva,
+  onMakeOnBrand,
+  isMakingOnBrand = false,
+  showMakeOnBrand = false,
   userRole,
 }: StudioHeaderProps) {
   return (
@@ -91,6 +97,29 @@ export function StudioHeader({
 
           {/* Right: Action Buttons */}
           <div className="flex items-center gap-3 flex-shrink-0">
+            {/* Make on-brand Button (when template is loaded) */}
+            {showMakeOnBrand && onMakeOnBrand && (
+              <Button
+                onClick={onMakeOnBrand}
+                disabled={isMakingOnBrand}
+                variant="outline"
+                size="sm"
+                className="gap-2 border-lime-400 text-lime-700 hover:bg-lime-50"
+              >
+                {isMakingOnBrand ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Enhancing...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-4 h-4" />
+                    Make on-brand
+                  </>
+                )}
+              </Button>
+            )}
+
             {/* Save Dropdown */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>

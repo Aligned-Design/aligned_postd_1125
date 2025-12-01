@@ -335,7 +335,7 @@ Agency Tier ($99/mo, auto at 5+ brands)
 
 **Top of Page:**
 
-> Aligned AI grows with your brand. Whether you're managing one business or fifty, your pricing automatically scales — no calls, no surprises.
+> POSTD grows with your brand. Whether you're managing one business or fifty, your pricing automatically scales — no calls, no surprises.
 
 **Trial Note:**
 

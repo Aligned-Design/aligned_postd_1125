@@ -26,7 +26,7 @@ This document details the implementation of Stage 4 UX improvements for Client/A
   - Custom domain support (clients.youragency.com)
   - Subdomain patterns ([client].youragency.com)
 - **Feature Toggles:**
-  - Hide "Powered by Aligned AI" branding
+  - Hide "Powered by POSTD" branding
   - Custom login page
   - Allow client-specific branding
 

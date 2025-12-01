@@ -121,8 +121,8 @@ export class LinkedInConnector extends BaseConnector {
           tokenResponse,
           {
             userId: userInfo.id,
-            firstName: userInfo.localizedFirstName,
-            lastName: userInfo.localizedLastName,
+            displayName: `${userInfo.localizedFirstName} ${userInfo.localizedLastName}`,
+            imageUrl: undefined,
           }
         );
 
@@ -190,19 +190,24 @@ export class LinkedInConnector extends BaseConnector {
           {
             accessToken: data.access_token,
             refreshToken: data.refresh_token || refreshToken, // LinkedIn may or may not return new refresh token
-            expiresIn: data.expires_in,
+            expiresIn: data.expires_in || 3600,
+            tokenType: data.token_type || 'Bearer',
+            scope: data.scope,
           },
-          {}
+          {
+            userId: '', // Not available during refresh
+            displayName: '',
+          }
         );
 
         logger.info(
+          '[LinkedIn] Token refreshed',
           {
             cycleId: this.connectionId,
             tenantId: this.tenantId,
             platform: 'linkedin',
             latencyMs: measureLatency,
-          },
-          '[LinkedIn] Token refreshed'
+          }
         );
 
         return {
@@ -252,11 +257,12 @@ export class LinkedInConnector extends BaseConnector {
           accounts.push({
             id: userInfo.id,
             name: `${userInfo.localizedFirstName} ${userInfo.localizedLastName}`,
-            platform: 'linkedin',
-            profilePictureUrl: undefined,
+            type: 'personal',
+            imageUrl: undefined,
             accountType: 'personal',
             userId: userInfo.id,
             urn: `urn:li:person:${userInfo.id}`,
+            metadata: { platform: 'linkedin' },
           });
         }
 
@@ -277,11 +283,12 @@ export class LinkedInConnector extends BaseConnector {
               accounts.push({
                 id: org.id.replace('urn:li:organization:', ''),
                 name: org.name,
-                platform: 'linkedin',
-                profilePictureUrl: org.logo || undefined,
+                type: 'organization',
+                imageUrl: org.logo || undefined,
                 accountType: 'organization',
                 orgId: org.id.replace('urn:li:organization:', ''),
                 urn: org.id,
+                metadata: { platform: 'linkedin' },
               });
             }
           }
@@ -392,6 +399,80 @@ export class LinkedInConnector extends BaseConnector {
   }
 
   /**
+   * Helper to make API call with automatic token refresh on 401/403
+   */
+  private async fetchWithAutoRefresh(
+    url: string,
+    options: RequestInit,
+    accessToken: string,
+    retryCount = 0
+  ): Promise<Response> {
+    const response = await fetch(url, {
+      ...options,
+      headers: {
+        ...options.headers,
+        Authorization: `Bearer ${accessToken}`,
+      },
+    });
+
+    // Auto-refresh on 401/403 (expired/invalid token)
+    if ((response.status === 401 || response.status === 403) && retryCount === 0) {
+      try {
+        // Get refresh token and attempt refresh
+        const refreshToken = await this.vault.retrieveSecret(this.tenantId, this.connectionId, 'refresh_token');
+        if (refreshToken) {
+          logger.info(
+            {
+              tenantId: this.tenantId,
+              platform: 'linkedin',
+              connectionId: this.connectionId,
+              status: response.status,
+            },
+            '[LinkedIn] Token expired, attempting refresh'
+          );
+
+          await this.refreshToken(refreshToken);
+
+          // Get new access token and retry once
+          const newAccessToken = await this.vault.retrieveSecret(this.tenantId, this.connectionId, 'access_token');
+          if (newAccessToken) {
+            logger.info(
+              {
+                tenantId: this.tenantId,
+                platform: 'linkedin',
+                connectionId: this.connectionId,
+              },
+              '[LinkedIn] Token refreshed successfully, retrying API call'
+            );
+            return this.fetchWithAutoRefresh(url, options, newAccessToken, retryCount + 1);
+          } else {
+            logger.error(
+              {
+                tenantId: this.tenantId,
+                platform: 'linkedin',
+                connectionId: this.connectionId,
+              },
+              '[LinkedIn] Token refresh succeeded but new access token not found'
+            );
+          }
+        }
+      } catch (refreshError) {
+        logger.error(
+          {
+            tenantId: this.tenantId,
+            platform: 'linkedin',
+            connectionId: this.connectionId,
+            error: refreshError instanceof Error ? refreshError.message : String(refreshError),
+          },
+          '[LinkedIn] Token refresh failed during API call'
+        );
+      }
+    }
+
+    return response;
+  }
+
+  /**
    * Publish text-only post
    */
   private async publishText(
@@ -413,14 +494,17 @@ export class LinkedInConnector extends BaseConnector {
       },
     };
 
-    const response = await fetch(`${BASE_URL}/${API_VERSION}/ugcPosts`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${accessToken}`,
+    const response = await this.fetchWithAutoRefresh(
+      `${BASE_URL}/${API_VERSION}/ugcPosts`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
       },
-      body: JSON.stringify(payload),
-    });
+      accessToken
+    );
 
     if (!response.ok) {
       const error = await response.text();
@@ -473,14 +557,17 @@ export class LinkedInConnector extends BaseConnector {
       },
     };
 
-    const response = await fetch(`${BASE_URL}/${API_VERSION}/ugcPosts`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${accessToken}`,
+    const response = await this.fetchWithAutoRefresh(
+      `${BASE_URL}/${API_VERSION}/ugcPosts`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
       },
-      body: JSON.stringify(payload),
-    });
+      accessToken
+    );
 
     if (!response.ok) {
       const error = await response.text();
@@ -513,14 +600,17 @@ export class LinkedInConnector extends BaseConnector {
       },
     };
 
-    const registerResponse = await fetch(`${BASE_URL}/${API_VERSION}/assets?action=registerUpload`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${accessToken}`,
+    const registerResponse = await this.fetchWithAutoRefresh(
+      `${BASE_URL}/${API_VERSION}/assets?action=registerUpload`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(registerPayload),
       },
-      body: JSON.stringify(registerPayload),
-    });
+      accessToken
+    );
 
     if (!registerResponse.ok) {
       const error = await registerResponse.text();

@@ -131,7 +131,7 @@ router.post("/signup", (async (req, res, next) => {
       
       // ✅ Return detailed error to help debug
       throw new AppError(
-        ErrorCode.AUTHENTICATION_ERROR,
+        ErrorCode.INVALID_CREDENTIALS,
         authError?.message || "Failed to create user account",
         HTTP_STATUS.BAD_REQUEST,
         "warning",
@@ -160,7 +160,7 @@ router.post("/signup", (async (req, res, next) => {
         error: authError?.message,
       });
       throw new AppError(
-        ErrorCode.AUTHENTICATION_ERROR,
+        ErrorCode.INVALID_CREDENTIALS,
         "User creation failed - no user object returned. Check Supabase configuration.",
         HTTP_STATUS.INTERNAL_SERVER_ERROR,
         "critical",
@@ -180,7 +180,7 @@ router.post("/signup", (async (req, res, next) => {
 
     if (!authData.user) {
       throw new AppError(
-        ErrorCode.AUTHENTICATION_ERROR,
+        ErrorCode.INVALID_CREDENTIALS,
         "User was not created - no user object returned",
         HTTP_STATUS.INTERNAL_SERVER_ERROR,
         "critical"
@@ -427,7 +427,7 @@ router.post("/login", (async (req, res, next) => {
       });
       
       throw new AppError(
-        ErrorCode.AUTHENTICATION_ERROR,
+        ErrorCode.INVALID_CREDENTIALS,
         authError?.message || "Invalid email or password",
         HTTP_STATUS.UNAUTHORIZED,
         "warning",

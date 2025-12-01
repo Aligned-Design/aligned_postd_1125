@@ -14,8 +14,8 @@ export interface ComponentTokenMapping {
   component: string;
   category: string;
   tokens: {
-    light: Record<string, string>;
-    dark: Record<string, string>;
+    light: Record<string, string | string[]>;
+    dark: Record<string, string | string[]>;
   };
   wcagCompliance: "AA" | "AAA";
   notes?: string;

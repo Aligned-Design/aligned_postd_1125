@@ -50,7 +50,7 @@ export class PersistenceService {
   ): Promise<void> {
     try {
       if (this.enabled) {
-        // TODO: Replace with actual DB insert
+        // Future work: Replace with actual DB insert
         // await supabase.from('strategy_briefs').insert({...})
       }
 
@@ -66,7 +66,7 @@ export class PersistenceService {
   async getStrategyBrief(cycleId: string): Promise<StrategyBrief | null> {
     try {
       if (this.enabled) {
-        // TODO: Replace with actual DB query
+        // Future work: Replace with actual DB query
         // const { data } = await supabase.from('strategy_briefs').select().eq('cycle_id', cycleId)
       }
 
@@ -87,7 +87,7 @@ export class PersistenceService {
   ): Promise<void> {
     try {
       if (this.enabled) {
-        // TODO: DB insert
+        // Future work: DB insert
       }
 
       memoryStore.contentPackages.set(contentId, pkg);
@@ -101,7 +101,7 @@ export class PersistenceService {
   async getContentPackage(contentId: string): Promise<ContentPackage | null> {
     try {
       if (this.enabled) {
-        // TODO: DB query
+        // Future work: DB query
       }
 
       return memoryStore.contentPackages.get(contentId) || null;
@@ -125,7 +125,7 @@ export class PersistenceService {
         }
 
         if (this.enabled) {
-          // TODO: DB update
+          // Future work: DB update
         }
 
         memoryStore.contentPackages.set(contentId, pkg);
@@ -147,7 +147,7 @@ export class PersistenceService {
   ): Promise<void> {
     try {
       if (this.enabled) {
-        // TODO: DB operations - insert entries and patterns separately
+        // Future work: DB operations - insert entries and patterns separately
       }
 
       // Ensure all required fields
@@ -191,7 +191,7 @@ export class PersistenceService {
       history.lastUpdated = new Date().toISOString();
 
       if (this.enabled) {
-        // TODO: DB insert into brand_history table
+        // Future work: DB insert into brand_history table
       }
 
       memoryStore.brandHistory.set(brandId, history);
@@ -205,7 +205,7 @@ export class PersistenceService {
   async getBrandHistory(brandId: string): Promise<BrandHistory | null> {
     try {
       if (this.enabled) {
-        // TODO: DB query
+        // Future work: DB query
       }
 
       return memoryStore.brandHistory.get(brandId) || null;
@@ -225,7 +225,7 @@ export class PersistenceService {
   ): Promise<void> {
     try {
       if (this.enabled) {
-        // TODO: DB insert
+        // Future work: DB insert
       }
 
       memoryStore.performanceLogs.set(brandId, log);
@@ -277,7 +277,7 @@ export class PersistenceService {
       log.lastUpdated = new Date().toISOString();
 
       if (this.enabled) {
-        // TODO: DB insert into performance_logs
+        // Future work: DB insert into performance_logs
       }
 
       memoryStore.performanceLogs.set(brandId, log);
@@ -308,7 +308,7 @@ export class PersistenceService {
       };
 
       if (this.enabled) {
-        // TODO: DB insert into collaboration_logs
+        // Future work: DB insert into collaboration_logs
       }
 
       const key = `${cycleId}:events`;
@@ -324,7 +324,7 @@ export class PersistenceService {
   async getCollaborationLog(cycleId: string): Promise<any[]> {
     try {
       if (this.enabled) {
-        // TODO: DB query
+        // Future work: DB query
       }
 
       const key = `${cycleId}:events`;
@@ -349,7 +349,7 @@ export class PersistenceService {
       const key = `${brandId}:${platform}`;
 
       if (this.enabled) {
-        // TODO: DB upsert into token_health
+        // Future work: DB upsert into token_health
       }
 
       memoryStore.tokenHealth.set(key, {
@@ -371,7 +371,7 @@ export class PersistenceService {
   ): Promise<{status: string; expiresAt?: Date} | null> {
     try {
       if (this.enabled) {
-        // TODO: DB query
+        // Future work: DB query
       }
 
       const key = `${brandId}:${platform}`;

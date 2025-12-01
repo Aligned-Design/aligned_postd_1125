@@ -607,6 +607,102 @@ export const AiDesignGenerationRequestSchema = z.object({
 
 export type AiDesignGenerationRequest = z.infer<typeof AiDesignGenerationRequestSchema>;
 
+// ==================== ContentPackage Routes ====================
+
+/**
+ * Save ContentPackage Request
+ * POST /api/content-packages
+ */
+export const SaveContentPackageSchema = z.object({
+  brandId: z.string()
+    .uuid('Invalid brand ID format')
+    .describe('Brand ID for ContentPackage'),
+  contentPackage: z.object({
+    id: z.string().describe('ContentPackage ID'),
+    brandId: z.string().uuid('Invalid brand ID format').describe('Brand ID'),
+    contentId: z.string().describe('Content ID'),
+    platform: z.string().min(1, 'Platform is required').describe('Target platform'),
+    status: z.enum(['draft', 'in_review', 'approved', 'published']).describe('ContentPackage status'),
+    copy: z.object({
+      headline: z.string().min(1, 'Headline is required'),
+      subheadline: z.string().optional(),
+      body: z.string().min(1, 'Body is required'),
+      callToAction: z.string().min(1, 'Call to action is required'),
+      tone: z.string().min(1, 'Tone is required'),
+      keywords: z.array(z.string()).default([]),
+      estimatedReadTime: z.number().int().min(0).default(0),
+    }),
+    designContext: z.object({
+      suggestedLayout: z.string(),
+      componentPrecedence: z.array(z.string()).default([]),
+      colorTheme: z.string(),
+      motionConsiderations: z.array(z.string()).default([]),
+      accessibilityNotes: z.array(z.string()).default([]),
+    }).optional(),
+    visuals: z.array(z.object({
+      id: z.string(),
+      type: z.enum(['template', 'image', 'graphic', 'layout']),
+      format: z.enum(['ig_post', 'reel_cover', 'carousel', 'linkedin_post', 'quote_card', 'announcement', 'story', 'feed', 'ad', 'other']),
+      templateRef: z.string().optional(),
+      imagePrompt: z.string().optional(),
+      metadata: z.object({
+        format: z.string(),
+        colorUsage: z.array(z.string()).default([]),
+        typeStructure: z.object({
+          headingFont: z.string().optional(),
+          bodyFont: z.string().optional(),
+          fontSize: z.string().optional(),
+          fontWeight: z.string().optional(),
+        }).optional(),
+        emotion: z.string(),
+        layoutStyle: z.string(),
+        aspectRatio: z.string(),
+      }),
+      performanceInsights: z.object({
+        basedOnTrend: z.string().optional(),
+        expectedOutcome: z.string().optional(),
+      }).optional(),
+    })).optional(),
+    collaborationLog: z.array(z.object({
+      agent: z.enum(['copywriter', 'creative', 'advisor']),
+      action: z.string(),
+      timestamp: z.string(),
+      notes: z.string(),
+    })).default([]),
+    createdAt: z.string().optional(),
+    updatedAt: z.string().optional(),
+    createdBy: z.string(),
+    requestId: z.string(),
+  }),
+}).strict();
+
+export type SaveContentPackageRequest = z.infer<typeof SaveContentPackageSchema>;
+
+/**
+ * Get ContentPackage Query Params
+ * GET /api/content-packages/:packageId
+ */
+export const GetContentPackageQuerySchema = z.object({
+  brandId: z.string()
+    .uuid('Invalid brand ID format')
+    .optional()
+    .describe('Optional brand ID for access verification'),
+}).strict();
+
+export type GetContentPackageQuery = z.infer<typeof GetContentPackageQuerySchema>;
+
+/**
+ * Get ContentPackage Params
+ * GET /api/content-packages/:packageId
+ */
+export const GetContentPackageParamsSchema = z.object({
+  packageId: z.string()
+    .min(1, 'Package ID is required')
+    .describe('ContentPackage ID'),
+}).strict();
+
+export type GetContentPackageParams = z.infer<typeof GetContentPackageParamsSchema>;
+
 // ==================== Utilities ====================
 
 /**

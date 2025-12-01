@@ -4,43 +4,26 @@
  * Manages OAuth token persistence, verification, and lifecycle
  */
 
-import { createClient } from "@supabase/supabase-js";
+import { supabase } from "./supabase";
 import { Platform } from "@shared/publishing";
 import { parsePlatformConnection } from "../types/guards";
-
-const supabaseUrl =
-  process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || "";
-const supabaseKey =
-  process.env.SUPABASE_SERVICE_ROLE_KEY ||
-  process.env.SUPABASE_SERVICE_ROLE_KEY ||
-  "";
-
-if (!supabaseUrl || !supabaseKey) {
-  throw new Error(
-    "Missing Supabase configuration: SUPABASE_URL and/or SUPABASE_SERVICE_ROLE_KEY",
-  );
-}
-
-const supabase = createClient(supabaseUrl, supabaseKey);
 
 export interface PlatformConnectionRecord {
   id: string;
   brand_id: string;
-  tenant_id: string;
   platform: string;
   account_id: string;
   account_name?: string;
-  profile_picture?: string;
   access_token: string;
   refresh_token?: string;
-  token_expires_at?: string;
-  status: "connected" | "expired" | "revoked" | "disconnected";
-  permissions?: string[];
-  metadata?: unknown;
-  created_by?: string;
+  expires_at?: string;
+  is_active: boolean;
+  status: string;
+  last_sync_at?: string;
+  next_sync_at?: string;
   created_at: string;
   updated_at: string;
-  last_verified_at?: string;
+  disconnected_at?: string;
 }
 
 /**
@@ -74,19 +57,15 @@ export class ConnectionsDBService {
 
     const connectionData: unknown = {
       brand_id: brandId,
-      tenant_id: tenantId,
       platform,
       access_token: accessToken,
       refresh_token: refreshToken,
-      token_expires_at: tokenExpiresAt?.toISOString(),
+      expires_at: tokenExpiresAt?.toISOString(),
       account_id: accountId,
       account_name: accountName,
-      profile_picture: profilePicture,
-      status: "connected",
-      permissions,
-      metadata,
-      created_by: userId,
-      last_verified_at: new Date().toISOString(),
+      status: "active", // Use 'active' to match schema default
+      is_active: true,
+      updated_at: new Date().toISOString(),
     };
 
     if (existing && existing.length > 0) {
@@ -102,7 +81,7 @@ export class ConnectionsDBService {
         throw new Error(`Failed to update connection: ${error.message}`);
       // runtime-validate
       const parsed = parsePlatformConnection(data);
-      return parsed as unknown;
+      return parsed as PlatformConnectionRecord;
     } else {
       // Insert new connection
       const { data, error } = await supabase
@@ -114,7 +93,7 @@ export class ConnectionsDBService {
       if (error)
         throw new Error(`Failed to create connection: ${error.message}`);
       const parsed = parsePlatformConnection(data);
-      return parsed as unknown;
+      return parsed as PlatformConnectionRecord;
     }
   }
 
@@ -141,7 +120,7 @@ export class ConnectionsDBService {
         return null;
       }
 
-      return parsePlatformConnection(data) as unknown;
+      return parsePlatformConnection(data) as PlatformConnectionRecord;
     } catch (error) {
       throw error;
     }
@@ -172,11 +151,12 @@ export class ConnectionsDBService {
       .from("platform_connections")
       .select("platform")
       .eq("brand_id", brandId)
-      .eq("status", "connected");
+      .eq("status", "active")
+      .eq("is_active", true);
 
     if (error)
       throw new Error(`Failed to get connected platforms: ${error.message}`);
-    return data?.map((d: unknown) => d.platform) as Platform[];
+    return data?.map((d: PlatformConnectionRecord) => d.platform as Platform) || [];
   }
 
   /**
@@ -188,7 +168,11 @@ export class ConnectionsDBService {
   ): Promise<PlatformConnectionRecord> {
     const { data, error } = await supabase
       .from("platform_connections")
-      .update({ status, last_verified_at: new Date().toISOString() })
+      .update({ 
+        status: status === "connected" ? "active" : status,
+        is_active: status === "connected",
+        updated_at: new Date().toISOString() 
+      })
       .eq("id", connectionId)
       .select()
       .single();
@@ -209,7 +193,7 @@ export class ConnectionsDBService {
   ): Promise<PlatformConnectionRecord> {
     const updateData: Record<string, unknown> = {
       access_token: accessToken,
-      last_verified_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
     };
 
     if (refreshToken) {
@@ -217,7 +201,7 @@ export class ConnectionsDBService {
     }
 
     if (tokenExpiresAt) {
-      updateData.token_expires_at = tokenExpiresAt.toISOString();
+      updateData.expires_at = tokenExpiresAt.toISOString();
     }
 
     const { data, error } = await supabase
@@ -242,9 +226,11 @@ export class ConnectionsDBService {
       .from("platform_connections")
       .update({
         status: "disconnected",
+        is_active: false,
         access_token: "", // Clear the token
         refresh_token: null,
-        last_verified_at: new Date().toISOString(),
+        disconnected_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
       })
       .eq("brand_id", brandId)
       .eq("platform", platform);
@@ -284,9 +270,10 @@ export class ConnectionsDBService {
     const { data, error } = await supabase
       .from("platform_connections")
       .select("*")
-      .eq("status", "connected")
-      .lte("token_expires_at", expiryThreshold)
-      .order("token_expires_at", { ascending: true });
+      .eq("status", "active")
+      .eq("is_active", true)
+      .lte("expires_at", expiryThreshold)
+      .order("expires_at", { ascending: true });
 
     if (error)
       throw new Error(`Failed to get expiring connections: ${error.message}`);
@@ -302,8 +289,9 @@ export class ConnectionsDBService {
     const { data, error } = await supabase
       .from("platform_connections")
       .update({
-        status: "connected",
-        last_verified_at: new Date().toISOString(),
+        status: "active",
+        is_active: true,
+        updated_at: new Date().toISOString(),
       })
       .eq("id", connectionId)
       .select()
@@ -334,10 +322,10 @@ export class ConnectionsDBService {
     const stats = {
       total: data?.length || 0,
       connected:
-        data?.filter((d: unknown) => d.status === "connected").length || 0,
-      expired: data?.filter((d: unknown) => d.status === "expired").length || 0,
-      revoked: data?.filter((d: unknown) => d.status === "revoked").length || 0,
-      platforms: [...new Set(data?.map((d: unknown) => d.platform) || [])],
+        data?.filter((d: PlatformConnectionRecord) => d.status === "connected" || d.status === "active").length || 0,
+      expired: data?.filter((d: PlatformConnectionRecord) => d.status === "expired").length || 0,
+      revoked: data?.filter((d: PlatformConnectionRecord) => d.status === "revoked").length || 0,
+      platforms: [...new Set(data?.map((d: PlatformConnectionRecord) => d.platform) || [])],
     };
 
     return stats;
@@ -355,8 +343,9 @@ export class ConnectionsDBService {
       const { data, error } = await supabase
         .from("platform_connections")
         .update({
-          status,
-          last_verified_at: new Date().toISOString(),
+          status: status === "connected" ? "active" : status,
+          is_active: status === "connected" || status === "active",
+          updated_at: new Date().toISOString(),
         })
         .eq("id", id)
         .select()

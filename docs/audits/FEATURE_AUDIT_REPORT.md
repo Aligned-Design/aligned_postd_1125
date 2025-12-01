@@ -1,6 +1,9 @@
-# COMPREHENSIVE CODEBASE AUDIT - FEATURE IMPLEMENTATION ANALYSIS
+# POSTD Comprehensive Codebase Audit - Feature Implementation Analysis
 
-**Project:** Aligned-20ai  
+> **Status:** ✅ Completed – This audit has been completed. All feature implementations have been documented.  
+> **Last Updated:** 2025-01-20
+
+**Project:** POSTD Platform  
 **Date:** November 4, 2025  
 **Scope:** AI & Content Features + Scheduling & Publishing Features
 
@@ -25,7 +28,7 @@ This codebase contains **SUBSTANTIAL implementation** of both AI/Content and Sch
 **Evidence:**
 
 **Database Layer:**
-- Location: `/Users/krisfoust/Documents/Aligned-20ai/supabase/migrations/20250117_create_agent_safety_tables.sql`
+- Location: `/Users/krisfoust/Downloads/Aligned-20ai.posted/supabase/migrations/20250117_create_agent_safety_tables.sql`
 - Tables: `brands` table has `safety_config` JSONB column storing:
   - `safety_mode`
   - `banned_phrases`
@@ -39,7 +42,7 @@ This codebase contains **SUBSTANTIAL implementation** of both AI/Content and Sch
   - `compliance_pack`
 
 **Client Components - Brand Intake Form:**
-- Location: `/Users/krisfoust/Documents/Aligned-20ai/client/pages/BrandIntake.tsx`
+- Location: `/Users/krisfoust/Downloads/Aligned-20ai.posted/client/pages/BrandIntake.tsx`
 - Sections:
   - Section 1: Brand Basics (name, website, tagline, industry, audience)
   - Section 2: Voice & Messaging (personality, tone keywords, writing style, faith values, phrases)
@@ -59,7 +62,7 @@ This codebase contains **SUBSTANTIAL implementation** of both AI/Content and Sch
 - Reference: `referenceMaterialLinks[]` array for brand inspiration
 
 **Type Definition:**
-- Location: `/Users/krisfoust/Documents/Aligned-20ai/client/types/brand-intake.ts`
+- Location: `/Users/krisfoust/Downloads/Aligned-20ai.posted/client/types/brand-intake.ts`
 - Complete interface with all fields
 
 **Completeness: FULL** - All components present and integrated
@@ -75,7 +78,7 @@ This codebase contains **SUBSTANTIAL implementation** of both AI/Content and Sch
 **Server-side Agents:**
 
 **Doc Agent (Text Generation):**
-- Location: `/Users/krisfoust/Documents/Aligned-20ai/server/routes/agents.ts`
+- Location: `/Users/krisfoust/Downloads/Aligned-20ai.posted/server/routes/agents.ts`
 - Endpoint: `POST /api/agents/generate/doc`
 - Input: `brand_id`, `input` (DocInput)
 - Output: `DocOutput` with `body`, `headline`, `cta`, `hashtags`
@@ -87,14 +90,14 @@ This codebase contains **SUBSTANTIAL implementation** of both AI/Content and Sch
   - Supports regeneration with max 3 attempts on BFS failure
 
 **Design Agent (Visual Generation):**
-- Location: `/Users/krisfoust/Documents/Aligned-20ai/server/routes/agents.ts`
+- Location: `/Users/krisfoust/Downloads/Aligned-20ai.posted/server/routes/agents.ts`
 - Endpoint: `POST /api/agents/generate/design`
 - Input: `brand_id`, `input` (DesignInput)
 - Output: `DesignOutput` (structure defined in `/client/types/agent-config.ts`)
 - Status: Route handler defined, prompt templates referenced
 
 **Advisor Agent (Insights):**
-- Location: `/Users/krisfoust/Documents/Aligned-20ai/server/lib/advisor-engine.ts`
+- Location: `/Users/krisfoust/Downloads/Aligned-20ai.posted/server/lib/advisor-engine.ts`
 - Class: `AdvisorEngine`
 - Methods:
   - `generateInsights()` - main method
@@ -106,7 +109,7 @@ This codebase contains **SUBSTANTIAL implementation** of both AI/Content and Sch
   - `detectAnomalies()`
 
 **Database Support:**
-- Location: `/Users/krisfoust/Documents/Aligned-20ai/supabase/migrations/20250117_create_agent_safety_tables.sql`
+- Location: `/Users/krisfoust/Downloads/Aligned-20ai.posted/supabase/migrations/20250117_create_agent_safety_tables.sql`
 - Tables:
   - `generation_logs` - audit trail for all generations
     - Tracks: `agent`, `prompt_version`, `input`, `output`, `bfs_score`, `linter_results`, `approved`
@@ -114,13 +117,13 @@ This codebase contains **SUBSTANTIAL implementation** of both AI/Content and Sch
   - `agent_cache` - 24h cache for Advisor output
 
 **Client Components:**
-- AgentGenerationPanel: `/Users/krisfoust/Documents/Aligned-20ai/client/components/ai-agents/AgentGenerationPanel.tsx`
+- AgentGenerationPanel: `/Users/krisfoust/Downloads/Aligned-20ai.posted/client/components/ai-agents/AgentGenerationPanel.tsx`
   - Supports advisor, doc, and design agents
   - Shows generation results with BFS scores and linter results
   - Allows regeneration and preview
-- GenerationResult: `/Users/krisfoust/Documents/Aligned-20ai/client/components/generation/GenerationResult.tsx`
+- GenerationResult: `/Users/krisfoust/Downloads/Aligned-20ai.posted/client/components/generation/GenerationResult.tsx`
   - Displays content with quality metrics
-- ContentGenerator: `/Users/krisfoust/Documents/Aligned-20ai/client/pages/ContentGenerator.tsx`
+- ContentGenerator: `/Users/krisfoust/Downloads/Aligned-20ai.posted/client/pages/ContentGenerator.tsx`
   - Full page for generating content with topic, tone, platform selection
 
 **Completeness: PARTIAL** - Core architecture in place
@@ -137,7 +140,7 @@ This codebase contains **SUBSTANTIAL implementation** of both AI/Content and Sch
 **Evidence:**
 
 **Content Linter Agent:**
-- Location: `/Users/krisfoust/Documents/Aligned-20ai/server/agents/content-linter.ts`
+- Location: `/Users/krisfoust/Downloads/Aligned-20ai.posted/server/agents/content-linter.ts`
 - Function: `lintContent()` - comprehensive checks
 
 **Compliance Checks Implemented:**
@@ -213,7 +216,7 @@ This codebase contains **SUBSTANTIAL implementation** of both AI/Content and Sch
 **Server-side Implementation:**
 
 **Advisor Engine:**
-- Location: `/Users/krisfoust/Documents/Aligned-20ai/server/lib/advisor-engine.ts`
+- Location: `/Users/krisfoust/Downloads/Aligned-20ai.posted/server/lib/advisor-engine.ts`
 - Class: `AdvisorEngine`
 - Main method: `generateInsights(context: InsightContext)`
 
@@ -246,7 +249,7 @@ This codebase contains **SUBSTANTIAL implementation** of both AI/Content and Sch
 - Stores feedback in analytics database
 
 **Database Support:**
-- Location: `/Users/krisfoust/Documents/Aligned-20ai/supabase/migrations/20250118_create_content_calendar_tables.sql`
+- Location: `/Users/krisfoust/Downloads/Aligned-20ai.posted/supabase/migrations/20250118_create_content_calendar_tables.sql`
 - Tables:
   - `performance_metrics` - stores platform metrics
   - `performance_adjustments` - audit trail for auto-adjustments
@@ -260,7 +263,7 @@ This codebase contains **SUBSTANTIAL implementation** of both AI/Content and Sch
 **Client-side Implementation:**
 
 **AdvisorInsightsTile Component:**
-- Location: `/Users/krisfoust/Documents/Aligned-20ai/client/components/insights/AdvisorInsightsTile.tsx`
+- Location: `/Users/krisfoust/Downloads/Aligned-20ai.posted/client/components/insights/AdvisorInsightsTile.tsx`
 - Displays: Top 6 insights by default
 - Features:
   - Loads insights from `/api/agents/advisor`
@@ -274,7 +277,7 @@ This codebase contains **SUBSTANTIAL implementation** of both AI/Content and Sch
   - Refresh capability
 
 **Type Definitions:**
-- Location: `/Users/krisfoust/Documents/Aligned-20ai/shared/analytics.ts`
+- Location: `/Users/krisfoust/Downloads/Aligned-20ai.posted/shared/analytics.ts`
 - Interface: `AdvisorInsight`
   - id, brandId, type, category, title, description
   - confidence, impact, priority
@@ -297,7 +300,7 @@ This codebase contains **SUBSTANTIAL implementation** of both AI/Content and Sch
 **Evidence:**
 
 **Database Layer:**
-- Location: `/Users/krisfoust/Documents/Aligned-20ai/supabase/migrations/20250118_create_content_calendar_tables.sql`
+- Location: `/Users/krisfoust/Downloads/Aligned-20ai.posted/supabase/migrations/20250118_create_content_calendar_tables.sql`
 - Tables:
   - `monthly_content_plans` - stores monthly content strategy
     - Fields: `brand_id`, `month` (YYYY-MM), `total_pieces`, `platforms` (JSONB), `best_times`, `top_topics`
@@ -308,7 +311,7 @@ This codebase contains **SUBSTANTIAL implementation** of both AI/Content and Sch
     - Fields: `brand_id`, `week_start`, `week_end`, `posts_published`, `posts_awaiting_approval`, `reach_change_pct`, `engagement_change_pct`
 
 **Client Component - Calendar View:**
-- Location: `/Users/krisfoust/Documents/Aligned-20ai/client/components/content/CalendarView.tsx`
+- Location: `/Users/krisfoust/Downloads/Aligned-20ai.posted/client/components/content/CalendarView.tsx`
 - Features:
   - Week/Month view toggle
   - Drag-and-drop event rescheduling
@@ -318,7 +321,7 @@ This codebase contains **SUBSTANTIAL implementation** of both AI/Content and Sch
   - Date navigation
 
 **Publishing Queue:**
-- Location: `/Users/krisfoust/Documents/Aligned-20ai/server/lib/publishing-queue.ts`
+- Location: `/Users/krisfoust/Downloads/Aligned-20ai.posted/server/lib/publishing-queue.ts`
 - Class: `PublishingQueue`
 - Features:
   - `addJob()` - adds publishing job to queue
@@ -330,7 +333,7 @@ This codebase contains **SUBSTANTIAL implementation** of both AI/Content and Sch
   - Implements exponential backoff for failures
 
 **Job Recovery:**
-- Location: `/Users/krisfoust/Documents/Aligned-20ai/server/lib/job-recovery.ts`
+- Location: `/Users/krisfoust/Downloads/Aligned-20ai.posted/server/lib/job-recovery.ts`
 - Function: `recoverPublishingJobs()`
 - Recovers on startup:
   - Pending jobs (not yet processed)
@@ -359,12 +362,12 @@ This codebase contains **SUBSTANTIAL implementation** of both AI/Content and Sch
 - Status tracking: 'pending' → 'processing' → 'published' OR 'failed'
 
 **Publishing Queue Retry Logic:**
-- Location: `/Users/krisfoust/Documents/Aligned-20ai/server/lib/publishing-queue.ts`
+- Location: `/Users/krisfoust/Downloads/Aligned-20ai.posted/server/lib/publishing-queue.ts`
 - Failure handling: `handleJobFailure()` method
 - Job recovery on server restart via `job-recovery.ts`
 
 **Webhook Retry Scheduler:**
-- Location: `/Users/krisfoust/Documents/Aligned-20ai/server/lib/webhook-retry-scheduler.ts`
+- Location: `/Users/krisfoust/Downloads/Aligned-20ai.posted/server/lib/webhook-retry-scheduler.ts`
 - Class: `WebhookRetryScheduler`
 - Features:
   - Automatic retry of failed webhook events
@@ -378,7 +381,7 @@ This codebase contains **SUBSTANTIAL implementation** of both AI/Content and Sch
     - `triggerRetryBatch()` - manual trigger for testing
 
 **Webhook Attempt Tracking:**
-- Location: `/Users/krisfoust/Documents/Aligned-20ai/supabase/migrations/20250125_create_webhook_attempts.sql`
+- Location: `/Users/krisfoust/Downloads/Aligned-20ai.posted/supabase/migrations/20250125_create_webhook_attempts.sql`
 - Tables:
   - `webhook_attempts` - tracks retry attempts
     - Fields: `event_id`, `attempt_number`, `status`, `response_status`, `error_message`, `headers`, `body`, `response_body`, `created_at`
@@ -400,16 +403,16 @@ This codebase contains **SUBSTANTIAL implementation** of both AI/Content and Sch
 
 **Platform Support:**
 - Defined type: `Platform = 'instagram' | 'facebook' | 'linkedin' | 'twitter' | 'google_business'`
-- Location: `/Users/krisfoust/Documents/Aligned-20ai/shared/publishing.ts`
+- Location: `/Users/krisfoust/Downloads/Aligned-20ai.posted/shared/publishing.ts`
 
 **Database Layer:**
-- Location: `/Users/krisfoust/Documents/Aligned-20ai/supabase/migrations/20250119_create_integrations_tables.sql`
+- Location: `/Users/krisfoust/Downloads/Aligned-20ai.posted/supabase/migrations/20250119_create_integrations_tables.sql`
 - Table: `platform_connections`
   - Fields: `brand_id`, `provider` (platform name), `account_username`, `account_id`, `access_token`, `refresh_token`, `token_expires_at`, `scopes`, `status`
   - Supports multiple connections per platform per brand
 
 **OAuth Integration:**
-- Location: `/Users/krisfoust/Documents/Aligned-20ai/server/lib/oauth-manager.ts`
+- Location: `/Users/krisfoust/Downloads/Aligned-20ai.posted/server/lib/oauth-manager.ts`
 - Functions:
   - `generateOAuthUrl()` - initiates OAuth flow
   - `exchangeCodeForToken()` - exchanges code for token
@@ -417,7 +420,7 @@ This codebase contains **SUBSTANTIAL implementation** of both AI/Content and Sch
   - `isTokenExpired()` - checks expiration
 
 **Publishing API:**
-- Location: `/Users/krisfoust/Documents/Aligned-20ai/server/routes/publishing.ts`
+- Location: `/Users/krisfoust/Downloads/Aligned-20ai.posted/server/routes/publishing.ts`
 - Endpoints:
   - `POST /oauth/initiate` - starts OAuth flow
   - `GET /oauth/callback/:platform` - OAuth callback handler
@@ -426,7 +429,7 @@ This codebase contains **SUBSTANTIAL implementation** of both AI/Content and Sch
   - `POST /publish` - publish content
 
 **Platform-Specific Implementation:**
-- Location: `/Users/krisfoust/Documents/Aligned-20ai/server/lib/publishing-queue.ts`
+- Location: `/Users/krisfoust/Downloads/Aligned-20ai.posted/server/lib/publishing-queue.ts`
 - Methods:
   - `publishToInstagram()` - Lines 107-165
   - `publishToFacebook()` - Lines 167-225
@@ -440,7 +443,7 @@ This codebase contains **SUBSTANTIAL implementation** of both AI/Content and Sch
   - Logs results (success or failure with error code)
 
 **Platform Validators:**
-- Location: `/Users/krisfoust/Documents/Aligned-20ai/server/lib/platform-validators.ts`
+- Location: `/Users/krisfoust/Downloads/Aligned-20ai.posted/server/lib/platform-validators.ts`
 - Validates: content per platform, schedule time validity
 
 **Content Scheduling:**
@@ -449,7 +452,7 @@ This codebase contains **SUBSTANTIAL implementation** of both AI/Content and Sch
 - Supports scheduling up to `maxScheduleDays` in future
 
 **Client Component - Connection Wizard:**
-- Location: `/Users/krisfoust/Documents/Aligned-20ai/client/components/publishing/ConnectionWizard.tsx`
+- Location: `/Users/krisfoust/Downloads/Aligned-20ai.posted/client/components/publishing/ConnectionWizard.tsx`
 - UI for connecting platforms
 
 **Completeness: FULL** - Complete cross-platform support
@@ -468,7 +471,7 @@ This codebase contains **SUBSTANTIAL implementation** of both AI/Content and Sch
 **Evidence:**
 
 **Database Schema:**
-- Location: `/Users/krisfoust/Documents/Aligned-20ai/supabase/migrations/20250118_create_content_calendar_tables.sql`
+- Location: `/Users/krisfoust/Downloads/Aligned-20ai.posted/supabase/migrations/20250118_create_content_calendar_tables.sql`
 - `brands` table has `posting_config` JSONB:
   ```json
   {

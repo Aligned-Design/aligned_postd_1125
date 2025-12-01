@@ -42,10 +42,10 @@ export const builderWebhook: RequestHandler = asyncHandler(async (req, res) => {
   // Process webhook based on type
   switch (type) {
     case 'content.update':
-      // TODO: Handle content updates (cache invalidation, etc.)
+      // Future work: Handle content updates (cache invalidation, etc.)
       break;
     case 'content.publish':
-      // TODO: Handle content publishing (trigger builds, etc.)
+      // Future work: Handle content publishing (trigger builds, etc.)
       break;
     default:
       console.log('Unknown webhook type:', type);

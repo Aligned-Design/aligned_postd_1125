@@ -1,6 +1,9 @@
-# Component Library Reference
+# POSTD Component Library Reference
 
-Complete reference for all landing page and dashboard components in the Aligned-20AI design system.
+> **Status:** ✅ Active – This is an active reference for POSTD component library.  
+> **Last Updated:** 2025-01-20
+
+Complete reference for all landing page and dashboard components in the POSTD design system.
 
 ## Table of Contents
 
@@ -269,7 +272,7 @@ interface WhyTeamsLoveItSectionProps {
 - 5-6 key differentiators
 - Icons and short descriptions
 - Comparison to alternatives
-- Highlight Aligned-20AI advantages
+- Highlight POSTD advantages
 
 **Usage:**
 ```jsx

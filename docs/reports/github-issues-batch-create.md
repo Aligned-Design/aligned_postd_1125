@@ -1,5 +1,9 @@
-# GitHub Issues Batch Creation Guide
-## Aligned-20ai Project Audit (November 7, 2025)
+# POSTD GitHub Issues Batch Creation Guide
+
+> **Status:** 🕒 Historical – This guide documents a historical audit from November 2025.  
+> **Last Updated:** 2025-01-20
+
+## POSTD Project Audit (November 7, 2025)
 
 **Total Issues to Create:** 85
 **Organization:** By Priority Tier + Phase

@@ -1,3 +1,5 @@
+import { logWarning } from "./logger";
+
 export function safeGetJSON<T = any>(key: string, defaultValue: T | null = null): T | null {
   try {
     const raw = localStorage.getItem(key);
@@ -5,10 +7,7 @@ export function safeGetJSON<T = any>(key: string, defaultValue: T | null = null)
     return JSON.parse(raw) as T;
   } catch (err) {
     // Failed to parse - remove corrupted data
-    if (import.meta.env.DEV) {
-      // eslint-disable-next-line no-console
-      console.warn(`safeGetJSON: failed to parse localStorage key ${key}`, err);
-    }
+    logWarning(`safeGetJSON: failed to parse localStorage key ${key}`, { error: err });
     try {
       localStorage.removeItem(key);
     } catch (e) {
@@ -23,9 +22,6 @@ export function safeSetJSON(key: string, value: any) {
     localStorage.setItem(key, JSON.stringify(value));
   } catch (err) {
     // Failed to set - likely quota exceeded
-    if (import.meta.env.DEV) {
-      // eslint-disable-next-line no-console
-      console.warn(`safeSetJSON: failed to set localStorage key ${key}`, err);
-    }
+    logWarning(`safeSetJSON: failed to set localStorage key ${key}`, { error: err });
   }
 }

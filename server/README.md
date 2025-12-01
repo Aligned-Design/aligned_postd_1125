@@ -1,6 +1,9 @@
-# Server - Backend API
+# POSTD Server - Backend API
 
-The server is an Express.js + TypeScript application that provides RESTful APIs for the Aligned AI platform.
+> **Status:** ✅ Active – This is an active README for POSTD server backend.  
+> **Last Updated:** 2025-01-20
+
+The server is an Express.js + TypeScript application that provides RESTful APIs for the POSTD platform.
 
 ## Overview
 

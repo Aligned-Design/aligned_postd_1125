@@ -69,6 +69,7 @@ const DEFAULT_GUARDRAILS = [
 
 export function GuardrailsEditor({ brand, onUpdate }: GuardrailsEditorProps) {
   const guardrails = brand.guardrails || [];
+  const [newPillarInput, setNewPillarInput] = useState("");
 
   const [formState, setFormState] = useState<GuardrailFormState>({
     isOpen: false,
@@ -80,6 +81,29 @@ export function GuardrailsEditor({ brand, onUpdate }: GuardrailsEditorProps) {
       isActive: true,
     },
   });
+
+  const handleContentRulesUpdate = (field: "contentPillars", value: any) => {
+    onUpdate({
+      contentRules: {
+        ...brand.contentRules,
+        [field]: value,
+      },
+    });
+  };
+
+  const handleAddPillar = () => {
+    if (!newPillarInput.trim()) return;
+    const currentPillars = brand.contentRules?.contentPillars || [];
+    if (!currentPillars.includes(newPillarInput.trim())) {
+      handleContentRulesUpdate("contentPillars", [...currentPillars, newPillarInput.trim()]);
+    }
+    setNewPillarInput("");
+  };
+
+  const handleRemovePillar = (pillar: string) => {
+    const currentPillars = brand.contentRules?.contentPillars || [];
+    handleContentRulesUpdate("contentPillars", currentPillars.filter((p) => p !== pillar));
+  };
 
   const handleOpenForm = (guardrail?: Guardrail) => {
     if (guardrail) {
@@ -177,6 +201,54 @@ export function GuardrailsEditor({ brand, onUpdate }: GuardrailsEditorProps) {
 
   return (
     <div className="space-y-6">
+      {/* Content Pillars */}
+      <div className="bg-white/50 backdrop-blur-xl rounded-xl border border-white/60 p-6">
+        <h2 className="text-xl font-black text-slate-900 mb-4">Content Pillars</h2>
+        <p className="text-sm text-slate-600 mb-4">
+          Define the main themes or topics that guide your content strategy.
+        </p>
+
+        <div className="flex flex-wrap gap-2 mb-3">
+          {(brand.contentRules?.contentPillars || []).map((pillar) => (
+            <span
+              key={pillar}
+              className="inline-flex items-center gap-1 px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-bold"
+            >
+              {pillar}
+              <button
+                onClick={() => handleRemovePillar(pillar)}
+                className="hover:text-blue-900 transition-colors"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            </span>
+          ))}
+        </div>
+
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={newPillarInput}
+            onChange={(e) => setNewPillarInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                handleAddPillar();
+              }
+            }}
+            placeholder="e.g., Sustainability, Community, Innovation"
+            className="flex-1 px-4 py-2 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+          />
+          <button
+            onClick={handleAddPillar}
+            className="px-3 py-2 rounded-lg bg-blue-100 text-blue-700 hover:bg-blue-200 transition-colors font-bold text-sm flex items-center gap-1"
+          >
+            <Plus className="w-4 h-4" />
+            Add Pillar
+          </button>
+        </div>
+      </div>
+
       {/* Header */}
       <div className="bg-white/50 backdrop-blur-xl rounded-xl border border-white/60 p-6">
         <div className="flex items-center justify-between mb-4">

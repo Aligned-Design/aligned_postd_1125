@@ -2,6 +2,9 @@ import { useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { useToast } from "@/hooks/use-toast";
+import { logError } from "@/lib/logger";
+import { PageShell } from "@/components/postd/ui/layout/PageShell";
+import { PageHeader } from "@/components/postd/ui/layout/PageHeader";
 import { StatusOverviewBanner } from "@/components/dashboard/StatusOverviewBanner";
 import { QueueAdvisor } from "@/components/dashboard/QueueAdvisor";
 import { PostActionMenu } from "@/components/dashboard/PostActionMenu";
@@ -381,7 +384,7 @@ export default function ContentQueue() {
                     )
                   );
                 } catch (error) {
-                  console.error("Failed to approve post:", error);
+                  logError("Failed to approve post", error instanceof Error ? error : new Error(String(error)), { postId: post.id });
                   toast({
                     title: "Approval Failed",
                     description: error instanceof Error ? error.message : "Failed to approve post. Please try again.",
@@ -485,31 +488,22 @@ export default function ContentQueue() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-indigo-50/30 via-white to-blue-50/20">
-        <div className="p-4 sm:p-6 md:p-8 max-w-7xl mx-auto">
-          {/* Page Header */}
-          <div className="mb-8 sm:mb-12">
-            <div className="flex items-center gap-3 mb-2 sm:mb-3">
-              {statusFilter && (
-                <button
-                  onClick={clearStatusFilter}
-                  className="p-2 hover:bg-slate-200/50 rounded-lg transition-colors text-slate-600"
-                  title="Back to all posts"
-                >
-                  <ChevronLeft className="w-5 h-5" />
-                </button>
-              )}
-              <h1 className="text-3xl sm:text-4xl font-black text-slate-900">
-                {statusFilter ? getStatusLabel(statusFilter) : "Content Queue"}
-              </h1>
-            </div>
-            <p className="text-slate-600 text-xs sm:text-sm font-medium">
-              {currentWorkspace?.logo} {currentWorkspace?.name} —
-              {statusFilter
-                ? ` View all ${filteredPosts.length} posts in ${getStatusLabel(statusFilter).toLowerCase()}.`
-                : " Organize and manage all your content by status. Review, approve, and schedule posts across all platforms."}
-            </p>
-          </div>
+    <PageShell>
+      <PageHeader
+        title={statusFilter ? getStatusLabel(statusFilter) : "Content Queue"}
+        subtitle={`${currentWorkspace?.logo || ""} ${currentWorkspace?.name || ""} — ${statusFilter ? `View all ${filteredPosts.length} posts in ${getStatusLabel(statusFilter).toLowerCase()}.` : "Organize and manage all your content by status. Review, approve, and schedule posts across all platforms."}`}
+        actions={
+          statusFilter ? (
+            <button
+              onClick={clearStatusFilter}
+              className="p-2 hover:bg-slate-200/50 rounded-lg transition-colors text-slate-600"
+              title="Back to all posts"
+            >
+              <ChevronLeft className="w-5 h-5" />
+            </button>
+          ) : undefined
+        }
+      />
 
           {/* Status Overview Banner */}
           <StatusOverviewBanner navigateToQueue={true} />
@@ -738,14 +732,13 @@ export default function ContentQueue() {
               <QueueAdvisor />
             </div>
           )}
-        </div>
 
       {/* Post Preview Modal */}
       <PostPreviewModal
         post={previewPost}
         isOpen={showPreview}
         onClose={() => setShowPreview(false)}
-      />
-    </div>
+        />
+    </PageShell>
   );
 }

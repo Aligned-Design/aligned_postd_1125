@@ -4,7 +4,7 @@
 
 **Export Date**: November 11, 2024
 **Source**: Builder.io (neon-nest branch at `/Users/krisfoust/Downloads/neon-nest (2)/`)
-**Destination**: `/Users/krisfoust/Documents/GitHub/Aligned-20ai/design-import/`
+**Destination**: `/Users/krisfoust/Downloads/Aligned-20ai.posted/design-import/`
 
 ---
 
@@ -297,7 +297,7 @@ Verify responsive design, animations, and styling matches.
 - **Design System Version**: 2024.11
 - **Export Date**: November 11, 2024
 - **Source Branch**: neon-nest (Builder.io export)
-- **Destination**: main branch (Aligned-20AI repo)
+- **Destination**: main branch (POSTD repo)
 
 ---
 

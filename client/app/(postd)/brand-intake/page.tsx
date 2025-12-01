@@ -16,6 +16,9 @@ import { BrandIntakeFormData } from "@/types/brand-intake";
 import { AutosaveIndicator } from "@/components/ui/autosave-indicator";
 import { useAutosave } from "@/hooks/use-autosave";
 import { uploadBrandFiles } from "@/lib/fileUpload";
+import { logWarning } from "@/lib/logger";
+import { PageShell } from "@/components/postd/ui/layout/PageShell";
+import { PageHeader } from "@/components/postd/ui/layout/PageHeader";
 
 import Section1BrandBasics from "@/components/brand-intake/Section1BrandBasics";
 import Section2VoiceMessaging from "@/components/brand-intake/Section2VoiceMessaging";
@@ -167,62 +170,79 @@ export default function BrandIntake() {
     }
 
     setImporting(true);
-    setImportProgress("Crawling website...");
+    setImportProgress("Analyzing website...");
 
     try {
-      // Call Edge Function to process brand intake
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
+      // ✅ Use real crawler API instead of Edge Function fallback
+      // Get workspaceId/tenantId from user context for image persistence
+      const workspaceId = (user as any)?.workspaceId || (user as any)?.tenantId || localStorage.getItem("aligned_workspace_id");
 
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      const response = await fetch(
-        `${supabaseUrl}/functions/v1/process-brand-intake`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${session?.access_token}`,
-          },
-          body: JSON.stringify({
-            brandId,
-            websiteUrl: formData.websiteUrl,
-          }),
-        },
-      );
+      // Use apiPost for authenticated requests
+      const { apiPost } = await import("@/lib/api");
 
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || "Failed to import from website");
+      setImportProgress("Crawling website...");
+
+      // Call real crawler API with sync mode
+      const result = await apiPost<{
+        success: boolean;
+        brandKit: any;
+        status: string;
+      }>("/api/crawl/start?sync=true", {
+        brand_id: brandId,
+        url: formData.websiteUrl,
+        websiteUrl: formData.websiteUrl,
+        sync: true,
+        workspaceId: workspaceId,
+      });
+
+      if (!result.success) {
+        throw new Error("Failed to crawl website. Please try again.");
       }
 
-      const result = await response.json();
+      setImportProgress("Processing images and colors...");
+
+      // Wait a moment for images to be persisted
+      await new Promise((resolve) => setTimeout(resolve, 1000));
 
       setImportProgress("Processing complete!");
 
-      // Update form data with imported values
+      const brandKit = result.brandKit || {};
+
+      // Update form data with imported values from real scraped data
       setFormData((prev) => ({
         ...prev,
-        primaryColor: result.brandKit.colors?.primary || prev.primaryColor,
-        secondaryColor:
-          result.brandKit.colors?.secondary || prev.secondaryColor,
-        accentColor: result.brandKit.colors?.accent || prev.accentColor,
-        toneKeywords: result.brandKit.voice_summary?.tone || prev.toneKeywords,
-        brandPersonality:
-          result.brandKit.voice_summary?.personality || prev.brandPersonality,
-        shortDescription: result.brandKit.about_blurb || prev.shortDescription,
+        primaryColor: brandKit.colors?.primary || brandKit.colors?.allColors?.[0] || prev.primaryColor,
+        secondaryColor: brandKit.colors?.secondary || brandKit.colors?.allColors?.[1] || prev.secondaryColor,
+        accentColor: brandKit.colors?.accent || brandKit.colors?.allColors?.[2] || prev.accentColor,
+        toneKeywords: brandKit.voice_summary?.tone || prev.toneKeywords,
+        brandPersonality: brandKit.voice_summary?.personality || prev.brandPersonality,
+        shortDescription: brandKit.about_blurb || prev.shortDescription,
       }));
 
       toast({
         title: "Import successful!",
-        description:
-          "Website data has been imported. Review and adjust as needed.",
+        description: `Found ${brandKit.images?.length || 0} images and ${brandKit.colors?.allColors?.length || 0} colors. Review and adjust as needed.`,
       });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
+      
+      // ✅ Better error messages - no silent fallback
+      let userMessage = "Failed to analyze website. ";
+      if (message.includes("timeout") || message.includes("Crawl timeout")) {
+        userMessage += "The website took too long to load. Please try again or check if the website is accessible.";
+      } else if (message.includes("browser") || message.includes("launch")) {
+        userMessage += "Unable to access the website. Please verify the URL is correct and try again.";
+      } else if (message.includes("network") || message.includes("connection")) {
+        userMessage += "Unable to connect to the website. Please check the URL and try again.";
+      } else if (message.includes("401") || message.includes("403") || message.includes("Unauthorized")) {
+        userMessage += "Authentication error. Please refresh the page and try again.";
+      } else {
+        userMessage += message || "Please try again or contact support if the issue persists.";
+      }
+
       toast({
         title: "Import failed",
-        description: message,
+        description: userMessage,
         variant: "destructive",
       });
     } finally {
@@ -265,7 +285,7 @@ export default function BrandIntake() {
         }
       } catch (error) {
         // If URL parsing fails, allow submission (user will see validation error)
-        console.warn("Error checking for duplicate brands:", error);
+        logWarning("Error checking for duplicate brands", { error });
       }
     }
 
@@ -420,31 +440,32 @@ export default function BrandIntake() {
   const progress = (currentStep / SECTIONS.length) * 100;
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="border-b bg-white sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-6 py-4">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h1 className="text-2xl font-bold text-slate-900">
-                Brand Intake Form
-              </h1>
-              <p className="text-sm text-slate-600">
-                Step {currentStep} of {SECTIONS.length}:{" "}
-                {SECTIONS[currentStep - 1].title}
-              </p>
-            </div>
-            {brandId && (
-              <AutosaveIndicator
-                saving={saving}
-                lastSaved={lastSaved}
-                error={autosaveError}
-              />
-            )}
+    <PageShell>
+      <PageHeader
+        title="Brand Intake Form"
+        subtitle={`Step ${currentStep} of ${SECTIONS.length}: ${SECTIONS[currentStep - 1]?.title || ""}`}
+      />
+
+      {/* Progress Header */}
+      <div className="border-b bg-white sticky top-0 z-10 -mx-4 sm:-mx-6 md:-mx-8 lg:-mx-10 px-4 sm:px-6 md:px-8 lg:px-10 py-4 mb-6">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <p className="text-sm text-slate-600">
+              Step {currentStep} of {SECTIONS.length}: {SECTIONS[currentStep - 1].title}
+            </p>
           </div>
-          <Progress value={progress} className="h-2" />
+          {brandId && (
+            <AutosaveIndicator
+              saving={saving}
+              lastSaved={lastSaved}
+              error={autosaveError}
+            />
+          )}
         </div>
+        <Progress value={progress} className="h-2" />
       </div>
 
+      {/* Main Content */}
       <div className="max-w-7xl mx-auto px-6 py-8">
         {currentStep === 1 && formData.websiteUrl && (
           <div className="mb-6 rounded-xl border border-gray-100 bg-white p-6 shadow-md">
@@ -560,6 +581,6 @@ export default function BrandIntake() {
           auto-saved.
         </div>
       </div>
-    </div>
+    </PageShell>
   );
 }

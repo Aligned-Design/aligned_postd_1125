@@ -93,9 +93,9 @@ export interface ContentItem {
   brandId: string;
   title: string;
   description?: string;
-  content: string;
+  content: Record<string, unknown>; // JSONB column - matches schema: content JSONB NOT NULL
   status: 'draft' | 'scheduled' | 'published' | 'archived';
-  contentType: 'post' | 'story' | 'reel' | 'article' | 'video';
+  type: string; // Matches schema: type TEXT NOT NULL (not contentType)
   scheduledAt?: string;
   publishedAt?: string;
   createdAt: string;

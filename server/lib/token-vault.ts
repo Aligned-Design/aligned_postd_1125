@@ -127,6 +127,17 @@ export class TokenVault {
   }
 
   /**
+   * Alias for retrieveSecret (backwards compatibility)
+   */
+  async getSecret(
+    tenantId: string,
+    connectionId: string,
+    secretType: 'access_token' | 'refresh_token' | 'api_key' | 'webhook_secret'
+  ): Promise<string | null> {
+    return this.retrieveSecret(tenantId, connectionId, secretType);
+  }
+
+  /**
    * Store encrypted secret in database
    * Also logs usage for audit trail
    */
@@ -178,11 +189,12 @@ export class TokenVault {
 
   /**
    * Retrieve and decrypt secret from database
+   * Alias: getSecret for backwards compatibility
    */
   async retrieveSecret(
     tenantId: string,
     connectionId: string,
-    secretType: 'access_token' | 'refresh_token' | 'api_key'
+    secretType: 'access_token' | 'refresh_token' | 'api_key' | 'webhook_secret'
   ): Promise<string | null> {
     try {
       // Get latest secret from database

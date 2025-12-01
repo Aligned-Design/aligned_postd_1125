@@ -3,6 +3,7 @@ import React from "react";
 import { AlertTriangle, RefreshCw, Home } from "lucide-react";
 import { Button } from "./button";
 import { Card, CardContent, CardHeader, CardTitle } from "./card";
+import { logError } from "@/lib/logger";
 
 interface ErrorBoundaryState {
   hasError: boolean;
@@ -35,9 +36,7 @@ export class ErrorBoundary extends React.Component<
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
     this.setState({ errorInfo });
     // Log error (will be silent in production unless error tracking is configured)
-    if (import.meta.env.DEV) {
-      console.error("Error boundary caught an error:", error, errorInfo);
-    }
+    logError("Error boundary caught an error", error, { errorInfo });
     // TODO: Send to error tracking service (e.g., Sentry) in production
   }
 

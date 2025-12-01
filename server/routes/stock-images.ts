@@ -102,7 +102,7 @@ export const searchStockImages: RequestHandler = async (req, res, next) => {
       throw new AppError(
         ErrorCode.NOT_IMPLEMENTED,
         `Provider "${queryParams.provider}" is not yet implemented. Only "pexels" is available.`,
-        HTTP_STATUS.NOT_IMPLEMENTED,
+        HTTP_STATUS.SERVICE_UNAVAILABLE,
         "info",
       );
     }
@@ -383,7 +383,7 @@ export const getStockImage: RequestHandler = async (req, res, next) => {
       throw new AppError(
         ErrorCode.NOT_IMPLEMENTED,
         `Provider "${provider}" is not yet implemented. Only "pexels" and "pixabay" are available.`,
-        HTTP_STATUS.NOT_IMPLEMENTED,
+        HTTP_STATUS.SERVICE_UNAVAILABLE,
         "info",
       );
     }

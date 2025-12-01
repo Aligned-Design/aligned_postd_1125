@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { logError } from './logger';
 
 export async function seedUserBrands(userId: string) {
   try {
@@ -19,9 +20,6 @@ export async function seedUserBrands(userId: string) {
     // Demo brands assigned successfully
   } catch (error) {
     // Error seeding brands - fail silently in production
-    if (import.meta.env.DEV) {
-      // eslint-disable-next-line no-console
-      console.error('Error seeding brands for user:', error);
-    }
+    logError('Error seeding brands for user', error instanceof Error ? error : new Error(String(error)), { userId });
   }
 }

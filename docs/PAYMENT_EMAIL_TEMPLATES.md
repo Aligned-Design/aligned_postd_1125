@@ -9,7 +9,7 @@ Comprehensive email templates for the billing and payment notification system.
 All emails follow this structure:
 
 - **Subject Line:** Clear, action-oriented
-- **Header:** Aligned AI branding
+- **Header:** POSTD branding
 - **Body:** Friendly but firm tone
 - **CTA Button:** Direct link to billing page
 - **Footer:** Support contact + unsubscribe
@@ -30,12 +30,12 @@ Heads up — your payment didn't go through 💳
 ### Body
 
 ```html
-Hi [User Name], We tried to process your payment for Aligned AI today, but it
+Hi [User Name], We tried to process your payment for POSTD today, but it
 didn't go through. No worries — we'll automatically try again in 24 hours. To
 avoid any interruptions to your content publishing, please update your payment
 method now. [Update Payment Method Button] Details: • Amount: $[amount] • Next
 retry: [date] • Brands affected: [count] Need help? Reply to this email or
-contact support at support@aligned.ai. Thanks, The Aligned AI Team
+contact support at support@aligned.ai. Thanks, The POSTD Team
 ```
 
 ---
@@ -54,12 +54,12 @@ Payment reminder — update needed 💳
 ### Body
 
 ```html
-Hi [User Name], We're still having trouble processing your payment for Aligned
+Hi [User Name], We're still having trouble processing your payment for POSTD
 AI. We've tried twice now, and we'll make one more automatic attempt in 4 days.
 To keep your content flowing without interruption, please update your billing
 info today. [Update Payment Method Button] Your account details: • Plan: [Base
 Plan / Agency Tier] • Monthly total: $[amount] • Brands: [count] • Next retry:
-[date] Questions? We're here to help: support@aligned.ai Best, The Aligned AI
+[date] Questions? We're here to help: support@aligned.ai Best, The POSTD Team
 Team
 ```
 
@@ -80,13 +80,13 @@ Team
 
 ```html
 Hi [User Name], This is important: we haven't been able to process your payment
-for Aligned AI after three attempts. Your account will pause in 3 days if we
+for POSTD after three attempts. Your account will pause in 3 days if we
 can't complete payment. This means: • Publishing will be disabled • Approval
 workflows will pause • Your scheduled content will stop [Update Payment Now
 Button] We don't want you to lose momentum. Update your card now to keep
 everything running smoothly. Account Summary: • Plan: [tier] • Amount due:
 $[amount] • Grace period ends: [date] Need assistance? Contact us:
-support@aligned.ai The Aligned AI Team
+support@aligned.ai The POSTD Team
 ```
 
 ---
@@ -99,20 +99,20 @@ support@aligned.ai The Aligned AI Team
 ### Subject
 
 ```
-Your Aligned AI account is now paused
+Your POSTD account is now paused
 ```
 
 ### Body
 
 ```html
-Hi [User Name], We've paused publishing and approvals on your Aligned AI account
+Hi [User Name], We've paused publishing and approvals on your POSTD account
 while we wait for payment. What this means: ✓ Your dashboard and analytics are
 still viewable ✓ You can still generate content (up to 2/day) ✗ Publishing is
 disabled ✗ Approval workflows are paused Your scheduled posts have been
 unscheduled, but they're safely saved as drafts. [Reactivate Account Button] You
 can restore full access instantly by updating your payment method. All your
 content and settings are preserved. Amount due: $[amount] Brands on hold:
-[count] Questions? We're here: support@aligned.ai The Aligned AI Team
+[count] Questions? We're here: support@aligned.ai The POSTD Team
 ```
 
 ---
@@ -131,7 +131,7 @@ Your account has been archived (reactivate anytime)
 ### Body
 
 ```html
-Hi [User Name], Your Aligned AI account has been archived due to non-payment.
+Hi [User Name], Your POSTD account has been archived due to non-payment.
 Here's what happened: • Your data is safely stored for the next 90 days • All
 brands, posts, and settings are preserved • You can reactivate anytime with zero
 data loss [Reactivate Account Button] What's stored: ✓ Brand settings and voice
@@ -139,7 +139,7 @@ profiles ✓ Content drafts and scheduled posts ✓ Assets and media library ✓
 Analytics history Reactivation is instant. Just update your payment method and
 you're back online. Amount to reactivate: $[amount] Data retention expires:
 [date + 90 days] We'd love to have you back. Questions? support@aligned.ai The
-Aligned AI Team
+POSTD Team
 ```
 
 ---
@@ -159,13 +159,13 @@ Aligned AI Team
 
 ```html
 Hi [User Name], This is your final reminder: we'll permanently delete your
-Aligned AI account and all associated data on [deletion date]. After that date:
+POSTD account and all associated data on [deletion date]. After that date:
 ✗ All brand settings will be deleted ✗ Content drafts will be removed ✗ Media
 library will be cleared ✗ Analytics history will be erased This is irreversible.
 [Reactivate Now to Prevent Deletion Button] You can still save everything by
 reactivating your account before [deletion date]. It takes less than 2 minutes.
 Amount to reactivate: $[amount] Need help? Contact us immediately:
-support@aligned.ai The Aligned AI Team
+support@aligned.ai The POSTD Team
 ```
 
 ---
@@ -184,14 +184,14 @@ Welcome back! Your account is active 🎉
 ### Body
 
 ```html
-Hi [User Name], Great news — your payment went through! Your Aligned AI account
+Hi [User Name], Great news — your payment went through! Your POSTD account
 is now fully active. What's been restored: ✓ Publishing and approval workflows ✓
 Unlimited AI content generation ✓ All scheduled posts reinstated ✓ Analytics
 updates resumed Your next steps: • Review your content queue: [link] • Update
 any paused campaigns: [link] • Check your analytics dashboard: [link] Your plan
 details: • Plan: [tier] • Amount charged: $[amount] • Next billing date: [date]
-Thanks for being part of Aligned AI. Let's keep your content flowing! Questions?
-support@aligned.ai The Aligned AI Team
+Thanks for being part of POSTD. Let's keep your content flowing! Questions?
+support@aligned.ai The POSTD Team
 ```
 
 ---
@@ -204,17 +204,17 @@ support@aligned.ai The Aligned AI Team
 ### Subject
 
 ```
-Your Aligned AI renewal is coming up
+Your POSTD renewal is coming up
 ```
 
 ### Body
 
 ```html
-Hi [User Name], Just a heads up: we'll charge your card for Aligned AI on
+Hi [User Name], Just a heads up: we'll charge your card for POSTD on
 [billing date]. Renewal details: • Plan: [tier] • Amount: $[amount] • Brands:
 [count] • Payment method: •••• [last4] [Update Payment Method Button] Everything
 looks good? No action needed — we'll process this automatically. Want to make
-changes? Update your plan or billing info anytime: [billing link] The Aligned AI
+changes? Update your plan or billing info anytime: [billing link] The POSTD
 Team
 ```
 

@@ -17,8 +17,12 @@ const USE_SENDGRID =
 const NODE_ENV = process.env.NODE_ENV || "development";
 
 // Nodemailer test account (for development)
-let testAccount: unknown = null;
-let transporter: unknown = null;
+interface TestAccount {
+  user: string;
+  pass: string;
+}
+let testAccount: TestAccount | null = null;
+let transporter: nodemailer.Transporter | null = null;
 
 /**
  * Initialize email service based on environment and provider
@@ -41,7 +45,7 @@ export async function initializeEmailService(): Promise<void> {
     // Use Nodemailer for development/testing
     try {
       if (NODE_ENV === "development" || NODE_ENV === "test") {
-        testAccount = await nodemailer.createTestAccount();
+        testAccount = (await nodemailer.createTestAccount()) as TestAccount;
         transporter = nodemailer.createTransport({
           host: "smtp.ethereal.email",
           port: 587,
@@ -100,15 +104,16 @@ export async function sendEmail(
     }
 
     // Log successful send
+    const resultObj = result as { messageId?: string } | null;
     console.log(`[Email Service] Email sent to ${options.to}:`, {
       subject: options.subject,
       type: options.notificationType,
-      messageId: result?.messageId,
+      messageId: resultObj?.messageId,
     });
 
     return {
       success: true,
-      messageId: result?.messageId,
+      messageId: resultObj?.messageId,
       retries: retryCount,
     };
   } catch (error) {
@@ -248,7 +253,7 @@ export async function checkEmailServiceHealth(): Promise<{
     } else {
       // Verify Nodemailer connection
       if (transporter) {
-        await (transporter as unknown).verify();
+        await transporter.verify();
         return {
           healthy: true,
           provider: "nodemailer",

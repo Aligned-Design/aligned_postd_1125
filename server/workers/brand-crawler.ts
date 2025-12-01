@@ -84,6 +84,19 @@ interface TypographyData {
   source: "scrape" | "google" | "custom";
 }
 
+export interface OpenGraphMetadata {
+  title?: string;
+  description?: string;
+  image?: string;
+  url?: string;
+  type?: string;
+  siteName?: string;
+  twitterTitle?: string;
+  twitterDescription?: string;
+  twitterImage?: string;
+  twitterCard?: string;
+}
+
 interface CrawlResult {
   url: string;
   title: string;
@@ -96,6 +109,7 @@ interface CrawlResult {
   images?: CrawledImage[];
   headlines?: string[];
   typography?: TypographyData;
+  openGraph?: OpenGraphMetadata;
 }
 
 interface ColorPalette {
@@ -123,6 +137,9 @@ interface BrandKitData {
   colors: ColorPalette;
   typography?: TypographyData;
   source_urls: string[];
+  metadata?: {
+    openGraph?: OpenGraphMetadata;
+  };
 }
 
 /**
@@ -949,6 +966,12 @@ async function extractPageContent(
     return undefined;
   });
 
+  // ✅ Extract Open Graph metadata
+  const openGraph = await extractOpenGraphMetadata(page, url).catch((error) => {
+    console.warn("[Crawler] Error extracting Open Graph metadata:", error);
+    return undefined;
+  });
+
   // Create hash for deduplication
   const hash = crypto.createHash("md5").update(bodyText).digest("hex");
 
@@ -964,7 +987,106 @@ async function extractPageContent(
     images,
     headlines,
     typography,
+    openGraph,
   };
+}
+
+/**
+ * Extract Open Graph metadata from page
+ * Extracts og:title, og:description, og:image, og:url, og:type, and Twitter Card tags
+ * Normalizes relative URLs to absolute URLs
+ */
+async function extractOpenGraphMetadata(
+  page: Page,
+  baseUrl: string
+): Promise<OpenGraphMetadata | undefined> {
+  try {
+    const base = new URL(baseUrl);
+    
+    const ogData = await page.evaluate((baseHref) => {
+      const baseUrlObj = new URL(baseHref);
+      const metadata: Record<string, string> = {};
+
+      // Extract Open Graph tags
+      document.querySelectorAll('meta[property^="og:"]').forEach((meta) => {
+        const property = meta.getAttribute("property");
+        const content = meta.getAttribute("content");
+        if (property && content) {
+          // Remove "og:" prefix
+          const key = property.replace("og:", "");
+          metadata[key] = content;
+        }
+      });
+
+      // Extract Twitter Card tags
+      document.querySelectorAll('meta[name^="twitter:"]').forEach((meta) => {
+        const name = meta.getAttribute("name");
+        const content = meta.getAttribute("content");
+        if (name && content) {
+          // Remove "twitter:" prefix and add twitter prefix
+          const key = `twitter${name.replace("twitter:", "")}`;
+          metadata[key] = content;
+        }
+      });
+
+      // Normalize relative URLs to absolute URLs
+      const normalizeUrl = (url: string | undefined): string | undefined => {
+        if (!url) return undefined;
+        try {
+          // If already absolute, return as-is
+          if (url.startsWith("http://") || url.startsWith("https://")) {
+            return url;
+          }
+          // If protocol-relative, add protocol
+          if (url.startsWith("//")) {
+            return `${baseUrlObj.protocol}${url}`;
+          }
+          // If root-relative, prepend origin
+          if (url.startsWith("/")) {
+            return `${baseUrlObj.origin}${url}`;
+          }
+          // If relative, resolve against base URL
+          return new URL(url, baseHref).href;
+        } catch {
+          return undefined;
+        }
+      };
+
+      // Normalize URLs
+      if (metadata.image) {
+        metadata.image = normalizeUrl(metadata.image) || metadata.image;
+      }
+      if (metadata.url) {
+        metadata.url = normalizeUrl(metadata.url) || metadata.url;
+      }
+      if (metadata.twitterImage) {
+        metadata.twitterImage = normalizeUrl(metadata.twitterImage) || metadata.twitterImage;
+      }
+
+      return metadata;
+    }, baseUrl);
+
+    // Return undefined if no OG data found
+    if (!ogData || Object.keys(ogData).length === 0) {
+      return undefined;
+    }
+
+    return {
+      title: ogData.title || undefined,
+      description: ogData.description || undefined,
+      image: ogData.image || undefined,
+      url: ogData.url || undefined,
+      type: ogData.type || undefined,
+      siteName: ogData.site_name || undefined,
+      twitterTitle: ogData.twitterTitle || undefined,
+      twitterDescription: ogData.twitterDescription || undefined,
+      twitterImage: ogData.twitterImage || undefined,
+      twitterCard: ogData.twitterCard || undefined,
+    };
+  } catch (error) {
+    console.error("[Crawler] Error extracting Open Graph metadata:", error);
+    return undefined;
+  }
 }
 
 /**

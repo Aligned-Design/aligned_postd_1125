@@ -457,6 +457,11 @@ async function runCrawlJobSync(url: string, brandId: string, tenantId: string | 
           .map((r) => r.typography)
           .find((t) => t && t.heading && t.body);
         
+        // ✅ Extract Open Graph metadata - use first non-empty OG metadata from crawl results
+        const openGraphMetadata = crawlResults
+          .map((r) => r.openGraph)
+          .find((og) => og && (og.title || og.image || og.description));
+        
         // ✅ PERSIST SCRAPED IMAGES: Save to media_assets table with source='scrape'
         let persistedImageCount = 0;
         let logoFound = false;
@@ -545,6 +550,9 @@ async function runCrawlJobSync(url: string, brandId: string, tenantId: string | 
           images: allImages, // Use extracted images
           logoUrl: logoUrl || aiBrandKit.logoUrl,
           headlines: headlines || aiBrandKit.headlines,
+          metadata: {
+            openGraph: openGraphMetadata || undefined,
+          },
           source: "crawler" as const,
         } : {
           voice_summary: {
@@ -562,6 +570,9 @@ async function runCrawlJobSync(url: string, brandId: string, tenantId: string | 
           images: allImages,
           logoUrl,
           headlines,
+          metadata: {
+            openGraph: openGraphMetadata || undefined,
+          },
           source: "crawler" as const,
         };
         
@@ -585,6 +596,10 @@ async function runCrawlJobSync(url: string, brandId: string, tenantId: string | 
                   purpose: brandKit.about_blurb || brandKit.purpose || "",
                   about_blurb: brandKit.about_blurb || "",
                   longFormSummary: (brandKit as any).longFormSummary || brandKit.about_blurb || "",
+                  // ✅ Persist Open Graph metadata
+                  metadata: {
+                    openGraph: openGraphMetadata || undefined,
+                  },
                 },
                 voice_summary: brandKit.voice_summary || {},
                 visual_summary: {

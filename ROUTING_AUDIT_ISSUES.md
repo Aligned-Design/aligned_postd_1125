@@ -9,7 +9,7 @@
 ### ISSUE #1: Broken Catch-All Route (404 Handling)
 
 **Severity:** CRITICAL (High Impact)
-**File:** `/Users/krisfoust/Documents/GitHub/Aligned-20ai/client/App.tsx`
+**File:** `/Users/krisfoust/Downloads/Aligned-20ai.posted/client/App.tsx`
 **Line:** 67
 **Current Code:**
 ```typescript
@@ -35,7 +35,7 @@
 ### ISSUE #2: 34 Orphaned Page Components
 
 **Severity:** CRITICAL (Code Quality)
-**Location:** `/Users/krisfoust/Documents/GitHub/Aligned-20ai/client/pages/`
+**Location:** `/Users/krisfoust/Downloads/Aligned-20ai.posted/client/pages/`
 **Count:** 34 files (~6,000+ lines of code)
 **Percentage:** 61% of all page files are unused
 
@@ -312,7 +312,7 @@ TODO: Track actual duration (currently 0)
 
 ### ISSUE #9: Marketing Pages in App Directory
 
-**Location:** `/Users/krisfoust/Documents/GitHub/Aligned-20ai/client/pages/`
+**Location:** `/Users/krisfoust/Downloads/Aligned-20ai.posted/client/pages/`
 **Files:** About.tsx, Contact.tsx, Features.tsx, Pricing.tsx, Privacy.tsx, Terms.tsx, Legal.tsx, Support.tsx, HelpLibrary.tsx, IntegrationsMarketing.tsx
 
 **Problem:** Marketing pages mixed with app pages

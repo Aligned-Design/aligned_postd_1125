@@ -24,6 +24,9 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
 import { useBrand } from "@/contexts/BrandContext";
+import { logError } from "@/lib/logger";
+import { PageShell } from "@/components/postd/ui/layout/PageShell";
+import { PageHeader } from "@/components/postd/ui/layout/PageHeader";
 
 export default function Brands() {
   const { brands, refreshBrands, setCurrentBrand: _setCurrentBrand, loading } = useBrand();
@@ -51,7 +54,7 @@ export default function Brands() {
       // This component just displays them
       refreshBrands();
     } catch (error) {
-      console.error("Failed to load brands:", error);
+      logError("Failed to load brands", error instanceof Error ? error : new Error(String(error)));
     }
   };
 
@@ -112,7 +115,7 @@ export default function Brands() {
 
   if (loading) {
     return (
-      <div className="p-6 space-y-6">
+      <PageShell>
         <div className="h-8 w-48 bg-gray-200 rounded animate-pulse" />
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {Array.from({ length: 6 }).map((_, i) => (
@@ -122,24 +125,22 @@ export default function Brands() {
             />
           ))}
         </div>
-      </div>
+      </PageShell>
     );
   }
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Brands</h1>
-          <p className="text-gray-600">
-            Manage your client brands and their social media presence
-          </p>
-        </div>
-        <Button className="gap-2" onClick={() => setOpen(true)}>
-          <Plus className="h-4 w-4" />
-          Add Brand
-        </Button>
-      </div>
+    <PageShell>
+      <PageHeader
+        title="Brands"
+        subtitle="Manage your client brands and their social media presence"
+        actions={
+          <Button className="gap-2" onClick={() => setOpen(true)}>
+            <Plus className="h-4 w-4" />
+            Add Brand
+          </Button>
+        }
+      />
 
       {/* Search */}
       <div className="relative max-w-md">
@@ -264,7 +265,7 @@ export default function Brands() {
           </DialogContent>
         </Dialog>
       )}
-    </div>
+    </PageShell>
   );
 }
 

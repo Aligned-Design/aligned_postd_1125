@@ -1,6 +1,6 @@
-# Aligned-20AI Design System Documentation
+# POSTD Design System Documentation
 
-Welcome to the complete documentation for the Aligned-20AI design system. This folder contains everything you need to understand, implement, and extend the design system.
+Welcome to the complete documentation for the POSTD design system. This folder contains everything you need to understand, implement, and extend the design system.
 
 ## 📚 Documentation Files
 

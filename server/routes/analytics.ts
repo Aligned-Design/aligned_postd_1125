@@ -8,8 +8,19 @@ import { ErrorCode, HTTP_STATUS } from "../lib/error-responses";
 import { requireScope } from "../middleware/requireScope";
 import { analyticsCache, AnalyticsCache } from "../lib/analytics-cache";
 import { AnalyticsSummaryResponse, PlatformMetricsData } from "@shared/analytics";
+import { assertBrandAccess } from "../lib/brand-access";
 
 const analyticsRouter = Router();
+
+// ✅ VALIDATION: Zod schemas for analytics routes
+const BrandIdParamSchema = z.object({
+  brandId: z.string().uuid("Invalid brand ID format"),
+});
+
+const AnalyticsQuerySchema = z.object({
+  days: z.string().regex(/^\d+$/).transform(Number).refine(n => n > 0 && n <= 365, "Days must be between 1 and 365").optional().default("30"),
+  period: z.enum(["next_week", "next_month", "next_quarter"]).optional().default("next_month"),
+});
 
 const voiceQuerySchema = z.object({
   query: z.string().min(3).max(500),
@@ -49,10 +60,28 @@ const performanceMetricSchema = z.object({
 
 const getAnalytics: RequestHandler = async (req, res) => {
   try {
-    const { brandId } = req.params;
-    const days = parseInt((req as any).query.days as string) || 30;
+    // ✅ VALIDATION: Validate params and query
+    let brandId: string;
+    let days: number;
+    try {
+      const validatedParams = BrandIdParamSchema.parse(req.params);
+      brandId = validatedParams.brandId;
+      const validatedQuery = AnalyticsQuerySchema.parse(req.query);
+      days = validatedQuery.days;
+    } catch (validationError) {
+      if (validationError instanceof z.ZodError) {
+        throw new AppError(
+          ErrorCode.VALIDATION_ERROR,
+          "Invalid request parameters",
+          HTTP_STATUS.BAD_REQUEST,
+          "warning",
+          { validationErrors: validationError.errors }
+        );
+      }
+      throw validationError;
+    }
 
-     assertBrandAccess(req, brandId);
+    await assertBrandAccess(req, brandId);
 
     // Get summary metrics from database
     const summary = await analyticsDB.getMetricsSummary(brandId, days);
@@ -142,8 +171,24 @@ const getAnalytics: RequestHandler = async (req, res) => {
 
 const getInsights: RequestHandler = async (req, res) => {
   try {
-    const { brandId } = req.params;
-    assertBrandAccess(req, brandId);
+    // ✅ VALIDATION: Validate brandId param
+    let brandId: string;
+    try {
+      const validated = BrandIdParamSchema.parse(req.params);
+      brandId = validated.brandId;
+    } catch (validationError) {
+      if (validationError instanceof z.ZodError) {
+        throw new AppError(
+          ErrorCode.VALIDATION_ERROR,
+          "Invalid brand ID format",
+          HTTP_STATUS.BAD_REQUEST,
+          "warning",
+          { validationErrors: validationError.errors }
+        );
+      }
+      throw validationError;
+    }
+    await assertBrandAccess(req, brandId);
     
     // Check cache first (insights have longer TTL)
     const cacheKey = AnalyticsCache.key("insights", brandId);
@@ -231,9 +276,27 @@ const getInsights: RequestHandler = async (req, res) => {
 
 const getForecast: RequestHandler = async (req, res) => {
   try {
-    const { brandId } = req.params;
-    const period = ((req as any).query.period as string) || "next_month";
-    assertBrandAccess(req, brandId);
+    // ✅ VALIDATION: Validate params and query
+    let brandId: string;
+    let period: string;
+    try {
+      const validatedParams = BrandIdParamSchema.parse(req.params);
+      brandId = validatedParams.brandId;
+      const validatedQuery = AnalyticsQuerySchema.parse(req.query);
+      period = validatedQuery.period;
+    } catch (validationError) {
+      if (validationError instanceof z.ZodError) {
+        throw new AppError(
+          ErrorCode.VALIDATION_ERROR,
+          "Invalid request parameters",
+          HTTP_STATUS.BAD_REQUEST,
+          "warning",
+          { validationErrors: validationError.errors }
+        );
+      }
+      throw validationError;
+    }
+    await assertBrandAccess(req, brandId);
     
     // Check cache first
     const cacheKey = AnalyticsCache.key("forecast", brandId, period);
@@ -292,8 +355,24 @@ const getForecast: RequestHandler = async (req, res) => {
 
 const processVoiceQuery: RequestHandler = async (req, res) => {
   try {
-    const { brandId } = req.params;
-    assertBrandAccess(req, brandId);
+    // ✅ VALIDATION: Validate params and body
+    let brandId: string;
+    try {
+      const validatedParams = BrandIdParamSchema.parse(req.params);
+      brandId = validatedParams.brandId;
+    } catch (validationError) {
+      if (validationError instanceof z.ZodError) {
+        throw new AppError(
+          ErrorCode.VALIDATION_ERROR,
+          "Invalid brand ID format",
+          HTTP_STATUS.BAD_REQUEST,
+          "warning",
+          { validationErrors: validationError.errors }
+        );
+      }
+      throw validationError;
+    }
+    await assertBrandAccess(req, brandId);
     const { query } = voiceQuerySchema.parse(req.body ?? {});
     const response = {
       query,
@@ -319,8 +398,24 @@ const processVoiceQuery: RequestHandler = async (req, res) => {
 
 const provideFeedback: RequestHandler = async (req, res) => {
   try {
-    const { brandId } = req.params;
-    assertBrandAccess(req, brandId);
+    // ✅ VALIDATION: Validate brandId param
+    let brandId: string;
+    try {
+      const validated = BrandIdParamSchema.parse(req.params);
+      brandId = validated.brandId;
+    } catch (validationError) {
+      if (validationError instanceof z.ZodError) {
+        throw new AppError(
+          ErrorCode.VALIDATION_ERROR,
+          "Invalid brand ID format",
+          HTTP_STATUS.BAD_REQUEST,
+          "warning",
+          { validationErrors: validationError.errors }
+        );
+      }
+      throw validationError;
+    }
+    await assertBrandAccess(req, brandId);
     const {
       insightId,
       feedback,
@@ -374,8 +469,24 @@ const provideFeedback: RequestHandler = async (req, res) => {
 
 const getGoals: RequestHandler = async (req, res) => {
   try {
-    const { brandId } = req.params;
-    assertBrandAccess(req, brandId);
+    // ✅ VALIDATION: Validate brandId param
+    let brandId: string;
+    try {
+      const validated = BrandIdParamSchema.parse(req.params);
+      brandId = validated.brandId;
+    } catch (validationError) {
+      if (validationError instanceof z.ZodError) {
+        throw new AppError(
+          ErrorCode.VALIDATION_ERROR,
+          "Invalid brand ID format",
+          HTTP_STATUS.BAD_REQUEST,
+          "warning",
+          { validationErrors: validationError.errors }
+        );
+      }
+      throw validationError;
+    }
+    await assertBrandAccess(req, brandId);
 
     // Get goals from database
     const goals = await analyticsDB.getGoals(brandId);
@@ -415,8 +526,24 @@ const getGoals: RequestHandler = async (req, res) => {
 
 const createGoal: RequestHandler = async (req, res) => {
   try {
-    const { brandId } = req.params;
-    assertBrandAccess(req, brandId);
+    // ✅ VALIDATION: Validate brandId param
+    let brandId: string;
+    try {
+      const validated = BrandIdParamSchema.parse(req.params);
+      brandId = validated.brandId;
+    } catch (validationError) {
+      if (validationError instanceof z.ZodError) {
+        throw new AppError(
+          ErrorCode.VALIDATION_ERROR,
+          "Invalid brand ID format",
+          HTTP_STATUS.BAD_REQUEST,
+          "warning",
+          { validationErrors: validationError.errors }
+        );
+      }
+      throw validationError;
+    }
+    await assertBrandAccess(req, brandId);
     const { metric, target, deadline, notes } = createGoalSchema.parse(
       req.body ?? {},
     );
@@ -447,8 +574,24 @@ const createGoal: RequestHandler = async (req, res) => {
 
 const syncPlatformData: RequestHandler = async (req, res) => {
   try {
-    const { brandId } = req.params;
-    assertBrandAccess(req, brandId);
+    // ✅ VALIDATION: Validate brandId param
+    let brandId: string;
+    try {
+      const validated = BrandIdParamSchema.parse(req.params);
+      brandId = validated.brandId;
+    } catch (validationError) {
+      if (validationError instanceof z.ZodError) {
+        throw new AppError(
+          ErrorCode.VALIDATION_ERROR,
+          "Invalid brand ID format",
+          HTTP_STATUS.BAD_REQUEST,
+          "warning",
+          { validationErrors: validationError.errors }
+        );
+      }
+      throw validationError;
+    }
+    await assertBrandAccess(req, brandId);
     const { platform } = syncPayloadSchema.parse(req.body ?? {});
 
     await syncBrandAnalytics(brandId, brandId);
@@ -475,8 +618,24 @@ const syncPlatformData: RequestHandler = async (req, res) => {
 
 const addOfflineMetric: RequestHandler = async (req, res) => {
   try {
-    const { brandId } = req.params;
-    assertBrandAccess(req, brandId);
+    // ✅ VALIDATION: Validate brandId param
+    let brandId: string;
+    try {
+      const validated = BrandIdParamSchema.parse(req.params);
+      brandId = validated.brandId;
+    } catch (validationError) {
+      if (validationError instanceof z.ZodError) {
+        throw new AppError(
+          ErrorCode.VALIDATION_ERROR,
+          "Invalid brand ID format",
+          HTTP_STATUS.BAD_REQUEST,
+          "warning",
+          { validationErrors: validationError.errors }
+        );
+      }
+      throw validationError;
+    }
+    await assertBrandAccess(req, brandId);
     const { metric, value, date } = offlineMetricSchema.parse(req.body ?? {});
 
     // Insert offline metric directly to database
@@ -509,8 +668,24 @@ const addOfflineMetric: RequestHandler = async (req, res) => {
 
 const getEngagementHeatmap: RequestHandler = async (req, res) => {
   try {
-    const { brandId } = req.params;
-    assertBrandAccess(req, brandId);
+    // ✅ VALIDATION: Validate brandId param
+    let brandId: string;
+    try {
+      const validated = BrandIdParamSchema.parse(req.params);
+      brandId = validated.brandId;
+    } catch (validationError) {
+      if (validationError instanceof z.ZodError) {
+        throw new AppError(
+          ErrorCode.VALIDATION_ERROR,
+          "Invalid brand ID format",
+          HTTP_STATUS.BAD_REQUEST,
+          "warning",
+          { validationErrors: validationError.errors }
+        );
+      }
+      throw validationError;
+    }
+    await assertBrandAccess(req, brandId);
 
     // Check cache first
     const cacheKey = AnalyticsCache.key("heatmap", brandId);
@@ -570,8 +745,24 @@ const getEngagementHeatmap: RequestHandler = async (req, res) => {
 
 const getAlerts: RequestHandler = async (req, res) => {
   try {
-    const { brandId } = req.params;
-    assertBrandAccess(req, brandId);
+    // ✅ VALIDATION: Validate brandId param
+    let brandId: string;
+    try {
+      const validated = BrandIdParamSchema.parse(req.params);
+      brandId = validated.brandId;
+    } catch (validationError) {
+      if (validationError instanceof z.ZodError) {
+        throw new AppError(
+          ErrorCode.VALIDATION_ERROR,
+          "Invalid brand ID format",
+          HTTP_STATUS.BAD_REQUEST,
+          "warning",
+          { validationErrors: validationError.errors }
+        );
+      }
+      throw validationError;
+    }
+    await assertBrandAccess(req, brandId);
     const { advisorEngine } = await import("../lib/advisor-engine");
 
     // Get current and historical metrics
@@ -677,8 +868,24 @@ const acknowledgeAlert: RequestHandler = async (req, res) => {
 
 const getAnalyticsStatus: RequestHandler = async (req, res) => {
   try {
-    const { brandId } = req.params;
-    assertBrandAccess(req, brandId);
+    // ✅ VALIDATION: Validate brandId param
+    let brandId: string;
+    try {
+      const validated = BrandIdParamSchema.parse(req.params);
+      brandId = validated.brandId;
+    } catch (validationError) {
+      if (validationError instanceof z.ZodError) {
+        throw new AppError(
+          ErrorCode.VALIDATION_ERROR,
+          "Invalid brand ID format",
+          HTTP_STATUS.BAD_REQUEST,
+          "warning",
+          { validationErrors: validationError.errors }
+        );
+      }
+      throw validationError;
+    }
+    await assertBrandAccess(req, brandId);
     const status = await getSyncStatus(brandId);
     (res as any).json({
       status: status.status,
@@ -792,46 +999,6 @@ export {
 };
 
 export default analyticsRouter;
-
-function assertBrandAccess(req: any, brandId?: string) {
-  if (!brandId) {
-    throw new AppError(
-      ErrorCode.MISSING_REQUIRED_FIELD,
-      "brandId is required",
-      HTTP_STATUS.BAD_REQUEST,
-      "warning",
-    );
-  }
-
-  const user = req.user || req.auth;
-  if (!user) {
-    throw new AppError(
-      ErrorCode.UNAUTHORIZED,
-      "Authentication required",
-      HTTP_STATUS.UNAUTHORIZED,
-      "warning",
-    );
-  }
-
-  if (user.role?.toUpperCase() === "SUPERADMIN") {
-    return;
-  }
-
-  const brandIds: string[] = Array.isArray(user.brandIds)
-    ? user.brandIds
-    : user.brandId
-      ? [user.brandId]
-      : [];
-
-  if (!brandIds.includes(brandId)) {
-    throw new AppError(
-      ErrorCode.FORBIDDEN,
-      "Not authorized to access this brand",
-      HTTP_STATUS.FORBIDDEN,
-      "warning",
-    );
-  }
-}
 
 function nextWithError(error: unknown, res: any) {
   const appError =

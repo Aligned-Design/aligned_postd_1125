@@ -15,6 +15,19 @@ import { supabase } from "../lib/supabase";
 import { workflowDB } from "../lib/workflow-db-service";
 import { logAuditAction } from "../lib/audit-logger";
 
+// ✅ VALIDATION: Zod schemas for client portal routes
+const ContentIdParamSchema = z.object({
+  contentId: z.string().uuid("Invalid content ID format"),
+});
+
+const FeedbackBodySchema = z.object({
+  feedback: z.string().min(1, "Feedback is required").max(1000, "Feedback must be 1000 characters or less"),
+});
+
+const CommentBodySchema = z.object({
+  message: z.string().min(1, "Message is required").max(2000, "Message must be 2000 characters or less"),
+});
+
 /**
  * GET /api/client-portal/dashboard
  * Get client dashboard with content, metrics, and pending approvals
@@ -85,15 +98,33 @@ export const getClientDashboard: RequestHandler = async (req, res, next) => {
  */
 export const approveContent: RequestHandler = async (req, res, next) => {
   try {
-    const { contentId } = req.params;
-    const { feedback } = req.body;
+    // ✅ VALIDATION: Validate params and body
+    let contentId: string;
+    let feedback: string | undefined;
+    try {
+      const validatedParams = ContentIdParamSchema.parse(req.params);
+      contentId = validatedParams.contentId;
+      const validatedBody = FeedbackBodySchema.optional().parse(req.body);
+      feedback = validatedBody?.feedback;
+    } catch (validationError) {
+      if (validationError instanceof z.ZodError) {
+        throw new AppError(
+          ErrorCode.VALIDATION_ERROR,
+          "Invalid request parameters",
+          HTTP_STATUS.BAD_REQUEST,
+          "warning",
+          { validationErrors: validationError.errors }
+        );
+      }
+      throw validationError;
+    }
     const brandId = (req as unknown).user?.brandId;
     const clientId = (req as unknown).user?.id || (req as unknown).userId;
 
-    if (!brandId || !clientId || !contentId) {
+    if (!brandId || !clientId) {
       throw new AppError(
         ErrorCode.MISSING_REQUIRED_FIELD,
-        'brandId, clientId, and contentId are required',
+        'brandId and clientId are required',
         HTTP_STATUS.BAD_REQUEST,
         'warning'
       );
@@ -133,8 +164,26 @@ export const approveContent: RequestHandler = async (req, res, next) => {
  */
 export const rejectContent: RequestHandler = async (req, res, next) => {
   try {
-    const { contentId } = req.params;
-    const { feedback } = req.body;
+    // ✅ VALIDATION: Validate params and body
+    let contentId: string;
+    let feedback: string | undefined;
+    try {
+      const validatedParams = ContentIdParamSchema.parse(req.params);
+      contentId = validatedParams.contentId;
+      const validatedBody = FeedbackBodySchema.optional().parse(req.body);
+      feedback = validatedBody?.feedback;
+    } catch (validationError) {
+      if (validationError instanceof z.ZodError) {
+        throw new AppError(
+          ErrorCode.VALIDATION_ERROR,
+          "Invalid request parameters",
+          HTTP_STATUS.BAD_REQUEST,
+          "warning",
+          { validationErrors: validationError.errors }
+        );
+      }
+      throw validationError;
+    }
     const brandId = (req as unknown).user?.brandId;
     const clientId = (req as unknown).user?.id || (req as unknown).userId;
 
@@ -191,8 +240,26 @@ export const rejectContent: RequestHandler = async (req, res, next) => {
  */
 export const addContentComment: RequestHandler = async (req, res, next) => {
   try {
-    const { contentId } = req.params;
-    const { message } = req.body;
+    // ✅ VALIDATION: Validate params and body
+    let contentId: string;
+    let message: string;
+    try {
+      const validatedParams = ContentIdParamSchema.parse(req.params);
+      contentId = validatedParams.contentId;
+      const validatedBody = CommentBodySchema.parse(req.body);
+      message = validatedBody.message;
+    } catch (validationError) {
+      if (validationError instanceof z.ZodError) {
+        throw new AppError(
+          ErrorCode.VALIDATION_ERROR,
+          "Invalid request parameters",
+          HTTP_STATUS.BAD_REQUEST,
+          "warning",
+          { validationErrors: validationError.errors }
+        );
+      }
+      throw validationError;
+    }
     const userId = (req as unknown).user?.id || (req as unknown).userId;
     const userName = (req as unknown).user?.name || 'User';
     const userRole = (req as unknown).user?.role || 'client';
@@ -240,7 +307,23 @@ export const addContentComment: RequestHandler = async (req, res, next) => {
  */
 export const getContentComments: RequestHandler = async (req, res, next) => {
   try {
-    const { contentId } = req.params;
+    // ✅ VALIDATION: Validate contentId param
+    let contentId: string;
+    try {
+      const validated = ContentIdParamSchema.parse(req.params);
+      contentId = validated.contentId;
+    } catch (validationError) {
+      if (validationError instanceof z.ZodError) {
+        throw new AppError(
+          ErrorCode.VALIDATION_ERROR,
+          "Invalid content ID format",
+          HTTP_STATUS.BAD_REQUEST,
+          "warning",
+          { validationErrors: validationError.errors }
+        );
+      }
+      throw validationError;
+    }
 
     if (!contentId) {
       throw new AppError(
@@ -403,7 +486,23 @@ export const getContentWithComments: RequestHandler = async (
   next,
 ) => {
   try {
-    const { contentId } = req.params;
+    // ✅ VALIDATION: Validate contentId param
+    let contentId: string;
+    try {
+      const validated = ContentIdParamSchema.parse(req.params);
+      contentId = validated.contentId;
+    } catch (validationError) {
+      if (validationError instanceof z.ZodError) {
+        throw new AppError(
+          ErrorCode.VALIDATION_ERROR,
+          "Invalid content ID format",
+          HTTP_STATUS.BAD_REQUEST,
+          "warning",
+          { validationErrors: validationError.errors }
+        );
+      }
+      throw validationError;
+    }
 
     if (!contentId) {
       throw new AppError(

@@ -1,6 +1,6 @@
 # Design System Architecture
 
-Comprehensive documentation of the Aligned-20AI design system architecture, design decisions, and implementation patterns.
+Comprehensive documentation of the POSTD design system architecture, design decisions, and implementation patterns.
 
 ## Table of Contents
 
@@ -18,7 +18,7 @@ Comprehensive documentation of the Aligned-20AI design system architecture, desi
 
 ## System Overview
 
-The Aligned-20AI design system is a cohesive, scalable framework for building beautiful, functional interfaces. It provides:
+The POSTD design system is a cohesive, scalable framework for building beautiful, functional interfaces. It provides:
 
 - **Design Tokens:** CSS variables for colors, spacing, shadows, typography
 - **Components:** Pre-built React components for landing pages and dashboards
@@ -747,7 +747,7 @@ IE 11:     CSS variables not supported (use fallbacks)
 
 ## Summary
 
-The Aligned-20AI design system is built on three core pillars:
+The POSTD design system is built on three core pillars:
 
 1. **Design Tokens** - Single source of truth for colors, spacing, etc.
 2. **Components** - Reusable, stateless presentation components

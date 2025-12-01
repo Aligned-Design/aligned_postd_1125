@@ -1,6 +1,11 @@
 # Integration Guide — Connecting Design to Backend
 
-This guide walks you through connecting the design-only components to your Aligned-20AI backend logic.
+# POSTD Design Integration Guide
+
+> **Status:** ✅ Active – This is an active integration guide for POSTD design components.  
+> **Last Updated:** 2025-01-20
+
+This guide walks you through connecting the design-only components to your POSTD backend logic.
 
 ---
 

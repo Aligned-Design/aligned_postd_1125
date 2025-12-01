@@ -1,6 +1,6 @@
-# Contributing to Aligned AI
+# Contributing to POSTD
 
-Thank you for your interest in contributing to Aligned AI! This document provides guidelines and instructions for contributing to the project.
+Thank you for your interest in contributing to POSTD! This document provides guidelines and instructions for contributing to the project.
 
 ## Code of Conduct
 
@@ -311,4 +311,4 @@ By contributing to this project, you agree that your contributions will be licen
 
 ---
 
-Thank you for contributing to Aligned AI! 🙌
+Thank you for contributing to POSTD! 🙌

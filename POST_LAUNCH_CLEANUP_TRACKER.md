@@ -104,8 +104,8 @@ WebSocket message payloads are typed as `unknown`, causing TypeScript errors whe
 **Issues:**
 
 ### ReportSettingsModal.tsx
-- Line 343: `AlignedAISummaryProps` doesn't accept `summary`, `onSummaryChange`, `readOnly` props
-- Fix: Update `AlignedAISummaryProps` interface or adjust prop usage
+- Line 343: `POSTDSummaryProps` doesn't accept `summary`, `onSummaryChange`, `readOnly` props
+- Fix: Update `POSTDSummaryProps` interface or adjust prop usage
 
 ### WinCelebration.tsx
 - Line 257: Type mismatch - `Element` not assignable to `string & ReactNode`

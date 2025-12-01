@@ -59,7 +59,7 @@ Create a token with `repo` and `admin:repo_hook` scopes:
 
 Before running the script, create the milestone in GitHub:
 
-1. Go to: https://github.com/Aligned-Design/Aligned-20ai/milestones
+1. Go to: https://github.com/POSTD-org/POSTD/milestones
 2. Click "New Milestone"
 3. **Title:** `Audit Remediation Sprint`
 4. **Description:** `Issues identified in the November 7, 2025 Audit Report`
@@ -83,7 +83,7 @@ gh auth login
 # - How would you like to authenticate GitHub CLI? → Paste token
 
 # Step 2: Run the script
-cd /path/to/Aligned-20ai
+cd /path/to/POSTD
 bash scripts/create-github-issues.sh
 ```
 
@@ -94,14 +94,14 @@ bash scripts/create-github-issues.sh
 export GITHUB_TOKEN=ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
 # Run script
-cd /path/to/Aligned-20ai
+cd /path/to/POSTD
 bash scripts/create-github-issues.sh
 ```
 
 ### Option 3: One-liner
 
 ```bash
-GITHUB_TOKEN=ghp_xxxx bash /path/to/Aligned-20ai/scripts/create-github-issues.sh
+GITHUB_TOKEN=ghp_xxxx bash /path/to/POSTD/scripts/create-github-issues.sh
 ```
 
 ---
@@ -126,7 +126,7 @@ bash scripts/create-github-issues.sh | tee github-issues-creation.log
 
 ```bash
 # View what would be created
-gh issue list --repo Aligned-Design/Aligned-20ai --limit 100
+gh issue list --repo POSTD-org/POSTD --limit 100
 ```
 
 ---
@@ -140,7 +140,7 @@ The script will display:
 GitHub Issues Batch Creator
 ===========================================
 
-Repository: Aligned-Design/Aligned-20ai
+Repository: POSTD-org/POSTD
 Milestone: Audit Remediation Sprint
 
 Creating Priority 1 Issues (Critical Blockers)
@@ -157,7 +157,7 @@ Issues Created: 85
 Issues Failed: 0
 
 Next steps:
-1. Review issues at: https://github.com/Aligned-Design/Aligned-20ai/issues
+1. Review issues at: https://github.com/POSTD-org/POSTD/issues
 2. Organize by milestone: Audit Remediation Sprint
 3. Assign team members
 4. Begin Sprint 1
@@ -170,23 +170,23 @@ Next steps:
 After running the script, verify the issues were created:
 
 ### Check in GitHub Web UI
-https://github.com/Aligned-Design/Aligned-20ai/issues
+https://github.com/POSTD-org/POSTD/issues
 
 ### Check via CLI
 ```bash
 # List all issues with Audit Remediation milestone
-gh issue list --repo Aligned-Design/Aligned-20ai \
+gh issue list --repo POSTD-org/POSTD \
   --search "milestone:\"Audit Remediation Sprint\"" \
   --limit 100
 
 # Count by priority
-gh issue list --repo Aligned-Design/Aligned-20ai \
+gh issue list --repo POSTD-org/POSTD \
   --label P1 --limit 100 | wc -l
 
-gh issue list --repo Aligned-Design/Aligned-20ai \
+gh issue list --repo POSTD-org/POSTD \
   --label P2 --limit 100 | wc -l
 
-gh issue list --repo Aligned-Design/Aligned-20ai \
+gh issue list --repo POSTD-org/POSTD \
   --label P3 --limit 100 | wc -l
 ```
 
@@ -225,7 +225,7 @@ Make sure your token has `repo` and `admin:repo_hook` scopes:
 ### Script runs but issues fail to create
 Check:
 1. ✅ You're authenticated: `gh auth status`
-2. ✅ Milestone exists: https://github.com/Aligned-Design/Aligned-20ai/milestones
+2. ✅ Milestone exists: https://github.com/POSTD-org/POSTD/milestones
 3. ✅ Repository is correct: `gh repo view`
 4. ✅ Token has correct scopes
 
@@ -235,7 +235,7 @@ Check:
 
 If the script fails, you can create issues manually:
 
-1. Go to: https://github.com/Aligned-Design/Aligned-20ai/issues/new
+1. Go to: https://github.com/POSTD-org/POSTD/issues/new
 2. Copy issue title from `/docs/reports/github-issues-batch-create.md`
 3. Copy body from batch creation guide
 4. Add labels:
@@ -254,7 +254,7 @@ Repeat for all 85 issues (or focus on P1 first: 5 issues)
 ### 1. Organize Issues (5 min)
 
 Create a GitHub Project Board:
-1. Go to: https://github.com/Aligned-Design/Aligned-20ai/projects
+1. Go to: https://github.com/POSTD-org/POSTD/projects
 2. Click "New project"
 3. **Name:** `Audit Remediation`
 4. **Template:** Table or Board (your preference)
@@ -278,7 +278,7 @@ For each P1 issue:
 ### 3. Schedule Sprint 1 (15 min)
 
 Set milestone dates:
-1. Go to: https://github.com/Aligned-Design/Aligned-20ai/milestones
+1. Go to: https://github.com/POSTD-org/POSTD/milestones
 2. Click `Audit Remediation Sprint`
 3. Set **Due Date** to end of Week 2
 4. Save
@@ -288,10 +288,10 @@ Set milestone dates:
 Add sprint labels for tracking:
 ```bash
 # Via CLI
-gh label create sprint-1 --repo Aligned-Design/Aligned-20ai --color "1f883d"
-gh label create sprint-2 --repo Aligned-Design/Aligned-20ai --color "256099"
-gh label create sprint-3 --repo Aligned-Design/Aligned-20ai --color "bf8700"
-gh label create sprint-4 --repo Aligned-Design/Aligned-20ai --color "6e40aa"
+gh label create sprint-1 --repo POSTD-org/POSTD --color "1f883d"
+gh label create sprint-2 --repo POSTD-org/POSTD --color "256099"
+gh label create sprint-3 --repo POSTD-org/POSTD --color "bf8700"
+gh label create sprint-4 --repo POSTD-org/POSTD --color "6e40aa"
 ```
 
 ### 5. Begin Sprint 1
@@ -335,10 +335,10 @@ gh api user
 4. **Want to delete test issues?**
    ```bash
    # Close an issue (doesn't delete, but hides from list)
-   gh issue close 1 --repo Aligned-Design/Aligned-20ai
+   gh issue close 1 --repo POSTD-org/POSTD
 
    # Reopen if needed
-   gh issue reopen 1 --repo Aligned-Design/Aligned-20ai
+   gh issue reopen 1 --repo POSTD-org/POSTD
    ```
 
 ---
@@ -357,23 +357,23 @@ All issue details are in:
 
 ```bash
 # 1. Create milestone in GitHub (web UI)
-# https://github.com/Aligned-Design/Aligned-20ai/milestones
+# https://github.com/POSTD-org/POSTD/milestones
 
 # 2. Get token
 # https://github.com/settings/tokens
 
 # 3. Set token and run
 export GITHUB_TOKEN=ghp_xxxxxxxxxxxxxxxxxxxx
-cd ~/Documents/GitHub/Aligned-20ai
+cd ~/Documents/GitHub/POSTD
 bash scripts/create-github-issues.sh
 
 # 4. Verify
-gh issue list --repo Aligned-Design/Aligned-20ai \
+gh issue list --repo POSTD-org/POSTD \
   --search "milestone:\"Audit Remediation Sprint\"" \
   --limit 100
 
 # 5. Create project board (web UI)
-# https://github.com/Aligned-Design/Aligned-20ai/projects
+# https://github.com/POSTD-org/POSTD/projects
 
 # 6. Assign team members and start Sprint 1!
 ```

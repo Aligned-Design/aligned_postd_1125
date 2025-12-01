@@ -12,6 +12,11 @@ import { ErrorCode, HTTP_STATUS } from "../lib/error-responses";
 import { authenticateUser } from "../middleware/security";
 import { assertBrandAccess } from "../lib/brand-access";
 import { getScrapedImages } from "../lib/scraped-images-service";
+import { getCurrentBrandGuide, saveBrandGuide } from "../lib/brand-guide-service";
+import { createVersionHistory, getVersionHistory, getBrandGuideVersion } from "../lib/brand-guide-version-history";
+import { generateBFSBaseline, shouldRegenerateBaseline } from "../lib/bfs-baseline-generator";
+import { normalizeBrandGuide } from "@shared/brand-guide";
+import { validateBrandGuide, applyBrandGuideDefaults } from "../lib/brand-guide-validation";
 
 const router = Router();
 
@@ -224,54 +229,113 @@ router.put("/:brandId", authenticateUser, async (req, res, next) => {
       );
     }
 
+    // Validate Brand Guide data
+    const validation = validateBrandGuide(brandGuide as any);
+    if (!validation.isValid && validation.errors.length > 0) {
+      // Return validation errors and warnings in response
+      throw new AppError(
+        ErrorCode.INVALID_FORMAT,
+        `Brand Guide validation failed: ${validation.errors.join(", ")}`,
+        HTTP_STATUS.BAD_REQUEST,
+        "warning",
+        undefined,
+        undefined,
+        { validationErrors: validation.errors, validationWarnings: validation.warnings }
+      );
+    }
+
+    // Apply defaults for missing fields
+    const validatedBrandGuide = applyBrandGuideDefaults(brandGuide);
+    
+    // Include warnings in response (non-blocking)
+    const responseData: any = {
+      success: true,
+      brandGuide: {
+        ...validatedBrandGuide,
+        updatedAt: updatedBrand.updated_at,
+      },
+      message: "Brand Guide updated successfully",
+    };
+    
+    if (validation.warnings.length > 0) {
+      responseData.validationWarnings = validation.warnings;
+    }
+
     // Map BrandGuide interface to Supabase structure
     const brandKit: any = {
-      brandName: brandGuide.brandName,
-      purpose: brandGuide.purpose,
-      mission: brandGuide.mission,
-      vision: brandGuide.vision,
-      summaryReviewedByAI: brandGuide.summaryReviewedByAI,
-      toneKeywords: brandGuide.tone,
-      friendlinessLevel: brandGuide.friendlinessLevel,
-      formalityLevel: brandGuide.formalityLevel,
-      confidenceLevel: brandGuide.confidenceLevel,
-      voiceDescription: brandGuide.voiceDescription,
-      aiToneSuggestions: brandGuide.aiToneSuggestions,
-      logoUrl: brandGuide.logoUrl,
-      fontFamily: brandGuide.fontFamily,
-      fontSource: brandGuide.fontSource,
-      customFontUrl: brandGuide.customFontUrl,
-      primaryColors: brandGuide.primaryColors,
-      primaryColor: brandGuide.primaryColor,
-      secondaryColor: brandGuide.secondaryColor,
-      colorPalette: brandGuide.colorPalette,
-      secondaryColors: brandGuide.secondaryColors,
-      visualNotes: brandGuide.visualNotes,
-      personas: brandGuide.personas || [],
-      goals: brandGuide.goals || [],
-      guardrails: brandGuide.guardrails || [],
-      completionPercentage: brandGuide.completionPercentage || 0,
-      setupMethod: brandGuide.setupMethod || "detailed",
-      version: (brandGuide.version || 1) + 1, // Increment version
+      brandName: validatedBrandGuide.brandName,
+      purpose: validatedBrandGuide.purpose,
+      mission: validatedBrandGuide.mission,
+      vision: validatedBrandGuide.vision,
+      summaryReviewedByAI: validatedBrandGuide.summaryReviewedByAI,
+      businessType: validatedBrandGuide.identity?.businessType,
+      industry: validatedBrandGuide.identity?.industry,
+      industryKeywords: validatedBrandGuide.identity?.industryKeywords || [],
+      values: validatedBrandGuide.identity?.values || [],
+      coreValues: validatedBrandGuide.identity?.values || [],
+      targetAudience: validatedBrandGuide.identity?.targetAudience,
+      primaryAudience: validatedBrandGuide.identity?.targetAudience,
+      painPoints: validatedBrandGuide.identity?.painPoints || [],
+      competitors: validatedBrandGuide.identity?.competitors || [],
+      toneKeywords: validatedBrandGuide.voiceAndTone?.tone || [],
+      friendlinessLevel: validatedBrandGuide.voiceAndTone?.friendlinessLevel,
+      formalityLevel: validatedBrandGuide.voiceAndTone?.formalityLevel,
+      confidenceLevel: validatedBrandGuide.voiceAndTone?.confidenceLevel,
+      voiceDescription: validatedBrandGuide.voiceAndTone?.voiceDescription,
+      writingRules: validatedBrandGuide.voiceAndTone?.writingRules || [],
+      avoidPhrases: validatedBrandGuide.voiceAndTone?.avoidPhrases || [],
+      aiToneSuggestions: (validatedBrandGuide as any).aiToneSuggestions,
+      logoUrl: validatedBrandGuide.visualIdentity?.logoUrl,
+      fontFamily: validatedBrandGuide.visualIdentity?.typography?.heading,
+      fontSource: validatedBrandGuide.visualIdentity?.typography?.source,
+      customFontUrl: validatedBrandGuide.visualIdentity?.typography?.customUrl,
+      primaryColors: validatedBrandGuide.visualIdentity?.colors || [],
+      primaryColor: (validatedBrandGuide as any).primaryColor,
+      secondaryColor: (validatedBrandGuide as any).secondaryColor,
+      colorPalette: validatedBrandGuide.visualIdentity?.colors || [],
+      secondaryColors: (validatedBrandGuide as any).secondaryColors,
+      visualNotes: validatedBrandGuide.visualIdentity?.visualNotes,
+      contentPillars: validatedBrandGuide.contentRules?.contentPillars || [],
+      messagingPillars: validatedBrandGuide.contentRules?.contentPillars || [],
+      personas: validatedBrandGuide.personas || [],
+      goals: validatedBrandGuide.goals || [],
+      guardrails: validatedBrandGuide.contentRules?.guardrails || [],
+      completionPercentage: (validatedBrandGuide as any).completionPercentage || 0,
+      setupMethod: validatedBrandGuide.setupMethod || "detailed",
+      version: (validatedBrandGuide.version || 1) + 1, // Increment version
     };
 
     const voiceSummary: any = {
-      tone: brandGuide.tone || [],
-      friendlinessLevel: brandGuide.friendlinessLevel,
-      formalityLevel: brandGuide.formalityLevel,
-      confidenceLevel: brandGuide.confidenceLevel,
-      voiceDescription: brandGuide.voiceDescription,
-      aiToneSuggestions: brandGuide.aiToneSuggestions,
+      tone: validatedBrandGuide.voiceAndTone?.tone || [],
+      friendlinessLevel: validatedBrandGuide.voiceAndTone?.friendlinessLevel,
+      formalityLevel: validatedBrandGuide.voiceAndTone?.formalityLevel,
+      confidenceLevel: validatedBrandGuide.voiceAndTone?.confidenceLevel,
+      voiceDescription: validatedBrandGuide.voiceAndTone?.voiceDescription,
+      writingRules: validatedBrandGuide.voiceAndTone?.writingRules || [],
+      avoid: validatedBrandGuide.voiceAndTone?.avoidPhrases || [],
+      aiToneSuggestions: (validatedBrandGuide as any).aiToneSuggestions,
     };
 
     const visualSummary: any = {
-      colors: brandGuide.primaryColors || brandGuide.colorPalette || [],
-      fonts: brandGuide.fontFamily ? [brandGuide.fontFamily] : [],
-      style: brandGuide.visualNotes,
-      logo_urls: brandGuide.logoUrl ? [brandGuide.logoUrl] : [],
+      colors: validatedBrandGuide.visualIdentity?.colors || [],
+      fonts: [
+        validatedBrandGuide.visualIdentity?.typography?.heading,
+        validatedBrandGuide.visualIdentity?.typography?.body,
+      ].filter(Boolean),
+      style: validatedBrandGuide.visualIdentity?.visualNotes,
+      logo_urls: validatedBrandGuide.visualIdentity?.logoUrl ? [validatedBrandGuide.visualIdentity.logoUrl] : [],
+      photographyStyle: {
+        mustInclude: validatedBrandGuide.visualIdentity?.photographyStyle?.mustInclude || [],
+        mustAvoid: validatedBrandGuide.visualIdentity?.photographyStyle?.mustAvoid || [],
+      },
     };
 
     // Update brand in Supabase
+    // Get previous version for version history
+    const previousBrandGuide = await getCurrentBrandGuide(brandId);
+    const user = (req as any).user;
+    const changedBy = user?.id || user?.userId;
+
     const { data: updatedBrand, error } = await supabase
       .from("brands")
       .update({
@@ -297,14 +361,48 @@ router.put("/:brandId", authenticateUser, async (req, res, next) => {
       );
     }
 
-    (res as any).json({
+    // Create version history entry
+    const updatedBrandGuide = normalizeBrandGuide(updatedBrand);
+    await createVersionHistory(brandId, updatedBrandGuide, previousBrandGuide, changedBy);
+
+    // Check if BFS baseline needs regeneration
+    if (shouldRegenerateBaseline(updatedBrandGuide, previousBrandGuide?.version)) {
+      try {
+        const baseline = await generateBFSBaseline(updatedBrandGuide);
+        // Update brand_kit with baseline
+        const updatedBrandKit = {
+          ...brandKit,
+          performanceInsights: {
+            ...brandKit.performanceInsights,
+            bfsBaseline: baseline,
+          },
+        };
+        await supabase
+          .from("brands")
+          .update({ brand_kit: updatedBrandKit })
+          .eq("id", brandId);
+      } catch (baselineError) {
+        console.error("[BrandGuide] Error generating BFS baseline:", baselineError);
+        // Non-critical, continue
+      }
+    }
+
+    // Include warnings in response (non-blocking)
+    const responseData: any = {
       success: true,
       brandGuide: {
-        ...brandGuide,
+        ...validatedBrandGuide,
         updatedAt: updatedBrand.updated_at,
       },
       message: "Brand Guide updated successfully",
-    });
+    };
+    
+    // Always include warnings if present (warnings don't block saves)
+    if (validation.warnings.length > 0) {
+      responseData.validationWarnings = validation.warnings;
+    }
+
+    (res as any).json(responseData);
   } catch (error) {
     next(error);
   }
@@ -353,6 +451,30 @@ router.patch("/:brandId", authenticateUser, async (req, res, next) => {
     const currentBrandKit = (currentBrand.brand_kit as any) || {};
     const currentVoiceSummary = (currentBrand.voice_summary as any) || {};
     const currentVisualSummary = (currentBrand.visual_summary as any) || {};
+
+    // Validate partial updates (merge with current to validate)
+    const mergedGuide = { ...currentBrandKit, ...updates };
+    const validation = validateBrandGuide(normalizeBrandGuide({
+      ...currentBrand,
+      brand_kit: mergedGuide,
+    } as any) as any);
+    if (!validation.isValid && validation.errors.length > 0) {
+      // Only fail on critical errors, warnings are OK for partial updates
+      const criticalErrors = validation.errors.filter(e => 
+        e.includes("required") || e.includes("invalid")
+      );
+      if (criticalErrors.length > 0) {
+        throw new AppError(
+          ErrorCode.INVALID_FORMAT,
+          `Brand Guide validation failed: ${criticalErrors.join(", ")}`,
+          HTTP_STATUS.BAD_REQUEST,
+          "warning",
+          undefined,
+          undefined,
+          { validationErrors: validation.errors, validationWarnings: validation.warnings }
+        );
+      }
+    }
 
     // Map updates to appropriate JSONB fields
     const brandKitUpdates: any = {};
@@ -435,6 +557,24 @@ router.patch("/:brandId", authenticateUser, async (req, res, next) => {
     if (updates.goals !== undefined) brandKitUpdates.goals = updates.goals;
     if (updates.guardrails !== undefined) brandKitUpdates.guardrails = updates.guardrails;
 
+    // Identity fields
+    if (updates.identity?.industry !== undefined) brandKitUpdates.industry = updates.identity.industry;
+    if (updates.identity?.values !== undefined) {
+      brandKitUpdates.values = updates.identity.values;
+      brandKitUpdates.coreValues = updates.identity.values; // Legacy alias
+    }
+    if (updates.identity?.targetAudience !== undefined) {
+      brandKitUpdates.targetAudience = updates.identity.targetAudience;
+      brandKitUpdates.primaryAudience = updates.identity.targetAudience; // Legacy alias
+    }
+    if (updates.identity?.painPoints !== undefined) brandKitUpdates.painPoints = updates.identity.painPoints;
+
+    // Content Rules
+    if (updates.contentRules?.contentPillars !== undefined) {
+      brandKitUpdates.contentPillars = updates.contentRules.contentPillars;
+      brandKitUpdates.messagingPillars = updates.contentRules.contentPillars; // Legacy alias
+    }
+
     // Keywords (from onboarding)
     if (updates.keywords !== undefined) brandKitUpdates.keywords = updates.keywords;
     if (updates.keyword_themes !== undefined) brandKitUpdates.keyword_themes = updates.keyword_themes;
@@ -473,6 +613,11 @@ router.patch("/:brandId", authenticateUser, async (req, res, next) => {
       brandKitUpdates.toneKeywords = Array.isArray(updates.tone) ? updates.tone : [];
     }
 
+    // Get previous version for version history
+    const previousBrandGuide = await getCurrentBrandGuide(brandId);
+    const user = (req as any).user;
+    const changedBy = user?.id || user?.userId;
+
     const { data: updatedBrand, error } = await supabase
       .from("brands")
       .update(updateData)
@@ -490,10 +635,272 @@ router.patch("/:brandId", authenticateUser, async (req, res, next) => {
       );
     }
 
-    (res as any).json({
+    // Create version history entry
+    const updatedBrandGuide = normalizeBrandGuide(updatedBrand);
+    await createVersionHistory(brandId, updatedBrandGuide, previousBrandGuide, changedBy);
+
+    // Check if BFS baseline needs regeneration
+    if (shouldRegenerateBaseline(updatedBrandGuide, previousBrandGuide?.version)) {
+      try {
+        const baseline = await generateBFSBaseline(updatedBrandGuide);
+        // Update brand_kit with baseline
+        const updatedBrandKitWithBaseline = {
+          ...updatedBrandKit,
+          performanceInsights: {
+            ...updatedBrandKit.performanceInsights,
+            bfsBaseline: baseline,
+          },
+        };
+        await supabase
+          .from("brands")
+          .update({ brand_kit: updatedBrandKitWithBaseline })
+          .eq("id", brandId);
+      } catch (baselineError) {
+        console.error("[BrandGuide] Error generating BFS baseline:", baselineError);
+        // Non-critical, continue
+      }
+    }
+
+    // Include warnings in response (non-blocking)
+    // Re-validate to get warnings for the final saved state
+    const finalValidation = validateBrandGuide(updatedBrandGuide);
+    const responseData: any = {
       success: true,
       message: "Brand Guide updated successfully",
       updatedAt: updatedBrand.updated_at,
+    };
+    
+    // Always include warnings if present (warnings don't block saves)
+    if (finalValidation.warnings.length > 0) {
+      responseData.validationWarnings = finalValidation.warnings;
+    }
+    
+    (res as any).json(responseData);
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * GET /api/brand-guide/:brandId/versions
+ * Get version history for a brand
+ */
+router.get("/:brandId/versions", authenticateUser, async (req, res, next) => {
+  try {
+    const { brandId } = req.params;
+
+    // ✅ SECURITY: Verify user has access to this brand and workspace
+    await assertBrandAccess(req, brandId, true, true);
+
+    const versions = await getVersionHistory(brandId);
+
+    (res as any).json({
+      success: true,
+      versions,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * GET /api/brand-guide/:brandId/versions/:version
+ * Get a specific version of Brand Guide
+ */
+router.get("/:brandId/versions/:version", authenticateUser, async (req, res, next) => {
+  try {
+    const { brandId, version } = req.params;
+    const versionNumber = parseInt(version, 10);
+
+    if (isNaN(versionNumber)) {
+      throw new AppError(
+        ErrorCode.INVALID_FORMAT,
+        "Invalid version number",
+        HTTP_STATUS.BAD_REQUEST,
+        "warning"
+      );
+    }
+
+    // ✅ SECURITY: Verify user has access to this brand and workspace
+    await assertBrandAccess(req, brandId, true, true);
+
+    const versionData = await getBrandGuideVersion(brandId, versionNumber);
+
+    if (!versionData) {
+      throw new AppError(
+        ErrorCode.NOT_FOUND,
+        "Version not found",
+        HTTP_STATUS.NOT_FOUND,
+        "info",
+        { brandId, version: versionNumber }
+      );
+    }
+
+    (res as any).json({
+      success: true,
+      version: versionData,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * POST /api/brand-guide/:brandId/rollback/:version
+ * Rollback Brand Guide to a specific version
+ */
+router.post("/:brandId/rollback/:version", authenticateUser, async (req, res, next) => {
+  try {
+    const { brandId, version } = req.params;
+    const versionNumber = parseInt(version, 10);
+
+    if (isNaN(versionNumber)) {
+      throw new AppError(
+        ErrorCode.INVALID_FORMAT,
+        "Invalid version number",
+        HTTP_STATUS.BAD_REQUEST,
+        "warning"
+      );
+    }
+
+    // ✅ SECURITY: Verify user has access to this brand and workspace
+    await assertBrandAccess(req, brandId, true, true);
+
+    // Get the version to rollback to
+    const versionData = await getBrandGuideVersion(brandId, versionNumber);
+
+    if (!versionData) {
+      throw new AppError(
+        ErrorCode.NOT_FOUND,
+        "Version not found",
+        HTTP_STATUS.NOT_FOUND,
+        "info",
+        { brandId, version: versionNumber }
+      );
+    }
+
+    // Get current Brand Guide for version history
+    const currentBrandGuide = await getCurrentBrandGuide(brandId);
+    const user = (req as any).user;
+    const changedBy = user?.id || user?.userId;
+
+    // ✅ FIX: versionData.brandGuide is already a normalized BrandGuide structure
+    // We need to reconstruct the full BrandGuide from the version snapshot
+    // and then map it to Supabase structure using the service function
+    const restoredBrandGuide: BrandGuide = {
+      id: brandId,
+      brandId,
+      brandName: versionData.brandGuide.identity?.name || currentBrandGuide?.brandName || "Untitled Brand",
+      identity: versionData.brandGuide.identity || currentBrandGuide?.identity || {
+        name: versionData.brandGuide.identity?.name || "Untitled Brand",
+        industryKeywords: [],
+      },
+      voiceAndTone: versionData.brandGuide.voiceAndTone || currentBrandGuide?.voiceAndTone || {
+        tone: [],
+        friendlinessLevel: 50,
+        formalityLevel: 50,
+        confidenceLevel: 50,
+      },
+      visualIdentity: versionData.brandGuide.visualIdentity || currentBrandGuide?.visualIdentity || {
+        colors: [],
+        typography: { heading: "Inter", body: "Inter", source: "google" },
+        photographyStyle: { mustInclude: [], mustAvoid: [] },
+      },
+      contentRules: versionData.brandGuide.contentRules || currentBrandGuide?.contentRules || {
+        platformGuidelines: {},
+        preferredPlatforms: [],
+        preferredPostTypes: [],
+        brandPhrases: [],
+        contentPillars: [],
+        neverDo: [],
+        guardrails: [],
+      },
+      approvedAssets: versionData.brandGuide.approvedAssets || currentBrandGuide?.approvedAssets || {
+        uploadedPhotos: [],
+        uploadedGraphics: [],
+        uploadedTemplates: [],
+        approvedStockImages: [],
+        productsServices: [],
+      },
+      performanceInsights: versionData.brandGuide.performanceInsights || currentBrandGuide?.performanceInsights || {
+        visualPatterns: [],
+        copyPatterns: [],
+      },
+      personas: versionData.brandGuide.personas || currentBrandGuide?.personas || [],
+      goals: versionData.brandGuide.goals || currentBrandGuide?.goals || [],
+      purpose: versionData.brandGuide.purpose || currentBrandGuide?.purpose,
+      mission: versionData.brandGuide.mission || currentBrandGuide?.mission,
+      vision: versionData.brandGuide.vision || currentBrandGuide?.vision,
+      createdAt: versionData.brandGuide.createdAt || currentBrandGuide?.createdAt || new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      version: (currentBrandGuide?.version || 1) + 1, // Increment version for rollback
+      setupMethod: versionData.brandGuide.setupMethod || currentBrandGuide?.setupMethod || "detailed",
+    };
+
+    // ✅ VALIDATION: Validate restored Brand Guide
+    const validation = validateBrandGuide(restoredBrandGuide);
+    if (!validation.isValid && validation.errors.length > 0) {
+      console.warn("[BrandGuide] Validation errors during rollback:", validation.errors);
+    }
+    const validatedBrandGuide = applyBrandGuideDefaults(restoredBrandGuide);
+
+    // ✅ FIX: Use saveBrandGuide service function to ensure correct mapping
+    // This ensures consistent mapping to Supabase structure
+    await saveBrandGuide(brandId, validatedBrandGuide);
+
+    // Get updated brand to return in response
+    const updatedBrandGuide = await getCurrentBrandGuide(brandId);
+    if (!updatedBrandGuide) {
+      throw new AppError(
+        ErrorCode.INTERNAL_ERROR,
+        "Failed to retrieve rolled back Brand Guide",
+        HTTP_STATUS.INTERNAL_SERVER_ERROR,
+        "error"
+      );
+    }
+
+    // Create version history entry for rollback
+    await createVersionHistory(
+      brandId,
+      updatedBrandGuide,
+      currentBrandGuide,
+      changedBy,
+      `Rollback to version ${versionNumber}`
+    );
+
+    // Regenerate BFS baseline if needed
+    if (shouldRegenerateBaseline(updatedBrandGuide, currentBrandGuide?.version)) {
+      try {
+        const baseline = await generateBFSBaseline(updatedBrandGuide);
+        const { data: brand } = await supabase
+          .from("brands")
+          .select("brand_kit")
+          .eq("id", brandId)
+          .single();
+        if (brand) {
+          const updatedBrandKit = {
+            ...(brand.brand_kit as any),
+            performanceInsights: {
+              ...(brand.brand_kit as any)?.performanceInsights,
+              bfsBaseline: baseline,
+            },
+          };
+          await supabase
+            .from("brands")
+            .update({ brand_kit: updatedBrandKit })
+            .eq("id", brandId);
+        }
+      } catch (baselineError) {
+        console.error("[BrandGuide] Error generating BFS baseline after rollback:", baselineError);
+        // Non-critical, continue
+      }
+    }
+
+    (res as any).json({
+      success: true,
+      message: `Brand Guide rolled back to version ${versionNumber}`,
+      brandGuide: updatedBrandGuide,
+      updatedAt: updatedBrandGuide.updatedAt,
     });
   } catch (error) {
     next(error);

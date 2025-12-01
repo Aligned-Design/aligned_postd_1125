@@ -1,8 +1,12 @@
-# Aligned AI - API Documentation
+# POSTD - API Documentation
 
 ## Overview
 
-This document describes the REST API endpoints for the Aligned AI content management and approval platform. All endpoints require authentication and support multi-tenant isolation via brand_id.
+This document describes the REST API endpoints for the POSTD content management and approval platform. All endpoints require authentication and support multi-tenant isolation via brand_id.
+
+> **Note:** POSTD was formerly known as Aligned-20AI. All current documentation refers to POSTD as the product name.
+
+**Note:** For the authoritative API contract, see `POSTD_API_CONTRACT.md`.
 
 ## Authentication
 
@@ -17,7 +21,7 @@ All API requests require authentication via:
 ## Base URL
 
 ```
-https://api.alignedai.com/api
+https://api.postd.com/api
 ```
 
 ## Error Responses
@@ -775,7 +779,7 @@ Update branding configuration.
 {
   "success": true,
   "config": {},
-  "previewUrl": "https://preview.alignedai.com/agency_1"
+  "previewUrl": "https://preview.postd.ai/agency_1"
 }
 ```
 

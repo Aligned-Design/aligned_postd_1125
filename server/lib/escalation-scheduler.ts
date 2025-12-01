@@ -224,29 +224,35 @@ export class EscalationScheduler {
     }
 
     // Send notification
+    // Database records may have additional properties not in type definitions
+    const ruleRecord = rule as unknown as Record<string, unknown>;
+    const ruleHasEmail = rule && ruleRecord.send_email;
     if (
       escalation.notification_type === "email" ||
-      (rule && (rule as unknown).send_email)
+      ruleHasEmail
     ) {
       await this.sendEmailNotification(
-        escalation as unknown,
-        approval as unknown,
-        rule as unknown,
+        escalation as any,
+        approval as any,
+        rule as any,
         clientSettingsData,
       );
     }
 
+    // Type assertion: Database records may have send_slack property not in type definitions
+    const ruleHasSlack = ruleRecord.send_slack;
     if (
       escalation.notification_type === "slack" ||
-      ((rule as unknown).send_slack && escalation.notification_type !== "email")
+      (ruleHasSlack && escalation.notification_type !== "email")
     ) {
       await this.sendSlackNotification(
-        escalation as unknown,
-        approval as unknown,
-        rule as unknown,
+        escalation as any,
+        approval as any,
+        rule as any,
       ).catch((err: unknown) => {
+        const errorMessage = err instanceof Error ? err.message : String(err);
         console.warn(
-          `[Escalation Scheduler] Failed to send Slack notification: ${err?.message || err}`,
+          `[Escalation Scheduler] Failed to send Slack notification: ${errorMessage}`,
         );
       });
     }
@@ -330,9 +336,18 @@ Please review and take action at your earliest convenience.
       return true;
     }
 
+    // Type assertion: clientSettings may have approval-related properties
+    const settings = clientSettings as Record<string, unknown> | null;
+    if (!settings) {
+      return true;
+    }
+
     // Check if approval reminders are enabled
-    if (!clientSettings.approvalsNeeded && !clientSettings.approvalReminders) {
-      return false;
+    const approvalsNeeded = settings.approvalsNeeded as number | undefined;
+    const approvalReminders = settings.approvalReminders as boolean | undefined;
+    if (approvalsNeeded === undefined && approvalReminders === undefined) {
+      // No preferences set, default to sending
+      return true;
     }
 
     // For escalations (not reminders), always send
@@ -342,7 +357,7 @@ Please review and take action at your earliest convenience.
 
     // For reminders, check if reminder notifications are enabled
     if (escalationLevel.includes("reminder")) {
-      return clientSettings.approvalReminders !== false;
+      return approvalReminders !== false;
     }
 
     return true;

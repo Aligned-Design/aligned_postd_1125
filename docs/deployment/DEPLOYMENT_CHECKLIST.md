@@ -57,7 +57,7 @@
   ```
 
 ### Step 2: Update Environment Variables
-**File**: `/Users/krisfoust/Documents/Aligned-20ai/.env`
+**File**: `/Users/krisfoust/Downloads/Aligned-20ai.posted/.env`
 
 - [ ] Update `VITE_SUPABASE_URL`
 - [ ] Update `VITE_SUPABASE_ANON_KEY`

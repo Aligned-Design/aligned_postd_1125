@@ -16,6 +16,7 @@
  */
 
 import { createClient } from '@supabase/supabase-js';
+// @ts-expect-error - pino types may not be installed, but pino is used at runtime
 import pino from 'pino';
 import MetaConnector from './meta';
 import LinkedInConnector from './linkedin';
@@ -106,11 +107,11 @@ export class ConnectorManager {
         break;
 
       case 'gbp':
-        // TODO: Import GBPConnector
+        // Future work: Import GBPConnector
         throw new Error('GBP connector not yet implemented');
 
       case 'mailchimp':
-        // TODO: Import MailchimpConnector
+        // Future work: Import MailchimpConnector
         throw new Error('Mailchimp connector not yet implemented');
 
       default:
@@ -316,7 +317,7 @@ export class ConnectorManager {
           recordMetric('connector.health_check', 1, {
             platform: platform.platform_name,
             status: health.status,
-            latency_ms: health.latencyMs,
+            latency_ms: String(health.latencyMs),
           });
         } catch (checkError) {
           logger.error(

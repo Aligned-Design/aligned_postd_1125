@@ -1,4 +1,5 @@
 import { supabase } from "./supabase";
+import { logError } from "./logger";
 
 export interface UploadedFile {
   name: string;
@@ -120,9 +121,8 @@ export async function uploadBrandFiles(
 
   const { error } = await supabase.from("brand_assets").insert(assetRecords);
 
-  if (error && import.meta.env.DEV) {
-    // eslint-disable-next-line no-console
-    console.error("Error creating brand_assets records:", error);
+  if (error) {
+    logError("Error creating brand_assets records", error instanceof Error ? error : new Error(String(error)));
   }
 
   return uploadedFiles;

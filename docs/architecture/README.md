@@ -62,7 +62,7 @@ The database is organized around several key entity groups:
 - [Aligned 20AI Roadmap](./ALIGNED_20AI_ROADMAP.md)
 - [Agents Overview](./AGENTS.md)
 - [AI Design System](./AI_DESIGN_SYSTEM.md)
-- [Aligned AI Sitemap](./ALIGNED_AI_SITEMAP.md)
+- [POSTD Sitemap](./ALIGNED_AI_SITEMAP.md)
 - [Design System](./DESIGN_SYSTEM.md)
 
 All tables include proper indexing and RLS policies for security.

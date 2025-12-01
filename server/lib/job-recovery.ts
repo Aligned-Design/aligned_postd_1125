@@ -3,26 +3,11 @@
  * Recovers and resumes publishing jobs from database on server startup
  */
 
-import { createClient } from "@supabase/supabase-js";
+import { supabase } from "./supabase";
 import { publishingDBService } from "./publishing-db-service";
 import { publishingQueue } from "./publishing-queue";
 import { PublishingJob, Platform } from "@shared/publishing";
 import { parsePublishingJobRow } from "../types/guards";
-
-const supabaseUrl =
-  process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || "";
-const supabaseKey =
-  process.env.SUPABASE_SERVICE_ROLE_KEY ||
-  process.env.SUPABASE_SERVICE_ROLE_KEY ||
-  "";
-
-if (!supabaseUrl || !supabaseKey) {
-  throw new Error(
-    "Missing Supabase configuration: SUPABASE_URL and/or SUPABASE_SERVICE_ROLE_KEY",
-  );
-}
-
-const supabase = createClient(supabaseUrl, supabaseKey);
 
 /**
  * Recover pending and processing jobs from database on startup

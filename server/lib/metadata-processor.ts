@@ -108,15 +108,16 @@ export async function extractVideoMetadata(
     aiTags: [],
     usedIn: [],
     usageCount: 0,
-    duration: 0, // TODO: Extract with ffprobe
-    frameRate: 30, // TODO: Extract with ffprobe
+    duration: 0, // Future enhancement: Extract with ffprobe for video duration
+    frameRate: 30, // Future enhancement: Extract with ffprobe for video frame rate
   };
 
   return metadata;
 }
 
 async function analyzeImageContent(fileBuffer: Buffer): Promise<string[]> {
-  // TODO: Integrate with AI service (OpenAI Vision, Google Vision, etc.)
+  // Future work: Integrate with AI service (OpenAI Vision, Google Vision, etc.)
+  // This would enable automatic image content analysis and tagging
   // For now, return basic analysis based on image characteristics
   const tags: string[] = [];
 
@@ -168,7 +169,8 @@ function extractDominantColors(stats: sharp.Stats): string[] {
 }
 
 async function detectTextInImage(_fileBuffer: Buffer): Promise<boolean> {
-  // TODO: Integrate with OCR service (Tesseract, Google Vision, etc.)
+  // Future work: Integrate with OCR service (Tesseract, Google Vision, etc.)
+  // This would enable text detection in images for accessibility and search
   // For now, return false as placeholder
   return false;
 }

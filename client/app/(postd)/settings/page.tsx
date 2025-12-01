@@ -3,6 +3,8 @@ import { useState } from "react";
 import { Mail, Plus, Trash2, Copy, Check, Calendar } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { SchedulingPreferences } from "@/components/settings/SchedulingPreferences";
+import { PageShell } from "@/components/postd/ui/layout/PageShell";
+import { PageHeader } from "@/components/postd/ui/layout/PageHeader";
 
 export default function Settings() {
   const { currentWorkspace, updateWorkspace, addMember, updateMember, removeMember } = useWorkspace();
@@ -70,20 +72,13 @@ export default function Settings() {
   };
 
   return (    
-      <div className="min-h-screen bg-gradient-to-br from-indigo-50/30 via-white to-blue-50/20">
-        {/* Header */}
-        <div className="sticky top-16 z-40 bg-white/80 backdrop-blur-xl border-b border-white/60">
-          <div className="p-4 sm:p-6 md:p-8">
-            <div className="flex items-center gap-3 mb-6">
-              <span className="text-3xl">{currentWorkspace.logo || "🏢"}</span>
-              <div>
-                <h1 className="text-3xl font-black text-slate-900">{currentWorkspace.name} Settings</h1>
-                <p className="text-sm text-slate-600 mt-1">Manage your workspace configuration and team</p>
-              </div>
-            </div>
-
-            {/* Tabs */}
-            <div className="flex gap-2 flex-wrap border-b border-slate-200">
+      <PageShell>
+        <PageHeader
+          title={`${currentWorkspace.name} Settings`}
+          subtitle="Manage your workspace configuration and team"
+        />
+        {/* Tabs */}
+        <div className="flex gap-2 flex-wrap border-b border-slate-200 mb-6">
               {(["workspace", "members", "integrations", "scheduling", "billing"] as const).map((tab) => (
                 <button
                   key={tab}
@@ -105,8 +100,6 @@ export default function Settings() {
                     : "Billing"}
                 </button>
               ))}
-            </div>
-          </div>
         </div>
 
         {/* Content */}
@@ -346,7 +339,7 @@ export default function Settings() {
             </div>
           )}
         </div>
-      </div>
+      </PageShell>
     
   );
 }

@@ -607,7 +607,8 @@ const approveForClient: RequestHandler = async (req, res, next) => {
       record.brand_id,
       user.id,
       user.email
-      // TODO: Get clientUserId from brand_members or brand settings
+      // Future work: Get clientUserId from brand_members or brand settings
+      // This would allow targeting specific client users for approval notifications
     );
 
     broadcastApprovalUpdated({

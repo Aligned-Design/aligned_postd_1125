@@ -1,3 +1,9 @@
+> **Status:** 🕒 Historical / Superseded – This document describes a different "Phase 5" (Go-Live Execution) from 2025-11-11, which conflicts with the current Phase 5 (Cleanup & Implementation) work.  
+> **Superseded by:** Current Phase 5 cleanup work (see `PHASE5_SCHEMA_ALIGNMENT_PROGRESS.md`, `PHASE5_DOCS_CLEANUP_PROGRESS.md`)  
+> **Last Updated:** 2025-01-20
+
+---
+
 # Phase 5 & Build Fix Completion Summary
 
 **Date**: 2025-11-11

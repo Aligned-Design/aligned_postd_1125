@@ -124,7 +124,7 @@ function extractSQLSchema() {
       while ((match = alterTableRegex.exec(content)) !== null) {
         const tableName = match[1].toLowerCase();
         const colName = match[2];
-        let colDef = match[3].trim();
+        const colDef = match[3].trim();
         
         if (!tables.has(tableName)) {
           tables.set(tableName, {

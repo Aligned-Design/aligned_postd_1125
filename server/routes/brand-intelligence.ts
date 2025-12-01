@@ -34,7 +34,7 @@ export const getBrandIntelligence: RequestHandler = async (req, res) => {
     }
 
     // Verify user has access to this brand
-    assertBrandAccess(req, brandId);
+    await assertBrandAccess(req, brandId);
 
     // Mock comprehensive brand intelligence data
     const intelligence: BrandIntelligence = {

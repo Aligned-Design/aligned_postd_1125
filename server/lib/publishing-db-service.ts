@@ -19,7 +19,6 @@ export interface PublishingJobRecord {
   last_error?: string;
   last_error_details?: Record<string, unknown>;
   validation_results?: unknown[];
-  created_by?: string;
   created_at: string;
   updated_at: string;
 }
@@ -59,10 +58,12 @@ export class PublishingDBService {
       .insert({
         brand_id: brandId,
         tenant_id: tenantId,
-        content,
+        content: {
+          ...content,
+          ...(userId && { createdBy: userId }),
+        },
         platforms,
         scheduled_at: scheduledAt?.toISOString(),
-        created_by: userId,
         status:
           scheduledAt && scheduledAt > new Date() ? "scheduled" : "pending",
       })

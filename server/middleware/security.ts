@@ -340,7 +340,7 @@ export function requestSizeLimit(maxSizeBytes: number) {
 
     if (contentLength > maxSizeBytes) {
       throw new AppError(
-        ErrorCode.PAYLOAD_TOO_LARGE,
+        ErrorCode.VALIDATION_ERROR,
         `Request body too large. Maximum size: ${maxSizeBytes} bytes`,
         HTTP_STATUS.PAYLOAD_TOO_LARGE,
         "warning",

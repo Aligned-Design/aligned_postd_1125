@@ -302,7 +302,8 @@ export async function trackError(error: Error, context: LogContext, severity: 'l
     platform: context.platform || 'unknown',
   });
 
-  // TODO: Send to Datadog error tracking service
+  // Future work: Send to Datadog error tracking service
+  // This requires Datadog API key configuration and client library integration
   // await datadogClient.trackError(trackedError);
 }
 
@@ -373,7 +374,7 @@ export interface HealthStatus {
 }
 
 export async function getHealthStatus(): Promise<HealthStatus> {
-  // TODO: Check actual service health
+  // Future work: Check actual service health (database, external APIs, etc.)
   return {
     status: 'healthy',
     components: {

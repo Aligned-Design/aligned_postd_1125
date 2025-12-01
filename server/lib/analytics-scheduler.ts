@@ -83,7 +83,7 @@ export async function syncBrandAnalytics(brandId: string, tenantId: string): Pro
         platform: conn.platform as unknown,
         accessToken: conn.access_token,
         accountId: conn.account_id,
-        lastSyncAt: conn.last_verified_at || undefined
+        lastSyncAt: conn.last_sync_at || undefined
       }));
 
     if (syncConfigs.length === 0) {

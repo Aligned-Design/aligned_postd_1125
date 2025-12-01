@@ -1,15 +1,18 @@
-# Data Governance & Compliance Framework
+# POSTD Data Governance & Compliance Framework
 
-**Document Version**: 1.0
-**Last Updated**: 2025-11-11
-**Status**: PRODUCTION READY
+> **Status:** ✅ Active – This is an active compliance and governance document.  
+> **Last Updated:** 2025-01-20
+
+**Document Version**: 1.0  
+**Last Updated**: 2025-11-11  
+**Status**: PRODUCTION READY  
 **Compliance Frameworks**: GDPR, CCPA, SOC 2 Type II
 
 ---
 
 ## Executive Summary
 
-AlignedAI is committed to protecting user data and maintaining compliance with global data protection regulations (GDPR, CCPA, LGPD). This document defines data retention policies, data deletion procedures, audit logging practices, and compliance verification mechanisms.
+POSTD is committed to protecting user data and maintaining compliance with global data protection regulations (GDPR, CCPA, LGPD). This document defines data retention policies, data deletion procedures, audit logging practices, and compliance verification mechanisms.
 
 **Key Commitments**:
 - ✅ User data deleted within 30 days of account termination

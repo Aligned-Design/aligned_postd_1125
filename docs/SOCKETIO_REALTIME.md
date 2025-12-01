@@ -1,6 +1,9 @@
-# Socket.io Real-Time Configuration Guide
+# POSTD Socket.io Real-Time Configuration Guide
 
-Complete setup and integration guide for Socket.io real-time features in the Aligned AI platform.
+> **Status:** ✅ Active – This is an active guide for POSTD Socket.io real-time features.  
+> **Last Updated:** 2025-01-20
+
+Complete setup and integration guide for Socket.io real-time features in the POSTD platform.
 
 ## Table of Contents
 

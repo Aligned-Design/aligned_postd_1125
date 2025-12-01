@@ -291,7 +291,7 @@ export function requireBrandAccess(
 
   if (!brandId) {
     throw new AppError(
-      ErrorCode.BAD_REQUEST,
+      ErrorCode.VALIDATION_ERROR,
       "Brand ID required",
       HTTP_STATUS.BAD_REQUEST,
       "warning",

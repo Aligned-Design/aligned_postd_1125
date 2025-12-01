@@ -1,7 +1,14 @@
-import { Router, Request, Response } from "express";
+/**
+ * Trial API Routes
+ * 
+ * Handles trial status and initialization.
+ */
+
+import { Router, Request, Response, RequestHandler } from "express";
 import { getTrialStatus, incrementTrialCount } from "../middleware/trial";
 import { authenticateUser } from "../middleware/security";
 import { AppError } from "../lib/error-middleware";
+import { ErrorCode, HTTP_STATUS } from "../lib/error-responses";
 
 const router = Router();
 
@@ -9,56 +16,66 @@ const router = Router();
  * GET /api/trial/status
  * Get current trial status for authenticated user
  */
-router.get("/status", authenticateUser, async (req: Request, res: Response) => {
+router.get("/status", authenticateUser, (async (req: Request, res: Response, next) => {
   try {
-    const user = req.user as any;
+    const user = (req as any).user;
 
     if (!user) {
-      throw new AppError("Unauthorized", 401, "UNAUTHORIZED");
+      throw new AppError(
+        ErrorCode.UNAUTHORIZED,
+        "Authentication required",
+        HTTP_STATUS.UNAUTHORIZED,
+        "warning"
+      );
     }
 
     const status = getTrialStatus(user);
 
-    res.json({
+    (res as any).json({
       success: true,
       data: status,
     });
   } catch (error) {
-    console.error("Error fetching trial status:", error);
-    res.status(500).json({
-      success: false,
-      error: "Failed to fetch trial status",
-    });
+    next(error);
   }
-});
+}) as RequestHandler);
 
 /**
  * POST /api/trial/start
  * Initialize trial period for user
  */
-router.post("/start", authenticateUser, async (req: Request, res: Response) => {
+router.post("/start", authenticateUser, (async (req: Request, res: Response, next) => {
   try {
-    const user = req.user as any;
+    const user = (req as any).user;
 
     if (!user) {
-      throw new AppError("Unauthorized", 401, "UNAUTHORIZED");
+      throw new AppError(
+        ErrorCode.UNAUTHORIZED,
+        "Authentication required",
+        HTTP_STATUS.UNAUTHORIZED,
+        "warning"
+      );
     }
 
     // Check if already on paid plan
     if (user.plan !== "trial") {
-      return res.status(400).json({
-        success: false,
-        error: "User already has a paid plan",
-      });
+      throw new AppError(
+        ErrorCode.VALIDATION_ERROR,
+        "User already has a paid plan",
+        HTTP_STATUS.BAD_REQUEST,
+        "warning"
+      );
     }
 
     // Check if trial already started
     if (user.trial_started_at) {
-      return res.status(400).json({
-        success: false,
-        error: "Trial already started",
-        trialStartedAt: user.trial_started_at,
-      });
+      throw new AppError(
+        ErrorCode.VALIDATION_ERROR,
+        "Trial already started",
+        HTTP_STATUS.BAD_REQUEST,
+        "warning",
+        { trialStartedAt: user.trial_started_at }
+      );
     }
 
     // Start trial (7 days from now)
@@ -71,7 +88,7 @@ router.post("/start", authenticateUser, async (req: Request, res: Response) => {
     //   trial_expires_at: expiresAt.toISOString(),
     // }).eq('id', user.id);
 
-    res.json({
+    (res as any).json({
       success: true,
       data: {
         trialStartedAt: now.toISOString(),
@@ -80,12 +97,8 @@ router.post("/start", authenticateUser, async (req: Request, res: Response) => {
       },
     });
   } catch (error) {
-    console.error("Error starting trial:", error);
-    res.status(500).json({
-      success: false,
-      error: "Failed to start trial",
-    });
+    next(error);
   }
-});
+}) as RequestHandler);
 
 export default router;

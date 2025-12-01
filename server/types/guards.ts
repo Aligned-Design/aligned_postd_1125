@@ -3,21 +3,19 @@ import { z } from "zod";
 export const PlatformConnectionRecordSchema = z.object({
   id: z.string(),
   brand_id: z.string(),
-  tenant_id: z.string(),
   platform: z.string(),
   account_id: z.string(),
   account_name: z.string().nullable().optional(),
-  profile_picture: z.string().nullable().optional(),
   access_token: z.string(),
   refresh_token: z.string().nullable().optional(),
-  token_expires_at: z.string().nullable().optional(),
-  status: z.enum(["connected", "expired", "revoked", "disconnected"]),
-  permissions: z.array(z.string()).nullable().optional(),
-  metadata: z.record(z.any()).nullable().optional(),
-  created_by: z.string().nullable().optional(),
+  expires_at: z.string().nullable().optional(),
+  is_active: z.boolean(),
+  status: z.string(),
+  last_sync_at: z.string().nullable().optional(),
+  next_sync_at: z.string().nullable().optional(),
   created_at: z.string(),
   updated_at: z.string(),
-  last_verified_at: z.string().nullable().optional(),
+  disconnected_at: z.string().nullable().optional(),
 });
 
 export type PlatformConnection = z.infer<typeof PlatformConnectionRecordSchema>;
