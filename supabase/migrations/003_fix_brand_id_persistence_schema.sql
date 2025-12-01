@@ -40,11 +40,22 @@ ALTER TABLE strategy_briefs
 ADD COLUMN IF NOT EXISTS brand_id_uuid UUID;
 
 -- Backfill from TEXT brand_id (assumes TEXT stores UUID as string)
-UPDATE strategy_briefs
-SET brand_id_uuid = brand_id::uuid
-WHERE brand_id_uuid IS NULL
-  AND brand_id IS NOT NULL
-  AND brand_id ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$';
+-- Only update if brand_id column exists
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'strategy_briefs'
+      AND column_name = 'brand_id'
+  ) THEN
+    UPDATE strategy_briefs
+    SET brand_id_uuid = brand_id::uuid
+    WHERE brand_id_uuid IS NULL
+      AND brand_id IS NOT NULL
+      AND brand_id ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$';
+  END IF;
+END $$;
 
 -- Add index for performance
 CREATE INDEX IF NOT EXISTS idx_strategy_briefs_brand_id_uuid ON strategy_briefs(brand_id_uuid);
@@ -56,11 +67,21 @@ CREATE INDEX IF NOT EXISTS idx_strategy_briefs_brand_id_uuid ON strategy_briefs(
 ALTER TABLE content_packages
 ADD COLUMN IF NOT EXISTS brand_id_uuid UUID;
 
-UPDATE content_packages
-SET brand_id_uuid = brand_id::uuid
-WHERE brand_id_uuid IS NULL
-  AND brand_id IS NOT NULL
-  AND brand_id ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$';
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'content_packages'
+      AND column_name = 'brand_id'
+  ) THEN
+    UPDATE content_packages
+    SET brand_id_uuid = brand_id::uuid
+    WHERE brand_id_uuid IS NULL
+      AND brand_id IS NOT NULL
+      AND brand_id ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$';
+  END IF;
+END $$;
 
 CREATE INDEX IF NOT EXISTS idx_content_packages_brand_id_uuid ON content_packages(brand_id_uuid);
 
@@ -71,11 +92,21 @@ CREATE INDEX IF NOT EXISTS idx_content_packages_brand_id_uuid ON content_package
 ALTER TABLE brand_history
 ADD COLUMN IF NOT EXISTS brand_id_uuid UUID;
 
-UPDATE brand_history
-SET brand_id_uuid = brand_id::uuid
-WHERE brand_id_uuid IS NULL
-  AND brand_id IS NOT NULL
-  AND brand_id ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$';
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'brand_history'
+      AND column_name = 'brand_id'
+  ) THEN
+    UPDATE brand_history
+    SET brand_id_uuid = brand_id::uuid
+    WHERE brand_id_uuid IS NULL
+      AND brand_id IS NOT NULL
+      AND brand_id ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$';
+  END IF;
+END $$;
 
 CREATE INDEX IF NOT EXISTS idx_brand_history_brand_id_uuid ON brand_history(brand_id_uuid);
 
@@ -86,11 +117,21 @@ CREATE INDEX IF NOT EXISTS idx_brand_history_brand_id_uuid ON brand_history(bran
 ALTER TABLE brand_success_patterns
 ADD COLUMN IF NOT EXISTS brand_id_uuid UUID;
 
-UPDATE brand_success_patterns
-SET brand_id_uuid = brand_id::uuid
-WHERE brand_id_uuid IS NULL
-  AND brand_id IS NOT NULL
-  AND brand_id ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$';
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'brand_success_patterns'
+      AND column_name = 'brand_id'
+  ) THEN
+    UPDATE brand_success_patterns
+    SET brand_id_uuid = brand_id::uuid
+    WHERE brand_id_uuid IS NULL
+      AND brand_id IS NOT NULL
+      AND brand_id ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$';
+  END IF;
+END $$;
 
 CREATE INDEX IF NOT EXISTS idx_brand_success_patterns_brand_id_uuid ON brand_success_patterns(brand_id_uuid);
 
@@ -101,11 +142,21 @@ CREATE INDEX IF NOT EXISTS idx_brand_success_patterns_brand_id_uuid ON brand_suc
 ALTER TABLE collaboration_logs
 ADD COLUMN IF NOT EXISTS brand_id_uuid UUID;
 
-UPDATE collaboration_logs
-SET brand_id_uuid = brand_id::uuid
-WHERE brand_id_uuid IS NULL
-  AND brand_id IS NOT NULL
-  AND brand_id ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$';
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'collaboration_logs'
+      AND column_name = 'brand_id'
+  ) THEN
+    UPDATE collaboration_logs
+    SET brand_id_uuid = brand_id::uuid
+    WHERE brand_id_uuid IS NULL
+      AND brand_id IS NOT NULL
+      AND brand_id ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$';
+  END IF;
+END $$;
 
 CREATE INDEX IF NOT EXISTS idx_collaboration_logs_brand_id_uuid ON collaboration_logs(brand_id_uuid);
 
@@ -116,11 +167,21 @@ CREATE INDEX IF NOT EXISTS idx_collaboration_logs_brand_id_uuid ON collaboration
 ALTER TABLE performance_logs
 ADD COLUMN IF NOT EXISTS brand_id_uuid UUID;
 
-UPDATE performance_logs
-SET brand_id_uuid = brand_id::uuid
-WHERE brand_id_uuid IS NULL
-  AND brand_id IS NOT NULL
-  AND brand_id ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$';
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'performance_logs'
+      AND column_name = 'brand_id'
+  ) THEN
+    UPDATE performance_logs
+    SET brand_id_uuid = brand_id::uuid
+    WHERE brand_id_uuid IS NULL
+      AND brand_id IS NOT NULL
+      AND brand_id ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$';
+  END IF;
+END $$;
 
 CREATE INDEX IF NOT EXISTS idx_performance_logs_brand_id_uuid ON performance_logs(brand_id_uuid);
 
@@ -131,11 +192,21 @@ CREATE INDEX IF NOT EXISTS idx_performance_logs_brand_id_uuid ON performance_log
 ALTER TABLE platform_insights
 ADD COLUMN IF NOT EXISTS brand_id_uuid UUID;
 
-UPDATE platform_insights
-SET brand_id_uuid = brand_id::uuid
-WHERE brand_id_uuid IS NULL
-  AND brand_id IS NOT NULL
-  AND brand_id ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$';
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'platform_insights'
+      AND column_name = 'brand_id'
+  ) THEN
+    UPDATE platform_insights
+    SET brand_id_uuid = brand_id::uuid
+    WHERE brand_id_uuid IS NULL
+      AND brand_id IS NOT NULL
+      AND brand_id ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$';
+  END IF;
+END $$;
 
 CREATE INDEX IF NOT EXISTS idx_platform_insights_brand_id_uuid ON platform_insights(brand_id_uuid);
 
@@ -146,11 +217,21 @@ CREATE INDEX IF NOT EXISTS idx_platform_insights_brand_id_uuid ON platform_insig
 ALTER TABLE token_health
 ADD COLUMN IF NOT EXISTS brand_id_uuid UUID;
 
-UPDATE token_health
-SET brand_id_uuid = brand_id::uuid
-WHERE brand_id_uuid IS NULL
-  AND brand_id IS NOT NULL
-  AND brand_id ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$';
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'token_health'
+      AND column_name = 'brand_id'
+  ) THEN
+    UPDATE token_health
+    SET brand_id_uuid = brand_id::uuid
+    WHERE brand_id_uuid IS NULL
+      AND brand_id IS NOT NULL
+      AND brand_id ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$';
+  END IF;
+END $$;
 
 CREATE INDEX IF NOT EXISTS idx_token_health_brand_id_uuid ON token_health(brand_id_uuid);
 
@@ -161,11 +242,21 @@ CREATE INDEX IF NOT EXISTS idx_token_health_brand_id_uuid ON token_health(brand_
 ALTER TABLE weekly_summaries
 ADD COLUMN IF NOT EXISTS brand_id_uuid UUID;
 
-UPDATE weekly_summaries
-SET brand_id_uuid = brand_id::uuid
-WHERE brand_id_uuid IS NULL
-  AND brand_id IS NOT NULL
-  AND brand_id ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$';
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'weekly_summaries'
+      AND column_name = 'brand_id'
+  ) THEN
+    UPDATE weekly_summaries
+    SET brand_id_uuid = brand_id::uuid
+    WHERE brand_id_uuid IS NULL
+      AND brand_id IS NOT NULL
+      AND brand_id ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$';
+  END IF;
+END $$;
 
 CREATE INDEX IF NOT EXISTS idx_weekly_summaries_brand_id_uuid ON weekly_summaries(brand_id_uuid);
 
@@ -176,11 +267,21 @@ CREATE INDEX IF NOT EXISTS idx_weekly_summaries_brand_id_uuid ON weekly_summarie
 ALTER TABLE advisor_review_audits
 ADD COLUMN IF NOT EXISTS brand_id_uuid UUID;
 
-UPDATE advisor_review_audits
-SET brand_id_uuid = brand_id::uuid
-WHERE brand_id_uuid IS NULL
-  AND brand_id IS NOT NULL
-  AND brand_id ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$';
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'advisor_review_audits'
+      AND column_name = 'brand_id'
+  ) THEN
+    UPDATE advisor_review_audits
+    SET brand_id_uuid = brand_id::uuid
+    WHERE brand_id_uuid IS NULL
+      AND brand_id IS NOT NULL
+      AND brand_id ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$';
+  END IF;
+END $$;
 
 CREATE INDEX IF NOT EXISTS idx_advisor_review_audits_brand_id_uuid ON advisor_review_audits(brand_id_uuid);
 

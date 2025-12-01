@@ -32,43 +32,67 @@ BEGIN
     );
 
     -- Indexes for performance
-    CREATE INDEX idx_brand_guide_versions_brand_id ON brand_guide_versions(brand_id);
-    CREATE INDEX idx_brand_guide_versions_version ON brand_guide_versions(brand_id, version DESC);
-    CREATE INDEX idx_brand_guide_versions_created_at ON brand_guide_versions(brand_id, created_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_brand_guide_versions_brand_id ON brand_guide_versions(brand_id);
+    CREATE INDEX IF NOT EXISTS idx_brand_guide_versions_version ON brand_guide_versions(brand_id, version DESC);
+    CREATE INDEX IF NOT EXISTS idx_brand_guide_versions_created_at ON brand_guide_versions(brand_id, created_at DESC);
 
     -- Enable RLS
     ALTER TABLE brand_guide_versions ENABLE ROW LEVEL SECURITY;
 
     -- RLS Policy: Users can only view version history for brands they are members of
-    CREATE POLICY "Users can view brand guide versions for their brands"
-      ON brand_guide_versions
-      FOR SELECT
-      USING (
-        EXISTS (
-          SELECT 1 FROM brand_members
-          WHERE brand_members.brand_id = brand_guide_versions.brand_id
-          AND brand_members.user_id = auth.uid()
-        )
-      );
+    BEGIN
+      CREATE POLICY "Users can view brand guide versions for their brands"
+        ON brand_guide_versions
+        FOR SELECT
+        USING (
+          EXISTS (
+            SELECT 1 FROM brand_members
+            WHERE brand_members.brand_id = brand_guide_versions.brand_id
+            AND brand_members.user_id = auth.uid()
+          )
+        );
+    EXCEPTION
+      WHEN duplicate_object THEN
+        -- Policy already exists; do nothing
+        NULL;
+    END;
 
     -- RLS Policy: Version history cannot be updated
-    CREATE POLICY "Version history cannot be updated"
-      ON brand_guide_versions
-      FOR UPDATE
-      USING (false)
-      WITH CHECK (false);
+    BEGIN
+      CREATE POLICY "Version history cannot be updated"
+        ON brand_guide_versions
+        FOR UPDATE
+        USING (false)
+        WITH CHECK (false);
+    EXCEPTION
+      WHEN duplicate_object THEN
+        -- Policy already exists; do nothing
+        NULL;
+    END;
 
     -- RLS Policy: Users cannot delete version history
-    CREATE POLICY "Version history cannot be deleted"
-      ON brand_guide_versions
-      FOR DELETE
-      USING (false);
+    BEGIN
+      CREATE POLICY "Version history cannot be deleted"
+        ON brand_guide_versions
+        FOR DELETE
+        USING (false);
+    EXCEPTION
+      WHEN duplicate_object THEN
+        -- Policy already exists; do nothing
+        NULL;
+    END;
 
     -- Add updated_at trigger (for consistency, though updates are blocked)
-    CREATE TRIGGER update_brand_guide_versions_updated_at
-      BEFORE UPDATE ON brand_guide_versions
-      FOR EACH ROW
-      EXECUTE FUNCTION update_updated_at();
+    BEGIN
+      CREATE TRIGGER update_brand_guide_versions_updated_at
+        BEFORE UPDATE ON brand_guide_versions
+        FOR EACH ROW
+        EXECUTE FUNCTION update_updated_at();
+    EXCEPTION
+      WHEN duplicate_object THEN
+        -- Trigger already exists; do nothing
+        NULL;
+    END;
 
     -- Add comments
     COMMENT ON TABLE brand_guide_versions IS 'Tracks all versions of Brand Guide for audit trail, rollback, and change tracking';

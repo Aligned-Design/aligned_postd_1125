@@ -43,54 +43,144 @@
 -- Migration 003 should have backfilled correctly, but we handle NULLs gracefully.
 
 -- Strategy Briefs
-ALTER TABLE strategy_briefs
-ADD CONSTRAINT fk_strategy_briefs_brand_id_uuid
-FOREIGN KEY (brand_id_uuid) REFERENCES brands(id) ON DELETE CASCADE;
+DO $$
+BEGIN
+  BEGIN
+    ALTER TABLE strategy_briefs
+    ADD CONSTRAINT fk_strategy_briefs_brand_id_uuid
+    FOREIGN KEY (brand_id_uuid) REFERENCES brands(id) ON DELETE CASCADE;
+  EXCEPTION
+    WHEN duplicate_object THEN
+      -- Constraint already exists; do nothing
+      NULL;
+  END;
+END $$;
 
 -- Content Packages
-ALTER TABLE content_packages
-ADD CONSTRAINT fk_content_packages_brand_id_uuid
-FOREIGN KEY (brand_id_uuid) REFERENCES brands(id) ON DELETE CASCADE;
+DO $$
+BEGIN
+  BEGIN
+    ALTER TABLE content_packages
+    ADD CONSTRAINT fk_content_packages_brand_id_uuid
+    FOREIGN KEY (brand_id_uuid) REFERENCES brands(id) ON DELETE CASCADE;
+  EXCEPTION
+    WHEN duplicate_object THEN
+      -- Constraint already exists; do nothing
+      NULL;
+  END;
+END $$;
 
 -- Brand History
-ALTER TABLE brand_history
-ADD CONSTRAINT fk_brand_history_brand_id_uuid
-FOREIGN KEY (brand_id_uuid) REFERENCES brands(id) ON DELETE CASCADE;
+DO $$
+BEGIN
+  BEGIN
+    ALTER TABLE brand_history
+    ADD CONSTRAINT fk_brand_history_brand_id_uuid
+    FOREIGN KEY (brand_id_uuid) REFERENCES brands(id) ON DELETE CASCADE;
+  EXCEPTION
+    WHEN duplicate_object THEN
+      -- Constraint already exists; do nothing
+      NULL;
+  END;
+END $$;
 
 -- Brand Success Patterns
-ALTER TABLE brand_success_patterns
-ADD CONSTRAINT fk_brand_success_patterns_brand_id_uuid
-FOREIGN KEY (brand_id_uuid) REFERENCES brands(id) ON DELETE CASCADE;
+DO $$
+BEGIN
+  BEGIN
+    ALTER TABLE brand_success_patterns
+    ADD CONSTRAINT fk_brand_success_patterns_brand_id_uuid
+    FOREIGN KEY (brand_id_uuid) REFERENCES brands(id) ON DELETE CASCADE;
+  EXCEPTION
+    WHEN duplicate_object THEN
+      -- Constraint already exists; do nothing
+      NULL;
+  END;
+END $$;
 
 -- Collaboration Logs
-ALTER TABLE collaboration_logs
-ADD CONSTRAINT fk_collaboration_logs_brand_id_uuid
-FOREIGN KEY (brand_id_uuid) REFERENCES brands(id) ON DELETE CASCADE;
+DO $$
+BEGIN
+  BEGIN
+    ALTER TABLE collaboration_logs
+    ADD CONSTRAINT fk_collaboration_logs_brand_id_uuid
+    FOREIGN KEY (brand_id_uuid) REFERENCES brands(id) ON DELETE CASCADE;
+  EXCEPTION
+    WHEN duplicate_object THEN
+      -- Constraint already exists; do nothing
+      NULL;
+  END;
+END $$;
 
 -- Performance Logs
-ALTER TABLE performance_logs
-ADD CONSTRAINT fk_performance_logs_brand_id_uuid
-FOREIGN KEY (brand_id_uuid) REFERENCES brands(id) ON DELETE CASCADE;
+DO $$
+BEGIN
+  BEGIN
+    ALTER TABLE performance_logs
+    ADD CONSTRAINT fk_performance_logs_brand_id_uuid
+    FOREIGN KEY (brand_id_uuid) REFERENCES brands(id) ON DELETE CASCADE;
+  EXCEPTION
+    WHEN duplicate_object THEN
+      -- Constraint already exists; do nothing
+      NULL;
+  END;
+END $$;
 
 -- Platform Insights
-ALTER TABLE platform_insights
-ADD CONSTRAINT fk_platform_insights_brand_id_uuid
-FOREIGN KEY (brand_id_uuid) REFERENCES brands(id) ON DELETE CASCADE;
+DO $$
+BEGIN
+  BEGIN
+    ALTER TABLE platform_insights
+    ADD CONSTRAINT fk_platform_insights_brand_id_uuid
+    FOREIGN KEY (brand_id_uuid) REFERENCES brands(id) ON DELETE CASCADE;
+  EXCEPTION
+    WHEN duplicate_object THEN
+      -- Constraint already exists; do nothing
+      NULL;
+  END;
+END $$;
 
 -- Token Health
-ALTER TABLE token_health
-ADD CONSTRAINT fk_token_health_brand_id_uuid
-FOREIGN KEY (brand_id_uuid) REFERENCES brands(id) ON DELETE CASCADE;
+DO $$
+BEGIN
+  BEGIN
+    ALTER TABLE token_health
+    ADD CONSTRAINT fk_token_health_brand_id_uuid
+    FOREIGN KEY (brand_id_uuid) REFERENCES brands(id) ON DELETE CASCADE;
+  EXCEPTION
+    WHEN duplicate_object THEN
+      -- Constraint already exists; do nothing
+      NULL;
+  END;
+END $$;
 
 -- Weekly Summaries
-ALTER TABLE weekly_summaries
-ADD CONSTRAINT fk_weekly_summaries_brand_id_uuid
-FOREIGN KEY (brand_id_uuid) REFERENCES brands(id) ON DELETE CASCADE;
+DO $$
+BEGIN
+  BEGIN
+    ALTER TABLE weekly_summaries
+    ADD CONSTRAINT fk_weekly_summaries_brand_id_uuid
+    FOREIGN KEY (brand_id_uuid) REFERENCES brands(id) ON DELETE CASCADE;
+  EXCEPTION
+    WHEN duplicate_object THEN
+      -- Constraint already exists; do nothing
+      NULL;
+  END;
+END $$;
 
 -- Advisor Review Audits
-ALTER TABLE advisor_review_audits
-ADD CONSTRAINT fk_advisor_review_audits_brand_id_uuid
-FOREIGN KEY (brand_id_uuid) REFERENCES brands(id) ON DELETE CASCADE;
+DO $$
+BEGIN
+  BEGIN
+    ALTER TABLE advisor_review_audits
+    ADD CONSTRAINT fk_advisor_review_audits_brand_id_uuid
+    FOREIGN KEY (brand_id_uuid) REFERENCES brands(id) ON DELETE CASCADE;
+  EXCEPTION
+    WHEN duplicate_object THEN
+      -- Constraint already exists; do nothing
+      NULL;
+  END;
+END $$;
 
 -- ============================================================================
 -- STEP 2: Update RLS Policies to Use brand_id_uuid
@@ -108,51 +198,83 @@ DROP POLICY IF EXISTS "Admins can manage strategy_briefs" ON strategy_briefs;
 DROP POLICY IF EXISTS "Admins can delete strategy_briefs" ON strategy_briefs;
 
 -- New policies using brand_id_uuid
-CREATE POLICY "Brand members can view strategy briefs"
-  ON strategy_briefs FOR SELECT
-  USING (
-    brand_id_uuid IN (
-      SELECT brand_id FROM brand_members
-      WHERE user_id = auth.uid()
-    )
-    OR brand_id_uuid IN (
-      SELECT id FROM brands
-      WHERE created_by = auth.uid()
-    )
-  );
+DO $$
+BEGIN
+  BEGIN
+    CREATE POLICY "Brand members can view strategy briefs"
+      ON strategy_briefs FOR SELECT
+      USING (
+        brand_id_uuid IN (
+          SELECT brand_id FROM brand_members
+          WHERE user_id = auth.uid()
+        )
+        OR brand_id_uuid IN (
+          SELECT id FROM brands
+          WHERE created_by = auth.uid()
+        )
+      );
+  EXCEPTION
+    WHEN duplicate_object THEN
+      NULL;
+  END;
+END $$;
 
-CREATE POLICY "System can insert strategy_briefs"
-  ON strategy_briefs FOR INSERT
-  WITH CHECK (
-    auth.role() = 'service_role'
-    OR (
-      brand_id_uuid IN (
-        SELECT brand_id FROM brand_members
-        WHERE user_id = auth.uid()
-        AND role IN ('owner', 'admin')
-      )
-    )
-  );
+DO $$
+BEGIN
+  BEGIN
+    CREATE POLICY "System can insert strategy_briefs"
+      ON strategy_briefs FOR INSERT
+      WITH CHECK (
+        auth.role() = 'service_role'
+        OR (
+          brand_id_uuid IN (
+            SELECT brand_id FROM brand_members
+            WHERE user_id = auth.uid()
+            AND role IN ('owner', 'admin')
+          )
+        )
+      );
+  EXCEPTION
+    WHEN duplicate_object THEN
+      NULL;
+  END;
+END $$;
 
-CREATE POLICY "Admins can manage strategy_briefs"
-  ON strategy_briefs FOR UPDATE
-  USING (
-    brand_id_uuid IN (
-      SELECT brand_id FROM brand_members
-      WHERE user_id = auth.uid()
-      AND role IN ('owner', 'admin')
-    )
-  );
+DO $$
+BEGIN
+  BEGIN
+    CREATE POLICY "Admins can manage strategy_briefs"
+      ON strategy_briefs FOR UPDATE
+      USING (
+        brand_id_uuid IN (
+          SELECT brand_id FROM brand_members
+          WHERE user_id = auth.uid()
+          AND role IN ('owner', 'admin')
+        )
+      );
+  EXCEPTION
+    WHEN duplicate_object THEN
+      NULL;
+  END;
+END $$;
 
-CREATE POLICY "Admins can delete strategy_briefs"
-  ON strategy_briefs FOR DELETE
-  USING (
-    brand_id_uuid IN (
-      SELECT brand_id FROM brand_members
-      WHERE user_id = auth.uid()
-      AND role IN ('owner', 'admin')
-    )
-  );
+DO $$
+BEGIN
+  BEGIN
+    CREATE POLICY "Admins can delete strategy_briefs"
+      ON strategy_briefs FOR DELETE
+      USING (
+        brand_id_uuid IN (
+          SELECT brand_id FROM brand_members
+          WHERE user_id = auth.uid()
+          AND role IN ('owner', 'admin')
+        )
+      );
+  EXCEPTION
+    WHEN duplicate_object THEN
+      NULL;
+  END;
+END $$;
 
 -- ============================================================================
 -- 2. CONTENT_PACKAGES
@@ -163,50 +285,82 @@ DROP POLICY IF EXISTS "System can insert content packages" ON content_packages;
 DROP POLICY IF EXISTS "Brand members can update content packages" ON content_packages;
 DROP POLICY IF EXISTS "Admins can delete content packages" ON content_packages;
 
-CREATE POLICY "Brand members can view content packages"
-  ON content_packages FOR SELECT
-  USING (
-    brand_id_uuid IN (
-      SELECT brand_id FROM brand_members
-      WHERE user_id = auth.uid()
-    )
-    OR brand_id_uuid IN (
-      SELECT id FROM brands
-      WHERE created_by = auth.uid()
-    )
-  );
+DO $$
+BEGIN
+  BEGIN
+    CREATE POLICY "Brand members can view content packages"
+      ON content_packages FOR SELECT
+      USING (
+        brand_id_uuid IN (
+          SELECT brand_id FROM brand_members
+          WHERE user_id = auth.uid()
+        )
+        OR brand_id_uuid IN (
+          SELECT id FROM brands
+          WHERE created_by = auth.uid()
+        )
+      );
+  EXCEPTION
+    WHEN duplicate_object THEN
+      NULL;
+  END;
+END $$;
 
-CREATE POLICY "System can insert content packages"
-  ON content_packages FOR INSERT
-  WITH CHECK (
-    auth.role() = 'service_role'
-    OR (
-      brand_id_uuid IN (
-        SELECT brand_id FROM brand_members
-        WHERE user_id = auth.uid()
-        AND role IN ('owner', 'admin', 'editor', 'creator')
-      )
-    )
-  );
+DO $$
+BEGIN
+  BEGIN
+    CREATE POLICY "System can insert content packages"
+      ON content_packages FOR INSERT
+      WITH CHECK (
+        auth.role() = 'service_role'
+        OR (
+          brand_id_uuid IN (
+            SELECT brand_id FROM brand_members
+            WHERE user_id = auth.uid()
+            AND role IN ('owner', 'admin', 'editor', 'creator')
+          )
+        )
+      );
+  EXCEPTION
+    WHEN duplicate_object THEN
+      NULL;
+  END;
+END $$;
 
-CREATE POLICY "Brand members can update content packages"
-  ON content_packages FOR UPDATE
-  USING (
-    brand_id_uuid IN (
-      SELECT brand_id FROM brand_members
-      WHERE user_id = auth.uid()
-    )
-  );
+DO $$
+BEGIN
+  BEGIN
+    CREATE POLICY "Brand members can update content packages"
+      ON content_packages FOR UPDATE
+      USING (
+        brand_id_uuid IN (
+          SELECT brand_id FROM brand_members
+          WHERE user_id = auth.uid()
+        )
+      );
+  EXCEPTION
+    WHEN duplicate_object THEN
+      NULL;
+  END;
+END $$;
 
-CREATE POLICY "Admins can delete content packages"
-  ON content_packages FOR DELETE
-  USING (
-    brand_id_uuid IN (
-      SELECT brand_id FROM brand_members
-      WHERE user_id = auth.uid()
-      AND role IN ('owner', 'admin')
-    )
-  );
+DO $$
+BEGIN
+  BEGIN
+    CREATE POLICY "Admins can delete content packages"
+      ON content_packages FOR DELETE
+      USING (
+        brand_id_uuid IN (
+          SELECT brand_id FROM brand_members
+          WHERE user_id = auth.uid()
+          AND role IN ('owner', 'admin')
+        )
+      );
+  EXCEPTION
+    WHEN duplicate_object THEN
+      NULL;
+  END;
+END $$;
 
 -- ============================================================================
 -- 3. BRAND_HISTORY
@@ -217,39 +371,71 @@ DROP POLICY IF EXISTS "System can insert brand history" ON brand_history;
 DROP POLICY IF EXISTS "Deny updates to brand_history" ON brand_history;
 DROP POLICY IF EXISTS "Deny deletes to brand_history" ON brand_history;
 
-CREATE POLICY "Brand members can view brand history"
-  ON brand_history FOR SELECT
-  USING (
-    brand_id_uuid IN (
-      SELECT brand_id FROM brand_members
-      WHERE user_id = auth.uid()
-    )
-    OR brand_id_uuid IN (
-      SELECT id FROM brands
-      WHERE created_by = auth.uid()
-    )
-  );
+DO $$
+BEGIN
+  BEGIN
+    CREATE POLICY "Brand members can view brand history"
+      ON brand_history FOR SELECT
+      USING (
+        brand_id_uuid IN (
+          SELECT brand_id FROM brand_members
+          WHERE user_id = auth.uid()
+        )
+        OR brand_id_uuid IN (
+          SELECT id FROM brands
+          WHERE created_by = auth.uid()
+        )
+      );
+  EXCEPTION
+    WHEN duplicate_object THEN
+      NULL;
+  END;
+END $$;
 
-CREATE POLICY "System can insert brand history"
-  ON brand_history FOR INSERT
-  WITH CHECK (
-    auth.role() = 'service_role'
-    OR (
-      brand_id_uuid IN (
-        SELECT brand_id FROM brand_members
-        WHERE user_id = auth.uid()
-        AND role IN ('owner', 'admin')
-      )
-    )
-  );
+DO $$
+BEGIN
+  BEGIN
+    CREATE POLICY "System can insert brand history"
+      ON brand_history FOR INSERT
+      WITH CHECK (
+        auth.role() = 'service_role'
+        OR (
+          brand_id_uuid IN (
+            SELECT brand_id FROM brand_members
+            WHERE user_id = auth.uid()
+            AND role IN ('owner', 'admin')
+          )
+        )
+      );
+  EXCEPTION
+    WHEN duplicate_object THEN
+      NULL;
+  END;
+END $$;
 
-CREATE POLICY "Deny updates to brand_history"
-  ON brand_history FOR UPDATE
-  USING (false);
+DO $$
+BEGIN
+  BEGIN
+    CREATE POLICY "Deny updates to brand_history"
+      ON brand_history FOR UPDATE
+      USING (false);
+  EXCEPTION
+    WHEN duplicate_object THEN
+      NULL;
+  END;
+END $$;
 
-CREATE POLICY "Deny deletes to brand_history"
-  ON brand_history FOR DELETE
-  USING (false);
+DO $$
+BEGIN
+  BEGIN
+    CREATE POLICY "Deny deletes to brand_history"
+      ON brand_history FOR DELETE
+      USING (false);
+  EXCEPTION
+    WHEN duplicate_object THEN
+      NULL;
+  END;
+END $$;
 
 -- ============================================================================
 -- 4. BRAND_SUCCESS_PATTERNS
@@ -258,27 +444,43 @@ CREATE POLICY "Deny deletes to brand_history"
 DROP POLICY IF EXISTS "Brand members can view success patterns" ON brand_success_patterns;
 DROP POLICY IF EXISTS "System can manage success patterns" ON brand_success_patterns;
 
-CREATE POLICY "Brand members can view success patterns"
-  ON brand_success_patterns FOR SELECT
-  USING (
-    brand_id_uuid IN (
-      SELECT brand_id FROM brand_members
-      WHERE user_id = auth.uid()
-    )
-  );
+DO $$
+BEGIN
+  BEGIN
+    CREATE POLICY "Brand members can view success patterns"
+      ON brand_success_patterns FOR SELECT
+      USING (
+        brand_id_uuid IN (
+          SELECT brand_id FROM brand_members
+          WHERE user_id = auth.uid()
+        )
+      );
+  EXCEPTION
+    WHEN duplicate_object THEN
+      NULL;
+  END;
+END $$;
 
-CREATE POLICY "System can manage success patterns"
-  ON brand_success_patterns FOR ALL
-  WITH CHECK (
-    auth.role() = 'service_role'
-    OR (
-      brand_id_uuid IN (
-        SELECT brand_id FROM brand_members
-        WHERE user_id = auth.uid()
-        AND role IN ('owner', 'admin')
-      )
-    )
-  );
+DO $$
+BEGIN
+  BEGIN
+    CREATE POLICY "System can manage success patterns"
+      ON brand_success_patterns FOR ALL
+      WITH CHECK (
+        auth.role() = 'service_role'
+        OR (
+          brand_id_uuid IN (
+            SELECT brand_id FROM brand_members
+            WHERE user_id = auth.uid()
+            AND role IN ('owner', 'admin')
+          )
+        )
+      );
+  EXCEPTION
+    WHEN duplicate_object THEN
+      NULL;
+  END;
+END $$;
 
 -- ============================================================================
 -- 5. COLLABORATION_LOGS
@@ -289,26 +491,58 @@ DROP POLICY IF EXISTS "System can insert collaboration logs" ON collaboration_lo
 DROP POLICY IF EXISTS "Deny updates to collaboration_logs" ON collaboration_logs;
 DROP POLICY IF EXISTS "Deny deletes to collaboration_logs" ON collaboration_logs;
 
-CREATE POLICY "Brand members can view collaboration logs"
-  ON collaboration_logs FOR SELECT
-  USING (
-    brand_id_uuid IN (
-      SELECT brand_id FROM brand_members
-      WHERE user_id = auth.uid()
-    )
-  );
+DO $$
+BEGIN
+  BEGIN
+    CREATE POLICY "Brand members can view collaboration logs"
+      ON collaboration_logs FOR SELECT
+      USING (
+        brand_id_uuid IN (
+          SELECT brand_id FROM brand_members
+          WHERE user_id = auth.uid()
+        )
+      );
+  EXCEPTION
+    WHEN duplicate_object THEN
+      NULL;
+  END;
+END $$;
 
-CREATE POLICY "System can insert collaboration logs"
-  ON collaboration_logs FOR INSERT
-  WITH CHECK (auth.role() = 'service_role');
+DO $$
+BEGIN
+  BEGIN
+    CREATE POLICY "System can insert collaboration logs"
+      ON collaboration_logs FOR INSERT
+      WITH CHECK (auth.role() = 'service_role');
+  EXCEPTION
+    WHEN duplicate_object THEN
+      NULL;
+  END;
+END $$;
 
-CREATE POLICY "Deny updates to collaboration_logs"
-  ON collaboration_logs FOR UPDATE
-  USING (false);
+DO $$
+BEGIN
+  BEGIN
+    CREATE POLICY "Deny updates to collaboration_logs"
+      ON collaboration_logs FOR UPDATE
+      USING (false);
+  EXCEPTION
+    WHEN duplicate_object THEN
+      NULL;
+  END;
+END $$;
 
-CREATE POLICY "Deny deletes to collaboration_logs"
-  ON collaboration_logs FOR DELETE
-  USING (false);
+DO $$
+BEGIN
+  BEGIN
+    CREATE POLICY "Deny deletes to collaboration_logs"
+      ON collaboration_logs FOR DELETE
+      USING (false);
+  EXCEPTION
+    WHEN duplicate_object THEN
+      NULL;
+  END;
+END $$;
 
 -- ============================================================================
 -- 6. PERFORMANCE_LOGS
@@ -319,26 +553,58 @@ DROP POLICY IF EXISTS "System can insert performance logs" ON performance_logs;
 DROP POLICY IF EXISTS "Deny updates to performance_logs" ON performance_logs;
 DROP POLICY IF EXISTS "Deny deletes to performance_logs" ON performance_logs;
 
-CREATE POLICY "Brand members can view performance logs"
-  ON performance_logs FOR SELECT
-  USING (
-    brand_id_uuid IN (
-      SELECT brand_id FROM brand_members
-      WHERE user_id = auth.uid()
-    )
-  );
+DO $$
+BEGIN
+  BEGIN
+    CREATE POLICY "Brand members can view performance logs"
+      ON performance_logs FOR SELECT
+      USING (
+        brand_id_uuid IN (
+          SELECT brand_id FROM brand_members
+          WHERE user_id = auth.uid()
+        )
+      );
+  EXCEPTION
+    WHEN duplicate_object THEN
+      NULL;
+  END;
+END $$;
 
-CREATE POLICY "System can insert performance logs"
-  ON performance_logs FOR INSERT
-  WITH CHECK (auth.role() = 'service_role');
+DO $$
+BEGIN
+  BEGIN
+    CREATE POLICY "System can insert performance logs"
+      ON performance_logs FOR INSERT
+      WITH CHECK (auth.role() = 'service_role');
+  EXCEPTION
+    WHEN duplicate_object THEN
+      NULL;
+  END;
+END $$;
 
-CREATE POLICY "Deny updates to performance_logs"
-  ON performance_logs FOR UPDATE
-  USING (false);
+DO $$
+BEGIN
+  BEGIN
+    CREATE POLICY "Deny updates to performance_logs"
+      ON performance_logs FOR UPDATE
+      USING (false);
+  EXCEPTION
+    WHEN duplicate_object THEN
+      NULL;
+  END;
+END $$;
 
-CREATE POLICY "Deny deletes to performance_logs"
-  ON performance_logs FOR DELETE
-  USING (false);
+DO $$
+BEGIN
+  BEGIN
+    CREATE POLICY "Deny deletes to performance_logs"
+      ON performance_logs FOR DELETE
+      USING (false);
+  EXCEPTION
+    WHEN duplicate_object THEN
+      NULL;
+  END;
+END $$;
 
 -- ============================================================================
 -- 7. PLATFORM_INSIGHTS
@@ -347,27 +613,43 @@ CREATE POLICY "Deny deletes to performance_logs"
 DROP POLICY IF EXISTS "Brand members can view platform insights" ON platform_insights;
 DROP POLICY IF EXISTS "System can manage platform insights" ON platform_insights;
 
-CREATE POLICY "Brand members can view platform insights"
-  ON platform_insights FOR SELECT
-  USING (
-    brand_id_uuid IN (
-      SELECT brand_id FROM brand_members
-      WHERE user_id = auth.uid()
-    )
-  );
+DO $$
+BEGIN
+  BEGIN
+    CREATE POLICY "Brand members can view platform insights"
+      ON platform_insights FOR SELECT
+      USING (
+        brand_id_uuid IN (
+          SELECT brand_id FROM brand_members
+          WHERE user_id = auth.uid()
+        )
+      );
+  EXCEPTION
+    WHEN duplicate_object THEN
+      NULL;
+  END;
+END $$;
 
-CREATE POLICY "System can manage platform insights"
-  ON platform_insights FOR ALL
-  WITH CHECK (
-    auth.role() = 'service_role'
-    OR (
-      brand_id_uuid IN (
-        SELECT brand_id FROM brand_members
-        WHERE user_id = auth.uid()
-        AND role IN ('owner', 'admin')
-      )
-    )
-  );
+DO $$
+BEGIN
+  BEGIN
+    CREATE POLICY "System can manage platform insights"
+      ON platform_insights FOR ALL
+      WITH CHECK (
+        auth.role() = 'service_role'
+        OR (
+          brand_id_uuid IN (
+            SELECT brand_id FROM brand_members
+            WHERE user_id = auth.uid()
+            AND role IN ('owner', 'admin')
+          )
+        )
+      );
+  EXCEPTION
+    WHEN duplicate_object THEN
+      NULL;
+  END;
+END $$;
 
 -- ============================================================================
 -- 8. TOKEN_HEALTH
@@ -376,27 +658,43 @@ CREATE POLICY "System can manage platform insights"
 DROP POLICY IF EXISTS "Brand members can view token health" ON token_health;
 DROP POLICY IF EXISTS "System/admins can manage token health" ON token_health;
 
-CREATE POLICY "Brand members can view token health"
-  ON token_health FOR SELECT
-  USING (
-    brand_id_uuid IN (
-      SELECT brand_id FROM brand_members
-      WHERE user_id = auth.uid()
-    )
-  );
+DO $$
+BEGIN
+  BEGIN
+    CREATE POLICY "Brand members can view token health"
+      ON token_health FOR SELECT
+      USING (
+        brand_id_uuid IN (
+          SELECT brand_id FROM brand_members
+          WHERE user_id = auth.uid()
+        )
+      );
+  EXCEPTION
+    WHEN duplicate_object THEN
+      NULL;
+  END;
+END $$;
 
-CREATE POLICY "System/admins can manage token health"
-  ON token_health FOR ALL
-  WITH CHECK (
-    auth.role() = 'service_role'
-    OR (
-      brand_id_uuid IN (
-        SELECT brand_id FROM brand_members
-        WHERE user_id = auth.uid()
-        AND role IN ('owner', 'admin')
-      )
-    )
-  );
+DO $$
+BEGIN
+  BEGIN
+    CREATE POLICY "System/admins can manage token health"
+      ON token_health FOR ALL
+      WITH CHECK (
+        auth.role() = 'service_role'
+        OR (
+          brand_id_uuid IN (
+            SELECT brand_id FROM brand_members
+            WHERE user_id = auth.uid()
+            AND role IN ('owner', 'admin')
+          )
+        )
+      );
+  EXCEPTION
+    WHEN duplicate_object THEN
+      NULL;
+  END;
+END $$;
 
 -- ============================================================================
 -- 9. WEEKLY_SUMMARIES
@@ -405,18 +703,34 @@ CREATE POLICY "System/admins can manage token health"
 DROP POLICY IF EXISTS "Brand members can view weekly summaries" ON weekly_summaries;
 DROP POLICY IF EXISTS "System can manage weekly summaries" ON weekly_summaries;
 
-CREATE POLICY "Brand members can view weekly summaries"
-  ON weekly_summaries FOR SELECT
-  USING (
-    brand_id_uuid IN (
-      SELECT brand_id FROM brand_members
-      WHERE user_id = auth.uid()
-    )
-  );
+DO $$
+BEGIN
+  BEGIN
+    CREATE POLICY "Brand members can view weekly summaries"
+      ON weekly_summaries FOR SELECT
+      USING (
+        brand_id_uuid IN (
+          SELECT brand_id FROM brand_members
+          WHERE user_id = auth.uid()
+        )
+      );
+  EXCEPTION
+    WHEN duplicate_object THEN
+      NULL;
+  END;
+END $$;
 
-CREATE POLICY "System can manage weekly summaries"
-  ON weekly_summaries FOR ALL
-  WITH CHECK (auth.role() = 'service_role');
+DO $$
+BEGIN
+  BEGIN
+    CREATE POLICY "System can manage weekly summaries"
+      ON weekly_summaries FOR ALL
+      WITH CHECK (auth.role() = 'service_role');
+  EXCEPTION
+    WHEN duplicate_object THEN
+      NULL;
+  END;
+END $$;
 
 -- ============================================================================
 -- 10. ADVISOR_REVIEW_AUDITS
@@ -427,42 +741,194 @@ DROP POLICY IF EXISTS "System can insert advisor reviews" ON advisor_review_audi
 DROP POLICY IF EXISTS "Deny updates to advisor_review_audits" ON advisor_review_audits;
 DROP POLICY IF EXISTS "Deny deletes to advisor_review_audits" ON advisor_review_audits;
 
-CREATE POLICY "Brand members can view advisor reviews"
-  ON advisor_review_audits FOR SELECT
-  USING (
-    brand_id_uuid IN (
-      SELECT brand_id FROM brand_members
-      WHERE user_id = auth.uid()
-    )
-  );
+DO $$
+BEGIN
+  BEGIN
+    CREATE POLICY "Brand members can view advisor reviews"
+      ON advisor_review_audits FOR SELECT
+      USING (
+        brand_id_uuid IN (
+          SELECT brand_id FROM brand_members
+          WHERE user_id = auth.uid()
+        )
+      );
+  EXCEPTION
+    WHEN duplicate_object THEN
+      NULL;
+  END;
+END $$;
 
-CREATE POLICY "System can insert advisor reviews"
-  ON advisor_review_audits FOR INSERT
-  WITH CHECK (auth.role() = 'service_role');
+DO $$
+BEGIN
+  BEGIN
+    CREATE POLICY "System can insert advisor reviews"
+      ON advisor_review_audits FOR INSERT
+      WITH CHECK (auth.role() = 'service_role');
+  EXCEPTION
+    WHEN duplicate_object THEN
+      NULL;
+  END;
+END $$;
 
-CREATE POLICY "Deny updates to advisor_review_audits"
-  ON advisor_review_audits FOR UPDATE
-  USING (false);
+DO $$
+BEGIN
+  BEGIN
+    CREATE POLICY "Deny updates to advisor_review_audits"
+      ON advisor_review_audits FOR UPDATE
+      USING (false);
+  EXCEPTION
+    WHEN duplicate_object THEN
+      NULL;
+  END;
+END $$;
 
-CREATE POLICY "Deny deletes to advisor_review_audits"
-  ON advisor_review_audits FOR DELETE
-  USING (false);
+DO $$
+BEGIN
+  BEGIN
+    CREATE POLICY "Deny deletes to advisor_review_audits"
+      ON advisor_review_audits FOR DELETE
+      USING (false);
+  EXCEPTION
+    WHEN duplicate_object THEN
+      NULL;
+  END;
+END $$;
 
 -- ============================================================================
 -- STEP 3: Mark brand_id TEXT Columns as Deprecated
 -- ============================================================================
 -- DO NOT DROP - these columns remain for backward compatibility during transition
+-- Note: Migration 006 drops these columns, so these comments are conditional
 
-COMMENT ON COLUMN strategy_briefs.brand_id IS 'DEPRECATED: Use brand_id_uuid instead. This column will be removed in a future migration after all application code is updated.';
-COMMENT ON COLUMN content_packages.brand_id IS 'DEPRECATED: Use brand_id_uuid instead. This column will be removed in a future migration after all application code is updated.';
-COMMENT ON COLUMN brand_history.brand_id IS 'DEPRECATED: Use brand_id_uuid instead. This column will be removed in a future migration after all application code is updated.';
-COMMENT ON COLUMN brand_success_patterns.brand_id IS 'DEPRECATED: Use brand_id_uuid instead. This column will be removed in a future migration after all application code is updated.';
-COMMENT ON COLUMN collaboration_logs.brand_id IS 'DEPRECATED: Use brand_id_uuid instead. This column will be removed in a future migration after all application code is updated.';
-COMMENT ON COLUMN performance_logs.brand_id IS 'DEPRECATED: Use brand_id_uuid instead. This column will be removed in a future migration after all application code is updated.';
-COMMENT ON COLUMN platform_insights.brand_id IS 'DEPRECATED: Use brand_id_uuid instead. This column will be removed in a future migration after all application code is updated.';
-COMMENT ON COLUMN token_health.brand_id IS 'DEPRECATED: Use brand_id_uuid instead. This column will be removed in a future migration after all application code is removed.';
-COMMENT ON COLUMN weekly_summaries.brand_id IS 'DEPRECATED: Use brand_id_uuid instead. This column will be removed in a future migration after all application code is updated.';
-COMMENT ON COLUMN advisor_review_audits.brand_id IS 'DEPRECATED: Use brand_id_uuid instead. This column will be removed in a future migration after all application code is updated.';
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'strategy_briefs'
+      AND column_name = 'brand_id'
+  ) THEN
+    COMMENT ON COLUMN strategy_briefs.brand_id IS 'DEPRECATED: Use brand_id_uuid instead. This column will be removed in a future migration after all application code is updated.';
+  END IF;
+END $$;
+
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'content_packages'
+      AND column_name = 'brand_id'
+  ) THEN
+    COMMENT ON COLUMN content_packages.brand_id IS 'DEPRECATED: Use brand_id_uuid instead. This column will be removed in a future migration after all application code is updated.';
+  END IF;
+END $$;
+
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'brand_history'
+      AND column_name = 'brand_id'
+  ) THEN
+    COMMENT ON COLUMN brand_history.brand_id IS 'DEPRECATED: Use brand_id_uuid instead. This column will be removed in a future migration after all application code is updated.';
+  END IF;
+END $$;
+
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'brand_success_patterns'
+      AND column_name = 'brand_id'
+  ) THEN
+    COMMENT ON COLUMN brand_success_patterns.brand_id IS 'DEPRECATED: Use brand_id_uuid instead. This column will be removed in a future migration after all application code is updated.';
+  END IF;
+END $$;
+
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'collaboration_logs'
+      AND column_name = 'brand_id'
+  ) THEN
+    COMMENT ON COLUMN collaboration_logs.brand_id IS 'DEPRECATED: Use brand_id_uuid instead. This column will be removed in a future migration after all application code is updated.';
+  END IF;
+END $$;
+
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'performance_logs'
+      AND column_name = 'brand_id'
+  ) THEN
+    COMMENT ON COLUMN performance_logs.brand_id IS 'DEPRECATED: Use brand_id_uuid instead. This column will be removed in a future migration after all application code is updated.';
+  END IF;
+END $$;
+
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'platform_insights'
+      AND column_name = 'brand_id'
+  ) THEN
+    COMMENT ON COLUMN platform_insights.brand_id IS 'DEPRECATED: Use brand_id_uuid instead. This column will be removed in a future migration after all application code is updated.';
+  END IF;
+END $$;
+
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'token_health'
+      AND column_name = 'brand_id'
+  ) THEN
+    COMMENT ON COLUMN token_health.brand_id IS 'DEPRECATED: Use brand_id_uuid instead. This column will be removed in a future migration after all application code is removed.';
+  END IF;
+END $$;
+
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'weekly_summaries'
+      AND column_name = 'brand_id'
+  ) THEN
+    COMMENT ON COLUMN weekly_summaries.brand_id IS 'DEPRECATED: Use brand_id_uuid instead. This column will be removed in a future migration after all application code is updated.';
+  END IF;
+END $$;
+
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'advisor_review_audits'
+      AND column_name = 'brand_id'
+  ) THEN
+    COMMENT ON COLUMN advisor_review_audits.brand_id IS 'DEPRECATED: Use brand_id_uuid instead. This column will be removed in a future migration after all application code is updated.';
+  END IF;
+END $$;
 
 -- Update brand_id_uuid column comments to indicate they are now primary
 COMMENT ON COLUMN strategy_briefs.brand_id_uuid IS 'Primary brand identifier (UUID). Replaces deprecated brand_id TEXT column.';

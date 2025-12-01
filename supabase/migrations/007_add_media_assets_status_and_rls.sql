@@ -20,15 +20,11 @@ WHERE status IS NULL;
 CREATE INDEX IF NOT EXISTS idx_media_assets_brand_status
 ON media_assets (brand_id, status);
 
--- STEP 4: Add INSERT policy for brand members (only if it doesn't exist)
+-- STEP 4: Add INSERT policy for brand members
 -- Allows users to insert media assets for brands they belong to
 DO $$
 BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_policies 
-    WHERE policyname = 'Brand members can insert media assets'
-      AND tablename = 'media_assets'
-  ) THEN
+  BEGIN
     CREATE POLICY "Brand members can insert media assets"
     ON media_assets
     FOR INSERT
@@ -40,19 +36,19 @@ BEGIN
           AND brand_members.user_id = auth.uid()
       )
     );
-  END IF;
+  EXCEPTION
+    WHEN duplicate_object THEN
+      -- Policy already exists; do nothing
+      NULL;
+  END;
 END $$;
 
--- STEP 5: Add UPDATE policy for brand members (only if it doesn't exist)
+-- STEP 5: Add UPDATE policy for brand members
 -- Allows users to update media assets for brands they belong to
 -- Useful for soft deletes (status = 'deleted') or metadata updates
 DO $$
 BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_policies 
-    WHERE policyname = 'Brand members can update media assets'
-      AND tablename = 'media_assets'
-  ) THEN
+  BEGIN
     CREATE POLICY "Brand members can update media assets"
     ON media_assets
     FOR UPDATE
@@ -72,7 +68,11 @@ BEGIN
           AND brand_members.user_id = auth.uid()
       )
     );
-  END IF;
+  EXCEPTION
+    WHEN duplicate_object THEN
+      -- Policy already exists; do nothing
+      NULL;
+  END;
 END $$;
 
 -- Note: Service-role key bypasses RLS by default in Supabase

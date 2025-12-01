@@ -3,9 +3,13 @@
 -- Created: 2025-01-20
 -- Description: Creates brand_guide_versions table for tracking Brand Guide changes
 --              Includes RLS policies for tenant isolation
+-- NOTE: Migration 001 already creates this table for fresh installs.
+--       This migration exists for backward compatibility with existing databases
+--       where it ran before 001 was updated. It is now idempotent and safe.
 -- ============================================================================
 
 -- Brand Guide Versions table
+-- Note: Already created in migration 001, but IF NOT EXISTS makes this safe
 CREATE TABLE IF NOT EXISTS brand_guide_versions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   brand_id UUID NOT NULL REFERENCES brands(id) ON DELETE CASCADE,
@@ -21,24 +25,36 @@ CREATE TABLE IF NOT EXISTS brand_guide_versions (
 );
 
 -- Indexes for performance
+-- Note: Already created in migration 001, but IF NOT EXISTS makes this safe
 CREATE INDEX IF NOT EXISTS idx_brand_guide_versions_brand_id ON brand_guide_versions(brand_id);
 CREATE INDEX IF NOT EXISTS idx_brand_guide_versions_version ON brand_guide_versions(brand_id, version DESC);
 CREATE INDEX IF NOT EXISTS idx_brand_guide_versions_created_at ON brand_guide_versions(brand_id, created_at DESC);
 
 -- Enable RLS
+-- Note: Already enabled in migration 001, but ALTER TABLE is idempotent
 ALTER TABLE brand_guide_versions ENABLE ROW LEVEL SECURITY;
 
 -- RLS Policy: Users can only view version history for brands they are members of
-CREATE POLICY "Users can view brand guide versions for their brands"
-  ON brand_guide_versions
-  FOR SELECT
-  USING (
-    EXISTS (
-      SELECT 1 FROM brand_members
-      WHERE brand_members.brand_id = brand_guide_versions.brand_id
-      AND brand_members.user_id = auth.uid()
-    )
-  );
+-- Note: Already created in migration 001, but exception handling makes this safe
+DO $$
+BEGIN
+  BEGIN
+    CREATE POLICY "Users can view brand guide versions for their brands"
+      ON brand_guide_versions
+      FOR SELECT
+      USING (
+        EXISTS (
+          SELECT 1 FROM brand_members
+          WHERE brand_members.brand_id = brand_guide_versions.brand_id
+          AND brand_members.user_id = auth.uid()
+        )
+      );
+  EXCEPTION
+    WHEN duplicate_object THEN
+      -- Policy already exists (from migration 001); do nothing
+      NULL;
+  END;
+END $$;
 
 -- RLS Policy: System can insert version history (via service role)
 -- Note: This is handled by the server-side code using service role
@@ -46,26 +62,54 @@ CREATE POLICY "Users can view brand guide versions for their brands"
 
 -- RLS Policy: Users cannot update version history
 -- Version history is append-only for audit trail integrity
-CREATE POLICY "Version history cannot be updated"
-  ON brand_guide_versions
-  FOR UPDATE
-  USING (false)
-  WITH CHECK (false);
+DO $$
+BEGIN
+  BEGIN
+    CREATE POLICY "Version history cannot be updated"
+      ON brand_guide_versions
+      FOR UPDATE
+      USING (false)
+      WITH CHECK (false);
+  EXCEPTION
+    WHEN duplicate_object THEN
+      -- Policy already exists (from migration 001); do nothing
+      NULL;
+  END;
+END $$;
 
 -- RLS Policy: Users cannot delete version history
 -- Version history is append-only for audit trail integrity
-CREATE POLICY "Version history cannot be deleted"
-  ON brand_guide_versions
-  FOR DELETE
-  USING (false);
+DO $$
+BEGIN
+  BEGIN
+    CREATE POLICY "Version history cannot be deleted"
+      ON brand_guide_versions
+      FOR DELETE
+      USING (false);
+  EXCEPTION
+    WHEN duplicate_object THEN
+      -- Policy already exists (from migration 001); do nothing
+      NULL;
+  END;
+END $$;
 
 -- Add updated_at trigger (for consistency, though updates are blocked)
-CREATE TRIGGER update_brand_guide_versions_updated_at
-  BEFORE UPDATE ON brand_guide_versions
-  FOR EACH ROW
-  EXECUTE FUNCTION update_updated_at();
+-- Note: Already created in migration 001, but exception handling makes this safe
+DO $$
+BEGIN
+  BEGIN
+    CREATE TRIGGER update_brand_guide_versions_updated_at
+      BEFORE UPDATE ON brand_guide_versions
+      FOR EACH ROW
+      EXECUTE FUNCTION update_updated_at();
+  EXCEPTION
+    WHEN duplicate_object THEN
+      -- Trigger already exists (from migration 001); do nothing
+      NULL;
+  END;
+END $$;
 
--- Add comment
+-- Add comments (idempotent - COMMENT ON can be run multiple times)
 COMMENT ON TABLE brand_guide_versions IS 'Tracks all versions of Brand Guide for audit trail, rollback, and change tracking';
 COMMENT ON COLUMN brand_guide_versions.brand_guide IS 'JSONB snapshot of Brand Guide at this version';
 COMMENT ON COLUMN brand_guide_versions.changed_fields IS 'Array of field paths that changed in this version (e.g., ["identity.name", "voiceAndTone.tone"])';

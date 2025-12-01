@@ -41,16 +41,25 @@ CREATE INDEX IF NOT EXISTS idx_generation_logs_bfs_score ON generation_logs(bfs_
 ALTER TABLE generation_logs ENABLE ROW LEVEL SECURITY;
 
 -- RLS Policy: Users can view logs for brands they're members of
-CREATE POLICY "Users can view generation logs for their brands"
-  ON generation_logs
-  FOR SELECT
-  USING (
-    EXISTS (
-      SELECT 1 FROM brand_members
-      WHERE brand_members.brand_id = generation_logs.brand_id
-      AND brand_members.user_id = auth.uid()
-    )
-  );
+DO $$
+BEGIN
+  BEGIN
+    CREATE POLICY "Users can view generation logs for their brands"
+      ON generation_logs
+      FOR SELECT
+      USING (
+        EXISTS (
+          SELECT 1 FROM brand_members
+          WHERE brand_members.brand_id = generation_logs.brand_id
+          AND brand_members.user_id = auth.uid()
+        )
+      );
+  EXCEPTION
+    WHEN duplicate_object THEN
+      -- Policy already exists; do nothing
+      NULL;
+  END;
+END $$;
 
 -- RLS Policy: Service role can insert/update (via API)
 -- Regular users cannot insert directly (only via API which uses service role)
