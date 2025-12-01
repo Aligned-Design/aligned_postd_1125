@@ -144,10 +144,11 @@ async function main() {
   // Test 3: User1 can see brand's strategy_briefs
   logInfo('Test 3: User1 (owner) can see brand\'s strategy_briefs');
   try {
+    // Use brand_id_uuid (UUID) instead of brand_id (TEXT) - migration 005
     const { data, error } = await user1Client
       .from('strategy_briefs')
       .select('*')
-      .eq('brand_id', TEST_BRAND_ID);
+      .eq('brand_id_uuid', TEST_BRAND_ID);
 
     if (error) {
       logError(`Unexpected error: ${error.message}`);
@@ -167,10 +168,11 @@ async function main() {
   // Test 4: User2 can see brand's strategy_briefs (member)
   logInfo('Test 4: User2 (member) can see brand\'s strategy_briefs');
   try {
+    // Use brand_id_uuid (UUID) instead of brand_id (TEXT) - migration 005
     const { data, error } = await user2Client
       .from('strategy_briefs')
       .select('*')
-      .eq('brand_id', TEST_BRAND_ID);
+      .eq('brand_id_uuid', TEST_BRAND_ID);
 
     if (error) {
       logError(`Unexpected error: ${error.message}`);
@@ -190,10 +192,11 @@ async function main() {
   // Test 5: User2 cannot insert strategy_briefs (non-admin)
   logInfo('Test 5: User2 (member) cannot insert strategy_briefs');
   try {
+    // Use brand_id_uuid (UUID) instead of brand_id (TEXT) - migration 005
     const { data, error } = await user2Client
       .from('strategy_briefs')
       .insert({
-        brand_id: TEST_BRAND_ID,
+        brand_id_uuid: TEST_BRAND_ID, // UUID - primary identifier (migration 005)
         request_id: 'test-req-blocked',
         cycle_id: 'test-cycle',
         version: 'v1',
@@ -237,10 +240,11 @@ async function main() {
   // Test 6: Service role can insert strategy_briefs
   logInfo('Test 6: Service role can insert strategy_briefs');
   try {
+    // Use brand_id_uuid (UUID) instead of brand_id (TEXT) - migration 005
     const { data, error } = await serviceClient
       .from('strategy_briefs')
       .insert({
-        brand_id: TEST_BRAND_ID,
+        brand_id_uuid: TEST_BRAND_ID, // UUID - primary identifier (migration 005)
         request_id: 'test-req-service',
         cycle_id: 'test-cycle',
         version: 'v1',
@@ -274,10 +278,11 @@ async function main() {
   // Test 7: User1 can see brand's content_packages
   logInfo('Test 7: User1 can see brand\'s content_packages');
   try {
+    // Use brand_id_uuid (UUID) instead of brand_id (TEXT) - migration 005
     const { data, error } = await user1Client
       .from('content_packages')
       .select('*')
-      .eq('brand_id', TEST_BRAND_ID);
+      .eq('brand_id_uuid', TEST_BRAND_ID);
 
     if (error) {
       logError(`Unexpected error: ${error.message}`);
@@ -297,10 +302,11 @@ async function main() {
   // Test 8: Immutable logs cannot be updated (brand_history)
   logInfo('Test 8: Immutable logs (brand_history) cannot be updated');
   try {
+    // Use brand_id_uuid (UUID) instead of brand_id (TEXT) - migration 005
     const { error } = await user1Client
       .from('brand_history')
       .update({ action: 'modified' })
-      .eq('brand_id', TEST_BRAND_ID)
+      .eq('brand_id_uuid', TEST_BRAND_ID)
       .limit(1);
 
     if (error) {
@@ -330,10 +336,11 @@ async function main() {
   // Test 9: Immutable logs cannot be deleted (collaboration_logs)
   logInfo('Test 9: Immutable logs (collaboration_logs) cannot be deleted');
   try {
+    // Use brand_id_uuid (UUID) instead of brand_id (TEXT) - migration 005
     const { error } = await user1Client
       .from('collaboration_logs')
       .delete()
-      .eq('brand_id', TEST_BRAND_ID)
+      .eq('brand_id_uuid', TEST_BRAND_ID)
       .limit(1);
 
     if (error) {

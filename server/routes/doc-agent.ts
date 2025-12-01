@@ -2,6 +2,10 @@
  * Doc Agent API Route
  * 
  * Handles requests to generate on-brand text content (captions, emails, blogs, ads, etc.).
+ * 
+ * @response Returns `AiDocGenerationResponse` directly (not wrapped in { success: true } envelope).
+ * This is intentional to maintain backward compatibility with existing clients.
+ * The response includes: variants[], brandContext, request, metadata, warnings, status.
  */
 
 import { RequestHandler } from "express";

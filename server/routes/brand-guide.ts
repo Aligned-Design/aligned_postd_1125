@@ -106,14 +106,6 @@ router.get("/:brandId", authenticateUser, async (req, res, next) => {
       brandKit.longFormSummary // Include long-form summary in hasBrandGuide check
     );
 
-    // ✅ LOGGING: Brand Guide query with IDs (after hasBrandGuide calculation)
-    console.log("[BrandGuide] Query complete", {
-      tenantId: tenantId,
-      brandId: brandId,
-      assetsCount: scrapedImages.length,
-      hasBrandKit: hasBrandGuide,
-    });
-
     // Build approvedAssets with scraped images
     const approvedAssets = brandKit.approvedAssets || {
       uploadedPhotos: [],
@@ -198,7 +190,7 @@ router.get("/:brandId", authenticateUser, async (req, res, next) => {
     };
 
     // Return 200 with hasBrandGuide flag (never 404 if brand exists)
-    (res as any).json({
+    return res.status(HTTP_STATUS.OK).json({
       success: true,
       brandGuide,
       hasBrandGuide,
@@ -246,20 +238,6 @@ router.put("/:brandId", authenticateUser, async (req, res, next) => {
 
     // Apply defaults for missing fields
     const validatedBrandGuide = applyBrandGuideDefaults(brandGuide);
-    
-    // Include warnings in response (non-blocking)
-    const responseData: any = {
-      success: true,
-      brandGuide: {
-        ...validatedBrandGuide,
-        updatedAt: updatedBrand.updated_at,
-      },
-      message: "Brand Guide updated successfully",
-    };
-    
-    if (validation.warnings.length > 0) {
-      responseData.validationWarnings = validation.warnings;
-    }
 
     // Map BrandGuide interface to Supabase structure
     const brandKit: any = {
@@ -402,7 +380,7 @@ router.put("/:brandId", authenticateUser, async (req, res, next) => {
       responseData.validationWarnings = validation.warnings;
     }
 
-    (res as any).json(responseData);
+    return res.status(HTTP_STATUS.OK).json(responseData);
   } catch (error) {
     next(error);
   }
@@ -675,7 +653,7 @@ router.patch("/:brandId", authenticateUser, async (req, res, next) => {
       responseData.validationWarnings = finalValidation.warnings;
     }
     
-    (res as any).json(responseData);
+    return res.status(HTTP_STATUS.OK).json(responseData);
   } catch (error) {
     next(error);
   }
@@ -694,7 +672,7 @@ router.get("/:brandId/versions", authenticateUser, async (req, res, next) => {
 
     const versions = await getVersionHistory(brandId);
 
-    (res as any).json({
+    return res.status(HTTP_STATUS.OK).json({
       success: true,
       versions,
     });
@@ -736,7 +714,7 @@ router.get("/:brandId/versions/:version", authenticateUser, async (req, res, nex
       );
     }
 
-    (res as any).json({
+    return res.status(HTTP_STATUS.OK).json({
       success: true,
       version: versionData,
     });
@@ -896,7 +874,7 @@ router.post("/:brandId/rollback/:version", authenticateUser, async (req, res, ne
       }
     }
 
-    (res as any).json({
+    return res.status(HTTP_STATUS.OK).json({
       success: true,
       message: `Brand Guide rolled back to version ${versionNumber}`,
       brandGuide: updatedBrandGuide,

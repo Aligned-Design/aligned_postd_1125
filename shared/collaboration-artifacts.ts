@@ -113,6 +113,12 @@ export interface ContentPackage {
       emotion: string; // Emotional tone (e.g., "energetic", "calm", "professional")
       layoutStyle: string; // Layout description (e.g., "centered", "asymmetric", "grid")
       aspectRatio: string; // e.g., "1:1", "9:16", "16:9"
+      // ✅ PHASE 4: Extended fields for Design Agent variants (backward-compatible)
+      variantLabel?: string; // Variant label/name
+      brandFidelityScore?: number; // BFS score for this variant
+      source?: string; // Source of visual (e.g., "design_agent_make_on_brand", "template", "upload")
+      selected?: boolean; // Whether this variant was selected by user
+      selectedAt?: string; // ISO timestamp when variant was selected
     };
     performanceInsights?: {
       basedOnTrend?: string; // What performance trend influenced this

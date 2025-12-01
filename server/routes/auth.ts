@@ -19,12 +19,32 @@ const router = Router();
  * Create a new user account with Supabase Auth
  * Automatically creates/retrieves tenant/workspace
  */
+/**
+ * POST /api/auth/signup
+ * Create a new user account with Supabase Auth
+ * 
+ * Purpose: Register a new user and automatically create/retrieve tenant/workspace
+ * 
+ * Request Body:
+ * - email (string, required): User email address
+ * - password (string, required): User password (min 6 characters)
+ * - name (string, optional): User's full name
+ * - role (string, optional): User role (default: "single_business")
+ * 
+ * Response Schema:
+ * Success (200):
+ * - { success: true, user: {...}, tokens: {...} }
+ * 
+ * Error (4xx/5xx):
+ * - { error: { code: string, message: string, severity: string, timestamp: string } }
+ */
 router.post("/signup", (async (req, res, next) => {
   try {
     // ✅ STEP 0: Log incoming request
     console.log("[Auth] 📥 Signup request received", {
       body: { email: req.body?.email, hasPassword: !!req.body?.password, name: req.body?.name, role: req.body?.role },
       headers: { contentType: req.headers["content-type"] },
+      requestId: (req as any).id,
     });
 
     const { email, password, name, role = "single_business" } = req.body;
@@ -361,7 +381,7 @@ router.post("/signup", (async (req, res, next) => {
       userId: response.user.id,
     });
 
-    res.status(200).json(response);
+    return res.status(HTTP_STATUS.OK).json(response);
   } catch (error) {
     next(error);
   }
@@ -544,7 +564,7 @@ router.post("/login", (async (req, res, next) => {
       brandCount: brandIds.length,
     });
 
-    (res as any).json({
+    return res.status(HTTP_STATUS.OK).json({
       success: true,
       user: {
         id: userId,
@@ -575,7 +595,7 @@ router.post("/logout", (async (req, res, next) => {
       // For now, just return success
     }
 
-    (res as any).json({
+    return res.status(HTTP_STATUS.OK).json({
       success: true,
       message: "Logged out successfully",
     });
@@ -636,7 +656,7 @@ router.get("/me", (async (req, res, next) => {
 
     const brandIds = brandMemberships?.map((bm) => bm.brand_id) || [];
 
-    (res as any).json({
+    return res.status(HTTP_STATUS.OK).json({
       success: true,
       user: {
         id: userId,
@@ -704,18 +724,17 @@ router.post("/forgot-password", (async (req, res, next) => {
       console.error("[Auth] Password reset error:", resetError);
       // Don't reveal if email exists or not (security best practice)
       // Always return success to prevent email enumeration
-      res.json({
+      return res.status(HTTP_STATUS.OK).json({
         success: true,
         message: "If an account exists with this email, a password reset link has been sent.",
       });
-      return;
     }
 
     console.log("[Auth] ✅ Password reset email sent", {
       email: email,
     });
 
-    res.json({
+    return res.status(HTTP_STATUS.OK).json({
       success: true,
       message: "If an account exists with this email, a password reset link has been sent.",
     });

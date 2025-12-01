@@ -39,6 +39,15 @@ const MOCK_MILESTONES = [
 /**
  * GET /api/milestones
  * Fetch all milestones for the current workspace
+ * 
+ * Purpose: Retrieve milestone tracking data for the authenticated workspace
+ * 
+ * Response Schema:
+ * Success (200):
+ * - { success: true, milestones: [...], total?: number }
+ * 
+ * Error (4xx/5xx):
+ * - { error: { code: string, message: string, severity: string, timestamp: string } }
  */
 router.get("/", (async (req, res, next) => {
   try {
@@ -48,7 +57,11 @@ router.get("/", (async (req, res, next) => {
       process.env.NODE_ENV === "development";
 
     if (useMocks) {
-      return (res as any).json({ success: true, milestones: MOCK_MILESTONES });
+      return res.status(HTTP_STATUS.OK).json({ 
+        success: true, 
+        milestones: MOCK_MILESTONES,
+        total: MOCK_MILESTONES.length,
+      });
     }
 
     // Get workspaceId from authenticated session or header fallback
@@ -58,12 +71,53 @@ router.get("/", (async (req, res, next) => {
       (req.headers["x-workspace-id"] as string) ||
       "default-workspace";
 
-    const milestones = await getMilestones(workspaceId);
-    (res as any).json({ success: true, milestones });
+    try {
+      const milestones = await getMilestones(workspaceId);
+      return res.status(HTTP_STATUS.OK).json({ 
+        success: true, 
+        milestones: milestones || [],
+        total: milestones?.length || 0,
+      });
+    } catch (dbError) {
+      // ✅ LOG ERROR: Database errors should be logged
+      console.error("[Milestone] Failed to fetch milestones from database:", {
+        error: dbError instanceof Error ? dbError.message : String(dbError),
+        workspaceId,
+        requestId: (req as any).id,
+      });
+      
+      // ✅ GRACEFUL FALLBACK: Return empty array instead of error
+      // This prevents UI failures when milestones service is unavailable
+      return res.status(HTTP_STATUS.OK).json({ 
+        success: true, 
+        milestones: [], 
+        total: 0,
+      });
+    }
   } catch (err) {
-    console.error("[Milestone] Failed to fetch milestones:", err);
-    // Graceful fallback: return empty array instead of error
-    (res as any).json({ success: true, milestones: [], total: 0 });
+    // ✅ LOG ERROR: Unexpected errors should be logged
+    console.error("[Milestone] Unexpected error in milestones route:", {
+      error: err instanceof Error ? err.message : String(err),
+      stack: err instanceof Error ? err.stack : undefined,
+      requestId: (req as any).id,
+    });
+    
+    // ✅ RESPONSE: Pass to error middleware for consistent error handling
+    if (err instanceof AppError) {
+      return next(err);
+    }
+    
+    // Wrap unknown errors
+    return next(
+      new AppError(
+        ErrorCode.INTERNAL_ERROR,
+        err instanceof Error ? err.message : "Failed to fetch milestones",
+        HTTP_STATUS.INTERNAL_SERVER_ERROR,
+        "error",
+        { originalError: err instanceof Error ? err.message : String(err) },
+        "Please try again later"
+      )
+    );
   }
 }) as RequestHandler);
 

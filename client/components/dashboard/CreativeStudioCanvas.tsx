@@ -103,7 +103,7 @@ export function CreativeStudioCanvas({
         const targetRatio = w / h;
         const currentRatio = prev.width / prev.height;
 
-        let newCrop = { ...prev, aspectRatio: cropAspectRatio };
+        const newCrop = { ...prev, aspectRatio: cropAspectRatio };
 
         if (cropAspectRatio !== "free") {
           if (currentRatio > targetRatio) {
@@ -251,7 +251,7 @@ export function CreativeStudioCanvas({
         const mouseX = Math.max(0, Math.min(1, (e.clientX - rect.left - itemX) / itemWidth));
         const mouseY = Math.max(0, Math.min(1, (e.clientY - rect.top - itemY) / itemHeight));
 
-        let newCrop = { ...cropState };
+        const newCrop = { ...cropState };
 
         // Calculate new crop bounds based on handle
         // Minimum crop size: 10% of image (0.1) to prevent disappearing crop

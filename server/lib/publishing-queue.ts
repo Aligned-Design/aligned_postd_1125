@@ -586,10 +586,16 @@ export class PublishingQueue {
 
     // Persist to database
     try {
-      // Convert status to string for database update
-      const statusString = update.status ? String(update.status) : undefined;
-      if (statusString) {
-        await publishingDBService.updateJobStatus(jobId, statusString as "pending" | "processing" | "published" | "failed" | "cancelled" | "scheduled");
+      // Update job status in database
+      // Note: Database supports "scheduled" status, but shared type doesn't include it
+      // We handle this by converting to a valid status string
+      if (update.status) {
+        const statusString = String(update.status);
+        // Database accepts "scheduled" even though shared type doesn't include it
+        await publishingDBService.updateJobStatus(
+          jobId, 
+          statusString as "pending" | "processing" | "published" | "failed" | "cancelled" | "scheduled"
+        );
       }
     } catch (error) {
       // Critical: log database update failure
@@ -606,11 +612,13 @@ export class PublishingQueue {
       );
     }
 
-    // Emit status update event
-    this.emitStatusUpdate(job);
+    // Emit status update event (fire and forget)
+    this.emitStatusUpdate(job).catch(() => {
+      // Silently handle errors - logging is done inside emitStatusUpdate
+    });
   }
 
-  private emitStatusUpdate(job: PublishingJob): void {
+  private async emitStatusUpdate(job: PublishingJob): Promise<void> {
     // Broadcast real-time status updates via WebSocket
     try {
       switch (job.status) {

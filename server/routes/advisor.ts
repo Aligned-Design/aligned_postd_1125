@@ -2,6 +2,10 @@
  * Advisor API Route
  * 
  * Handles requests to the AI Advisor endpoint for generating marketing insights.
+ * 
+ * @response Returns `AdvisorResponse` directly (not wrapped in { success: true } envelope).
+ * This is intentional to maintain backward compatibility with existing clients.
+ * The response includes: insights[], brandContext, request, metadata, warnings, compliance, rawModelInfo.
  */
 
 import { RequestHandler } from "express";

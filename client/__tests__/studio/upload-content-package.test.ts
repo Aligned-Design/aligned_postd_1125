@@ -28,6 +28,7 @@ describe("upload-content-package", () => {
         y: 0,
         width: 1080,
         height: 1080,
+        rotation: 0,
         zIndex: 1,
       },
       {
@@ -38,6 +39,7 @@ describe("upload-content-package", () => {
         y: 100,
         width: 500,
         height: 100,
+        rotation: 0,
         fontSize: 48,
         fontWeight: "bold",
         fontFamily: "Arial",
@@ -141,6 +143,7 @@ describe("upload-content-package", () => {
           y: 0,
           width: 1080,
           height: 1080,
+          rotation: 0,
           zIndex: 1,
         },
       ],

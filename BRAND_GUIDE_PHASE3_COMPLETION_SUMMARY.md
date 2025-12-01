@@ -504,6 +504,17 @@ The following flows should be manually tested in the browser to verify end-to-en
 
 ---
 
+## 🧹 POST-VERIFICATION CLEANUPS
+
+After Phase 3 completion, the following light cleanups were applied:
+
+### Files Touched
+
+1. **`server/routes/brand-guide.ts`**
+   - **Why**: Removed noisy `console.log` from GET route (line 110) that logged on every Brand Guide query. Error logging and validation warnings remain in place.
+
+---
+
 ## 📚 RELATED DOCUMENTATION
 
 - `BRAND_GUIDE_PHASE3_FIXES_APPLIED.md` - Fixes applied in Phase 3
@@ -511,6 +522,60 @@ The following flows should be manually tested in the browser to verify end-to-en
 - `BRAND_GUIDE_UI_PHASE2_SUMMARY.md` - Phase 2 UI implementation
 - `BRAND_GUIDE_HARDENING_IMPLEMENTATION_SUMMARY.md` - Phase 1 implementation
 - `BRAND_GUIDE_FINAL_VERIFICATION_REPORT.md` - Previous verification report
+
+---
+
+## 🔒 CHANGE MANAGEMENT NOTES
+
+**Status**: Brand Guide Builder is **production-ready** at the code level.
+
+### Stability Notice
+
+This subsystem has been through comprehensive audit, repair, and verification (Phases 1-3). The Brand Guide Builder is now stable and aligned across all system layers.
+
+### Future Changes Require Re-Verification
+
+Any future changes to the following areas should trigger a shortened Brand Guide health check:
+
+- **BrandGuide Type** (`shared/brand-guide.ts`)
+  - Changes to the core data structure
+  - New fields or nested structures
+  - Type modifications
+
+- **Brand Guide Routes** (`server/routes/brand-guide.ts`)
+  - New endpoints or route modifications
+  - Changes to request/response shapes
+  - Validation logic updates
+
+- **Version History** (`server/lib/brand-guide-version-history.ts`, `supabase/migrations/002_create_brand_guide_versions.sql`)
+  - Schema changes to version history table
+  - RLS policy modifications
+  - Version tracking logic changes
+
+- **BFS Baseline Logic** (`server/lib/bfs-baseline-generator.ts`, `server/agents/brand-fidelity-scorer.ts`)
+  - Baseline generation algorithm changes
+  - Scoring logic modifications
+  - Normalization function updates
+
+- **AI Brand Prompts** (`server/lib/prompts/brand-guide-prompts.ts`)
+  - Prompt template changes
+  - Brand Guide context modifications
+  - Integration with AI agents
+
+### Recommended Health Check Process
+
+When making changes to the above areas:
+
+1. **Review Impact**: Assess which checklist items in this document are affected
+2. **Re-Verify**: Run targeted code verification for affected areas
+3. **Update Documentation**: Update this summary if material changes are made
+4. **Test**: Ensure manual UI QA still passes for affected flows
+
+### Known TODOs (Non-Blocking)
+
+The following TODOs are documented for future enhancement but do not block production:
+
+- `server/agents/brand-fidelity-scorer.ts` lines 162-163: `required_disclaimers` and `required_hashtags` fields could be added to BrandGuide type in the future
 
 ---
 

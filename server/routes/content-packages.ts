@@ -10,6 +10,8 @@ import { assertBrandAccess } from "../lib/brand-access";
 import { AppError } from "../lib/error-middleware";
 import { ErrorCode, HTTP_STATUS } from "../lib/error-responses";
 import type { ContentPackage } from "@shared/collaboration-artifacts";
+import type { AiDesignVariant } from "@shared/aiContent";
+import { markVariantAsSelected } from "../lib/collaboration-utils";
 import {
   SaveContentPackageSchema,
   GetContentPackageQuerySchema,
@@ -26,7 +28,7 @@ export const saveContentPackage: RequestHandler = async (req, res) => {
   try {
     // ✅ VALIDATION: Validate request body with Zod schema
     const validated = SaveContentPackageSchema.parse(req.body);
-    const { contentPackage, brandId } = validated;
+    const { contentPackage, brandId, selectedVariant } = validated;
 
     // ✅ SECURITY: Verify user has access to this brand
     await assertBrandAccess(req, brandId, true, true);
@@ -41,8 +43,34 @@ export const saveContentPackage: RequestHandler = async (req, res) => {
       );
     }
 
+    // ✅ PHASE 4: Handle variant selection if provided (now validated by Zod schema)
+    let finalContentPackage = contentPackage as ContentPackage;
+    
+    if (selectedVariant && selectedVariant.id && selectedVariant.label) {
+      // Convert validated variant to AiDesignVariant type
+      const variantData: AiDesignVariant = {
+        id: selectedVariant.id,
+        label: selectedVariant.label,
+        prompt: selectedVariant.prompt,
+        description: selectedVariant.description,
+        aspectRatio: selectedVariant.aspectRatio,
+        useCase: selectedVariant.useCase,
+        brandFidelityScore: selectedVariant.brandFidelityScore,
+        complianceTags: selectedVariant.complianceTags,
+        status: selectedVariant.status,
+        metadata: selectedVariant.metadata,
+      };
+      
+      // Mark variant as selected in visuals[]
+      finalContentPackage = markVariantAsSelected(
+        finalContentPackage,
+        variantData,
+        "design_agent_make_on_brand"
+      );
+    }
+
     // Save ContentPackage
-    const saved = await ContentPackageStorage.save(contentPackage as ContentPackage);
+    const saved = await ContentPackageStorage.save(finalContentPackage);
 
     res.json({
       success: true,

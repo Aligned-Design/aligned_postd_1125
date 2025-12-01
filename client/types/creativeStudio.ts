@@ -9,7 +9,7 @@ export type {
 // FORMAT_PRESETS is a value, not a type - export separately
 export { FORMAT_PRESETS } from "@shared/creative-studio";
 
-export type StartMode = "ai" | "template" | "scratch";
+export type StartMode = "ai" | "template" | "scratch" | "upload";
 
 // Re-export CreativeStudioDesign as Design for backward compatibility
 import type { CreativeStudioDesign } from "@shared/creative-studio";

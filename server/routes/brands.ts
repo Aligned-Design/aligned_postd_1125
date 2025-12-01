@@ -148,12 +148,11 @@ router.get(
       }
 
       if (!memberships || memberships.length === 0) {
-        res.json({
+        return res.status(HTTP_STATUS.OK).json({
           success: true,
           brands: [],
           total: 0,
         });
-        return;
       }
 
       // Fetch full brand details for each brand ID
@@ -183,7 +182,7 @@ router.get(
         };
       });
 
-      res.json({
+      return res.status(HTTP_STATUS.OK).json({
         success: true,
         brands: brandsWithRole || [],
         total: brandsWithRole?.length || 0,

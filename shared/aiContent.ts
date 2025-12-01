@@ -68,6 +68,18 @@ export interface AiDesignVariant {
   brandFidelityScore: number;
   complianceTags?: string[];
   status: AiContentStatus;
+  // ✅ PHASE 4: Optional metadata field (exists at runtime from Design Agent parser)
+  metadata?: {
+    colorUsage?: string[];
+    typeStructure?: {
+      headingFont?: string;
+      bodyFont?: string;
+      fontSize?: string;
+      fontWeight?: string;
+    };
+    layoutStyle?: string;
+    emotion?: string;
+  };
 }
 
 export interface AiDocGenerationRequest {

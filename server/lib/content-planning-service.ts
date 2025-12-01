@@ -622,6 +622,9 @@ function buildContentPlanningPrompt(
 ): string {
   let prompt = `Plan a 7-day content calendar for this brand.\n\n`;
 
+  // Industry/Business Type (CRITICAL for generating appropriate content) - declare at function level
+  const industry = brandKit.industry || brandGuide?.identity?.businessType || "General Business";
+
   // ✅ CRITICAL: Use centralized Brand Guide prompt if available
   if (brandGuide && typeof brandGuide === "object" && "identity" in brandGuide) {
     prompt += buildFullBrandGuidePrompt(brandGuide as any);
@@ -632,7 +635,6 @@ function buildContentPlanningPrompt(
     prompt += `Brand Name: ${brandGuide?.brandName || brandProfile?.name || "Brand"}\n`;
     
     // Industry/Business Type (CRITICAL for generating appropriate content)
-    const industry = brandKit.industry || brandGuide?.identity?.businessType || "General Business";
     prompt += `Industry/Business Type: ${industry}\n`;
     prompt += `This is a ${industry} business. Generate content that is appropriate for this industry, uses industry-specific terminology, and addresses industry-specific pain points and opportunities.\n`;
     

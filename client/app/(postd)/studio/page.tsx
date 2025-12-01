@@ -582,10 +582,7 @@ export default function CreativeStudio() {
       };
 
       return {
-        ...pushToHistory(prev, {
-          ...updatedDesign,
-          startMode: prev.startMode || "upload", // Mark as upload if not already set
-        }),
+        ...pushToHistory(prev, updatedDesign),
         selectedItemId: newItem.id,
         startMode: prev.startMode || "upload", // Mark as upload if not already set
       };
@@ -1423,8 +1420,8 @@ const handleAddElement = (elementType: string, defaultProps: Record<string, any>
         try {
           const contentPackage = isTemplate
             ? createContentPackageFromTemplate(state.design, brandId, state.design.id)
-            : isUpload
-            ? createContentPackageFromUpload(state.design, brandId, uploadedImages)
+            : isUpload && uploadedImages.length > 0
+            ? createContentPackageFromUpload(uploadedImages[0].url, uploadedImages[0].name, brandId, state.design.format)
             : null;
 
           if (contentPackage) {
@@ -1575,17 +1572,21 @@ const handleAddElement = (elementType: string, defaultProps: Record<string, any>
                 },
               ];
 
-              // Update ContentPackage
+              // ✅ PHASE 4: Mark variant as selected in visuals[]
+              const contentPackageWithVariant = {
+                ...contentPackage,
+                collaborationLog: updatedLog,
+                updatedAt: new Date().toISOString(),
+              };
+
+              // Update ContentPackage (backend will handle variant selection in visuals[])
               const updateResponse = await fetch("/api/content-packages", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                   brandId,
-                  contentPackage: {
-                    ...contentPackage,
-                    collaborationLog: updatedLog,
-                    updatedAt: new Date().toISOString(),
-                  },
+                  contentPackage: contentPackageWithVariant,
+                  selectedVariant: variant, // ✅ PHASE 4: Pass variant to backend for visuals[] update
                 }),
               });
 
@@ -1600,15 +1601,9 @@ const handleAddElement = (elementType: string, defaultProps: Record<string, any>
         }
       }
 
-      // ✅ PHASE 4: Apply variant to canvas (skeleton - full implementation in Objective 2)
-      // For now, show a placeholder toast
-      toast({
-        title: "✅ Variant Selected",
-        description: `"${variant.label}" selected. Applying to canvas...`,
-      });
+      // ✅ PHASE 4: Apply variant to canvas
+      applyVariantToCanvas(variant);
 
-      // TODO: Objective 2 - Implement applyVariantToCanvas helper
-      // For now, just log the selection
       logTelemetry("studio_variant_selected", {
         designId: state.design.id,
         variantId: variant.id,
@@ -1616,9 +1611,6 @@ const handleAddElement = (elementType: string, defaultProps: Record<string, any>
         brandFidelityScore: variant.brandFidelityScore,
         brandId,
       });
-
-      // Placeholder: In Objective 2, we'll call applyVariantToCanvas(variant) here
-      // applyVariantToCanvas(variant);
 
     } catch (error) {
       console.error("[Studio] Failed to select variant:", error);
@@ -1633,6 +1625,88 @@ const handleAddElement = (elementType: string, defaultProps: Record<string, any>
   const handleCloseVariantSelector = () => {
     setIsVariantSelectorOpen(false);
     setPendingVariants(null);
+  };
+
+  // ✅ PHASE 4: Apply variant to existing canvas (minimal, safe update)
+  const applyVariantToCanvas = (variant: AiDesignVariant) => {
+    if (!state.design || !brand) {
+      console.warn("[Studio] Cannot apply variant: design or brand not available");
+      return;
+    }
+
+    // Use pushToHistory pattern for undo/redo support
+    setState((prev) => {
+      if (!prev.design) return prev;
+
+      // Get brand colors and fonts
+      const primaryColor = brand.primaryColor || "#39339a";
+      const secondaryColor = brand.secondaryColor || "#632bf0";
+      const brandFont = brand.fontFamily || "Arial";
+
+      // Update existing items to match brand guide (preserve structure, update styling)
+      const updatedItems = prev.design.items.map((item) => {
+        const updates: Partial<CanvasItem> = {};
+
+        // Apply brand colors to text items
+        if (item.type === "text") {
+          // Update font to match brand
+          if (brandFont) {
+            updates.fontFamily = brandFont;
+          }
+          // Update text color to primary brand color (if not already customized)
+          if (!item.fontColor || item.fontColor === "#000000" || item.fontColor === "#333333") {
+            updates.fontColor = primaryColor;
+          }
+        }
+
+        // Apply brand colors to shapes
+        if (item.type === "shape" && item.fill) {
+          // Update shape fill to secondary brand color (if using default colors)
+          const isDefaultColor = item.fill === "#3B82F6" || item.fill === "#000000" || !item.fill;
+          if (isDefaultColor) {
+            updates.fill = secondaryColor;
+          }
+        }
+
+        // Apply brand colors to background items
+        if (item.type === "background") {
+          if (item.backgroundType === "gradient") {
+            updates.gradientFrom = primaryColor;
+            updates.gradientTo = secondaryColor;
+          } else if (item.backgroundColor) {
+            // Update solid background to primary color if it's white/default
+            if (item.backgroundColor === "#FFFFFF" || item.backgroundColor === "#ffffff") {
+              updates.backgroundColor = primaryColor;
+            }
+          }
+        }
+
+        // Return updated item if there are changes, otherwise return original
+        return Object.keys(updates).length > 0 ? { ...item, ...updates } : item;
+      });
+
+      // Optionally update design background color to match brand
+      const updatedBackgroundColor = 
+        prev.design.backgroundColor === "#FFFFFF" || prev.design.backgroundColor === "#ffffff"
+          ? primaryColor
+          : prev.design.backgroundColor;
+
+      const updatedDesign: Design = {
+        ...prev.design,
+        items: updatedItems,
+        backgroundColor: updatedBackgroundColor,
+        updatedAt: new Date().toISOString(),
+      };
+
+      // Use pushToHistory for undo/redo support
+      return pushToHistory(prev, updatedDesign);
+    });
+
+    // Show success toast
+    toast({
+      title: "✅ Variant Applied",
+      description: `"${variant.label}" styling applied to canvas. All changes are undoable.`,
+    });
   };
 
   const handleSelectTemplate = async (template: StarterTemplate | Design) => {
