@@ -414,7 +414,10 @@ export default function Screen5BrandSummaryReview() {
             Here's your brand profile
           </h1>
           <p className="text-slate-600 font-medium text-lg mb-2">
-            We've analyzed your brand and created a profile. Want to make any changes?
+            We've automatically detected your brand assets for you
+          </p>
+          <p className="text-slate-500 text-sm">
+            Feel free to add or remove any images—everything is customizable
           </p>
         </div>
 
@@ -476,7 +479,15 @@ export default function Screen5BrandSummaryReview() {
           {/* Logos Section */}
           <div className="bg-white/50 backdrop-blur-xl rounded-2xl border border-white/60 p-6">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-black text-slate-900">Logos</h2>
+              <div>
+                <h2 className="text-lg font-black text-slate-900">Logos</h2>
+                {logoImages.length > 0 && (
+                  <p className="text-xs text-slate-500 mt-1 flex items-center gap-1">
+                    <Sparkles className="w-3 h-3" />
+                    Auto-detected from your website
+                  </p>
+                )}
+              </div>
               <span className="text-xs text-slate-500">
                 {logoImages.length > 0 ? `${logoImages.length} logo${logoImages.length !== 1 ? 's' : ''}` : "No logos found"}
               </span>
@@ -517,7 +528,15 @@ export default function Screen5BrandSummaryReview() {
         {/* Brand Images Section (always visible, even if empty) */}
         <div className="bg-white/50 backdrop-blur-xl rounded-2xl border border-white/60 p-6 mb-6">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-black text-slate-900">Brand Images</h2>
+            <div>
+              <h2 className="text-lg font-black text-slate-900">Brand Images</h2>
+              {otherImages.length > 0 && (
+                <p className="text-xs text-slate-500 mt-1 flex items-center gap-1">
+                  <Sparkles className="w-3 h-3" />
+                  Auto-detected from your website
+                </p>
+              )}
+            </div>
             <span className="text-xs text-slate-500">
               {otherImages.length > 0 ? `${otherImages.length} image${otherImages.length !== 1 ? 's' : ''}` : "No images found"}
             </span>

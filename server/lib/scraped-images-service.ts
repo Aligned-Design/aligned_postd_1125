@@ -237,6 +237,40 @@ export async function persistScrapedImages(
     return hasLogoIndicator && (isSmallSquare || !img.width || !img.height || img.width < 500 || img.height < 500);
   }).length;
   
+  // ✅ METRICS: File extension breakdown
+  const getFileExtension = (url: string): string => {
+    try {
+      const filename = url.split("/").pop() || "";
+      const ext = filename.split(".").pop()?.toLowerCase() || "";
+      return ext || "unknown";
+    } catch {
+      return "unknown";
+    }
+  };
+  
+  const extensionBreakdown = images.reduce((acc, img) => {
+    const ext = getFileExtension(img.url);
+    acc[ext] = (acc[ext] || 0) + 1;
+    return acc;
+  }, {} as Record<string, number>);
+  
+  // ✅ METRICS: Size category breakdown
+  const categorizeSize = (width?: number, height?: number): string => {
+    if (!width || !height) return "unknown";
+    const pixels = width * height;
+    if (pixels < 10000) return "tiny";
+    if (pixels < 50000) return "small";
+    if (pixels < 500000) return "medium";
+    if (pixels < 2000000) return "large";
+    return "xlarge";
+  };
+  
+  const sizeBreakdown = images.reduce((acc, img) => {
+    const sizeCategory = categorizeSize(img.width, img.height);
+    acc[sizeCategory] = (acc[sizeCategory] || 0) + 1;
+    return acc;
+  }, {} as Record<string, number>);
+  
   console.log(`[ScrapedImages] Image selection summary:`, {
     totalImages: images.length,
     filteredOut: images.length - validImages.length,
@@ -247,6 +281,10 @@ export async function persistScrapedImages(
     logoStyleFiltered: logoStyleFiltered, // Logo-style images filtered from brand images
     brandImagesSelected: selectedBrandImages.length,
     totalToPersist: imagesToPersist.length,
+    metrics: {
+      fileExtensions: extensionBreakdown, // png, jpg, svg, webp counts
+      sizeCategories: sizeBreakdown, // tiny, small, medium, large, xlarge
+    },
   });
   
   // ✅ DEBUG: Log if all images were filtered out (indicates classification issue)

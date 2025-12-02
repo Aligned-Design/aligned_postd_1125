@@ -28,7 +28,7 @@ const SCRAPE_STEPS: ScrapeProgress[] = [
   {
     step: "images",
     status: "pending",
-    message: "Collecting images that represent your brand",
+    message: "Automatically detecting your brand assets (logos & images)",
   },
   {
     step: "colors",
@@ -385,6 +385,9 @@ export default function Screen3AiScrape() {
             We're learning your brand...
           </h1>
           <p className="text-slate-600 font-medium text-lg mb-2">
+            POSTD is automatically detecting your logos, images, colors, and brand voice
+          </p>
+          <p className="text-slate-500 text-sm">
             This usually takes 30-60 seconds. Grab a coffee! ☕
           </p>
         </div>
@@ -460,10 +463,10 @@ export default function Screen3AiScrape() {
         {isComplete && (
           <div className="mt-6 p-4 bg-green-50 border border-green-200 rounded-lg text-center">
             <p className="text-lg font-bold text-green-900 mb-1">
-              🎉 We've learned your brand!
+              🎉 We've automatically detected your brand assets!
             </p>
             <p className="text-sm text-green-700">
-              Here's what we found... Taking you to review...
+              Your logos, images, colors, and brand voice are ready. Taking you to review...
             </p>
           </div>
         )}

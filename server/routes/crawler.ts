@@ -556,15 +556,29 @@ router.post("/start", authenticateUser, async (req, res, next) => {
 async function runCrawlJobSync(url: string, brandId: string, tenantId: string | null = null): Promise<{ brandKit: any }> {
   // ✅ Increased timeout to 60s for JS-heavy sites and slow networks
   const CRAWL_TIMEOUT_MS = 60000; // 60 second timeout for onboarding
+  
+  // ✅ METRICS: Track total crawl time
+  const crawlStartTime = Date.now();
 
   try {
     // Set timeout for crawl operation
     const crawlPromise = Promise.race([
       (async () => {
+        // ✅ METRICS: Track crawl timing
+        const crawlWebsiteStartTime = Date.now();
+        
         // Crawl website (with error handling)
         let crawlResults;
         try {
           crawlResults = await crawlWebsite(url);
+          
+          const crawlWebsiteTime = Date.now() - crawlWebsiteStartTime;
+          console.log(`[Crawler] Crawl website completed`, {
+            url,
+            brandId,
+            crawlTimeMs: crawlWebsiteTime,
+            pagesCrawled: crawlResults?.length || 0,
+          });
         } catch (error) {
           console.warn("[Crawler] Error crawling website:", error);
           throw error;
@@ -720,11 +734,17 @@ async function runCrawlJobSync(url: string, brandId: string, tenantId: string | 
               if (finalTenantId === "unknown" || !finalTenantId.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
                 console.error(`[Crawler] CRITICAL: Invalid tenantId format: "${finalTenantId}". Cannot persist images. This is a system error - tenantId must be a valid UUID.`);
               } else {
+                // ✅ METRICS: Track persistence timing
+                const persistenceStartTime = Date.now();
+                
                 const persistedIds = await persistScrapedImages(brandId, finalTenantId, allImages);
                 persistedImageCount = persistedIds.length;
                 logoFound = !!logoImage;
                 
-                // ✅ LOGGING: Structured log for scrape results (for Vercel server logs)
+                const persistenceTime = Date.now() - persistenceStartTime;
+                const totalCrawlTime = Date.now() - crawlStartTime;
+                
+                // ✅ ENHANCED LOGGING: Structured log with timing metrics
                 console.log(`[Crawler] Scrape complete`, {
                   tenantId: finalTenantId,
                   brandId: brandId,
@@ -734,6 +754,10 @@ async function runCrawlJobSync(url: string, brandId: string, tenantId: string | 
                   imagesPersisted: persistedImageCount,
                   logoFound: logoFound,
                   logoUrl: logoUrl || null,
+                  timing: {
+                    totalCrawlTimeMs: totalCrawlTime,
+                    persistenceTimeMs: persistenceTime,
+                  },
                 });
                 
                 // ✅ ENHANCED: More detailed warning if no images persisted
