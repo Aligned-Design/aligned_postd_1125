@@ -12,6 +12,8 @@ import { BrandProgressMeter } from "@/components/dashboard/BrandProgressMeter";
 import { AdvisorPlaceholder } from "@/components/dashboard/AdvisorPlaceholder";
 import { BrandGuideWizard } from "@/components/dashboard/BrandGuideWizard";
 import { StockImageModal } from "@/components/dashboard/StockImageModal";
+import { BrandGuideVersionHistory } from "@/components/dashboard/BrandGuideVersionHistory";
+import { ValidationBanner } from "@/components/dashboard/ValidationBanner";
 import { useToast } from "@/hooks/use-toast";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { useCurrentBrand } from "@/hooks/useCurrentBrand";
@@ -23,7 +25,7 @@ import { ErrorState } from "@/components/postd/ui/feedback/ErrorState";
 import { EmptyState } from "@/components/postd/ui/feedback/EmptyState";
 import { Loader2 } from "lucide-react";
 
-type EditingSection = "dashboard" | "summary" | "voice" | "visual" | "personas" | "goals" | "guardrails" | "stock";
+type EditingSection = "dashboard" | "summary" | "voice" | "visual" | "personas" | "goals" | "guardrails" | "stock" | "versions";
 
 const AUTOSAVE_DELAY = 2000; // 2 seconds
 
@@ -36,7 +38,9 @@ export default function BrandGuidePageComponent() {
     isLoading,
     isError,
     isSaving,
+    saveStatus,
     lastSaved,
+    validationWarnings,
     updateBrandGuide,
     saveBrandGuide,
     refetch,
@@ -273,12 +277,26 @@ export default function BrandGuidePageComponent() {
           <PageHeader
             title="Brand Guide"
             subtitle={
-              <span>
-                <span className="bg-slate-200 text-black px-2 py-1 rounded-lg font-semibold">
-                  {currentBrand?.name || currentWorkspace?.name}
+              <div className="flex items-center gap-3 flex-wrap">
+                <span>
+                  <span className="bg-slate-200 text-black px-2 py-1 rounded-lg font-semibold">
+                    {currentBrand?.name || currentWorkspace?.name}
+                  </span>
+                  {" — Define your brand identity, voice, and visual standards"}
                 </span>
-                {" — Define your brand identity, voice, and visual standards"}
-              </span>
+                {/* Save Status Indicator */}
+                {saveStatus !== 'idle' && (
+                  <span className={`text-xs font-semibold px-2 py-1 rounded ${
+                    saveStatus === 'saving' ? 'bg-amber-100 text-amber-800' :
+                    saveStatus === 'saved' ? 'bg-green-100 text-green-800' :
+                    'bg-red-100 text-red-800'
+                  }`}>
+                    {saveStatus === 'saving' && 'Saving...'}
+                    {saveStatus === 'saved' && '✓ Saved'}
+                    {saveStatus === 'error' && '⚠ Error saving'}
+                  </span>
+                )}
+              </div>
             }
             actions={
               <div className="text-right">
@@ -331,7 +349,7 @@ export default function BrandGuidePageComponent() {
                 <span className="ml-2 text-slate-400 hidden group-open:inline">▲</span>
               </summary>
               <div className="flex gap-2 flex-wrap mt-2">
-                {(["personas", "goals", "guardrails", "stock"] as EditingSection[]).map((section) => (
+                {(["personas", "goals", "guardrails", "stock", "versions"] as EditingSection[]).map((section) => (
                   <button
                     key={section}
                     onClick={() => setEditingSection(section)}
@@ -347,7 +365,9 @@ export default function BrandGuidePageComponent() {
                       ? "Goals"
                       : section === "guardrails"
                       ? "Guardrails"
-                      : "Stock Assets"}
+                      : section === "stock"
+                      ? "Stock Assets"
+                      : "Version History"}
                   </button>
                 ))}
               </div>
@@ -357,6 +377,13 @@ export default function BrandGuidePageComponent() {
             </p>
           </div>
         </div>
+
+        {/* Validation Banner */}
+        {validationWarnings.length > 0 && (
+          <div className="mt-4">
+            <ValidationBanner warnings={validationWarnings} />
+          </div>
+        )}
 
         {/* Main Content */}
         <div className="mt-6">
@@ -375,6 +402,7 @@ export default function BrandGuidePageComponent() {
                   { id: "goals", label: "Goals", icon: "🎯" },
                   { id: "guardrails", label: "Guardrails", icon: "⚖️" },
                   { id: "stock", label: "Stock Assets", icon: "🌍" },
+                  { id: "versions", label: "Version History", icon: "📜" },
                 ].map((item) => (
                   <button
                     key={item.id}
@@ -468,6 +496,9 @@ export default function BrandGuidePageComponent() {
                     </div>
                   )}
                 </div>
+                  )}
+                  {editingSection === "versions" && (
+                    <BrandGuideVersionHistory />
                   )}
                 </>
               )}

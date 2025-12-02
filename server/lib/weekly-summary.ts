@@ -14,7 +14,15 @@ import type {
   BrandHistoryEntry,
   PerformanceLog,
 } from "./collaboration-artifacts";
-import type { AdvisorAction } from "./advisor-review-scorer";
+// Local interface for advisor actions in weekly summary
+interface WeeklyAdvisorAction {
+  id: string;
+  action: string;
+  description: string;
+  rationale: string;
+  expectedImpact: "high" | "medium" | "low";
+  effort: "high" | "medium" | "low";
+}
 
 export interface WeeklySummaryMetrics {
   weekOf: string; // ISO date of Monday
@@ -80,7 +88,7 @@ export interface WeeklySummary {
     emojiUsage: { withEmoji: number; withoutEmoji: number; engagement: number };
   };
   recommendations: string[];
-  advisorActions: AdvisorAction[];
+  advisorActions: WeeklyAdvisorAction[];
   risksAndOpportunities: {
     risks: Array<{ risk: string; severity: "low" | "medium" | "high" }>;
     opportunities: Array<{ opportunity: string; priority: "low" | "medium" | "high" }>;
@@ -195,12 +203,13 @@ export class WeeklySummaryService {
         }
 
         // Layout tracking
-        if (metric.layout) {
-          if (!layoutPerformance[metric.layout]) {
-            layoutPerformance[metric.layout] = { count: 0, total: 0 };
+        const layout = typeof metric.layout === 'string' ? metric.layout : null;
+        if (layout) {
+          if (!layoutPerformance[layout]) {
+            layoutPerformance[layout] = { count: 0, total: 0 };
           }
-          layoutPerformance[metric.layout].count++;
-          layoutPerformance[metric.layout].total += engagement;
+          layoutPerformance[layout].count++;
+          layoutPerformance[layout].total += engagement;
         }
       }
     }
@@ -286,14 +295,16 @@ export class WeeklySummaryService {
         data.engagement.length > 0
           ? data.engagement.reduce((a, b) => a + b, 0) / data.engagement.length
           : 0;
-      const topTone = Object.entries(data.tones).reduce((best, [tone, count]) =>
-        count > (data.tones[best] || 0) ? tone : best
-      );
+      const topTone = Object.entries(data.tones).reduce<string>((best, [tone, count]) => {
+        const bestCount = typeof data.tones[best] === 'number' ? data.tones[best] : 0;
+        const currentCount = typeof count === 'number' ? count : 0;
+        return currentCount > bestCount ? tone : best;
+      }, Object.keys(data.tones)[0] || "professional");
 
       platformBreakdown[platform] = {
         published: data.engagement.length,
         avgEngagement: Math.round(avgEngagement * 100) / 100,
-        topTone: topTone || "professional",
+        topTone: topTone,
         topLayout: topPerformingLayout,
       };
     }
@@ -352,9 +363,9 @@ export class WeeklySummaryService {
     for (const pattern of history.successPatterns || []) {
       patterns.push({
         pattern: pattern.pattern,
-        evidence: pattern.evidence || [],
+        evidence: pattern.examples || [], // Use examples as evidence since evidence doesn't exist in BrandHistory.successPatterns
         confidence: "high",
-        recommendation: pattern.recommendation,
+        recommendation: `Continue using this pattern (${pattern.frequency} instances, ${pattern.avgPerformance.toFixed(1)} avg performance)`,
         actionType: "replicate",
         impactScore: 0.85,
       });
@@ -509,7 +520,8 @@ export class WeeklySummaryService {
         }
 
         // Length
-        const bodyLength = content.body?.length || 0;
+        const body = typeof content.body === 'string' ? content.body : '';
+        const bodyLength = body.length || 0;
         let lengthRange = "short";
         if (bodyLength > 500) {
           lengthRange = "long";
@@ -524,7 +536,8 @@ export class WeeklySummaryService {
         lengthMap[lengthRange].count++;
 
         // Emoji
-        if (content.headline?.includes("😊") || content.body?.includes("😊")) {
+        const headline = typeof content.headline === 'string' ? content.headline : '';
+        if (headline.includes("😊") || body.includes("😊")) {
           withEmoji++;
           emojiEngagement += content.engagement || 0;
         } else {
@@ -619,7 +632,7 @@ export class WeeklySummaryService {
   private createAdvisorActions(
     recommendations: string[],
     patterns: SuccessPattern[]
-  ): AdvisorAction[] {
+  ): WeeklyAdvisorAction[] {
     return recommendations.map((rec, idx) => ({
       id: `action_${Date.now()}_${idx}`,
       action: "tighten_post_length", // Map recommendations to handlers

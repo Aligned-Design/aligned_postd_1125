@@ -31,7 +31,7 @@
 
 ### STEP 2: Update .env File (2 minutes)
 
-**Edit**: `vim /Users/krisfoust/Documents/Aligned-20ai/.env`
+**Edit**: `vim /Users/krisfoust/Downloads/Aligned-20ai.posted/.env`
 
 **Replace these dummy values** with your real credentials:
 
@@ -54,7 +54,7 @@ OPENAI_API_KEY=sk-proj-abc123...
 ### STEP 3: Run Deployment Script (3 minutes)
 
 ```bash
-cd /Users/krisfoust/Documents/Aligned-20ai
+cd /Users/krisfoust/Downloads/Aligned-20ai.posted
 bash scripts/deploy.sh
 ```
 

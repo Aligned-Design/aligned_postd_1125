@@ -1,6 +1,6 @@
 # Environment Configuration Guide
 
-Complete setup instructions for all platform integrations and API credentials for the Aligned AI platform.
+Complete setup instructions for all platform integrations and API credentials for the POSTD platform.
 
 ## Table of Contents
 
@@ -163,7 +163,7 @@ SOCKETIO_RECONNECTION_DELAY_MAX=5000
 2. **Create Facebook App**:
    - Go to https://developers.facebook.com
    - Create App → Business
-   - Name: "Aligned AI"
+   - Name: "POSTD"
    - Skip quick start
 
 3. **Get Instagram Business Account ID**:
@@ -240,7 +240,7 @@ FACEBOOK_ACCESS_TOKEN=[page-access-token]
 
 2. **Create App**:
    - Projects & Apps → Create App
-   - Name: "Aligned AI"
+   - Name: "POSTD"
    - Purpose: Content distribution
 
 3. **Generate API Credentials**:
@@ -282,7 +282,7 @@ TWITTER_ACCOUNT_ID=[user-id]
 2. **Register TikTok App**:
    - Go to https://developer.tiktok.com
    - Register app in Developer Portal
-   - Name: "Aligned AI"
+   - Name: "POSTD"
 
 3. **Get Credentials**:
    - App Info → Client Key and Client Secret
@@ -314,7 +314,7 @@ TIKTOK_ACCESS_TOKEN=[access-token]
 1. **Create LinkedIn App**:
    - Go to https://www.linkedin.com/developers
    - Create app
-   - Name: "Aligned AI"
+   - Name: "POSTD"
 
 2. **Get Organization ID**:
    - LinkedIn organization admin page
@@ -349,7 +349,7 @@ LINKEDIN_ACCESS_TOKEN=[access-token]
 2. **Create Pinterest App**:
    - Go to https://developers.pinterest.com
    - Create App
-   - Name: "Aligned AI"
+   - Name: "POSTD"
 
 3. **Get Credentials**:
    - App Details → Copy App ID
@@ -460,7 +460,7 @@ GOOGLE_API_KEY=[api-key-from-service-account-json]
 
 3. **Create OAuth App**:
    - Create new app
-   - Name: "Aligned AI"
+   - Name: "POSTD"
    - Get Client ID and Secret
 
 4. **Get Account ID**:
@@ -557,7 +557,7 @@ SOCKETIO_RECONNECTION_DELAY_MAX=5000
 # Web Crawling
 CRAWL_MAX_PAGES=50
 CRAWL_TIMEOUT_MS=30000
-CRAWL_USER_AGENT=AlignedAIBot/1.0 (+contact: hello@aligned-by-design.com)
+CRAWL_USER_AGENT=POSTDBot/1.0 (+contact: hello@aligned-by-design.com)
 
 # Monitoring (Optional)
 SENTRY_DSN=[sentry-dsn]

@@ -7,7 +7,7 @@
 
 const isDevelopment = import.meta.env.DEV;
 
-interface LogContext {
+export interface LogContext {
   [key: string]: unknown;
 }
 

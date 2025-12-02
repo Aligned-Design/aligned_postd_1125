@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { BrandGuide } from "@/types/brandGuide";
-import { Sparkles, Check, X } from "lucide-react";
+import { Sparkles, Check, X, Plus } from "lucide-react";
 
 interface BrandSummaryFormProps {
   brand: BrandGuide;
@@ -61,12 +61,51 @@ export function BrandSummaryForm({ brand, onUpdate }: BrandSummaryFormProps) {
   const [showAIVariations, setShowAIVariations] = useState(false);
   const [aiVariations, setAiVariations] = useState<AIGeneratedVariation[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [newValueInput, setNewValueInput] = useState("");
+  const [newPainPointInput, setNewPainPointInput] = useState("");
 
   const handleChange = (
     field: keyof Pick<BrandGuide, "purpose" | "mission" | "vision">,
     value: string
   ) => {
     onUpdate({ [field]: value });
+  };
+
+  const handleIdentityUpdate = (field: "values" | "targetAudience" | "painPoints", value: any) => {
+    onUpdate({
+      identity: {
+        ...brand.identity,
+        [field]: value,
+      },
+    });
+  };
+
+  const handleAddValue = () => {
+    if (!newValueInput.trim()) return;
+    const currentValues = brand.identity?.values || [];
+    if (!currentValues.includes(newValueInput.trim())) {
+      handleIdentityUpdate("values", [...currentValues, newValueInput.trim()]);
+    }
+    setNewValueInput("");
+  };
+
+  const handleRemoveValue = (value: string) => {
+    const currentValues = brand.identity?.values || [];
+    handleIdentityUpdate("values", currentValues.filter((v) => v !== value));
+  };
+
+  const handleAddPainPoint = () => {
+    if (!newPainPointInput.trim()) return;
+    const currentPainPoints = brand.identity?.painPoints || [];
+    if (!currentPainPoints.includes(newPainPointInput.trim())) {
+      handleIdentityUpdate("painPoints", [...currentPainPoints, newPainPointInput.trim()]);
+    }
+    setNewPainPointInput("");
+  };
+
+  const handleRemovePainPoint = (painPoint: string) => {
+    const currentPainPoints = brand.identity?.painPoints || [];
+    handleIdentityUpdate("painPoints", currentPainPoints.filter((p) => p !== painPoint));
   };
 
   const handleAIReview = () => {
@@ -149,6 +188,118 @@ export function BrandSummaryForm({ brand, onUpdate }: BrandSummaryFormProps) {
               className="w-full px-4 py-3 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm resize-none"
               rows={3}
             />
+          </div>
+        </div>
+      </div>
+
+      {/* Identity: Core Values, Target Audience, Pain Points */}
+      <div className="bg-white/50 backdrop-blur-xl rounded-xl border border-white/60 p-6">
+        <h3 className="text-lg font-black text-slate-900 mb-4">Brand Identity</h3>
+
+        {/* Core Values */}
+        <div className="mb-6">
+          <label className="block text-sm font-black text-slate-900 mb-2">
+            Core Values
+          </label>
+          <p className="text-xs text-slate-600 mb-2">What principles guide your brand?</p>
+          <div className="flex flex-wrap gap-2 mb-2">
+            {(brand.identity?.values || []).map((value) => (
+              <span
+                key={value}
+                className="inline-flex items-center gap-1 px-3 py-1 bg-indigo-100 text-indigo-700 rounded-full text-sm font-bold"
+              >
+                {value}
+                <button
+                  onClick={() => handleRemoveValue(value)}
+                  className="hover:text-indigo-900 transition-colors"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            ))}
+          </div>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={newValueInput}
+              onChange={(e) => setNewValueInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  handleAddValue();
+                }
+              }}
+              placeholder="e.g., Sustainability, Authenticity, Quality"
+              className="flex-1 px-4 py-2 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+            />
+            <button
+              onClick={handleAddValue}
+              className="px-3 py-2 rounded-lg bg-indigo-100 text-indigo-700 hover:bg-indigo-200 transition-colors font-bold text-sm flex items-center gap-1"
+            >
+              <Plus className="w-4 h-4" />
+              Add
+            </button>
+          </div>
+        </div>
+
+        {/* Target Audience */}
+        <div className="mb-6">
+          <label className="block text-sm font-black text-slate-900 mb-2">
+            Target Audience
+          </label>
+          <p className="text-xs text-slate-600 mb-2">Who is your primary target audience?</p>
+          <textarea
+            value={brand.identity?.targetAudience || ""}
+            onChange={(e) => handleIdentityUpdate("targetAudience", e.target.value)}
+            placeholder="e.g., Small business owners aged 30-50 who value efficiency and quality..."
+            className="w-full px-4 py-3 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm resize-none"
+            rows={3}
+          />
+        </div>
+
+        {/* Pain Points */}
+        <div>
+          <label className="block text-sm font-black text-slate-900 mb-2">
+            Pain Points
+          </label>
+          <p className="text-xs text-slate-600 mb-2">What challenges does your audience face?</p>
+          <div className="flex flex-wrap gap-2 mb-2">
+            {(brand.identity?.painPoints || []).map((painPoint) => (
+              <span
+                key={painPoint}
+                className="inline-flex items-center gap-1 px-3 py-1 bg-red-100 text-red-700 rounded-full text-sm font-bold"
+              >
+                {painPoint}
+                <button
+                  onClick={() => handleRemovePainPoint(painPoint)}
+                  className="hover:text-red-900 transition-colors"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            ))}
+          </div>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={newPainPointInput}
+              onChange={(e) => setNewPainPointInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  handleAddPainPoint();
+                }
+              }}
+              placeholder="e.g., Lack of time, Budget constraints, Information overload"
+              className="flex-1 px-4 py-2 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+            />
+            <button
+              onClick={handleAddPainPoint}
+              className="px-3 py-2 rounded-lg bg-red-100 text-red-700 hover:bg-red-200 transition-colors font-bold text-sm flex items-center gap-1"
+            >
+              <Plus className="w-4 h-4" />
+              Add
+            </button>
           </div>
         </div>
       </div>

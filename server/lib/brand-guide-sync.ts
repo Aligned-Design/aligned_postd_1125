@@ -7,6 +7,24 @@
 
 import { supabase } from "./supabase";
 import type { BrandGuide } from "@shared/brand-guide"; // ✅ Fixed import path
+import { generateBFSBaseline, shouldRegenerateBaseline } from "./bfs-baseline-generator";
+import { createVersionHistory } from "./brand-guide-version-history";
+import { normalizeBrandGuide } from "@shared/brand-guide";
+import { validateBrandGuide, applyBrandGuideDefaults } from "./brand-guide-validation";
+
+/**
+ * Extract pain points from personas array
+ */
+function extractPainPointsFromPersonas(personas: any[]): string[] {
+  if (!Array.isArray(personas)) return [];
+  const allPainPoints: string[] = [];
+  personas.forEach((persona) => {
+    if (persona.painPoints && Array.isArray(persona.painPoints)) {
+      allPainPoints.push(...persona.painPoints);
+    }
+  });
+  return [...new Set(allPainPoints)]; // Remove duplicates
+}
 
 /**
  * Convert Brand Snapshot (onboarding format) to Brand Guide format
@@ -47,8 +65,12 @@ export function brandSnapshotToBrandGuide(
     identity: {
       name: brandName,
       businessType: brandSnapshot.industry || brandSnapshot.businessType,
+      industry: brandSnapshot.industry || brandSnapshot.businessType, // Explicit industry field
       industryKeywords: brandSnapshot.extractedMetadata?.keywords || [],
       competitors: brandSnapshot.competitors || [],
+      values: brandSnapshot.values || brandSnapshot.coreValues || [],
+      targetAudience: brandSnapshot.audience || brandSnapshot.targetAudience || "",
+      painPoints: extractPainPointsFromPersonas(brandSnapshot.personas) || [],
     },
 
     // Voice & Tone
@@ -86,6 +108,7 @@ export function brandSnapshotToBrandGuide(
       preferredPostTypes: brandSnapshot.preferredPostTypes || [],
       brandPhrases: brandSnapshot.brandPhrases || [],
       formalityLevel: brandSnapshot.formalityLevel,
+      contentPillars: brandSnapshot.contentPillars || brandSnapshot.messagingPillars || [],
       neverDo: brandSnapshot.extractedMetadata?.donts || [],
       guardrails: (brandSnapshot.extractedMetadata?.donts || []).map((dont: string, idx: number) => ({
         id: `guardrail-${idx}`,
@@ -133,86 +156,102 @@ export async function saveBrandGuideFromOnboarding(
     // Convert snapshot to Brand Guide format
     const brandGuide = brandSnapshotToBrandGuide(brandSnapshot, brandId, brandName);
 
+    // ✅ VALIDATION: Validate Brand Guide before saving
+    const validation = validateBrandGuide(brandGuide as any);
+    if (!validation.isValid && validation.errors.length > 0) {
+      // Log errors but don't block onboarding (non-critical)
+      console.warn("[BrandGuideSync] Validation errors during onboarding:", validation.errors);
+    }
+    // Apply defaults for missing fields
+    const validatedGuide = applyBrandGuideDefaults(brandGuide);
+
     // Map to Supabase structure using new BrandGuide format
     const brandKit: any = {
-      brandName: brandGuide.brandName,
+      brandName: validatedGuide.brandName,
       // ✅ CRITICAL: Save both purpose and about_blurb for compatibility
       // Brand guide uses 'purpose', crawler uses 'about_blurb'
-      purpose: brandGuide.purpose,
-      about_blurb: brandGuide.purpose || "", // Map purpose to about_blurb for crawler compatibility
-      longFormSummary: brandGuide.longFormSummary || brandGuide.purpose || "",
-      mission: brandGuide.mission,
-      vision: brandGuide.vision,
-      businessType: brandGuide.identity?.businessType,
-      keywords: brandGuide.identity?.industryKeywords || [],
-      industryKeywords: brandGuide.identity?.industryKeywords || [],
-      competitors: brandGuide.identity?.competitors || [],
-      toneKeywords: brandGuide.voiceAndTone?.tone || [],
-      friendlinessLevel: brandGuide.voiceAndTone?.friendlinessLevel,
-      formalityLevel: brandGuide.voiceAndTone?.formalityLevel,
-      confidenceLevel: brandGuide.voiceAndTone?.confidenceLevel,
-      voiceDescription: brandGuide.voiceAndTone?.voiceDescription,
-      writingRules: brandGuide.voiceAndTone?.writingRules || [],
-      wordsToAvoid: brandGuide.voiceAndTone?.avoidPhrases || [],
-      avoidPhrases: brandGuide.voiceAndTone?.avoidPhrases || [],
-      fontFamily: brandGuide.visualIdentity?.typography?.heading,
-      bodyFont: brandGuide.visualIdentity?.typography?.body,
-      fontSource: brandGuide.visualIdentity?.typography?.source,
-      customFontUrl: brandGuide.visualIdentity?.typography?.customUrl,
-      primaryColors: brandGuide.visualIdentity?.colors || [],
-      logoUrl: brandGuide.visualIdentity?.logoUrl,
+      purpose: validatedGuide.purpose,
+      about_blurb: validatedGuide.purpose || "", // Map purpose to about_blurb for crawler compatibility
+      longFormSummary: validatedGuide.longFormSummary || validatedGuide.purpose || "",
+      mission: validatedGuide.mission,
+      vision: validatedGuide.vision,
+      businessType: validatedGuide.identity?.businessType,
+      industry: validatedGuide.identity?.industry,
+      keywords: validatedGuide.identity?.industryKeywords || [],
+      industryKeywords: validatedGuide.identity?.industryKeywords || [],
+      competitors: validatedGuide.identity?.competitors || [],
+      values: validatedGuide.identity?.values || [],
+      coreValues: validatedGuide.identity?.values || [], // Legacy alias
+      targetAudience: validatedGuide.identity?.targetAudience,
+      primaryAudience: validatedGuide.identity?.targetAudience, // Legacy alias
+      painPoints: validatedGuide.identity?.painPoints || [],
+      toneKeywords: validatedGuide.voiceAndTone?.tone || [],
+      friendlinessLevel: validatedGuide.voiceAndTone?.friendlinessLevel,
+      formalityLevel: validatedGuide.voiceAndTone?.formalityLevel,
+      confidenceLevel: validatedGuide.voiceAndTone?.confidenceLevel,
+      voiceDescription: validatedGuide.voiceAndTone?.voiceDescription,
+      writingRules: validatedGuide.voiceAndTone?.writingRules || [],
+      wordsToAvoid: validatedGuide.voiceAndTone?.avoidPhrases || [],
+      avoidPhrases: validatedGuide.voiceAndTone?.avoidPhrases || [],
+      fontFamily: validatedGuide.visualIdentity?.typography?.heading,
+      bodyFont: validatedGuide.visualIdentity?.typography?.body,
+      fontSource: validatedGuide.visualIdentity?.typography?.source,
+      customFontUrl: validatedGuide.visualIdentity?.typography?.customUrl,
+      primaryColors: validatedGuide.visualIdentity?.colors || [],
+      logoUrl: validatedGuide.visualIdentity?.logoUrl,
       photographyStyle: {
-        mustInclude: brandGuide.visualIdentity?.photographyStyle?.mustInclude || [],
-        mustAvoid: brandGuide.visualIdentity?.photographyStyle?.mustAvoid || [],
+        mustInclude: validatedGuide.visualIdentity?.photographyStyle?.mustInclude || [],
+        mustAvoid: validatedGuide.visualIdentity?.photographyStyle?.mustAvoid || [],
       },
-      platformGuidelines: brandGuide.contentRules?.platformGuidelines || {},
-      preferredPlatforms: brandGuide.contentRules?.preferredPlatforms || [],
-      preferredPostTypes: brandGuide.contentRules?.preferredPostTypes || [],
-      brandPhrases: brandGuide.contentRules?.brandPhrases || [],
-      contentFormalityLevel: brandGuide.contentRules?.formalityLevel, // ✅ Renamed to avoid duplicate with voiceAndTone.formalityLevel
-      neverDo: brandGuide.contentRules?.neverDo || [],
-      guardrails: brandGuide.contentRules?.guardrails || [],
-      approvedAssets: brandGuide.approvedAssets || {
+      platformGuidelines: validatedGuide.contentRules?.platformGuidelines || {},
+      preferredPlatforms: validatedGuide.contentRules?.preferredPlatforms || [],
+      preferredPostTypes: validatedGuide.contentRules?.preferredPostTypes || [],
+      brandPhrases: validatedGuide.contentRules?.brandPhrases || [],
+      contentFormalityLevel: validatedGuide.contentRules?.formalityLevel, // ✅ Renamed to avoid duplicate with voiceAndTone.formalityLevel
+      contentPillars: validatedGuide.contentRules?.contentPillars || [],
+      messagingPillars: validatedGuide.contentRules?.contentPillars || [], // Legacy alias
+      neverDo: validatedGuide.contentRules?.neverDo || [],
+      guardrails: validatedGuide.contentRules?.guardrails || [],
+      approvedAssets: validatedGuide.approvedAssets || {
         uploadedPhotos: [],
         uploadedGraphics: [],
         uploadedTemplates: [],
         approvedStockImages: [],
         productsServices: [],
       },
-      personas: brandGuide.personas || [],
-      goals: brandGuide.goals || [],
-      performanceInsights: brandGuide.performanceInsights || {},
-      version: brandGuide.version || 1,
-      setupMethod: brandGuide.setupMethod || "ai_generated",
+      personas: validatedGuide.personas || [],
+      goals: validatedGuide.goals || [],
+      performanceInsights: validatedGuide.performanceInsights || {},
+      version: validatedGuide.version || 1,
+      setupMethod: validatedGuide.setupMethod || "ai_generated",
       // Additional onboarding fields
       images: brandSnapshot.extractedMetadata?.images || [],
-      // ✅ CRITICAL: Ensure about_blurb is saved (for crawler compatibility)
-      about_blurb: brandGuide.purpose || brandGuide.longFormSummary || "",
+      // Note: about_blurb is already set on line 142 for crawler compatibility
     };
 
     const voiceSummary: any = {
-      tone: brandGuide.voiceAndTone?.tone || [],
-      friendlinessLevel: brandGuide.voiceAndTone?.friendlinessLevel,
-      formalityLevel: brandGuide.voiceAndTone?.formalityLevel,
-      confidenceLevel: brandGuide.voiceAndTone?.confidenceLevel,
-      voiceDescription: brandGuide.voiceAndTone?.voiceDescription,
-      writingRules: brandGuide.voiceAndTone?.writingRules || [],
-      avoid: brandGuide.voiceAndTone?.avoidPhrases || [],
+      tone: validatedGuide.voiceAndTone?.tone || [],
+      friendlinessLevel: validatedGuide.voiceAndTone?.friendlinessLevel,
+      formalityLevel: validatedGuide.voiceAndTone?.formalityLevel,
+      confidenceLevel: validatedGuide.voiceAndTone?.confidenceLevel,
+      voiceDescription: validatedGuide.voiceAndTone?.voiceDescription,
+      writingRules: validatedGuide.voiceAndTone?.writingRules || [],
+      avoid: validatedGuide.voiceAndTone?.avoidPhrases || [],
       audience: brandSnapshot.audience || "",
     };
 
     const visualSummary: any = {
-      colors: brandGuide.visualIdentity?.colors || [],
+      colors: validatedGuide.visualIdentity?.colors || [],
       fonts: [
-        brandGuide.visualIdentity?.typography?.heading,
-        brandGuide.visualIdentity?.typography?.body,
+        validatedGuide.visualIdentity?.typography?.heading,
+        validatedGuide.visualIdentity?.typography?.body,
       ].filter(Boolean),
       photographyStyle: {
-        mustInclude: brandGuide.visualIdentity?.photographyStyle?.mustInclude || [],
-        mustAvoid: brandGuide.visualIdentity?.photographyStyle?.mustAvoid || [],
+        mustInclude: validatedGuide.visualIdentity?.photographyStyle?.mustInclude || [],
+        mustAvoid: validatedGuide.visualIdentity?.photographyStyle?.mustAvoid || [],
       },
-      logo_urls: brandGuide.visualIdentity?.logoUrl ? [brandGuide.visualIdentity.logoUrl] : [],
-      visualNotes: brandGuide.visualIdentity?.visualNotes,
+      logo_urls: validatedGuide.visualIdentity?.logoUrl ? [validatedGuide.visualIdentity.logoUrl] : [],
+      visualNotes: validatedGuide.visualIdentity?.visualNotes,
       images: brandSnapshot.extractedMetadata?.images || [],
     };
 
@@ -228,11 +267,11 @@ export async function saveBrandGuideFromOnboarding(
       const { error } = await supabase
         .from("brands")
         .update({
-          name: brandGuide.brandName,
+          name: validatedGuide.brandName,
           brand_kit: brandKit,
           voice_summary: voiceSummary,
           visual_summary: visualSummary,
-          tone_keywords: brandGuide.tone || [],
+          tone_keywords: (validatedGuide as any).tone || validatedGuide.voiceAndTone?.tone || [],
           updated_at: new Date().toISOString(),
         })
         .eq("id", brandId);
@@ -241,22 +280,89 @@ export async function saveBrandGuideFromOnboarding(
         console.error("[BrandGuideSync] Error updating brand:", error);
         throw error;
       }
+
+      // Generate BFS baseline for new/updated Brand Guide
+      try {
+        const normalizedGuide = normalizeBrandGuide({
+          id: brandId,
+          brandId,
+          name: brandGuide.brandName,
+          brand_kit: brandKit,
+          voice_summary: voiceSummary,
+          visual_summary: visualSummary,
+        } as any);
+
+        // Check if baseline needs generation
+        if (shouldRegenerateBaseline(normalizedGuide)) {
+          const baseline = await generateBFSBaseline(normalizedGuide);
+          // Update brand_kit with baseline
+          const updatedBrandKit = {
+            ...brandKit,
+            performanceInsights: {
+              ...brandKit.performanceInsights,
+              bfsBaseline: baseline,
+            },
+          };
+          await supabase
+            .from("brands")
+            .update({ brand_kit: updatedBrandKit })
+            .eq("id", brandId);
+        }
+
+        // Create version history entry
+        await createVersionHistory(brandId, normalizedGuide, null, undefined, "Onboarding sync");
+      } catch (baselineError) {
+        console.error("[BrandGuideSync] Error generating BFS baseline or version history:", baselineError);
+        // Non-critical, continue
+      }
     } else {
       // Create new brand (shouldn't happen in onboarding, but handle gracefully)
       const { error } = await supabase
         .from("brands")
         .insert({
           id: brandId,
-          name: brandGuide.brandName,
+          name: validatedGuide.brandName,
           brand_kit: brandKit,
           voice_summary: voiceSummary,
           visual_summary: visualSummary,
-          tone_keywords: brandGuide.tone || [],
+          tone_keywords: (validatedGuide as any).tone || validatedGuide.voiceAndTone?.tone || [],
         });
 
       if (error) {
         console.error("[BrandGuideSync] Error creating brand:", error);
         throw error;
+      }
+
+      // Generate BFS baseline for new Brand Guide
+      try {
+        const normalizedGuide = normalizeBrandGuide({
+          id: brandId,
+          brandId,
+          name: brandGuide.brandName,
+          brand_kit: brandKit,
+          voice_summary: voiceSummary,
+          visual_summary: visualSummary,
+        } as any);
+
+        const baseline = await generateBFSBaseline(normalizedGuide);
+        // Update brand_kit with baseline
+        const updatedBrandKit = {
+          ...brandKit,
+          performanceInsights: {
+            ...brandKit.performanceInsights,
+            bfsBaseline: baseline,
+          },
+        };
+        await supabase
+          .from("brands")
+          .update({ brand_kit: updatedBrandKit })
+          .eq("id", brandId);
+
+        // Create version history entry
+        await createVersionHistory(brandId, normalizedGuide, null, undefined, "Initial creation");
+      } catch (baselineError) {
+        console.error("[BrandGuideSync] Error generating BFS baseline or version history:", baselineError);
+        // Non-critical, continue
       }
     }
   } catch (error) {

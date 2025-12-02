@@ -1,6 +1,6 @@
 # Supabase Database Migrations
 
-This directory contains versioned SQL migrations that define the complete database schema for the Aligned AI platform.
+This directory contains versioned SQL migrations that define the complete database schema for the POSTD platform.
 
 ## Migration Files
 

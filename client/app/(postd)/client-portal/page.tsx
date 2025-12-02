@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useBrand } from "@/contexts/BrandContext";
 import { useAuth } from "@/lib/auth/useAuth";
@@ -69,6 +69,11 @@ import {
 import { WorkflowTracker } from "@/components/workflow/WorkflowTracker";
 import { WorkflowAction } from "@shared/workflow";
 import { useToast } from "@/hooks/use-toast";
+import { logError } from "@/lib/logger";
+import { PageShell } from "@/components/postd/ui/layout/PageShell";
+import { PageHeader } from "@/components/postd/ui/layout/PageHeader";
+import { LoadingState } from "@/components/postd/dashboard/states/LoadingState";
+import { ErrorState } from "@/components/postd/ui/feedback/ErrorState";
 
 export default function ClientPortal() {
   const [dashboardData, setDashboardData] =
@@ -81,13 +86,7 @@ export default function ClientPortal() {
   // VIEWER role has no approve permissions; also check for undefined/null roles
   const isViewOnly = role === "VIEWER" || !role;
 
-  useEffect(() => {
-    loadDashboardData();
-    // Apply client branding on load
-    applyClientBranding();
-  }, []);
-
-  const loadDashboardData = async () => {
+  const loadDashboardData = useCallback(async () => {
     try {
       setLoading(true);
       const response = await fetch("/api/client-portal/dashboard");
@@ -96,16 +95,16 @@ export default function ClientPortal() {
         setDashboardData(data);
       } else {
         const error = await response.json().catch(() => ({ message: "Failed to load dashboard" }));
-        console.error("Failed to load dashboard data:", error);
+        logError("Failed to load dashboard data", new Error(String(error.message || error)), { responseStatus: response.status });
       }
     } catch (error) {
-      console.error("Failed to load dashboard data:", error);
+      logError("Failed to load dashboard data", error instanceof Error ? error : new Error(String(error)));
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const applyClientBranding = () => {
+  const applyClientBranding = useCallback(() => {
     // Apply client brand colors and favicon
     if (dashboardData?.brandInfo?.colors?.primary) {
       document.documentElement.style.setProperty(
@@ -119,7 +118,13 @@ export default function ClientPortal() {
       ) as HTMLLinkElement;
       if (link) link.href = dashboardData.brandInfo.favicon;
     }
-  };
+  }, [dashboardData]);
+
+  useEffect(() => {
+    loadDashboardData();
+    // Apply client branding on load
+    applyClientBranding();
+  }, [loadDashboardData, applyClientBranding]);
 
   const handleWorkflowAction = async (action: WorkflowAction) => {
     try {
@@ -133,21 +138,18 @@ export default function ClientPortal() {
         await loadDashboardData();
       } else {
         const error = await response.json().catch(() => ({ message: "Failed to process workflow action" }));
-        console.error("Failed to process workflow action:", error);
+        logError("Failed to process workflow action", new Error(String(error.message || error)), { action, responseStatus: response.status });
       }
     } catch (error) {
-      console.error("Failed to process workflow action:", error);
+      logError("Failed to process workflow action", error instanceof Error ? error : new Error(String(error)), { action });
     }
   };
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading your portal...</p>
-        </div>
-      </div>
+      <PageShell>
+        <LoadingState />
+      </PageShell>
     );
   }
 
@@ -165,10 +167,14 @@ export default function ClientPortal() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <PageShell>
+      <PageHeader
+        title={dashboardData.brandInfo.name || "Client Portal"}
+        subtitle="View your content, analytics, and brand information"
+      />
       {/* Hero Header with Client Branding */}
-      <div className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-6 py-8">
+      <div className="bg-white shadow-sm border-b -mx-4 sm:-mx-6 md:-mx-8 lg:-mx-10 px-4 sm:px-6 md:px-8 lg:px-10 py-8 mb-6">
+        <div className="max-w-7xl mx-auto">
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-6">
               {dashboardData.brandInfo.logo && (
@@ -205,7 +211,7 @@ export default function ClientPortal() {
                   % ready
                 </h3>
                 <p className="text-blue-700">
-                  {dashboardData.aiInsight.description}
+                  {dashboardData.aiInsight?.description || "No insights available at this time."}
                 </p>
               </div>
               <div className="flex gap-3">
@@ -319,7 +325,7 @@ export default function ClientPortal() {
           </div>
         </div>
       </footer>
-    </div>
+    </PageShell>
   );
 }
 
@@ -449,7 +455,7 @@ function OverviewSection({ data }: { data: ClientDashboardData }) {
             <h4 className="font-semibold text-blue-900 mb-2">
               {data.aiInsight.title}
             </h4>
-            <p className="text-blue-800">{data.aiInsight.description}</p>
+            <p className="text-blue-800">{data.aiInsight?.description || "No insights available at this time."}</p>
           </div>
         </CardContent>
       </Card>
@@ -595,7 +601,7 @@ function ApprovalsSection({
         });
       }
     } catch (error) {
-      console.error("Failed to process approval:", error);
+      logError("Failed to process approval", error instanceof Error ? error : new Error(String(error)));
       toast({
         title: "Error",
         description: "Failed to process approval. Please try again.",
@@ -637,7 +643,7 @@ function ApprovalsSection({
         });
       }
     } catch (error) {
-      console.error("Failed to batch approve:", error);
+      logError("Failed to batch approve", error instanceof Error ? error : new Error(String(error)));
       toast({
         title: "Error",
         description: "Failed to batch approve. Please try again.",
@@ -821,7 +827,7 @@ function UploadsSection() {
         }
       }
     } catch (error) {
-      console.error("Upload failed:", error);
+      logError("Upload failed", error instanceof Error ? error : new Error(String(error)));
     } finally {
       setUploading(false);
     }
@@ -1553,11 +1559,11 @@ function ShareLinkDialog({
         setShareUrl(fullUrl);
       } else {
         const error = await response.json();
-        console.error("Failed to generate share link:", error);
+        logError("Failed to generate share link", new Error(String(error.message || "Unknown error")), { responseStatus: response.status });
         alert(`Failed to create share link: ${error.message || "Unknown error"}`);
       }
     } catch (error) {
-      console.error("Failed to generate share link:", error);
+      logError("Failed to generate share link", error instanceof Error ? error : new Error(String(error)));
       alert("Failed to create share link. Please try again.");
     }
   };

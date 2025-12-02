@@ -570,28 +570,29 @@ export class ApprovalsDBService {
       }
     }
 
-    if (params.search) {
-      const term = params.search.replace(/%/g, "");
-      scheduledQuery = scheduledQuery.or(
-        `headline.ilike.%${term}%,body.ilike.%${term}%,content_type.ilike.%${term}%`,
-      );
-    }
+    // Note: scheduled_content table doesn't have body/content_type columns
+    // It only has: id, brand_id, content_id, scheduled_at, platforms, status
+    // Search is handled via content_items join or removed for scheduled_content
+    // For now, search is disabled for scheduled_content (would need join with content_items)
 
     const { data: scheduledData, error: scheduledError, count: scheduledCount } = await scheduledQuery;
 
     // Also fetch from content_items table (for content planning service items)
+    // ✅ SCHEMA ALIGNMENT: approval_required column doesn't exist - use status/generated_by_agent instead
     let contentItemsQuery = supabase
       .from("content_items")
       .select("*", { count: "exact" })
       .in("brand_id", params.brandIds)
       .in("status", ["pending_review", "draft"])
-      .eq("approval_required", true)
+      // Note: approval_required column doesn't exist - filter by status instead
       .order("created_at", { ascending: false });
 
     if (params.search) {
       const term = params.search.replace(/%/g, "");
+      // ✅ SCHEMA ALIGNMENT: Use 'type' (not 'content_type') and 'content' JSONB (not 'body')
+      // Search in title and type columns, and within content JSONB
       contentItemsQuery = contentItemsQuery.or(
-        `title.ilike.%${term}%,body.ilike.%${term}%,content_type.ilike.%${term}%`,
+        `title.ilike.%${term}%,type.ilike.%${term}%,content.ilike.%${term}%`,
       );
     }
 
@@ -602,16 +603,18 @@ export class ApprovalsDBService {
     
     if (!scheduledError && scheduledData) {
       // Map scheduled_content to common format
+      // Note: scheduled_content doesn't have headline/body/content_type - need to join with content_items
+      // For now, use minimal mapping (would need join to get full content data)
       scheduledData.forEach((item: any) => {
         allRecords.push({
           id: item.id,
           brand_id: item.brand_id,
-          headline: item.headline || item.title,
-          body: item.body || item.content,
-          content_type: item.content_type,
-          platform: item.platform,
+          headline: item.headline || "", // scheduled_content doesn't have this
+          body: item.body || "", // scheduled_content doesn't have this - would need join
+          content_type: item.content_type || "", // scheduled_content doesn't have this - would need join
+          platform: item.platforms?.[0] || "", // scheduled_content has platforms array
           status: item.status,
-          scheduled_for: item.scheduled_for,
+          scheduled_for: item.scheduled_at, // scheduled_content uses scheduled_at
           created_at: item.created_at,
           updated_at: item.updated_at,
           source: "scheduled_content",
@@ -621,13 +624,20 @@ export class ApprovalsDBService {
 
     if (!contentItemsError && contentItemsData) {
       // Map content_items to common format
+      // ✅ SCHEMA ALIGNMENT: Use 'type' (not 'content_type') and 'content' JSONB (not 'body')
       contentItemsData.forEach((item: any) => {
+        // Extract text from content JSONB structure
+        const contentObj = item.content || {};
+        const bodyText = typeof contentObj === "string" 
+          ? contentObj 
+          : (contentObj as any)?.body || (contentObj as any)?.text || JSON.stringify(contentObj);
+        
         allRecords.push({
           id: item.id,
           brand_id: item.brand_id,
           headline: item.title,
-          body: item.body,
-          content_type: item.content_type,
+          body: bodyText, // Extract from content JSONB
+          content_type: item.type || "", // Use 'type' column (not 'content_type')
           platform: item.platform,
           status: item.status,
           scheduled_for: item.scheduled_for,
@@ -727,10 +737,10 @@ function mapScheduledRecordToBoardItem(
     contentId: record.id,
     brandId: record.brand_id,
     brandName: brands[record.brand_id]?.name || "Brand",
-    platform: record.platform || record.content_type,
+    platform: record.platform || record.content_type || "", // content_type is mapped from 'type' column
     content: {
       headline: record.headline || record.title || "",
-      body: record.body || record.caption || "",
+      body: record.body || record.caption || "", // body is extracted from content JSONB
       cta: record.cta || undefined,
       mediaUrls: record.media_urls || [],
       caption: record.caption || undefined,

@@ -15,6 +15,19 @@ import { supabase } from "../lib/supabase";
 import { workflowDB } from "../lib/workflow-db-service";
 import { logAuditAction } from "../lib/audit-logger";
 
+// ✅ VALIDATION: Zod schemas for client portal routes
+const ContentIdParamSchema = z.object({
+  contentId: z.string().uuid("Invalid content ID format"),
+});
+
+const FeedbackBodySchema = z.object({
+  feedback: z.string().min(1, "Feedback is required").max(1000, "Feedback must be 1000 characters or less"),
+});
+
+const CommentBodySchema = z.object({
+  message: z.string().min(1, "Message is required").max(2000, "Message must be 2000 characters or less"),
+});
+
 /**
  * GET /api/client-portal/dashboard
  * Get client dashboard with content, metrics, and pending approvals
@@ -73,7 +86,7 @@ export const getClientDashboard: RequestHandler = async (req, res, next) => {
       },
     };
 
-    (res as any).json(dashboardData);
+    res.json(dashboardData);
   } catch (error) {
     next(error);
   }
@@ -85,37 +98,45 @@ export const getClientDashboard: RequestHandler = async (req, res, next) => {
  */
 export const approveContent: RequestHandler = async (req, res, next) => {
   try {
-    const { contentId } = req.params;
-    const { feedback } = req.body;
-    const brandId = (req as unknown).user?.brandId;
-    const clientId = (req as unknown).user?.id || (req as unknown).userId;
-
-    if (!brandId || !clientId || !contentId) {
-      throw new AppError(
-        ErrorCode.MISSING_REQUIRED_FIELD,
-        'brandId, clientId, and contentId are required',
-        HTTP_STATUS.BAD_REQUEST,
-        'warning'
-      );
+    // ✅ VALIDATION: Validate params and body
+    let contentId: string;
+    let feedback: string | undefined;
+    try {
+      const validatedParams = ContentIdParamSchema.parse(req.params);
+      contentId = validatedParams.contentId;
+      const validatedBody = FeedbackBodySchema.optional().parse(req.body);
+      feedback = validatedBody?.feedback;
+    } catch (validationError) {
+      if (validationError instanceof z.ZodError) {
+        throw new AppError(
+          ErrorCode.VALIDATION_ERROR,
+          "Invalid request parameters",
+          HTTP_STATUS.BAD_REQUEST,
+          "warning",
+          { validationErrors: validationError.errors }
+        );
+      }
+      throw validationError;
     }
+    const context = getPortalContext(req);
 
     // Approve content via database
     const approval = await clientPortalDB.approveContent(
       contentId,
-      brandId,
-      clientId,
+      context.brandId,
+      context.userId,
       feedback
     );
 
     // Broadcast client approval
     broadcastApprovalClientResponded(
       contentId,
-      brandId,
-      clientId,
+      context.brandId,
+      context.userId,
       "approved"
     );
 
-    (res as any).json({
+    res.json({
       success: true,
       contentId,
       approved: true,
@@ -133,19 +154,27 @@ export const approveContent: RequestHandler = async (req, res, next) => {
  */
 export const rejectContent: RequestHandler = async (req, res, next) => {
   try {
-    const { contentId } = req.params;
-    const { feedback } = req.body;
-    const brandId = (req as unknown).user?.brandId;
-    const clientId = (req as unknown).user?.id || (req as unknown).userId;
-
-    if (!brandId || !clientId || !contentId) {
-      throw new AppError(
-        ErrorCode.MISSING_REQUIRED_FIELD,
-        'brandId, clientId, and contentId are required',
-        HTTP_STATUS.BAD_REQUEST,
-        'warning'
-      );
+    // ✅ VALIDATION: Validate params and body
+    let contentId: string;
+    let feedback: string | undefined;
+    try {
+      const validatedParams = ContentIdParamSchema.parse(req.params);
+      contentId = validatedParams.contentId;
+      const validatedBody = FeedbackBodySchema.optional().parse(req.body);
+      feedback = validatedBody?.feedback;
+    } catch (validationError) {
+      if (validationError instanceof z.ZodError) {
+        throw new AppError(
+          ErrorCode.VALIDATION_ERROR,
+          "Invalid request parameters",
+          HTTP_STATUS.BAD_REQUEST,
+          "warning",
+          { validationErrors: validationError.errors }
+        );
+      }
+      throw validationError;
     }
+    const context = getPortalContext(req);
 
     if (!feedback?.trim()) {
       throw new AppError(
@@ -159,21 +188,21 @@ export const rejectContent: RequestHandler = async (req, res, next) => {
     // Reject content via database
     const rejection = await clientPortalDB.rejectContent(
       contentId,
-      brandId,
-      clientId,
+      context.brandId,
+      context.userId,
       feedback.trim()
     );
 
     // Broadcast client rejection
     broadcastApprovalClientResponded(
       contentId,
-      brandId,
-      clientId,
+      context.brandId,
+      context.userId,
       "rejected",
       feedback.trim()
     );
 
-    (res as any).json({
+    res.json({
       success: true,
       contentId,
       approved: false,
@@ -191,11 +220,29 @@ export const rejectContent: RequestHandler = async (req, res, next) => {
  */
 export const addContentComment: RequestHandler = async (req, res, next) => {
   try {
-    const { contentId } = req.params;
-    const { message } = req.body;
-    const userId = (req as unknown).user?.id || (req as unknown).userId;
-    const userName = (req as unknown).user?.name || 'User';
-    const userRole = (req as unknown).user?.role || 'client';
+    // ✅ VALIDATION: Validate params and body
+    let contentId: string;
+    let message: string;
+    try {
+      const validatedParams = ContentIdParamSchema.parse(req.params);
+      contentId = validatedParams.contentId;
+      const validatedBody = CommentBodySchema.parse(req.body);
+      message = validatedBody.message;
+    } catch (validationError) {
+      if (validationError instanceof z.ZodError) {
+        throw new AppError(
+          ErrorCode.VALIDATION_ERROR,
+          "Invalid request parameters",
+          HTTP_STATUS.BAD_REQUEST,
+          "warning",
+          { validationErrors: validationError.errors }
+        );
+      }
+      throw validationError;
+    }
+    const context = getPortalContext(req);
+    const userName = context.user?.name || context.email?.split('@')[0] || 'User';
+    const userRole = context.user?.role || 'client';
 
     if (!contentId || !message?.trim()) {
       throw new AppError(
@@ -209,14 +256,14 @@ export const addContentComment: RequestHandler = async (req, res, next) => {
     // Add comment via database
     const comment = await clientPortalDB.addContentComment(
       contentId,
-      userId,
+      context.userId,
       userName,
-      userRole as unknown,
+      userRole,
       message.trim(),
       false
     );
 
-    (res as any).json({
+    res.json({
       success: true,
       comment: {
         id: comment.id,
@@ -240,7 +287,23 @@ export const addContentComment: RequestHandler = async (req, res, next) => {
  */
 export const getContentComments: RequestHandler = async (req, res, next) => {
   try {
-    const { contentId } = req.params;
+    // ✅ VALIDATION: Validate contentId param
+    let contentId: string;
+    try {
+      const validated = ContentIdParamSchema.parse(req.params);
+      contentId = validated.contentId;
+    } catch (validationError) {
+      if (validationError instanceof z.ZodError) {
+        throw new AppError(
+          ErrorCode.VALIDATION_ERROR,
+          "Invalid content ID format",
+          HTTP_STATUS.BAD_REQUEST,
+          "warning",
+          { validationErrors: validationError.errors }
+        );
+      }
+      throw validationError;
+    }
 
     if (!contentId) {
       throw new AppError(
@@ -266,7 +329,7 @@ export const getContentComments: RequestHandler = async (req, res, next) => {
       createdAt: comment.created_at,
     }));
 
-    (res as any).json({
+    res.json({
       contentId,
       comments: mappedComments,
       total: mappedComments.length,
@@ -283,10 +346,9 @@ export const getContentComments: RequestHandler = async (req, res, next) => {
 export const uploadClientMedia: RequestHandler = async (req, res, next) => {
   try {
     const { filename, mimeType, fileSize, path } = req.body;
-    const brandId = (req as unknown).user?.brandId;
-    const clientId = (req as unknown).user?.id || (req as unknown).userId;
+    const context = getPortalContext(req);
 
-    if (!brandId || !clientId || !filename || !mimeType || fileSize === undefined) {
+    if (!filename || !mimeType || fileSize === undefined) {
       throw new AppError(
         ErrorCode.MISSING_REQUIRED_FIELD,
         'brandId, clientId, filename, mimeType, and fileSize are required',
@@ -297,15 +359,15 @@ export const uploadClientMedia: RequestHandler = async (req, res, next) => {
 
     // Store upload in database
     const uploadRecord = await clientPortalDB.storeClientMediaUpload(
-      brandId,
-      clientId,
+      context.brandId,
+      context.userId,
       filename,
       mimeType,
       fileSize,
-      path || `client-uploads/${brandId}/${clientId}/${filename}`
+      path || `client-uploads/${context.brandId}/${context.userId}/${filename}`
     );
 
-    (res as any).json({
+    res.json({
       success: true,
       message: 'File uploaded successfully',
       uploads: [
@@ -328,23 +390,13 @@ export const uploadClientMedia: RequestHandler = async (req, res, next) => {
  */
 export const getClientMedia: RequestHandler = async (req, res, next) => {
   try {
-    const brandId = (req as unknown).user?.brandId;
-    const clientId = (req as unknown).user?.id || (req as unknown).userId;
-    const limit = parseInt((req as any).query.limit as string) || 50;
-
-    if (!brandId || !clientId) {
-      throw new AppError(
-        ErrorCode.MISSING_REQUIRED_FIELD,
-        'brandId and clientId are required',
-        HTTP_STATUS.BAD_REQUEST,
-        'warning'
-      );
-    }
+    const context = getPortalContext(req);
+    const limit = parseInt(String(req.query.limit || '50')) || 50;
 
     // Fetch media uploads from database
-    const uploads = await clientPortalDB.getClientMediaUploads(brandId, clientId, limit);
+    const uploads = await clientPortalDB.getClientMediaUploads(context.brandId, context.userId, limit);
 
-    (res as any).json({
+    res.json({
       uploads,
       total: uploads.length,
     });
@@ -359,29 +411,20 @@ export const getClientMedia: RequestHandler = async (req, res, next) => {
  */
 export const getPortalContent: RequestHandler = async (req, res, next) => {
   try {
-    const brandId = (req as unknown).user?.brandId;
-    const status = (req as any).query.status as unknown;
-    const limit = parseInt((req as any).query.limit as string) || 50;
-    const offset = parseInt((req as any).query.offset as string) || 0;
-
-    if (!brandId) {
-      throw new AppError(
-        ErrorCode.MISSING_REQUIRED_FIELD,
-        'brandId is required',
-        HTTP_STATUS.BAD_REQUEST,
-        'warning'
-      );
-    }
+    const context = getPortalContext(req);
+    const status = req.query.status as "draft" | "scheduled" | "published" | "in_review" | undefined;
+    const limit = parseInt(String(req.query.limit || '50')) || 50;
+    const offset = parseInt(String(req.query.offset || '0')) || 0;
 
     // Fetch content from database
     const { content, total } = await clientPortalDB.getContentForClientPortal(
-      brandId,
-      status,
+      context.brandId,
+      status && ["draft", "scheduled", "published", "in_review"].includes(status) ? status : undefined,
       limit,
       offset
     );
 
-    (res as any).json({
+    res.json({
       content,
       total,
       hasMore: offset + content.length < total,
@@ -403,7 +446,23 @@ export const getContentWithComments: RequestHandler = async (
   next,
 ) => {
   try {
-    const { contentId } = req.params;
+    // ✅ VALIDATION: Validate contentId param
+    let contentId: string;
+    try {
+      const validated = ContentIdParamSchema.parse(req.params);
+      contentId = validated.contentId;
+    } catch (validationError) {
+      if (validationError instanceof z.ZodError) {
+        throw new AppError(
+          ErrorCode.VALIDATION_ERROR,
+          "Invalid content ID format",
+          HTTP_STATUS.BAD_REQUEST,
+          "warning",
+          { validationErrors: validationError.errors }
+        );
+      }
+      throw validationError;
+    }
 
     if (!contentId) {
       throw new AppError(
@@ -438,7 +497,7 @@ export const getContentWithComments: RequestHandler = async (
       createdAt: comment.created_at,
     }));
 
-    (res as any).json({
+    res.json({
       content,
       comments: mappedComments,
       commentCount: mappedComments.length,
@@ -454,17 +513,7 @@ export const getContentWithComments: RequestHandler = async (
  */
 export const createShareLink: RequestHandler = async (req, res, next) => {
   try {
-    const brandId = (req as unknown).user?.brandId;
-    const userId = (req as unknown).user?.id || (req as unknown).userId;
-
-    if (!brandId || !userId) {
-      throw new AppError(
-        ErrorCode.MISSING_REQUIRED_FIELD,
-        "brandId and userId are required",
-        HTTP_STATUS.BAD_REQUEST,
-        "warning"
-      );
-    }
+    const context = getPortalContext(req);
 
     const {
       name,
@@ -493,7 +542,7 @@ export const createShareLink: RequestHandler = async (req, res, next) => {
       passcodeHash = crypto.createHash("sha256").update(passcode).digest("hex");
     }
 
-    const shareLink = await clientPortalDB.createShareLink(brandId, userId, {
+    const shareLink = await clientPortalDB.createShareLink(context.brandId, context.userId, {
       name,
       description,
       scope,
@@ -505,7 +554,7 @@ export const createShareLink: RequestHandler = async (req, res, next) => {
       showWatermark: showWatermark !== false,
     });
 
-    (res as any).json({
+    res.json({
       success: true,
       shareUrl: shareLink.shareUrl,
       link: {
@@ -528,20 +577,11 @@ export const createShareLink: RequestHandler = async (req, res, next) => {
  */
 export const getShareLinks: RequestHandler = async (req, res, next) => {
   try {
-    const brandId = (req as unknown).user?.brandId;
+    const context = getPortalContext(req);
 
-    if (!brandId) {
-      throw new AppError(
-        ErrorCode.MISSING_REQUIRED_FIELD,
-        "brandId is required",
-        HTTP_STATUS.BAD_REQUEST,
-        "warning"
-      );
-    }
+    const links = await clientPortalDB.getShareLinksForBrand(context.brandId);
 
-    const links = await clientPortalDB.getShareLinksForBrand(brandId);
-
-    (res as any).json({
+    res.json({
       success: true,
       links,
     });
@@ -585,7 +625,7 @@ export const getShareLinkByToken: RequestHandler = async (
     // Increment view count
     await clientPortalDB.incrementShareLinkViews(token);
 
-    (res as any).json({
+    res.json({
       success: true,
       link: shareLink,
     });
@@ -601,9 +641,9 @@ export const getShareLinkByToken: RequestHandler = async (
 export const revokeShareLink: RequestHandler = async (req, res, next) => {
   try {
     const { linkId } = req.params;
-    const brandId = (req as unknown).user?.brandId;
+    const context = getPortalContext(req);
 
-    if (!brandId || !linkId) {
+    if (!linkId) {
       throw new AppError(
         ErrorCode.MISSING_REQUIRED_FIELD,
         "brandId and linkId are required",
@@ -612,9 +652,9 @@ export const revokeShareLink: RequestHandler = async (req, res, next) => {
       );
     }
 
-    await clientPortalDB.revokeShareLink(brandId, linkId);
+    await clientPortalDB.revokeShareLink(context.brandId, linkId);
 
-    (res as any).json({
+    res.json({
       success: true,
       message: "Share link revoked",
     });
@@ -735,10 +775,17 @@ clientPortalRouter.post(
         );
       }
 
+      // Map action types to match processWorkflowAction signature
+      const mappedAction: "approve" | "reject" | "comment" | "reassign" = 
+        action.type === "request_changes" ? "comment" :
+        action.type === "skip" || action.type === "escalate" ? "comment" :
+        action.type === "approve" || action.type === "reject" || action.type === "reassign" ? action.type :
+        "comment";
+
       const updatedWorkflow = await workflowDB.processWorkflowAction(
         workflowInstance.id,
         action.stepInstanceId,
-        action.type,
+        mappedAction,
         {
           comment: action.comment,
           actedBy: context.userId,
@@ -761,7 +808,7 @@ clientPortalRouter.post(
         req.headers["user-agent"],
       );
 
-      (res as any).json({
+      res.json({
         success: true,
         workflow: updatedWorkflow,
       });

@@ -140,7 +140,7 @@ celebrateWinToast({
   - Attribution explanation
 - **vs. Hiring Comparison:**
   - Social media manager cost (~$3,500/mo)
-  - Aligned AI cost ($199/mo)
+  - POSTD cost ($199/mo)
   - Annual savings (~$40K)
   - Descriptive message
 
@@ -281,7 +281,7 @@ celebrateWinToast({
       followerChange: 0,
       industryAverage: -3
     },
-    recoveryMessage: "Your Aligned AI content kept your audience engaged..."
+    recoveryMessage: "Your POSTD content kept your audience engaged..."
   }}
 />
 ```

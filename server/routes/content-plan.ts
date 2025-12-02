@@ -8,6 +8,7 @@
  */
 
 import { Router, RequestHandler } from "express";
+import { z } from "zod";
 import { generateContentPlan } from "../lib/content-planning-service";
 import { assertBrandAccess } from "../lib/brand-access";
 import { AppError } from "../lib/error-middleware";
@@ -17,6 +18,11 @@ import { authenticateUser } from "../middleware/security";
 import { requireScope } from "../middleware/requireScope";
 
 const contentPlanRouter = Router();
+
+// ✅ VALIDATION: Zod schemas for content plan routes
+const BrandIdParamSchema = z.object({
+  brandId: z.string().uuid("Invalid brand ID format"),
+});
 
 /**
  * GET /api/content-plan/:brandId
@@ -28,7 +34,23 @@ contentPlanRouter.get(
   // requireScope("content:view"), // ✅ REMOVED: Too restrictive for onboarding
   (async (req, res, next) => {
     try {
-      const { brandId } = req.params;
+      // ✅ VALIDATION: Validate brandId parameter
+      let brandId: string;
+      try {
+        const validated = BrandIdParamSchema.parse(req.params);
+        brandId = validated.brandId;
+      } catch (validationError) {
+        if (validationError instanceof z.ZodError) {
+          throw new AppError(
+            ErrorCode.VALIDATION_ERROR,
+            "Invalid brand ID format",
+            HTTP_STATUS.BAD_REQUEST,
+            "warning",
+            { validationErrors: validationError.errors }
+          );
+        }
+        throw validationError;
+      }
 
       // Verify brand access
       await assertBrandAccess(req, brandId, true, true);
@@ -39,7 +61,7 @@ contentPlanRouter.get(
       endDate.setDate(endDate.getDate() + 7);
 
       // ✅ FIX: Query content_items with proper column names
-      // Note: Table uses 'type' not 'content_type', and 'body' for content
+      // Schema: Uses 'type' (not 'content_type') and 'content' JSONB (not 'body')
       const { data: contentItems, error } = await supabase
         .from("content_items")
         .select("*")
@@ -82,17 +104,21 @@ contentPlanRouter.get(
         contentPlan: {
           brandId,
           items: (contentItems || []).map((item: any) => {
-            // ✅ FIX: Handle both schemas (migration 009 uses content_type, migration 012 uses type)
-            const contentType = item.content_type || item.type || "post";
-            // ✅ FIX: Handle both schemas (migration 009 uses body, migration 012 uses content JSONB)
-            const content = item.body || (typeof item.content === "string" ? item.content : item.content?.body) || "";
+            // ✅ CANONICAL SCHEMA: Use 'type' and 'content' JSONB only
+            const contentType = item.type || "post";
+            
+            // Extract text content from JSONB structure
+            const contentObj = item.content || {};
+            const contentText = typeof contentObj === "string" 
+              ? contentObj 
+              : (contentObj as any)?.body || JSON.stringify(contentObj);
             
             return {
               id: item.id,
               title: item.title,
               contentType: contentType,
               platform: item.platform,
-              content: content,
+              content: contentText || "",
               scheduledDate: item.scheduled_for ? new Date(item.scheduled_for).toISOString().split("T")[0] : null,
               scheduledTime: item.scheduled_for ? new Date(item.scheduled_for).toTimeString().slice(0, 5) : null,
               imageUrl: item.media_urls?.[0] || null,
@@ -119,7 +145,23 @@ contentPlanRouter.post(
   // requireScope("ai:generate"), // ✅ REMOVED: Too restrictive for onboarding
   (async (req, res, next) => {
     try {
-      const { brandId } = req.params;
+      // ✅ VALIDATION: Validate brandId parameter
+      let brandId: string;
+      try {
+        const validated = BrandIdParamSchema.parse(req.params);
+        brandId = validated.brandId;
+      } catch (validationError) {
+        if (validationError instanceof z.ZodError) {
+          throw new AppError(
+            ErrorCode.VALIDATION_ERROR,
+            "Invalid brand ID format",
+            HTTP_STATUS.BAD_REQUEST,
+            "warning",
+            { validationErrors: validationError.errors }
+          );
+        }
+        throw validationError;
+      }
 
       // Verify brand access
       await assertBrandAccess(req, brandId, true, true);
@@ -161,7 +203,7 @@ contentPlanRouter.post(
         });
         
         throw new AppError(
-          ErrorCode.AI_GENERATION_ERROR,
+          ErrorCode.INTERNAL_ERROR,
           `Content generation failed: ${genError?.message || "Unknown error"}`,
           HTTP_STATUS.INTERNAL_SERVER_ERROR,
           "error",
@@ -173,7 +215,7 @@ contentPlanRouter.post(
       if (!contentPlan.items || contentPlan.items.length === 0) {
         console.error("[ContentPlan] No content items generated", { brandId });
         throw new AppError(
-          ErrorCode.AI_GENERATION_ERROR,
+          ErrorCode.INTERNAL_ERROR,
           "Content generation completed but no items were created",
           HTTP_STATUS.INTERNAL_SERVER_ERROR,
           "error",

@@ -1,6 +1,8 @@
 import { Link2, Plus, Trash2, AlertCircle, Clock, Shield, RefreshCw } from "lucide-react";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
+import { PageShell } from "@/components/postd/ui/layout/PageShell";
+import { PageHeader } from "@/components/postd/ui/layout/PageHeader";
 
 interface LinkedAccount {
   id: string;
@@ -164,24 +166,17 @@ export default function LinkedAccounts() {
   };
 
   return (    
-      <div className="min-h-screen bg-gradient-to-b from-indigo-50/30 via-white to-blue-50/20">
-        <div className="p-4 sm:p-6 md:p-8 max-w-7xl mx-auto">
-          {/* Header */}
-          <div className="mb-8">
-            <div className="flex items-start justify-between mb-4">
-              <div>
-                <div className="flex items-center gap-3 mb-2">
-                  <div className="p-3 rounded-lg bg-white/50 backdrop-blur-xl border border-white/60">
-                    <Link2 className="w-6 h-6 text-indigo-600" />
-                  </div>
-                  <div>
-                    <h1 className="text-3xl font-black text-indigo-950">
-                      Linked Accounts
-                    </h1>
-                    <p className="text-sm text-indigo-600/70 mt-1">
-                      Connect, manage, and disconnect your publishing platforms
-                    </p>
-                  </div>
+      <PageShell>
+        <PageHeader
+          title="Linked Accounts"
+          subtitle="Manage your connected social media platforms and integrations"
+        />
+        <div>
+          <div className="flex items-start justify-between mb-4">
+            <div>
+              <div className="flex items-center gap-3 mb-2">
+                <div className="p-3 rounded-lg bg-white/50 backdrop-blur-xl border border-white/60">
+                  <Link2 className="w-6 h-6 text-indigo-600" />
                 </div>
               </div>
               <button className="flex items-center gap-2 px-4 py-2.5 bg-lime-400 hover:bg-lime-500 text-indigo-950 font-semibold rounded-lg transition-all duration-200 shadow-lg shadow-lime-400/30">
@@ -433,7 +428,7 @@ export default function LinkedAccounts() {
             </div>
           </div>
         </div>
-      </div>
+      </PageShell>
     
   );
 }

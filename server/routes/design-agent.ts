@@ -2,6 +2,10 @@
  * Design Agent API Route
  * 
  * Handles requests to generate on-brand visual concepts (prompts, descriptions, layout suggestions).
+ * 
+ * @response Returns `AiDesignGenerationResponse` directly (not wrapped in { success: true } envelope).
+ * This is intentional to maintain backward compatibility with existing clients.
+ * The response includes: variants[], brandContext, request, metadata, warnings, status.
  */
 
 import { RequestHandler } from "express";
@@ -34,6 +38,7 @@ import {
 import { StrategyBriefStorage, ContentPackageStorage, BrandHistoryStorage, PerformanceLogStorage } from "../lib/collaboration-storage";
 import { getBrandVisualIdentity } from "../lib/brand-visual-identity";
 import { getCurrentBrandGuide } from "../lib/brand-guide-service";
+import { mapVariantToVisualEntry } from "../lib/collaboration-utils";
 
 // Simple logger for telemetry
 function logDesignAgentCall(provider: string, latencyMs: number, avgBFS: number, retryAttempted: boolean, variantCount: number, error?: string) {
@@ -169,14 +174,14 @@ function determineStatus(
   warnings: AiAgentWarning[],
 ): AiAgentResponseStatus {
   if (variantCount === 0) {
-    return "error";
+    return "failure";
   }
 
   const hasBlockingWarning = warnings.some(
     (warning) => warning.severity === "warning" || warning.severity === "critical",
   );
 
-  return hasBlockingWarning ? "partial" : "ok";
+  return hasBlockingWarning ? "partial_success" : "success";
 }
 
 function buildDesignAgentResponse(
@@ -207,7 +212,7 @@ function buildDesignAgentResponse(
       provider,
       latencyMs,
       retryAttempted,
-      status,
+      status: status === "ok" ? "success" : status === "partial" ? "partial_success" : status === "error" ? "failure" : (status as "success" | "partial_success" | "failure"),
       averageBrandFidelityScore: avgBFS,
       complianceTagCounts,
     },
@@ -302,7 +307,7 @@ export const generateDesignContent: RequestHandler = async (req, res) => {
     const userPrompt = buildDesignUserPrompt({
       brand,
       brandGuide, // Pass BrandGuide to prompt builder (source of truth)
-      request: requestBody,
+      request: requestBody as AiDesignGenerationRequest,
       strategyBrief,
       contentPackage,
       brandHistory,
@@ -345,7 +350,7 @@ export const generateDesignContent: RequestHandler = async (req, res) => {
         if (avgBFS < LOW_BFS_THRESHOLD && attempt < maxAttempts) {
           retryAttempted = true;
           const retryPrompt = buildDesignRetryPrompt(
-            { brand, request: requestBody },
+            { brand, request: requestBody as AiDesignGenerationRequest },
             rawResponse
           );
           const retryFullPrompt = `${systemPrompt}\n\n${retryPrompt}`;
@@ -372,7 +377,7 @@ export const generateDesignContent: RequestHandler = async (req, res) => {
           const response = buildDesignAgentResponse(
             brandId,
             brand,
-            requestBody,
+            requestBody as AiDesignGenerationRequest,
             variants,
             provider,
             latencyMs,
@@ -392,31 +397,19 @@ export const generateDesignContent: RequestHandler = async (req, res) => {
                 accessibilityNotes: [],
               };
 
-              // ✅ VISUALS: Convert variants to visuals array (retry path)
+              // ✅ VISUALS: Convert variants to visuals array using normalized helper (retry path)
               if (!contentPackage.visuals) {
                 contentPackage.visuals = [];
               }
               
-              variants.forEach((variant: any, idx: number) => {
-                const visual = {
-                  id: variant.id || `visual-retry-${idx + 1}`,
-                  type: (variant.type || "layout") as "template" | "image" | "graphic" | "layout",
-                  format: (variant.format || format || "feed") as "ig_post" | "reel_cover" | "carousel" | "linkedin_post" | "quote_card" | "announcement" | "story" | "feed" | "ad" | "other",
-                  templateRef: variant.templateRef,
-                  imagePrompt: variant.prompt || variant.imagePrompt,
-                  metadata: variant.metadata || {
-                    format: variant.description || format,
-                    colorUsage: brandVisualIdentity ? [brandVisualIdentity.colors.primary, brandVisualIdentity.colors.secondary] : [],
-                    typeStructure: brandVisualIdentity ? {
-                      headingFont: brandVisualIdentity.fonts.heading,
-                      bodyFont: brandVisualIdentity.fonts.body,
-                    } : {},
-                    emotion: contentPackage?.copy.tone || "professional",
-                    layoutStyle: "centered",
-                    aspectRatio: variant.aspectRatio || "1:1",
-                  },
-                  performanceInsights: variant.performanceInsights,
-                };
+              // ✅ PHASE 4: Use mapVariantToVisualEntry helper for consistent format
+              variants.forEach((variant: AiDesignVariant) => {
+                const visual = mapVariantToVisualEntry(variant, {
+                  source: "design_agent_make_on_brand",
+                  selected: false, // Not selected yet - user will select via VariantSelector
+                  designFormat: format,
+                  platform: platform,
+                });
                 contentPackage.visuals.push(visual);
               });
 
@@ -442,7 +435,7 @@ export const generateDesignContent: RequestHandler = async (req, res) => {
             agent: "design",
             brandId,
             userId,
-            status: response.status,
+            status: response.status === "ok" ? "success" : response.status === "partial" ? "partial_success" : response.status === "error" ? "failure" : (response.status as "success" | "partial_success" | "failure"),
             variantCount: variants.length,
             avgBFS: retryAvgBFS,
             warnings: response.warnings,
@@ -458,7 +451,7 @@ export const generateDesignContent: RequestHandler = async (req, res) => {
         const response = buildDesignAgentResponse(
           brandId,
           brand,
-          requestBody,
+          requestBody as AiDesignGenerationRequest,
           variants,
           provider,
           latencyMs,
@@ -478,32 +471,20 @@ export const generateDesignContent: RequestHandler = async (req, res) => {
               accessibilityNotes: [],
             };
 
-            // ✅ VISUALS: Convert variants to visuals array
+            // ✅ VISUALS: Convert variants to visuals array using normalized helper
             if (!contentPackage.visuals) {
               contentPackage.visuals = [];
             }
             
-            // Add all variants as visuals (or just the selected one)
-            variants.forEach((variant: any, idx: number) => {
-              const visual = {
-                id: variant.id || `visual-${idx + 1}`,
-                type: (variant.type || "layout") as "template" | "image" | "graphic" | "layout",
-                format: (variant.format || format || "feed") as "ig_post" | "reel_cover" | "carousel" | "linkedin_post" | "quote_card" | "announcement" | "story" | "feed" | "ad" | "other",
-                templateRef: variant.templateRef,
-                imagePrompt: variant.prompt || variant.imagePrompt,
-                metadata: variant.metadata || {
-                  format: variant.description || format,
-                  colorUsage: brandVisualIdentity ? [brandVisualIdentity.colors.primary, brandVisualIdentity.colors.secondary] : [],
-                  typeStructure: brandVisualIdentity ? {
-                    headingFont: brandVisualIdentity.fonts.heading,
-                    bodyFont: brandVisualIdentity.fonts.body,
-                  } : {},
-                  emotion: contentPackage?.copy.tone || "professional",
-                  layoutStyle: "centered",
-                  aspectRatio: variant.aspectRatio || "1:1",
-                },
-                performanceInsights: variant.performanceInsights,
-              };
+            // ✅ PHASE 4: Use mapVariantToVisualEntry helper for consistent format
+            // Add all variants as visuals (non-selected, will be marked selected when user picks one)
+            variants.forEach((variant: AiDesignVariant) => {
+              const visual = mapVariantToVisualEntry(variant, {
+                source: "design_agent_make_on_brand",
+                selected: false, // Not selected yet - user will select via VariantSelector
+                designFormat: format,
+                platform: platform,
+              });
               contentPackage.visuals.push(visual);
             });
 
@@ -529,7 +510,7 @@ export const generateDesignContent: RequestHandler = async (req, res) => {
           agent: "design",
           brandId,
           userId,
-          status: response.status,
+          status: response.status === "ok" ? "success" : response.status === "partial" ? "partial_success" : response.status === "error" ? "failure" : (response.status as "success" | "partial_success" | "failure"),
           variantCount: variants.length,
           avgBFS,
           warnings: response.warnings,

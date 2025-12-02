@@ -102,9 +102,10 @@ async function getBrandAsset(
     // ✅ RESILIENT: Don't use metadata column (may not exist)
     // Filter scraped images by HTTP URLs in path column instead
     // ✅ PRIORITY 1: Try scraped images first (have HTTP URLs in path)
+    // ✅ FIX: Do not select url - this column doesn't exist in media_assets schema
     let scrapedQuery = supabase
       .from("media_assets")
-      .select("id, path, filename, url")
+      .select("id, path, filename")
       .eq("brand_id", brandId)
       .eq("status", "active")
       .order("created_at", { ascending: false });
@@ -142,7 +143,7 @@ async function getBrandAsset(
         const asset = scrapedImages[0];
         return {
           id: asset.id,
-          url: asset.path || asset.url || "", // Use path (contains URL for scraped images)
+          url: asset.path || "", // ✅ FIX: Use path (contains URL for scraped images, url column doesn't exist)
           filename: asset.filename,
           metadata: undefined, // Not available without metadata column
           source: "scrape" as const,
@@ -151,9 +152,10 @@ async function getBrandAsset(
     }
 
     // ✅ PRIORITY 2: Try uploaded images (Supabase storage paths, not HTTP URLs)
+    // ✅ FIX: Do not select url - this column doesn't exist in media_assets schema
     let query = supabase
       .from("media_assets")
-      .select("id, path, filename, url")
+      .select("id, path, filename")
       .eq("brand_id", brandId)
       .eq("status", "active")
       .order("created_at", { ascending: false })
@@ -184,7 +186,7 @@ async function getBrandAsset(
         const asset = uploadedImages[0];
         return {
           id: asset.id,
-          url: asset.url || asset.path || "", // Use url if available, otherwise path
+          url: asset.path || "", // ✅ FIX: Use path (url column doesn't exist)
           filename: asset.filename,
           metadata: undefined, // Not available without metadata column
           source: "upload" as const,
@@ -247,9 +249,11 @@ async function getApprovedStockImage(
 } | null> {
   try {
     // First, try media_assets table (newer structure) with stock source flag
+    // ✅ FIX: Do not select url or thumbnail_url - these columns don't exist in media_assets schema
+    // Use path column instead (contains URL for scraped images)
     const { data: mediaStockAssets, error: mediaError } = await supabase
       .from("media_assets")
-      .select("id, url, filename, metadata, thumbnail_url")
+      .select("id, path, filename, metadata")
       .eq("brand_id", brandId)
       .eq("status", "active")
       .eq("category", "images")
@@ -261,11 +265,14 @@ async function getApprovedStockImage(
     if (!mediaError && mediaStockAssets && mediaStockAssets.length > 0) {
       const asset = mediaStockAssets[0] as any;
       const metadata = (asset.metadata as Record<string, unknown>) || {};
+      // ✅ FIX: Use path instead of url (path contains the URL for scraped images)
+      // thumbnail_url doesn't exist, so use path as fallback
+      const imageUrl = asset.path || "";
       
       return {
         id: asset.id,
-        fullImageUrl: asset.url,
-        previewUrl: asset.thumbnail_url || asset.url,
+        fullImageUrl: imageUrl,
+        previewUrl: imageUrl, // Use path as preview (thumbnail_url column doesn't exist)
         title: asset.filename,
         width: (metadata.width as number) || 1080,
         height: (metadata.height as number) || 1080,
@@ -395,9 +402,10 @@ async function getScrapedBrandAssets(
   try {
     // ✅ RESILIENT: Don't use metadata column (may not exist)
     // Filter scraped images by HTTP URLs in path column instead
+    // ✅ FIX: Do not select url - this column doesn't exist in media_assets schema
     const { data, error } = await supabase
       .from("media_assets")
-      .select("id, path, filename, url")
+      .select("id, path, filename")
       .eq("brand_id", brandId)
       .eq("status", "active")
       .in("category", ["images", "graphics", "logos"])
@@ -450,7 +458,7 @@ async function getScrapedBrandAssets(
     
     return scrapedImages.map((asset: any) => ({
       id: asset.id,
-      url: asset.path || asset.url || "", // Use path (contains URL for scraped images)
+      url: asset.path || "", // ✅ FIX: Use path (contains URL for scraped images, url column doesn't exist)
       filename: asset.filename,
       metadata: undefined, // Not available without metadata column
     }));
@@ -480,9 +488,10 @@ async function getUploadedBrandAssets(
   try {
     // ✅ RESILIENT: Don't use metadata column (may not exist)
     // Filter uploaded images by non-HTTP paths (Supabase storage paths)
+    // ✅ FIX: Do not select url - this column doesn't exist in media_assets schema
     const { data, error } = await supabase
       .from("media_assets")
-      .select("id, path, filename, url")
+      .select("id, path, filename")
       .eq("brand_id", brandId)
       .eq("status", "active")
       .in("category", ["images", "graphics", "logos"])
@@ -502,7 +511,7 @@ async function getUploadedBrandAssets(
 
     return uploadedImages.map((asset: any) => ({
       id: asset.id,
-      url: asset.url || asset.path || "", // Use url if available, otherwise path
+      url: asset.path || "", // ✅ FIX: Use path (url column doesn't exist)
       filename: asset.filename,
       metadata: undefined, // Not available without metadata column
     }));
@@ -531,9 +540,11 @@ async function getApprovedStockImages(
 }>> {
   try {
     // First, try media_assets table (newer structure)
+    // ✅ FIX: Do not select url or thumbnail_url - these columns don't exist in media_assets schema
+    // Use path column instead (contains URL for scraped images)
     const { data: mediaStockAssets, error: mediaError } = await supabase
       .from("media_assets")
-      .select("id, url, filename, metadata, thumbnail_url")
+      .select("id, path, filename, metadata")
       .eq("brand_id", brandId)
       .eq("status", "active")
       .eq("category", "images")
@@ -545,10 +556,13 @@ async function getApprovedStockImages(
     if (!mediaError && mediaStockAssets && mediaStockAssets.length > 0) {
       return mediaStockAssets.map((asset) => {
         const metadata = (asset.metadata as Record<string, unknown>) || {};
+        // ✅ FIX: Use path instead of url (path contains the URL for scraped images)
+        // thumbnail_url doesn't exist, so use path as fallback
+        const imageUrl = asset.path || "";
         return {
           id: asset.id,
-          fullImageUrl: asset.url,
-          previewUrl: asset.thumbnail_url || asset.url,
+          fullImageUrl: imageUrl,
+          previewUrl: imageUrl, // Use path as preview (thumbnail_url column doesn't exist)
           title: asset.filename,
           width: (metadata.width as number) || 1080,
           height: (metadata.height as number) || 1080,

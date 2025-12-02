@@ -20,9 +20,13 @@ export interface BrandGuide {
   identity: {
     name: string;
     businessType?: string; // e.g., "coffee shop", "accountant", "real estate", "salon"
+    industry?: string; // Explicit industry field (e.g., "Retail", "Healthcare", "Technology")
     industryKeywords: string[]; // e.g., ["latte art", "community", "cozy mornings"] for coffee shop
     competitors?: string[]; // Competitor names or brands to avoid referencing
     sampleHeadlines?: string[]; // Example headlines extracted from website
+    values?: string[]; // Core brand values (e.g., ["sustainability", "authenticity", "quality"])
+    targetAudience?: string; // Aggregated audience summary from personas
+    painPoints?: string[]; // Aggregated pain points from personas
   };
 
   // Voice & Tone
@@ -60,6 +64,7 @@ export interface BrandGuide {
     preferredPostTypes?: string[]; // e.g., ["carousel", "reel", "story", "feed"]
     brandPhrases?: string[]; // Approved phrases to use
     formalityLevel?: "very_formal" | "formal" | "casual" | "very_casual"; // How formal/informal writing should be
+    contentPillars?: string[]; // Content themes/pillars (e.g., ["sustainability", "community", "innovation"])
     neverDo: string[]; // "never do" rules
     guardrails?: Array<{
       id: string;
@@ -118,6 +123,11 @@ export interface BrandGuide {
       performance: number;
       lastSeen: string;
     }>;
+    bfsBaseline?: {
+      score: number; // Baseline BFS score (typically 1.0 for "perfect" brand-aligned content)
+      sampleContent?: string; // Sample content used to calculate baseline
+      calculatedAt: string; // ISO timestamp
+    };
   };
 
   // Legacy/Extended Fields (for backward compatibility)
@@ -169,8 +179,12 @@ export function normalizeBrandGuide(legacy: any): BrandGuide {
     identity: {
       name: legacy.name || brandKit.brandName || "Untitled Brand",
       businessType: brandKit.businessType,
+      industry: brandKit.industry,
       industryKeywords: brandKit.keywords || brandKit.industryKeywords || [],
       competitors: brandKit.competitors || [],
+      values: brandKit.values || brandKit.coreValues || [],
+      targetAudience: brandKit.targetAudience || brandKit.primaryAudience,
+      painPoints: brandKit.painPoints || [],
     },
 
     voiceAndTone: {
@@ -209,6 +223,7 @@ export function normalizeBrandGuide(legacy: any): BrandGuide {
       preferredPostTypes: brandKit.preferredPostTypes || [],
       brandPhrases: brandKit.brandPhrases || [],
       formalityLevel: brandKit.contentFormalityLevel || brandKit.formalityLevel, // Support both old and new field names
+      contentPillars: brandKit.contentPillars || brandKit.messagingPillars || [],
       neverDo: brandKit.neverDo || [],
       guardrails: brandKit.guardrails || [],
     },
@@ -224,6 +239,7 @@ export function normalizeBrandGuide(legacy: any): BrandGuide {
     performanceInsights: {
       visualPatterns: brandKit.performanceInsights?.visualPatterns || [],
       copyPatterns: brandKit.performanceInsights?.copyPatterns || [],
+      bfsBaseline: brandKit.performanceInsights?.bfsBaseline,
     },
 
     // Legacy fields

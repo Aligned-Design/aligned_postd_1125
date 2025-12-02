@@ -440,7 +440,7 @@ describe("PHASE 8: Analytics - Auto-Plan Generator", () => {
 
       const percentageSum = Object.values(contentMix)
         .filter((v) => typeof v === "object" && "percentage" in v)
-        .reduce((sum, v) => sum + (v as unknown).percentage, 0);
+        .reduce((sum, v) => sum + ((v as { percentage: number }).percentage), 0);
 
       expect(percentageSum).toBeCloseTo(100, 0);
     });

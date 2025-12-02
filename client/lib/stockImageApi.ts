@@ -1,4 +1,5 @@
 import { StockImage, StockSearchParams, StockSearchResult, StockProvider } from "@/types/stock";
+import { logError } from "@/lib/logger";
 
 /**
  * Stock Image API Integration
@@ -141,10 +142,7 @@ export async function searchStockImages(
     };
   } catch (error) {
     // Log error in development only
-    if (import.meta.env.DEV) {
-      // eslint-disable-next-line no-console
-      console.error("[Stock Images] API error, falling back to mock data:", error);
-    }
+    logError("[Stock Images] API error, falling back to mock data", error instanceof Error ? error : new Error(String(error)));
     
     // Fallback to mock data if API fails
     const results = MOCK_STOCK_IMAGES.filter((img) => {
@@ -199,10 +197,7 @@ export async function getStockImage(id: string): Promise<StockImage | null> {
     return data.image || null;
   } catch (error) {
     // Log error in development only
-    if (import.meta.env.DEV) {
-      // eslint-disable-next-line no-console
-      console.error("[Stock Images] API error, falling back to mock data:", error);
-    }
+    logError("[Stock Images] API error, falling back to mock data", error instanceof Error ? error : new Error(String(error)));
     // Fallback to mock data
     return MOCK_STOCK_IMAGES.find((img) => img.id === id) || null;
   }

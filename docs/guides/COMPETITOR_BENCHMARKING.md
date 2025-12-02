@@ -1,20 +1,23 @@
-# Aligned AI - Competitive Benchmarking Analysis
+# POSTD - Competitive Benchmarking Analysis
 
-**Date:** November 2025
-**Analysis Scope:** AI-powered social media management and content creation platforms
+> **Status:** ✅ Active – This is an active competitive analysis document for POSTD.  
+> **Last Updated:** 2025-01-20
+
+**Date:** November 2025  
+**Analysis Scope:** AI-powered social media management and content creation platforms  
 **Competitors:** Blaze AI, Ocoya, Predis.ai, Feedhive, SocialBee
 
 ---
 
 ## Executive Summary
 
-Aligned AI is a **multi-platform brand intelligence system** that differentiates itself through:
+POSTD is a **multi-platform brand intelligence system** that differentiates itself through:
 - **Brand Intelligence (Unique USP)**: AI-powered analysis of brand voice, visual identity, and content strategy patterns
 - **Multi-tenant Architecture**: Enterprise-grade isolation for agencies managing multiple client brands
 - **Progressive Disclosure UX**: Reduces cognitive load while supporting power users
 - **Flexible Integrations**: WordPress, Wix, Squarespace, Mailchimp support with extensible architecture
 
-| Feature Category | Aligned AI | Blaze AI | Ocoya | Predis.ai | Feedhive | SocialBee |
+| Feature Category | POSTD | Blaze AI | Ocoya | Predis.ai | Feedhive | SocialBee |
 |---|:---:|:---:|:---:|:---:|:---:|:---:|
 | **Brand Intelligence** | ✅ Proprietary | ❌ | ❌ | ⚠️ Limited | ❌ | ❌ |
 | **Multi-Brand Management** | ✅ Full RLS | ✅ | ✅ | ⚠️ Basic | ✅ | ✅ |
@@ -54,13 +57,13 @@ Aligned AI is a **multi-platform brand intelligence system** that differentiates
 - Professional: $100-200/month
 - No white-label option
 
-#### Why Aligned AI Wins:
+#### Why POSTD Wins:
 | Factor | Advantage |
 |--------|-----------|
-| **Brand Strategy** | Aligned AI's Brand Intelligence analyzes patterns across 50+ brand attributes |
-| **Agencies** | Aligned AI's multi-tenant RLS protects client data per brand |
-| **Quality Control** | Aligned AI's approval workflow > Blaze's simple review |
-| **Design** | Aligned AI generates responsive designs; Blaze generates text only |
+| **Brand Strategy** | POSTD's Brand Intelligence analyzes patterns across 50+ brand attributes |
+| **Agencies** | POSTD's multi-tenant RLS protects client data per brand |
+| **Quality Control** | POSTD's approval workflow > Blaze's simple review |
+| **Design** | POSTD generates responsive designs; Blaze generates text only |
 
 ---
 
@@ -89,13 +92,13 @@ Aligned AI is a **multi-platform brand intelligence system** that differentiates
 - Business: $99/month
 - Agency: $249+/month
 
-#### Why Aligned AI Wins:
+#### Why POSTD Wins:
 | Factor | Advantage |
 |--------|-----------|
-| **Content Quality** | Aligned AI ensures consistency via Brand Intelligence |
-| **Flexibility** | Aligned AI integrates 4+ platforms vs Ocoya's main focus on social |
-| **Approval Process** | Aligned AI's bulk approvals + escalations > Ocoya's basic review |
-| **Multi-Brand Security** | Aligned AI's RLS vs Ocoya's basic tenant isolation |
+| **Content Quality** | POSTD ensures consistency via Brand Intelligence |
+| **Flexibility** | POSTD integrates 4+ platforms vs Ocoya's main focus on social |
+| **Approval Process** | POSTD's bulk approvals + escalations > Ocoya's basic review |
+| **Multi-Brand Security** | POSTD's RLS vs Ocoya's basic tenant isolation |
 
 ---
 
@@ -124,13 +127,13 @@ Aligned AI is a **multi-platform brand intelligence system** that differentiates
 - Pro: $49/month
 - Premium: $99/month
 
-#### Why Aligned AI Wins:
+#### Why POSTD Wins:
 | Factor | Advantage |
 |--------|-----------|
-| **Brand Consistency** | Aligned AI's Brand Intelligence > Predis's template approach |
-| **Publishing** | Aligned AI publishes to blogs + email; Predis mainly visual |
-| **Strategy** | Aligned AI generates content strategy; Predis generates images |
-| **Enterprise** | Aligned AI for agencies; Predis for individual creators |
+| **Brand Consistency** | POSTD's Brand Intelligence > Predis's template approach |
+| **Publishing** | POSTD publishes to blogs + email; Predis mainly visual |
+| **Strategy** | POSTD generates content strategy; Predis generates images |
+| **Enterprise** | POSTD for agencies; Predis for individual creators |
 
 ---
 
@@ -159,7 +162,7 @@ Aligned AI is a **multi-platform brand intelligence system** that differentiates
 - Professional: $49/month
 - Agency: $99/month
 
-#### Why Aligned AI Wins:
+#### Why POSTD Wins:
 | Factor | Advantage |
 |--------|-----------|
 | **Content Creation** | Claude 3.5 Sonnet > Feedhive's basic generation |
@@ -194,7 +197,7 @@ Aligned AI is a **multi-platform brand intelligence system** that differentiates
 - Agency: $199/month
 - Custom: Enterprise
 
-#### Why Aligned AI Wins:
+#### Why POSTD Wins:
 | Factor | Advantage |
 |--------|-----------|
 | **Content Quality** | Brand Intelligence ensures consistency > generic scheduling |

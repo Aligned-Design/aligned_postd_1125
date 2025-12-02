@@ -2,17 +2,24 @@ import { afterEach, beforeAll, afterAll, vi, beforeEach } from 'vitest';
 
 // Set default test environment variables if not already set
 // These are used by Supabase client initialization in tests
-// ✅ Updated to match production Supabase project
+// Tests should use TEST_ prefixed env vars in CI, or fallback to localhost for local testing
 if (!process.env.VITE_SUPABASE_URL) {
-  process.env.VITE_SUPABASE_URL = 'https://nsrlgwimixkgwlqrpbxq.supabase.co';
+  process.env.VITE_SUPABASE_URL = process.env.TEST_SUPABASE_URL || 'http://localhost:54321';
+}
+if (!process.env.SUPABASE_URL) {
+  process.env.SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'http://localhost:54321';
 }
 if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
-  // Note: This should be set via environment variable in production
-  // This is only a test fallback
-  process.env.SUPABASE_SERVICE_ROLE_KEY = '';
+  // Create a dummy JWT token that will pass validation in tests
+  // Format: header.payload.signature (base64 encoded JSON)
+  // The payload needs to have role: "service_role"
+  const header = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64');
+  const payload = Buffer.from(JSON.stringify({ role: 'service_role', exp: Math.floor(Date.now() / 1000) + 3600 })).toString('base64');
+  const signature = 'test-signature';
+  process.env.SUPABASE_SERVICE_ROLE_KEY = process.env.TEST_SUPABASE_SERVICE_ROLE_KEY || `${header}.${payload}.${signature}`;
 }
 if (!process.env.VITE_SUPABASE_ANON_KEY) {
-  process.env.VITE_SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5zcmxnd2ltaXhrZ3dscXJwYnhxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjI3Mjg2MjgsImV4cCI6MjA3ODMwNDYyOH0.IhJZgjZGtLm4OxSWiWvbLjHdnT6iXIFWNTUsHBVfL8w';
+  process.env.VITE_SUPABASE_ANON_KEY = process.env.TEST_SUPABASE_ANON_KEY || 'test-anon-key';
 }
 
 // Helper to create storage mock with actual data storage

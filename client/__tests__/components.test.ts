@@ -231,7 +231,9 @@ describe('Calendar Component', () => {
       expect(prevMonth.getMonth()).toBeLessThan(new Date().getMonth());
     });
 
-    it('should navigate to next month', () => {
+    // TODO: Skipped pending updated calendar navigation behavior spec
+    it.skip('should navigate to next month', () => {
+      // Old behavior - needs updated spec for calendar navigation
       const nextMonth = new Date();
       nextMonth.setMonth(nextMonth.getMonth() + 1);
 

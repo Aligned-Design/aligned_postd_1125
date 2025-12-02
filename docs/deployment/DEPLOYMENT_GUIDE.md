@@ -24,7 +24,7 @@ Supabase CLI (v2.54.11) is now installed and ready to use.
 
 You need to update your `.env` file with your actual Supabase credentials. Replace the dummy values with your real project credentials.
 
-**Location**: `/Users/krisfoust/Documents/Aligned-20ai/.env`
+**Location**: `/Users/krisfoust/Downloads/Aligned-20ai.posted/.env`
 
 **Required Variables**:
 ```bash

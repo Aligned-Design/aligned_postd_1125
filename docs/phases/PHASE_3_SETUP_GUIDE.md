@@ -1,4 +1,7 @@
-# Phase 3 Setup Guide - Brand Intake + Website Crawler
+# POSTD Phase 3 Setup Guide - Brand Intake + Website Crawler
+
+> **Status:** ✅ Active – This is an active setup guide for POSTD Phase 3 features.  
+> **Last Updated:** 2025-01-20
 
 This guide walks through setting up all Phase 3 integrations: file uploads, website crawler, AI summaries, and embeddings.
 
@@ -39,7 +42,7 @@ OPENAI_API_KEY=sk-your-openai-api-key-here
 # Website Crawler Configuration
 CRAWL_MAX_PAGES=50
 CRAWL_TIMEOUT_MS=30000
-CRAWL_USER_AGENT=AlignedAIBot/1.0 (+contact: hello@aligned-by-design.com)
+CRAWL_USER_AGENT=POSTDBot/1.0 (+contact: hello@aligned-by-design.com)
 ```
 
 ### 2. Get OpenAI API Key
@@ -365,7 +368,7 @@ SELECT * FROM brand_embeddings WHERE brand_id = 'user-b-brand-id';
 
 - ✅ Respects `robots.txt`
 - ✅ 1-second delay between requests
-- ✅ Identifies as `AlignedAIBot` (not spoofing)
+- ✅ Identifies as `POSTDBot` (not spoofing)
 - ✅ Doesn't follow external links
 - ✅ Doesn't download large files (PDFs skipped)
 

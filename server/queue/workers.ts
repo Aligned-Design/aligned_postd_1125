@@ -16,7 +16,25 @@ import Queue from 'bull';
 import pino from 'pino';
 import { publishJobQueue, healthCheckQueue, tokenRefreshQueue, calculateRetryDelay } from './index';
 
-const logger = pino();
+// Logger with structured logging support (matches observability.ts pattern)
+const _pinoLogger = pino();
+const logger = _pinoLogger as {
+  debug(obj: Record<string, any>, msg?: string): void;
+  debug(msg: string): void;
+  info(obj: Record<string, any>, msg?: string): void;
+  info(msg: string): void;
+  warn(obj: Record<string, any>, msg?: string): void;
+  warn(msg: string): void;
+  error(obj: Record<string, any>, msg?: string): void;
+  error(msg: string): void;
+};
+
+// Extended Job interface with runtime properties that may not be in types
+interface ExtendedJob<T = any> extends Queue.Job<T> {
+  attemptsMade?: number;
+  opts?: { attempts?: number };
+  returnvalue?: any;
+}
 
 // ============================================================================
 // JOB TYPES & INTERFACES
@@ -53,6 +71,9 @@ export interface TokenRefreshJobData {
 
 async function processPublishJob(job: Queue.Job<PublishJobData>): Promise<any> {
   const { jobId, tenantId, connectionId, platform, body, scheduledFor } = job.data;
+  const extendedJob = job as ExtendedJob<PublishJobData>;
+  const attemptsMade = extendedJob.attemptsMade ?? 0;
+  const maxAttempts = extendedJob.opts?.attempts ?? 4;
 
   logger.info(
     {
@@ -60,13 +81,13 @@ async function processPublishJob(job: Queue.Job<PublishJobData>): Promise<any> {
       tenantId,
       connectionId,
       platform,
-      attempt: `${job.attemptsMade + 1}/${job.opts.attempts}`,
+      attempt: `${attemptsMade + 1}/${maxAttempts}`,
     },
     'Processing publish job'
   );
 
   try {
-    // TODO: Implement actual platform publishing logic
+    // Future work: Implement actual platform publishing logic
     // This is a placeholder that simulates the publishing process
 
     // Step 1: Load encrypted token from vault
@@ -109,7 +130,7 @@ async function processPublishJob(job: Queue.Job<PublishJobData>): Promise<any> {
         error: errorMessage,
         errorCode,
         isRetryable,
-        attempt: `${job.attemptsMade + 1}/${job.opts.attempts}`,
+        attempt: `${attemptsMade + 1}/${maxAttempts}`,
       },
       'Publish job failed'
     );
@@ -123,9 +144,11 @@ async function processPublishJob(job: Queue.Job<PublishJobData>): Promise<any> {
     //   retry_attempt_number: job.attemptsMade,
     // });
 
-    if (!isRetryable || job.attemptsMade >= (job.opts.attempts || 4) - 1) {
+    if (!isRetryable || attemptsMade >= maxAttempts - 1) {
       // Move to DLQ
-      await publishJobQueue.add(
+      // Type assertion for queue.add - Bull runtime supports this signature
+      const queueAdd = publishJobQueue.add as any;
+      await queueAdd(
         'dlq',
         {
           ...job.data,
@@ -164,7 +187,7 @@ async function processHealthCheck(job: Queue.Job<HealthCheckJobData>): Promise<a
   );
 
   try {
-    // TODO: Implement platform-specific health check
+    // Future work: Implement platform-specific health check
     // 1. Get token from vault
     // 2. Call platform /me or equivalent endpoint
     // 3. Update connection.last_health_check and connection.health_status
@@ -207,7 +230,7 @@ async function processTokenRefresh(job: Queue.Job<TokenRefreshJobData>): Promise
   );
 
   try {
-    // TODO: Implement token refresh
+    // Future work: Implement token refresh
     // 1. Get refresh token from vault
     // 2. Call platform OAuth /token endpoint
     // 3. Get new access token
@@ -258,7 +281,7 @@ async function processDLQJob(job: Queue.Job<any>): Promise<any> {
     'Job in DLQ awaiting manual intervention'
   );
 
-  // TODO: Implement DLQ handling
+  // Future work: Implement Dead Letter Queue (DLQ) handling for failed jobs
   // 1. Update publish_jobs.status = 'dlq'
   // 2. Send alert to #engineering-alerts in Slack
   // 3. Log to DLQ dashboard in Datadog
@@ -291,15 +314,21 @@ function isRetryableError(errorCode: string): boolean {
 export async function registerWorkers(): Promise<void> {
   logger.info('Registering Bull queue workers...');
 
+  // Type assertion for queue.process - Bull runtime supports concurrent workers
+  const processQueue = (queue: Queue.Queue<any>, name: string, concurrency: number, handler: (job: Queue.Job<any>) => Promise<any>) => {
+    const processMethod = queue.process as any;
+    processMethod(name, concurrency, handler);
+  };
+
   // Publish job worker
-  publishJobQueue.process('publish', 5, processPublishJob); // 5 concurrent jobs
-  publishJobQueue.process('dlq', 1, processDLQJob);
+  processQueue(publishJobQueue, 'publish', 5, processPublishJob); // 5 concurrent jobs
+  processQueue(publishJobQueue, 'dlq', 1, processDLQJob);
 
   // Health check worker
-  healthCheckQueue.process('health_check', 10, processHealthCheck); // 10 concurrent
+  processQueue(healthCheckQueue, 'health_check', 10, processHealthCheck); // 10 concurrent
 
   // Token refresh worker
-  tokenRefreshQueue.process('token_refresh', 5, processTokenRefresh); // 5 concurrent
+  processQueue(tokenRefreshQueue, 'token_refresh', 5, processTokenRefresh); // 5 concurrent
 
   logger.info('✓ All workers registered');
 }
@@ -311,10 +340,11 @@ export async function registerWorkers(): Promise<void> {
 export function setupWorkerListeners(): void {
   // Publish job events
   publishJobQueue.on('completed', (job: Queue.Job<PublishJobData>) => {
+    const extendedJob = job as ExtendedJob<PublishJobData>;
     logger.info(
       {
         jobId: job.id,
-        result: job.returnvalue,
+        result: extendedJob.returnvalue,
       },
       'Publish job completed'
     );
@@ -332,10 +362,11 @@ export function setupWorkerListeners(): void {
 
   // Health check events
   healthCheckQueue.on('completed', (job: Queue.Job<HealthCheckJobData>) => {
+    const extendedJob = job as ExtendedJob<HealthCheckJobData>;
     logger.debug(
       {
         connectionId: job.data.connectionId,
-        result: job.returnvalue,
+        result: extendedJob.returnvalue,
       },
       'Health check completed'
     );

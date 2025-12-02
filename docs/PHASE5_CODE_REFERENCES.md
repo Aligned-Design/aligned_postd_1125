@@ -1,4 +1,7 @@
-# Phase 5 - Code Reference Guide
+# POSTD Phase 5 - Code Reference Guide
+
+> **Status:** ✅ Active – This is an active code reference guide for POSTD Phase 5.  
+> **Last Updated:** 2025-01-20
 
 Quick reference to verify each requirement in the codebase.
 

@@ -1,4 +1,7 @@
-# Design Reference — Homepage (Aligned AI)
+# POSTD Design Reference — Homepage
+
+> **Status:** ✅ Active – This is an active design reference for POSTD homepage.  
+> **Last Updated:** 2025-01-20
 
 This document captures the visual and spacing standards used on the redesigned homepage. Use this as the canonical reference when applying the same system to other pages.
 

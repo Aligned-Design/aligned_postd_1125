@@ -1,4 +1,4 @@
-# Aligned-20AI Design System
+# POSTD Design System
 
 A cohesive, energizing visual language for marketing command centers. This system ensures consistency across all product areas while maintaining flexibility for feature-specific needs.
 
@@ -134,7 +134,7 @@ Full-width banner showcasing key metrics.
   </div>
   
   <p className="text-white/80 text-sm mb-6">Subtitle text here.</p>
-  <p className="text-xs font-medium text-blue-100/70">Aligned-20AI Summary — Updated Today · Powered by Advisor</p>
+  <p className="text-xs font-medium text-blue-100/70">POSTD Summary — Updated Today · Powered by Advisor</p>
   
   {/* 3-card grid */}
 </div>

@@ -1,5 +1,5 @@
 import crypto from "crypto";
-import { Request, Response, NextFunction } from "express";
+import type { Request, Response, NextFunction } from "express";
 import { AppError } from "./error-middleware";
 import { ErrorCode, HTTP_STATUS } from "./error-responses";
 import { Role } from "../middleware/rbac";
@@ -30,14 +30,29 @@ interface TokenPair {
 
 /**
  * Get JWT secret from environment
+ * 
+ * ✅ FIX: Log warning once per boot instead of on every request
  */
+let jwtSecretWarningLogged = false;
+
 function getJWTSecret(): string {
   const secret = process.env.JWT_SECRET;
 
   if (!secret) {
-    console.warn(
-      "⚠️  JWT_SECRET not set in environment. Using development secret. DO NOT USE IN PRODUCTION!",
-    );
+    // ✅ FIX: Only log warning once per boot to reduce log noise
+    if (!jwtSecretWarningLogged) {
+      const isProduction = process.env.NODE_ENV === 'production';
+      if (isProduction) {
+        console.error(
+          "❌ CRITICAL: JWT_SECRET not set in production environment. This is a security risk!"
+        );
+      } else {
+        console.warn(
+          "⚠️  JWT_SECRET not set in environment. Using development secret. DO NOT USE IN PRODUCTION!",
+        );
+      }
+      jwtSecretWarningLogged = true;
+    }
     return "dev-jwt-secret-change-in-production";
   }
 
@@ -221,10 +236,10 @@ export function jwtAuth(req: Request, res: Response, next: NextFunction) {
     }
 
     // Attach user info to request
-    (req as any).auth = {
+    req.auth = {
       userId: payload.userId,
       email: payload.email,
-      role: payload.role,
+      role: payload.role as Role,
       brandIds: payload.brandIds,
       tenantId: payload.tenantId,
     };
@@ -284,5 +299,14 @@ export function getUserFromRequest(req: Request): {
   brandIds: string[];
   tenantId: string;
 } | null {
-  return (req as any).auth || null;
+  const auth = req.auth;
+  if (!auth) return null;
+  
+  return {
+    userId: auth.userId,
+    email: auth.email,
+    role: auth.role as Role,
+    brandIds: auth.brandIds || [],
+    tenantId: auth.tenantId || "",
+  };
 }

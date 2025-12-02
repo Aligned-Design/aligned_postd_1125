@@ -1,4 +1,7 @@
-# Aligned AI - Quality Assurance Checklist
+# POSTD - Quality Assurance Checklist
+
+> **Status:** ✅ Active – This is an active quality assurance checklist for POSTD.  
+> **Last Updated:** 2025-01-20
 
 ## ✅ Product Quality Guardrails (Implemented)
 

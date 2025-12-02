@@ -49,7 +49,7 @@ After reviewing the codebase, recent changes, and existing documentation, I've i
 
 **Proposed UX Copy:**
 ```
-Headline: "Welcome to Aligned AI"
+Headline: "Welcome to POSTD"
 Subheadline: "We'll help you create content that sounds like you, 
               looks like you, and works like magic."
 
@@ -738,7 +738,7 @@ Options:
    "Fine-tune your brand voice and preferences"
    
 4. "Take a Tour"
-   "Learn how to get the most out of Aligned AI"
+   "Learn how to get the most out of POSTD"
 ```
 
 ---
@@ -806,7 +806,7 @@ Options:
 ## Appendix: Copy Library
 
 ### Onboarding Headlines
-- "Welcome to Aligned AI"
+- "Welcome to POSTD"
 - "Let's create content that sounds like you"
 - "We're learning your brand..."
 - "Here's your brand profile"

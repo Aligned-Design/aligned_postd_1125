@@ -99,8 +99,57 @@ const router = Router();
 const crawlJobs = new Map<string, unknown>();
 
 /**
+ * In-memory deduplication lock for active crawl jobs
+ * Prevents duplicate concurrent crawls for the same brand/URL combination
+ * Key format: `${brandId}:${normalizedUrl}`
+ * 
+ * ⚠️ NOTE: This is instance-local (in-memory). Vercel may run multiple serverless
+ * function instances, so locks are not shared across instances. For true multi-instance
+ * deduplication, consider using Redis or a distributed lock service.
+ */
+const activeCrawlLocks = new Map<string, {
+  startedAt: number;
+  timeout: NodeJS.Timeout;
+}>();
+
+/**
+ * Cleanup stale locks older than 5 minutes (crawls should not take that long)
+ */
+function cleanupStaleLocks() {
+  const now = Date.now();
+  const staleThreshold = 5 * 60 * 1000; // 5 minutes
+  
+  for (const [key, lock] of activeCrawlLocks.entries()) {
+    if (now - lock.startedAt > staleThreshold) {
+      clearTimeout(lock.timeout);
+      activeCrawlLocks.delete(key);
+      console.warn(`[Crawler] Cleaned up stale crawl lock: ${key}`);
+    }
+  }
+}
+
+// Clean up stale locks every minute
+setInterval(cleanupStaleLocks, 60 * 1000);
+
+/**
  * POST /api/crawl/start
  * Start a website crawl job
+ * 
+ * Purpose: Crawls a website to extract brand assets (images, colors, typography, voice)
+ * 
+ * Request Body:
+ * - url (string, required): Website URL to crawl
+ * - brand_id (string, optional): Brand ID (temporary during onboarding)
+ * - workspaceId (string, optional): Workspace/tenant ID for image persistence
+ * - sync (boolean, optional): If true, runs synchronously and returns results immediately
+ * 
+ * Response Schema:
+ * Success (200):
+ * - sync=true: { success: true, brandKit: {...}, status: "completed" }
+ * - sync=false: { job_id: string, status: "pending" }
+ * 
+ * Error (4xx/5xx):
+ * - { error: { code: string, message: string, severity: string, timestamp: string } }
  * 
  * Supports both async job mode (returns job_id) and sync mode (returns results directly)
  * For onboarding, use sync mode with ?sync=true
@@ -109,25 +158,35 @@ const crawlJobs = new Map<string, unknown>();
 // Crawler needs tenantId from authenticated user to persist images correctly
 // ✅ FIX: Route is mounted at /api/crawl, so use /start not /crawl/start
 router.post("/start", authenticateUser, async (req, res, next) => {
+  // ✅ CRITICAL: Declare lockKey at function scope for error cleanup
+  let lockKey: string | undefined;
+  
+  // ✅ CRITICAL: Wrap entire handler to ensure response is always sent
   try {
     const { brand_id, url, sync, websiteUrl, workspaceId } = req.body;
     const isSync = sync === true || req.query.sync === "true";
     const finalUrl = url || websiteUrl;
 
-      // ✅ Get tenantId from user context for logging
-      const user = (req as any).user;
-      const auth = (req as any).auth;
-      const userTenantId = workspaceId || user?.workspaceId || user?.tenantId || auth?.workspaceId || auth?.tenantId || "unknown";
+    // ✅ Get tenantId from user context for logging
+    const user = (req as any).user;
+    const auth = (req as any).auth;
+    const userTenantId = workspaceId || user?.workspaceId || user?.tenantId || auth?.workspaceId || auth?.tenantId || "unknown";
 
-      // ✅ LOGGING: Crawl start with tenantId
-      console.log("[Crawler] Crawl start", {
-        tenantId: userTenantId,
-        brandId: brand_id || "unknown",
-        url: finalUrl,
-        sync: isSync,
-      });
+    // ✅ LOGGING: Crawl start with tenantId
+    console.log("[Crawler] Crawl start request received", {
+      tenantId: userTenantId,
+      brandId: brand_id || "unknown",
+      url: finalUrl,
+      sync: isSync,
+      requestId: (req as any).id,
+    });
 
+    // ✅ VALIDATION: URL is required
     if (!finalUrl) {
+      console.error("[Crawler] Missing URL in request", {
+        body: req.body,
+        requestId: (req as any).id,
+      });
       throw new AppError(
         ErrorCode.MISSING_REQUIRED_FIELD,
         "url is required",
@@ -136,8 +195,77 @@ router.post("/start", authenticateUser, async (req, res, next) => {
       );
     }
 
+    // ✅ VALIDATION: Normalize URL for deduplication
+    let normalizedUrl: string;
+    try {
+      const urlObj = new URL(finalUrl);
+      normalizedUrl = `${urlObj.protocol}//${urlObj.hostname}${urlObj.pathname}`.toLowerCase();
+    } catch (urlError) {
+      console.error("[Crawler] Invalid URL format", {
+        url: finalUrl,
+        error: urlError instanceof Error ? urlError.message : String(urlError),
+        requestId: (req as any).id,
+      });
+      throw new AppError(
+        ErrorCode.INVALID_FORMAT,
+        "Invalid URL format. Please provide a valid website URL.",
+        HTTP_STATUS.BAD_REQUEST,
+        "warning",
+        { url: finalUrl }
+      );
+    }
+
     // For onboarding, brand_id is optional (will be generated)
     const finalBrandId = brand_id || `brand_${Date.now()}`;
+
+    // ✅ DEDUPLICATION: Check for active crawl lock
+    // Assign to function-scope lockKey (already declared above)
+    lockKey = `${finalBrandId}:${normalizedUrl}`;
+    const activeLock = activeCrawlLocks.get(lockKey);
+    
+    if (activeLock) {
+      const lockAge = Date.now() - activeLock.startedAt;
+      const lockAgeSeconds = Math.floor(lockAge / 1000);
+      
+      console.warn("[Crawler] Duplicate crawl request detected", {
+        lockKey,
+        lockAgeSeconds,
+        brandId: finalBrandId,
+        url: normalizedUrl,
+        requestId: (req as any).id,
+      });
+
+      // Return 409 Conflict with helpful message
+      return res.status(HTTP_STATUS.CONFLICT).json({
+        success: false,
+        errorCode: "CRAWL_IN_PROGRESS",
+        message: `A crawl is already in progress for this website. Started ${lockAgeSeconds} second${lockAgeSeconds !== 1 ? 's' : ''} ago. Please wait for it to complete.`,
+        details: {
+          lockKey,
+          startedAt: new Date(activeLock.startedAt).toISOString(),
+          elapsedSeconds: lockAgeSeconds,
+        },
+      });
+    }
+
+    // ✅ CREATE LOCK: Mark crawl as in-progress
+    const lockTimeout = setTimeout(() => {
+      // Auto-cleanup lock after 5 minutes (safety mechanism)
+      activeCrawlLocks.delete(lockKey);
+      console.warn(`[Crawler] Auto-cleaned crawl lock: ${lockKey}`);
+    }, 5 * 60 * 1000);
+
+    activeCrawlLocks.set(lockKey, {
+      startedAt: Date.now(),
+      timeout: lockTimeout,
+    });
+
+    console.log("[Crawler] Crawl lock acquired", {
+      lockKey,
+      brandId: finalBrandId,
+      url: normalizedUrl,
+      requestId: (req as any).id,
+    });
 
     // For onboarding (sync mode), skip brand access check
     // For async mode, verify user has access to brand
@@ -165,8 +293,6 @@ router.post("/start", authenticateUser, async (req, res, next) => {
       // ✅ ROOT FIX: Get workspaceId/tenantId from user or request body
       // This allows us to persist images even if brand doesn't exist yet
       let tenantId: string | null = null;
-      const user = (req as any).user;
-      const auth = (req as any).auth;
       
       // Try to get tenantId from multiple sources
       if (workspaceId && workspaceId !== "unknown") {
@@ -182,12 +308,20 @@ router.post("/start", authenticateUser, async (req, res, next) => {
       } else {
         // Try to get from user's workspace via Supabase
         if (user?.id) {
-          const { data: userData } = await supabase
-            .from("users")
-            .select("workspace_id, tenant_id")
-            .eq("id", user.id)
-            .single();
-          tenantId = (userData as any)?.workspace_id || (userData as any)?.tenant_id || null;
+          try {
+            const { data: userData } = await supabase
+              .from("users")
+              .select("workspace_id, tenant_id")
+              .eq("id", user.id)
+              .single();
+            tenantId = (userData as any)?.workspace_id || (userData as any)?.tenant_id || null;
+          } catch (dbError) {
+            console.warn("[Crawler] Failed to fetch tenantId from database", {
+              userId: user.id,
+              error: dbError instanceof Error ? dbError.message : String(dbError),
+            });
+            // Continue with null tenantId - crawl will still work, but images won't persist
+          }
         }
       }
       
@@ -199,7 +333,7 @@ router.post("/start", authenticateUser, async (req, res, next) => {
         const logo = result.brandKit?.logoUrl;
         const colors = result.brandKit?.colors;
         const typography = result.brandKit?.typography;
-        console.log("[CRAWLER] Result", {
+        console.log("[CRAWLER] ✅ Sync crawl completed successfully", {
           images: images.length,
           hasLogo: !!logo,
           colors: colors ? Object.keys(colors).length : 0,
@@ -208,14 +342,32 @@ router.post("/start", authenticateUser, async (req, res, next) => {
           typographyBody: typography?.body || "none",
           brandId: finalBrandId,
           tenantId: tenantId || "unknown",
+          requestId: (req as any).id,
         });
         
-        return res.json({
+        // ✅ RELEASE LOCK: Clean up after successful crawl
+        const lock = activeCrawlLocks.get(lockKey);
+        if (lock) {
+          clearTimeout(lock.timeout);
+          activeCrawlLocks.delete(lockKey);
+          console.log("[Crawler] Crawl lock released (success)", { lockKey });
+        }
+        
+        // ✅ RESPONSE: Return success with valid HTTP status
+        return res.status(HTTP_STATUS.OK).json({
           success: true,
           brandKit: result.brandKit,
           status: "completed",
         });
       } catch (error) {
+        // ✅ RELEASE LOCK: Clean up after error
+        const lock = activeCrawlLocks.get(lockKey);
+        if (lock) {
+          clearTimeout(lock.timeout);
+          activeCrawlLocks.delete(lockKey);
+          console.log("[Crawler] Crawl lock released (error)", { lockKey });
+        }
+        
         // ✅ ENHANCED ERROR LOGGING: Log full error details for debugging
         const errorMessage = error instanceof Error ? error.message : String(error);
         const errorStack = error instanceof Error ? error.stack : "No stack trace";
@@ -224,34 +376,46 @@ router.post("/start", authenticateUser, async (req, res, next) => {
           message: errorMessage,
           stack: errorStack,
           url: finalUrl,
+          normalizedUrl,
           brandId: finalBrandId,
           tenantId: tenantId || "unknown",
           errorType: error instanceof Error ? error.constructor.name : typeof error,
+          requestId: (req as any).id,
         });
         
         // ✅ USER-FRIENDLY ERROR: Provide actionable error message
         let userMessage = "Website scraping failed. ";
+        let statusCode: number = HTTP_STATUS.INTERNAL_SERVER_ERROR;
+        let errorCode = ErrorCode.SERVICE_UNAVAILABLE;
+        
         if (errorMessage.includes("timeout") || errorMessage.includes("Crawl timeout")) {
           userMessage += "The website took too long to load. Please try again or check if the website is accessible.";
+          statusCode = HTTP_STATUS.SERVICE_UNAVAILABLE;
+          errorCode = ErrorCode.SERVICE_UNAVAILABLE;
         } else if (errorMessage.includes("browser") || errorMessage.includes("launch")) {
           userMessage += "Unable to access the website. Please verify the URL is correct and try again.";
+          statusCode = HTTP_STATUS.BAD_GATEWAY;
+          errorCode = ErrorCode.EXTERNAL_SERVICE_ERROR;
         } else if (errorMessage.includes("network") || errorMessage.includes("ECONNREFUSED")) {
           userMessage += "Unable to connect to the website. Please check the URL and try again.";
+          statusCode = HTTP_STATUS.BAD_GATEWAY;
+          errorCode = ErrorCode.EXTERNAL_SERVICE_ERROR;
         } else {
           userMessage += "Please try again or contact support if the issue persists.";
         }
         
+        // ✅ RESPONSE: Throw AppError which will be caught by error middleware
         throw new AppError(
-          ErrorCode.SERVICE_UNAVAILABLE,
+          errorCode,
           userMessage,
-          HTTP_STATUS.INTERNAL_SERVER_ERROR,
+          statusCode,
           "error",
           {
             url: finalUrl,
             brandId: finalBrandId,
             originalError: errorMessage,
-            technicalDetails: errorStack,
-          }
+          },
+          "Try a different URL or check if the website is accessible"
         );
       }
     }
@@ -263,14 +427,22 @@ router.post("/start", authenticateUser, async (req, res, next) => {
       // Temporary brand ID from onboarding, no need to check Supabase
       currentBrandKit = {};
     } else {
-      const { data: brand, error: brandError } = await supabase
-        .from("brands")
-        .select("brand_kit")
-        .eq("id", finalBrandId)
-        .single();
+      try {
+        const { data: brand, error: brandError } = await supabase
+          .from("brands")
+          .select("brand_kit")
+          .eq("id", finalBrandId)
+          .single();
 
-      if (!brandError && brand) {
-        currentBrandKit = brand.brand_kit || {};
+        if (!brandError && brand) {
+          currentBrandKit = brand.brand_kit || {};
+        }
+      } catch (dbError) {
+        console.warn("[Crawler] Error fetching brand for async crawl", {
+          brandId: finalBrandId,
+          error: dbError instanceof Error ? dbError.message : String(dbError),
+        });
+        // Continue with empty brand kit
       }
     }
 
@@ -286,28 +458,86 @@ router.post("/start", authenticateUser, async (req, res, next) => {
     });
 
     // Start crawl in background (don't await)
-    runCrawlJob(job_id, finalBrandId, finalUrl, currentBrandKit).catch((error) => {
-      console.error(`Crawl job ${job_id} failed:`, error);
-      const job = crawlJobs.get(job_id) as any;
-      if (job) {
-        job.status = "failed";
-        job.error = error instanceof Error ? error.message : String(error);
-        job.completed_at = new Date().toISOString();
-      }
-    });
+    runCrawlJob(job_id, finalBrandId, finalUrl, currentBrandKit)
+      .then(() => {
+        // ✅ RELEASE LOCK: Clean up after async crawl completes
+        const lock = activeCrawlLocks.get(lockKey);
+        if (lock) {
+          clearTimeout(lock.timeout);
+          activeCrawlLocks.delete(lockKey);
+          console.log("[Crawler] Async crawl lock released (success)", { lockKey, job_id });
+        }
+      })
+      .catch((error) => {
+        // ✅ RELEASE LOCK: Clean up after async crawl fails
+        const lock = activeCrawlLocks.get(lockKey);
+        if (lock) {
+          clearTimeout(lock.timeout);
+          activeCrawlLocks.delete(lockKey);
+          console.log("[Crawler] Async crawl lock released (error)", { lockKey, job_id });
+        }
+        
+        console.error(`[Crawler] Async crawl job ${job_id} failed:`, error);
+        const job = crawlJobs.get(job_id) as any;
+        if (job) {
+          job.status = "failed";
+          job.error = error instanceof Error ? error.message : String(error);
+          job.completed_at = new Date().toISOString();
+        }
+      });
 
-    res.json({ job_id, status: "pending" });
+    // ✅ RESPONSE: Return success immediately with job ID
+    return res.status(HTTP_STATUS.OK).json({
+      success: true,
+      job_id,
+      status: "pending",
+      message: "Crawl job started successfully",
+    });
   } catch (error) {
-    console.error("[Crawler] Start crawl error:", error);
-    // Pass error to Express error middleware
-    next(
+    // ✅ RELEASE LOCK: Always clean up lock on any error (if lock was created)
+    if (lockKey) {
+      try {
+        const lock = activeCrawlLocks.get(lockKey);
+        if (lock) {
+          clearTimeout(lock.timeout);
+          activeCrawlLocks.delete(lockKey);
+          console.log("[Crawler] Crawl lock released (handler error)", { lockKey });
+        }
+      } catch (cleanupError) {
+        // Ignore cleanup errors - log but don't fail
+        console.warn("[Crawler] Error cleaning up lock", {
+          error: cleanupError instanceof Error ? cleanupError.message : String(cleanupError),
+          lockKey,
+        });
+      }
+    }
+    
+    // ✅ LOG ERROR: Enhanced error logging
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorStack = error instanceof Error ? error.stack : "No stack trace";
+    
+    console.error("[Crawler] ❌ Start crawl handler error:", {
+      message: errorMessage,
+      stack: errorStack,
+      errorType: error instanceof Error ? error.constructor.name : typeof error,
+      requestId: (req as any).id,
+    });
+    
+    // ✅ RESPONSE: Pass error to Express error middleware (ensures valid HTTP status)
+    // If error is already an AppError, pass it through; otherwise wrap it
+    if (error instanceof AppError) {
+      return next(error);
+    }
+    
+    // Wrap unknown errors in AppError for consistent error handling
+    return next(
       new AppError(
         ErrorCode.INTERNAL_ERROR,
-        error instanceof Error ? error.message : "Failed to start crawl",
+        errorMessage || "Failed to start crawl",
         HTTP_STATUS.INTERNAL_SERVER_ERROR,
         "error",
-        error instanceof Error ? { originalError: error.message } : undefined,
-        "Please try again later or contact support"
+        { originalError: errorMessage },
+        "Please try again later or contact support if the problem persists"
       )
     );
   }
@@ -326,15 +556,29 @@ router.post("/start", authenticateUser, async (req, res, next) => {
 async function runCrawlJobSync(url: string, brandId: string, tenantId: string | null = null): Promise<{ brandKit: any }> {
   // ✅ Increased timeout to 60s for JS-heavy sites and slow networks
   const CRAWL_TIMEOUT_MS = 60000; // 60 second timeout for onboarding
+  
+  // ✅ METRICS: Track total crawl time
+  const crawlStartTime = Date.now();
 
   try {
     // Set timeout for crawl operation
     const crawlPromise = Promise.race([
       (async () => {
+        // ✅ METRICS: Track crawl timing
+        const crawlWebsiteStartTime = Date.now();
+        
         // Crawl website (with error handling)
         let crawlResults;
         try {
           crawlResults = await crawlWebsite(url);
+          
+          const crawlWebsiteTime = Date.now() - crawlWebsiteStartTime;
+          console.log(`[Crawler] Crawl website completed`, {
+            url,
+            brandId,
+            crawlTimeMs: crawlWebsiteTime,
+            pagesCrawled: crawlResults?.length || 0,
+          });
         } catch (error) {
           console.warn("[Crawler] Error crawling website:", error);
           throw error;
@@ -457,6 +701,11 @@ async function runCrawlJobSync(url: string, brandId: string, tenantId: string | 
           .map((r) => r.typography)
           .find((t) => t && t.heading && t.body);
         
+        // ✅ Extract Open Graph metadata - use first non-empty OG metadata from crawl results
+        const openGraphMetadata = crawlResults
+          .map((r) => r.openGraph)
+          .find((og) => og && (og.title || og.image || og.description));
+        
         // ✅ PERSIST SCRAPED IMAGES: Save to media_assets table with source='scrape'
         let persistedImageCount = 0;
         let logoFound = false;
@@ -485,11 +734,17 @@ async function runCrawlJobSync(url: string, brandId: string, tenantId: string | 
               if (finalTenantId === "unknown" || !finalTenantId.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
                 console.error(`[Crawler] CRITICAL: Invalid tenantId format: "${finalTenantId}". Cannot persist images. This is a system error - tenantId must be a valid UUID.`);
               } else {
+                // ✅ METRICS: Track persistence timing
+                const persistenceStartTime = Date.now();
+                
                 const persistedIds = await persistScrapedImages(brandId, finalTenantId, allImages);
                 persistedImageCount = persistedIds.length;
                 logoFound = !!logoImage;
                 
-                // ✅ LOGGING: Structured log for scrape results (for Vercel server logs)
+                const persistenceTime = Date.now() - persistenceStartTime;
+                const totalCrawlTime = Date.now() - crawlStartTime;
+                
+                // ✅ ENHANCED LOGGING: Structured log with timing metrics
                 console.log(`[Crawler] Scrape complete`, {
                   tenantId: finalTenantId,
                   brandId: brandId,
@@ -499,11 +754,35 @@ async function runCrawlJobSync(url: string, brandId: string, tenantId: string | 
                   imagesPersisted: persistedImageCount,
                   logoFound: logoFound,
                   logoUrl: logoUrl || null,
+                  timing: {
+                    totalCrawlTimeMs: totalCrawlTime,
+                    persistenceTimeMs: persistenceTime,
+                  },
                 });
                 
-                // ✅ LOGGING: If no images persisted, log warning
+                // ✅ ENHANCED: More detailed warning if no images persisted
                 if (persistedImageCount === 0 && allImages.length > 0) {
-                  console.warn(`[Crawler] WARNING: Found ${allImages.length} images but none were persisted. Check persistScrapedImages() for errors.`);
+                  console.error(`[Crawler] ❌ CRITICAL: Found ${allImages.length} image(s) but NONE were persisted.`, {
+                    brandId: brandId,
+                    tenantId: finalTenantId,
+                    url: url,
+                    imagesFound: allImages.length,
+                    imagesPersisted: persistedImageCount,
+                    hint: "Check [ScrapedImages] logs above for detailed failure reasons. Possible causes: DB connectivity issues, schema mismatch, or tenantId validation failure.",
+                  });
+                  console.error(`[Crawler] Detailed error logs should appear above with [ScrapedImages] prefix showing per-image failure reasons.`);
+                } else if (persistedImageCount > 0 && persistedImageCount < allImages.length) {
+                  // Partial persistence - this is expected due to design limits (max 2 logos, max 15 brand images)
+                  // The [ScrapedImages] logs above show detailed breakdown of selected vs filtered images
+                  const filteredCount = allImages.length - persistedImageCount;
+                  console.log(`[Crawler] ℹ️ Image selection: ${persistedImageCount}/${allImages.length} images persisted (${filteredCount} filtered by design limits)`, {
+                    brandId: brandId,
+                    tenantId: finalTenantId,
+                    imagesFound: allImages.length,
+                    imagesPersisted: persistedImageCount,
+                    imagesFiltered: filteredCount,
+                    note: "This is expected behavior. The system selects up to 2 logos and up to 15 brand images. Check [ScrapedImages] logs above for detailed breakdown.",
+                  });
                 }
               }
             } else {
@@ -545,6 +824,9 @@ async function runCrawlJobSync(url: string, brandId: string, tenantId: string | 
           images: allImages, // Use extracted images
           logoUrl: logoUrl || aiBrandKit.logoUrl,
           headlines: headlines || aiBrandKit.headlines,
+          metadata: {
+            openGraph: openGraphMetadata || undefined,
+          },
           source: "crawler" as const,
         } : {
           voice_summary: {
@@ -562,6 +844,9 @@ async function runCrawlJobSync(url: string, brandId: string, tenantId: string | 
           images: allImages,
           logoUrl,
           headlines,
+          metadata: {
+            openGraph: openGraphMetadata || undefined,
+          },
           source: "crawler" as const,
         };
         
@@ -585,6 +870,10 @@ async function runCrawlJobSync(url: string, brandId: string, tenantId: string | 
                   purpose: brandKit.about_blurb || brandKit.purpose || "",
                   about_blurb: brandKit.about_blurb || "",
                   longFormSummary: (brandKit as any).longFormSummary || brandKit.about_blurb || "",
+                  // ✅ Persist Open Graph metadata
+                  metadata: {
+                    openGraph: openGraphMetadata || undefined,
+                  },
                 },
                 voice_summary: brandKit.voice_summary || {},
                 visual_summary: {

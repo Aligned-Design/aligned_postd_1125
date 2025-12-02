@@ -1,4 +1,4 @@
-# Tech Stack Guide - Aligned-20AI Platform
+# Tech Stack Guide - POSTD Platform
 
 **Last Verified**: November 11, 2025
 **Version**: 1.0
@@ -9,7 +9,7 @@
 
 ## Executive Summary
 
-**Aligned-20AI** is a full-stack TypeScript SaaS platform for multi-platform social media content management, powered by React 18, Express.js, Supabase PostgreSQL, Bull Queue/Redis, and AI services (OpenAI, Claude). The stack emphasizes:
+**POSTD** (formerly Aligned-20AI) is a full-stack TypeScript SaaS platform for multi-platform social media content management, powered by React 18, Express.js, Supabase PostgreSQL, Bull Queue/Redis, and AI services (OpenAI, Claude). The stack emphasizes:
 
 - **Type Safety**: TypeScript throughout (though strict mode currently disabled)
 - **Scalability**: Multi-tenant SaaS architecture with tenant_id isolation

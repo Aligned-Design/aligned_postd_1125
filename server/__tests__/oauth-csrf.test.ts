@@ -267,7 +267,7 @@ describe("OAuth CSRF Security", () => {
       try {
         validateOAuthState(req, res, () => {});
       } catch (e: unknown) {
-        errorMessage = e.message;
+        errorMessage = e instanceof Error ? e.message : String(e);
       }
 
       expect(errorMessage).toContain("state");
@@ -282,7 +282,7 @@ describe("OAuth CSRF Security", () => {
       try {
         validateOAuthState(req, res, () => {});
       } catch (e: unknown) {
-        errorMessage = e.message;
+        errorMessage = e instanceof Error ? e.message : String(e);
       }
 
       expect(errorMessage).toContain("Invalid");

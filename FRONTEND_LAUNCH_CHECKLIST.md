@@ -309,7 +309,7 @@ None of these affect the core user experience or main flows.
 - `client/components/retention/WinCelebration.tsx`
 
 **Tasks**:
-1. Update `AlignedAISummaryProps` interface
+1. Update `POSTDSummaryProps` interface
 2. Fix `WinCelebration` ReactNode type
 3. Test components still work
 

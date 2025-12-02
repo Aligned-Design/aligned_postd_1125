@@ -5,7 +5,7 @@
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { createClient } from '@supabase/supabase-js';
-import { Database } from '../lib/database.types';
+// Database type not available - using generic SupabaseClient
 
 // Test configuration
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL || '';
@@ -19,9 +19,9 @@ const testUserId1 = 'test-user-001-' + Date.now();
 const testUserId2 = 'test-user-002-' + Date.now();
 
 describe.skip('RLS Validation - Cross-Brand Security', () => {
-  let serviceClient: ReturnType<typeof createClient<Database>>;
-  let user1Client: ReturnType<typeof createClient<Database>>;
-  let user2Client: ReturnType<typeof createClient<Database>>;
+  let serviceClient: any;
+  let user1Client: any;
+  let user2Client: any;
 
   beforeAll(async () => {
     // Create clients with different authentication contexts

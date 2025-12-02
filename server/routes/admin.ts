@@ -1,4 +1,12 @@
-import { Router } from "express";
+/**
+ * Admin API Routes
+ * 
+ * Platform administration endpoints for managing tenants, users, billing, and feature flags.
+ * All routes require "platform:admin" scope.
+ */
+
+import { Router, RequestHandler } from "express";
+import { z } from "zod";
 import { supabase } from "../lib/supabase";
 import { AppError } from "../lib/error-middleware";
 import { ErrorCode, HTTP_STATUS } from "../lib/error-responses";
@@ -9,7 +17,17 @@ const adminRouter = Router();
 // Require platform admin scope for all admin endpoints
 adminRouter.use(requireScope("platform:admin"));
 
-adminRouter.get("/overview", async (_req, res, next) => {
+// ✅ VALIDATION: Zod schemas for admin routes
+const FeatureFlagBodySchema = z.object({
+  flag: z.string().min(1, "Flag name is required"),
+  enabled: z.boolean(),
+}).strict();
+
+/**
+ * GET /api/admin/overview
+ * Get platform overview with tenant, brand, and user totals plus billing summary
+ */
+export const getAdminOverview: RequestHandler = async (_req, res, next) => {
   try {
     const [tenants, billing] = await Promise.all([
       fetchTenantSummaries(),
@@ -22,68 +40,103 @@ adminRouter.get("/overview", async (_req, res, next) => {
       users: tenants.reduce((sum, tenant) => sum + tenant.userCount, 0),
     };
 
-    (res as any).json({ totals, billing });
+    (res as any).json({ success: true, totals, billing });
   } catch (error) {
     next(toError("Failed to load admin overview", error));
   }
-});
+};
 
-adminRouter.get("/tenants", async (_req, res, next) => {
+adminRouter.get("/overview", getAdminOverview);
+
+/**
+ * GET /api/admin/tenants
+ * Get list of all tenants with summaries
+ */
+export const getTenants: RequestHandler = async (_req, res, next) => {
   try {
     const tenants = await fetchTenantSummaries();
-    (res as any).json({ tenants });
+    (res as any).json({ success: true, tenants });
   } catch (error) {
     next(toError("Failed to load tenants", error));
   }
-});
+};
 
-adminRouter.get("/users", async (_req, res, next) => {
+adminRouter.get("/tenants", getTenants);
+
+/**
+ * GET /api/admin/users
+ * Get list of all users with summaries
+ */
+export const getUsers: RequestHandler = async (_req, res, next) => {
   try {
     const users = await fetchUserSummaries();
-    (res as any).json({ users });
+    (res as any).json({ success: true, users });
   } catch (error) {
     next(toError("Failed to load users", error));
   }
-});
+};
 
-adminRouter.get("/billing", async (_req, res, next) => {
+adminRouter.get("/users", getUsers);
+
+/**
+ * GET /api/admin/billing
+ * Get billing summary with MRR, churn rate, plan distribution, and trial count
+ */
+export const getBilling: RequestHandler = async (_req, res, next) => {
   try {
     const billing = await fetchBillingSummary();
-    (res as any).json(billing);
+    (res as any).json({ success: true, ...billing });
   } catch (error) {
     next(toError("Failed to load billing data", error));
   }
-});
+};
 
-adminRouter.get("/feature-flags", async (_req, res, next) => {
+adminRouter.get("/billing", getBilling);
+
+/**
+ * GET /api/admin/feature-flags
+ * Get all feature flags with their current enabled/disabled state
+ */
+export const getFeatureFlags: RequestHandler = async (_req, res, next) => {
   try {
     const flags = await fetchFeatureFlags();
-    (res as any).json({ flags });
+    (res as any).json({ success: true, flags });
   } catch (error) {
     next(toError("Failed to load feature flags", error));
   }
-});
+};
 
-const featureFlagSchema = {
-  flag: "string",
-  enabled: "boolean",
-} as const;
+adminRouter.get("/feature-flags", getFeatureFlags);
 
-adminRouter.post("/feature-flags", async (req, res, next) => {
+/**
+ * POST /api/admin/feature-flags
+ * Update a feature flag
+ * 
+ * Request Body:
+ * - flag: string (required) - Feature flag name
+ * - enabled: boolean (required) - Whether the flag is enabled
+ */
+export const updateFeatureFlag: RequestHandler = async (req, res, next) => {
   try {
-    const { flag, enabled } = req.body as {
-      flag?: string;
-      enabled?: boolean;
-    };
-
-    if (!flag || typeof enabled === "undefined") {
-      throw new AppError(
-        ErrorCode.MISSING_REQUIRED_FIELD,
-        "flag and enabled are required",
-        HTTP_STATUS.BAD_REQUEST,
-        "warning",
-      );
+    // ✅ VALIDATION: Validate request body with Zod
+    let validatedBody;
+    try {
+      validatedBody = FeatureFlagBodySchema.parse(req.body);
+    } catch (validationError) {
+      if (validationError instanceof z.ZodError) {
+        throw new AppError(
+          ErrorCode.VALIDATION_ERROR,
+          "Invalid request parameters",
+          HTTP_STATUS.BAD_REQUEST,
+          "warning",
+          { validationErrors: validationError.errors },
+          "Please review the validation errors and retry your request"
+        );
+      }
+      throw validationError;
     }
+
+    const { flag, enabled } = validatedBody;
 
     const { error } = await supabase
       .from("platform_settings")
@@ -91,7 +144,8 @@ adminRouter.post("/feature-flags", async (req, res, next) => {
 
     if (error) throw error;
 
-    (res as any).json({ success: true, flags: await fetchFeatureFlags() });
+    const flags = await fetchFeatureFlags();
+    (res as any).json({ success: true, flags });
   } catch (error) {
     next(
       error instanceof AppError
@@ -99,7 +153,9 @@ adminRouter.post("/feature-flags", async (req, res, next) => {
         : toError("Failed to update feature flag", error),
     );
   }
-});
+};
+
+adminRouter.post("/feature-flags", updateFeatureFlag);
 
 async function fetchTenantSummaries() {
   // Prefer tenants_view, fallback to tenants table

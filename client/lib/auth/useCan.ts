@@ -71,7 +71,25 @@ export function useCan(scope: Scope): boolean {
  * @returns boolean - True if user has all scopes
  */
 export function useCanAll(scopes: Scope[]): boolean {
-  return scopes.every((scope) => useCan(scope));
+  const { role, user } = useAuth();
+  
+  if (!role || !user) {
+    return false;
+  }
+
+  const rolePerms = permissionsMap[role as keyof typeof permissionsMap];
+  
+  if (!rolePerms) {
+    return false;
+  }
+
+  // SUPERADMIN has all permissions (wildcard)
+  if (rolePerms.includes("*")) {
+    return true;
+  }
+
+  // Check if all scopes are in permissions list
+  return scopes.every((scope) => rolePerms.includes(scope));
 }
 
 /**
@@ -80,7 +98,25 @@ export function useCanAll(scopes: Scope[]): boolean {
  * @returns boolean - True if user has at least one scope
  */
 export function useCanAny(scopes: Scope[]): boolean {
-  return scopes.some((scope) => useCan(scope));
+  const { role, user } = useAuth();
+  
+  if (!role || !user) {
+    return false;
+  }
+
+  const rolePerms = permissionsMap[role as keyof typeof permissionsMap];
+  
+  if (!rolePerms) {
+    return false;
+  }
+
+  // SUPERADMIN has all permissions (wildcard)
+  if (rolePerms.includes("*")) {
+    return true;
+  }
+
+  // Check if at least one scope is in permissions list
+  return scopes.some((scope) => rolePerms.includes(scope));
 }
 
 /**

@@ -136,7 +136,7 @@ The Brand Guide serves as the **"source of truth"** for all AI agents (Copywrite
 - System messages and logs
 
 **Changes**:
-- ✅ Replaced "Aligned-20AI", "Aligned AI", "Aligned Agent" → "Postd"
+- ✅ Replaced "Aligned-20AI", "Aligned AI", "Aligned Agent" → "POSTD"
 - ✅ Replaced "doc-agent", "design-agent", "advisor-agent" → "The Copywriter", "The Creative", "The Advisor"
 - ✅ Consistent terminology across all prompts and user-facing copy
 

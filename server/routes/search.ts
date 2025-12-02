@@ -4,6 +4,7 @@ import { searchService } from "../lib/search-service";
 import { AppError } from "../lib/error-middleware";
 import { ErrorCode, HTTP_STATUS } from "../lib/error-responses";
 import { requireScope } from "../middleware/requireScope";
+import { assertBrandAccess } from "../lib/brand-access";
 
 const router = Router();
 
@@ -40,16 +41,8 @@ router.get(
       // Determine brandIds to search
       let brandIds: string[] | undefined;
       if (brand) {
-        // If specific brand requested, validate access
-        const userBrandIds = Array.isArray(user.brandIds) ? user.brandIds : user.brandId ? [user.brandId] : [];
-        if (!userBrandIds.includes(brand) && user.role?.toUpperCase() !== "SUPERADMIN") {
-          throw new AppError(
-            ErrorCode.FORBIDDEN,
-            "Not authorized for requested brand",
-            HTTP_STATUS.FORBIDDEN,
-            "warning",
-          );
-        }
+        // ✅ SECURITY: Verify user has access to this brand using database-backed check
+        await assertBrandAccess(req, brand, true, true);
         brandIds = [brand];
       } else {
         brandIds = Array.isArray(user.brandIds) ? user.brandIds : user.brandId ? [user.brandId] : undefined;

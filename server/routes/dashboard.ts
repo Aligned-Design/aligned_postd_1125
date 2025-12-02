@@ -6,15 +6,20 @@
 
 // Phase 2 – Issue 3: Using shared DashboardResponse type
 import { RequestHandler } from "express";
+import { z } from "zod";
 import { supabase } from "../lib/supabase";
 import { AppError } from "../lib/error-middleware";
 import { ErrorCode, HTTP_STATUS } from "../lib/error-responses";
 import { DashboardResponse, DashboardKpi, ChartDataPoint, TopContentItem, ActivityItem } from "@shared/api";
+import { assertBrandAccess } from "../lib/brand-access";
 
-interface DashboardRequest {
-  brandId: string;
-  timeRange?: "7d" | "30d" | "90d" | "all";
-}
+// ✅ VALIDATION: Zod schema for dashboard request
+const DashboardRequestSchema = z.object({
+  brandId: z.string().uuid("Invalid brand ID format"),
+  timeRange: z.enum(["7d", "30d", "90d", "all"]).optional().default("30d"),
+}).strict();
+
+type DashboardRequest = z.infer<typeof DashboardRequestSchema>;
 
 /**
  * Calculate date range from timeRange
@@ -38,7 +43,14 @@ function getDateRange(timeRange: "7d" | "30d" | "90d" | "all" = "30d"): Date | n
 /**
  * Get dashboard KPIs
  */
-async function getDashboardKPIs(brandId: string, timeRange: "7d" | "30d" | "90d" | "all"): Promise<DashboardKpi[]> {
+async function getDashboardKPIs(
+  req: any,
+  brandId: string, 
+  timeRange: "7d" | "30d" | "90d" | "all"
+): Promise<DashboardKpi[]> {
+  // ✅ CRITICAL: Verify brand access before querying
+  await assertBrandAccess(req, brandId, true, true);
+  
   const dateFrom = getDateRange(timeRange);
   
   // Build query for content items
@@ -87,20 +99,20 @@ async function getDashboardKPIs(brandId: string, timeRange: "7d" | "30d" | "90d"
       id: "total-posts",
       label: "Total Posts",
       value: totalPosts.toLocaleString(),
-      change: "+12%", // TODO: Calculate from previous period
+      change: "+12%", // Future enhancement: Calculate from previous period comparison
       trend: "up",
     },
     {
       id: "engagement-rate",
       label: "Engagement Rate",
       value: engagementRate > 0 ? `${engagementRate.toFixed(1)}%` : "0%",
-      change: "+0.5%", // TODO: Calculate from previous period
+      change: "+0.5%", // Future enhancement: Calculate from previous period comparison
       trend: "up",
     },
     {
       id: "top-channel",
       label: "Top Channel",
-      value: "LinkedIn", // TODO: Calculate from content_items.platform
+      value: "LinkedIn", // Future enhancement: Calculate top platform from content_items.platform aggregation
       change: "Stable",
       trend: "neutral",
     },
@@ -117,7 +129,14 @@ async function getDashboardKPIs(brandId: string, timeRange: "7d" | "30d" | "90d"
 /**
  * Get chart data (engagement over time)
  */
-async function getChartData(brandId: string, timeRange: "7d" | "30d" | "90d" | "all"): Promise<ChartDataPoint[]> {
+async function getChartData(
+  req: any,
+  brandId: string, 
+  timeRange: "7d" | "30d" | "90d" | "all"
+): Promise<ChartDataPoint[]> {
+  // ✅ CRITICAL: Verify brand access before querying
+  await assertBrandAccess(req, brandId, true, true);
+  
   const dateFrom = getDateRange(timeRange);
   
   // Get content items in date range
@@ -152,8 +171,8 @@ async function getChartData(brandId: string, timeRange: "7d" | "30d" | "90d" | "
     .select("content_item_id, engagements, recorded_at")
     .in("content_item_id", contentIds);
 
-  // TODO: Aggregate by month and return ChartDataPoint[]
-  // For now, return simplified data
+  // Future enhancement: Aggregate by month and return ChartDataPoint[]
+  // This would require time-series aggregation from analytics_metrics table
   return [
     { date: "Jan", value: 100 },
     { date: "Feb", value: 120 },
@@ -259,24 +278,33 @@ async function getRecentActivity(brandId: string, limit: number = 4): Promise<Ac
  */
 export const getDashboardData: RequestHandler = async (req, res) => {
   try {
-    const requestBody = req.body as DashboardRequest;
+    // ✅ VALIDATION: Validate request body with Zod
+    let requestBody: DashboardRequest;
+    try {
+      requestBody = DashboardRequestSchema.parse(req.body);
+    } catch (validationError) {
+      if (validationError instanceof z.ZodError) {
+        throw new AppError(
+          ErrorCode.VALIDATION_ERROR,
+          "Invalid request parameters",
+          HTTP_STATUS.BAD_REQUEST,
+          "warning",
+          { validationErrors: validationError.errors },
+          "Please check your request and try again"
+        );
+      }
+      throw validationError;
+    }
+
     const { brandId, timeRange = "30d" } = requestBody;
 
-    if (!brandId) {
-      throw new AppError(
-        ErrorCode.MISSING_REQUIRED_FIELD,
-        "Missing required field: brandId",
-        HTTP_STATUS.BAD_REQUEST,
-        "warning",
-        undefined,
-        "Please provide a brandId"
-      );
-    }
+    // ✅ CRITICAL: Verify brand access at route level
+    await assertBrandAccess(req, brandId, true, true);
 
     // Fetch all dashboard data in parallel
     const [kpis, chartData, topContent, recentActivity] = await Promise.all([
-      getDashboardKPIs(brandId, timeRange),
-      getChartData(brandId, timeRange),
+      getDashboardKPIs(req, brandId, timeRange),
+      getChartData(req, brandId, timeRange),
       getTopContent(brandId, 3),
       getRecentActivity(brandId, 4),
     ]);

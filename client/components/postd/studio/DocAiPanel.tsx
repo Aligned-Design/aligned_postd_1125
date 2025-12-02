@@ -13,6 +13,7 @@ import { useBrandGuide } from "@/hooks/useBrandGuide";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { useToast } from "@/hooks/use-toast";
 import { Link } from "react-router-dom";
+import { logError } from "@/lib/logger";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -76,7 +77,7 @@ export function DocAiPanel({ onUseVariant, onEditVariant }: DocAiPanelProps) {
       });
     } catch (err) {
       // Error is already handled by the hook, but we can add additional logging
-      console.error("[Copywriter] Generation error:", err);
+      logError("[Copywriter] Generation error", err instanceof Error ? err : new Error(String(err)), { brandId: effectiveBrandId, topic: formData.topic });
     }
   };
 

@@ -8,7 +8,7 @@
 
 ## 🎯 Overview
 
-This document covers the complete implementation of Aligned AI's billing, payment failure handling, and unpaid account policy. The system protects recurring revenue while maintaining user trust through a firm but friendly escalation path.
+This document covers the complete implementation of POSTD's billing, payment failure handling, and unpaid account policy. The system protects recurring revenue while maintaining user trust through a firm but friendly escalation path.
 
 ---
 

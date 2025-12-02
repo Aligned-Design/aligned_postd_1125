@@ -57,7 +57,7 @@ class JobQueueService {
       tenantId,
       content,
       platforms,
-      scheduledAt.toISOString(),
+      scheduledAt,
       userId
     );
 

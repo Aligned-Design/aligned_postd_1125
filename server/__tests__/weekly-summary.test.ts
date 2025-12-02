@@ -1,8 +1,9 @@
+import { describe, it, expect } from "vitest";
 import { createWeeklySummaryService, WeeklySummaryService } from "../lib/weekly-summary";
 import type {
   BrandHistory,
   PerformanceLog,
-} from "../lib/collaboration-artifacts";
+} from "@shared/collaboration-artifacts";
 
 describe("WeeklySummaryService", () => {
   const brandId = "test-brand";
@@ -10,54 +11,41 @@ describe("WeeklySummaryService", () => {
 
   const mockPerformanceLogs: PerformanceLog[] = [
     {
-      cycleId: "cycle_1",
-      timestamp: new Date().toISOString(),
-      contentMetrics: [
-        {
-          contentId: "content_1",
-          platform: "instagram",
-          tone: "professional",
-          headline: "Test Headline",
-          body: "Test body content",
-          engagement: 4.5,
-          layout: "hero",
-          colorScheme: "blue",
-          imageType: "photo",
-          hasEmoji: false,
-        },
-        {
-          contentId: "content_2",
-          platform: "twitter",
-          tone: "casual",
-          headline: "Test Tweet",
-          body: "Short content",
-          engagement: 2.1,
-          layout: "text-only",
-          colorScheme: "neutral",
-          imageType: "none",
-          hasEmoji: true,
-        },
-        {
-          contentId: "content_3",
-          platform: "instagram",
-          tone: "professional",
-          headline: "Another Headline",
-          body: "More test content here with good length",
-          engagement: 5.2,
-          layout: "hero",
-          colorScheme: "blue",
-          imageType: "photo",
-          hasEmoji: false,
-        },
-      ],
+      id: "pl_1",
+      brandId,
+      period: {
+        start: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
+        end: new Date().toISOString().split("T")[0],
+      },
+      summary: {
+        totalContent: 3,
+        avgEngagement: 4.0,
+        topPerformingMetric: "engagement",
+        bottomPerformingMetric: "reach",
+      },
       visualPerformance: [
         {
-          layout: "hero",
-          engagement: 4.85,
-          colorScheme: "blue",
-          motionType: "static",
+          attribute: "layout",
+          attributeValue: "hero",
+          avgMetrics: {
+            engagement: 4.85,
+            reach: 100,
+            clicks: 50,
+          },
+          contentCount: 2,
         },
       ],
+      copyPerformance: [],
+      platformInsights: [],
+      contentPerformance: [],
+      recommendations: {
+        visualRecommendations: [],
+        copyRecommendations: [],
+        platformRecommendations: [],
+      },
+      patterns: [],
+      alerts: [],
+      lastUpdated: new Date().toISOString(),
     },
   ];
 
@@ -82,7 +70,7 @@ describe("WeeklySummaryService", () => {
       },
       {
         timestamp: new Date().toISOString(),
-        agent: "copy",
+        agent: "copywriter",
         action: "pattern_identified",
         details: {
           description: "Professional tone performs well",
@@ -99,8 +87,9 @@ describe("WeeklySummaryService", () => {
     successPatterns: [
       {
         pattern: "Professional tone on Instagram drives engagement",
-        evidence: ["4.5% engagement", "5.2% engagement"],
-        recommendation: "Increase professional tone content on Instagram",
+        frequency: 2,
+        avgPerformance: 4.85,
+        examples: ["content_1", "content_3"],
       },
     ],
     designFatigueAlerts: [],
@@ -108,7 +97,7 @@ describe("WeeklySummaryService", () => {
     lastUpdated: new Date().toISOString(),
   };
 
-  test("generates weekly summary with metrics", async () => {
+  it("generates weekly summary with metrics", async () => {
     const summary = await service.generateWeeklySummary(
       mockPerformanceLogs,
       mockBrandHistory
@@ -122,7 +111,7 @@ describe("WeeklySummaryService", () => {
     expect(summary.metrics.topPerformingPlatform).toBe("instagram");
   });
 
-  test("identifies success patterns", async () => {
+  it("identifies success patterns", async () => {
     const summary = await service.generateWeeklySummary(
       mockPerformanceLogs,
       mockBrandHistory
@@ -135,7 +124,7 @@ describe("WeeklySummaryService", () => {
     );
   });
 
-  test("analyzes design patterns", async () => {
+  it("analyzes design patterns", async () => {
     const summary = await service.generateWeeklySummary(
       mockPerformanceLogs,
       mockBrandHistory
@@ -146,7 +135,7 @@ describe("WeeklySummaryService", () => {
     expect(summary.designPatterns.layouts.length).toBeGreaterThan(0);
   });
 
-  test("analyzes copy patterns", async () => {
+  it("analyzes copy patterns", async () => {
     const summary = await service.generateWeeklySummary(
       mockPerformanceLogs,
       mockBrandHistory
@@ -158,7 +147,7 @@ describe("WeeklySummaryService", () => {
     expect(summary.copyPatterns.emojiUsage).toBeDefined();
   });
 
-  test("generates recommendations", async () => {
+  it("generates recommendations", async () => {
     const summary = await service.generateWeeklySummary(
       mockPerformanceLogs,
       mockBrandHistory
@@ -170,7 +159,7 @@ describe("WeeklySummaryService", () => {
     ).toBe(true);
   });
 
-  test("creates advisor actions", async () => {
+  it("creates advisor actions", async () => {
     const summary = await service.generateWeeklySummary(
       mockPerformanceLogs,
       mockBrandHistory
@@ -181,7 +170,7 @@ describe("WeeklySummaryService", () => {
     expect(summary.advisorActions[0].description).toBeDefined();
   });
 
-  test("identifies risks and opportunities", async () => {
+  it("identifies risks and opportunities", async () => {
     const summary = await service.generateWeeklySummary(
       mockPerformanceLogs,
       mockBrandHistory
@@ -194,7 +183,7 @@ describe("WeeklySummaryService", () => {
     ).toBeDefined();
   });
 
-  test("exports to markdown", async () => {
+  it("exports to markdown", async () => {
     const summary = await service.generateWeeklySummary(
       mockPerformanceLogs,
       mockBrandHistory

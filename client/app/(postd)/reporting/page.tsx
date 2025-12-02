@@ -3,6 +3,9 @@ import { EmailReportDialog } from "@/components/dashboard/EmailReportDialog";
 import { ReportSettings } from "@/types/user";
 import { Plus, Mail, Trash2, Edit2, Send, Calendar, Users, Clock } from "lucide-react";
 import { useState } from "react";
+import { logInfo } from "@/lib/logger";
+import { PageShell } from "@/components/postd/ui/layout/PageShell";
+import { PageHeader } from "@/components/postd/ui/layout/PageHeader";
 
 // Mock saved reports data
 const MOCK_REPORTS: ReportSettings[] = [
@@ -196,7 +199,7 @@ export default function Reporting() {
   };
 
   const handleSendEmail = (emails: string[]) => {
-    console.log(`Sending test report to: ${emails.join(", ")}`);
+    logInfo("Sending test report", { recipients: emails });
     alert(`Test email sent to ${emails.length} recipient(s)`);
     setShowEmailDialog(false);
   };
@@ -205,24 +208,20 @@ export default function Reporting() {
   const inactiveReports = reports.filter((r) => !r.isActive);
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-indigo-50/30 via-white to-blue-50/20">
-        <div className="p-4 sm:p-6 md:p-8">
-          {/* Page Header */}
-          <div className="mb-8 flex items-start justify-between gap-4">
-            <div>
-              <h1 className="text-3xl sm:text-4xl font-black text-slate-900 mb-2">Reports</h1>
-              <p className="text-slate-600 text-xs sm:text-sm font-medium">
-                Create and manage automated performance reports for your brands
-              </p>
-            </div>
-            <button
-              onClick={handleCreateNew}
-              className="inline-flex items-center gap-2 px-5 sm:px-6 py-3 sm:py-4 bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white font-black text-base sm:text-lg rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105 active:scale-95 flex-shrink-0"
-            >
-              <Plus className="w-5 h-5" />
-              Create Report
-            </button>
-          </div>
+    <PageShell>
+      <PageHeader
+        title="Reports"
+        subtitle="Create and manage automated performance reports for your brands"
+        actions={
+          <button
+            onClick={handleCreateNew}
+            className="inline-flex items-center gap-2 px-5 sm:px-6 py-3 sm:py-4 bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white font-black text-base sm:text-lg rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105 active:scale-95 flex-shrink-0"
+          >
+            <Plus className="w-5 h-5" />
+            Create Report
+          </button>
+        }
+      />
 
           {/* Active Reports Section */}
           {activeReports.length > 0 && (
@@ -408,7 +407,6 @@ export default function Reporting() {
               </button>
             </div>
           )}
-        </div>
 
         {/* Modals */}
         <ReportSettingsModal
@@ -427,6 +425,6 @@ export default function Reporting() {
           onSend={handleSendEmail}
           defaultRecipients={selectedReport?.recipients}
         />
-    </div>
+    </PageShell>
   );
 }

@@ -1,6 +1,9 @@
-# Design Tokens Usage Guide
+# POSTD Design Tokens Usage Guide
 
-This guide explains how to use the Aligned-20AI design tokens system to maintain visual consistency across all components.
+> **Status:** ✅ Active – This is an active guide for POSTD design tokens.  
+> **Last Updated:** 2025-01-20
+
+This guide explains how to use the POSTD design tokens system to maintain visual consistency across all components.
 
 ## 📋 Overview
 

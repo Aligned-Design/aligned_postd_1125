@@ -1,8 +1,11 @@
-# Aligned-20AI Dashboard - Exploration Summary
+# POSTD Dashboard - Exploration Summary
+
+> **Status:** 🕒 Historical – This document describes an early exploration of the POSTD platform from its earlier development phase. Some details may be outdated.  
+> **Last Updated:** 2025-01-20
 
 ## Project Overview
 
-**Aligned-20AI** is a comprehensive AI-powered social media management platform designed to help agencies and brands manage multiple social media accounts, create content, analyze performance, and collaborate with clients. The platform is built with modern web technologies and focuses on intelligent automation and real-time insights.
+**POSTD** is a comprehensive AI-powered social media management platform designed to help agencies and brands manage multiple social media accounts, create content, analyze performance, and collaborate with clients. The platform is built with modern web technologies and focuses on intelligent automation and real-time insights.
 
 ## Exploration Completed
 
@@ -353,7 +356,7 @@ All services properly typed and error-handled.
 
 ## Conclusion
 
-The Aligned-20AI dashboard is a well-architected, modern web application with:
+The POSTD dashboard is a well-architected, modern web application with:
 
 - Strong foundation for content creation and management
 - Comprehensive component library ready for feature expansion

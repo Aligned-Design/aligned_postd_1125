@@ -102,7 +102,7 @@ export const searchStockImages: RequestHandler = async (req, res, next) => {
       throw new AppError(
         ErrorCode.NOT_IMPLEMENTED,
         `Provider "${queryParams.provider}" is not yet implemented. Only "pexels" is available.`,
-        HTTP_STATUS.NOT_IMPLEMENTED,
+        HTTP_STATUS.SERVICE_UNAVAILABLE,
         "info",
       );
     }
@@ -341,9 +341,11 @@ export const searchStockImages: RequestHandler = async (req, res, next) => {
       page: queryParams.page,
       hasMore,
       provider: queryParams.provider,
-      // Pixabay requires showing source when displaying search results
-      attributionNotice: queryParams.provider === "pixabay" 
-        ? "Images from Pixabay - Please show where images are from when displaying search results."
+      // Provide attribution notices based on provider
+      attributionNotice: queryParams.provider === "pexels"
+        ? "Images from Pexels"
+        : queryParams.provider === "pixabay"
+        ? "Images from Pixabay"
         : undefined,
     });
   } catch (error) {
@@ -383,7 +385,7 @@ export const getStockImage: RequestHandler = async (req, res, next) => {
       throw new AppError(
         ErrorCode.NOT_IMPLEMENTED,
         `Provider "${provider}" is not yet implemented. Only "pexels" and "pixabay" are available.`,
-        HTTP_STATUS.NOT_IMPLEMENTED,
+        HTTP_STATUS.SERVICE_UNAVAILABLE,
         "info",
       );
     }

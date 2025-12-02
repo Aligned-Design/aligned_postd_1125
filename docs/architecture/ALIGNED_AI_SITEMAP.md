@@ -1,8 +1,11 @@
-# 🗺️ Aligned AI Site Map (v1.0)
+# POSTD Site Map (v1.0)
+
+> **Status:** ✅ Active – This is an active sitemap reference for POSTD.  
+> **Last Updated:** 2025-01-20
 
 ## Overview
 
-This document serves as the master map for Aligned AI, showing every page, section, subflow, and how different user roles interact with the platform.
+This document serves as the master map for POSTD, showing every page, section, subflow, and how different user roles interact with the platform.
 
 ---
 
@@ -27,9 +30,9 @@ This document serves as the master map for Aligned AI, showing every page, secti
 
 - **Purpose**: Deep dive into AI capabilities
 - **Sections**:
-  - Doc Agent (Aligned Words) - Content generation
-  - Design Agent (Aligned Creative) - Visual creation
-  - Advisor Agent (Aligned Insights) - Data-driven recommendations
+  - Doc Agent (POSTD Words) - Content generation
+  - Design Agent (POSTD Creative) - Visual creation
+  - Advisor Agent (POSTD Insights) - Data-driven recommendations
   - Platform integrations showcase
   - Workflow automation examples
 - **Route**: `/features` _(to be implemented)_
@@ -79,7 +82,7 @@ This document serves as the master map for Aligned AI, showing every page, secti
 #### Sidebar Navigation
 
 ```
-┌─ Aligned AI Logo
+┌─ POSTD Logo
 ├─ Brand Switcher (dropdown)
 │
 ├─ 📊 Dashboard
@@ -791,7 +794,7 @@ Create and manage events for Facebook and Google Business Profile.
 
 #### Calendar Sync
 
-- Auto-add to Aligned AI calendar
+- Auto-add to POSTD calendar
 - Optional: Sync to website calendar (Squarespace/WordPress plugin)
 - iCal export for external calendars
 
@@ -1137,21 +1140,21 @@ User → Brand Kit → AI Agents → Post Draft → Approval → Schedule → Pu
 
 ### AI Agent Responsibilities
 
-#### Doc Agent (Aligned Words)
+#### Doc Agent (POSTD Words)
 
 - **Consumes**: Brand kit, tone embeddings, previous content
 - **Produces**: Post captions, blog articles, email copy
 - **Quality Gate**: Brand Fidelity Score ≥ 0.80
 - **Used In**: Create Post, Emails, Events
 
-#### Design Agent (Aligned Creative)
+#### Design Agent (POSTD Creative)
 
 - **Consumes**: Brand colors, fonts, logo, imagery style
 - **Produces**: Social graphics, carousel images, video thumbnails
 - **Quality Gate**: Visual brand alignment check
 - **Used In**: Create Post, Events
 
-#### Advisor Agent (Aligned Insights)
+#### Advisor Agent (POSTD Insights)
 
 - **Consumes**: Analytics data, engagement metrics, platform trends
 - **Produces**: Posting recommendations, content ideas, optimal times
@@ -1425,7 +1428,7 @@ auth.users
 ## I. Visual Tree Format
 
 ```
-Aligned AI
+POSTD
 │
 ├─ 🌐 PUBLIC LAYER
 │  ├─ Homepage (/)
@@ -1624,7 +1627,7 @@ Aligned AI
 
 ## K. Summary
 
-This site map captures the complete Aligned AI platform architecture as of v1.0:
+This site map captures the complete POSTD platform architecture as of v1.0:
 
 - **Public Layer**: 5 marketing pages (1 live, 4 planned)
 - **Authenticated App**: 16 main sections

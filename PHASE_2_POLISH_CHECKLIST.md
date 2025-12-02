@@ -1,4 +1,7 @@
-# Phase 2 Polish Checklist – Frontend ↔ Backend Alignment
+# POSTD Phase 2 Polish Checklist – Frontend ↔ Backend Alignment
+
+> **Status:** ✅ Active – This checklist is active for post-launch improvements.  
+> **Last Updated:** 2025-01-20
 
 This checklist covers **non-blocking, post-launch improvements** identified in the `SYSTEM_LEVEL_AUDIT_REPORT.md` and `CRITICAL_FIXES_VERIFICATION.md`.
 

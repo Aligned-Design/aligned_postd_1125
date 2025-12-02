@@ -65,7 +65,7 @@ The frontend has been systematically cleaned up with:
    - **Reason**: These interact with external APIs/WebSockets where schemas may evolve. Type aliases added with TODO comments.
 
 2. **Component Props Mismatches**:
-   - `client/components/dashboard/ReportSettingsModal.tsx` - `AlignedAISummaryProps` interface mismatch
+   - `client/components/dashboard/ReportSettingsModal.tsx` - `POSTDSummaryProps` interface mismatch
    - `client/components/retention/WinCelebration.tsx` - ReactNode type issue
    - **Reason**: Third-party component interfaces may need updates
 

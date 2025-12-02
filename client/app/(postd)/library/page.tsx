@@ -27,6 +27,8 @@ import { CanvaIntegrationModal } from "@/components/postd/integrations/CanvaInte
 import { NewPostButton } from "@/components/postd/shared/NewPostButton";
 import { useToast } from "@/hooks/use-toast";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
+import { PageShell } from "@/components/postd/ui/layout/PageShell";
+import { PageHeader } from "@/components/postd/ui/layout/PageHeader";
 
 export default function Library() {
   const { toast } = useToast();
@@ -296,17 +298,11 @@ export default function Library() {
 
   return (    
       <FirstVisitTooltip page="library">
-        <div className="min-h-screen bg-gradient-to-br from-indigo-50/30 via-white to-blue-50/20">
-        {/* Header */}
-        <div className="sticky top-0 z-40 bg-white/80 backdrop-blur-xl border-b border-white/60">
-          <div className="p-4 sm:p-6 md:p-8">
-            <div className="flex items-center justify-between gap-4 mb-6">
-              <div>
-                <h1 className="text-3xl font-black text-slate-900">Library</h1>
-                <p className="text-sm text-slate-600 mt-1">
-                  {currentWorkspace?.logo} {currentWorkspace?.name} — Organize, search, and reuse your creative assets
-                </p>
-              </div>
+        <PageShell>
+          <PageHeader
+            title="Library"
+            subtitle={`${currentWorkspace?.logo || ""} ${currentWorkspace?.name || ""} — Organize, search, and reuse your creative assets`}
+            actions={
               <div className="flex items-center gap-3 flex-wrap">
                 <NewPostButton variant="default" size="md" label="Create Content" />
                 <button
@@ -324,9 +320,10 @@ export default function Library() {
                   Upload Media
                 </button>
               </div>
-            </div>
+            }
+          />
 
-            {/* Tabs */}
+          {/* Tabs */}
             <div className="flex gap-2 mb-4">
               <button
                 onClick={() => setActiveTab("uploads")}
@@ -424,8 +421,6 @@ export default function Library() {
               </div>
             </div>
             )}
-          </div>
-        </div>
 
         {/* Main Content */}
         <div className="p-4 sm:p-6 md:p-8">
@@ -659,7 +654,7 @@ export default function Library() {
             setShowCanvaModal(false);
           }}
         />
-      </div>
+        </PageShell>
       </FirstVisitTooltip>
     
   );

@@ -44,9 +44,13 @@ import { CanvaIntegrationModal } from "@/components/postd/integrations/CanvaInte
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import type { AiDocVariant, AiDesignVariant } from "@/lib/types/aiContent";
 import type { BrandGuide } from "@/types/brandGuide";
-import { logTelemetry } from "@/lib/logger";
+import { logTelemetry, logError, logWarning } from "@/lib/logger";
 import type { StarterTemplate } from "@/lib/studio/templates";
 import { createTemplateDesign } from "@/lib/studio/templates";
+import { createContentPackageFromTemplate } from "@/lib/studio/template-content-package";
+import { createContentPackageFromUpload } from "@/lib/studio/upload-content-package";
+import { VariantSelector } from "@/components/postd/studio/VariantSelector";
+import { PageShell } from "@/components/postd/ui/layout/PageShell";
 import type {
   SaveDesignRequest,
   SaveDesignResponse,
@@ -133,8 +137,20 @@ export default function CreativeStudio() {
   // Canva Integration Modal
   const [showCanvaModal, setShowCanvaModal] = useState(false);
 
+  // Crop mode state
+  const [croppingItemId, setCroppingItemId] = useState<string | null>(null);
+  const [cropAspectRatio, setCropAspectRatio] = useState<"1:1" | "9:16" | "16:9" | "free">("free");
+
   // Track unsaved changes
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+
+  // ContentPackage for agent collaboration
+  const [contentPackageId, setContentPackageId] = useState<string | null>(null);
+  const [isMakingOnBrand, setIsMakingOnBrand] = useState(false);
+  
+  // Variant selection state
+  const [pendingVariants, setPendingVariants] = useState<AiDesignVariant[] | null>(null);
+  const [isVariantSelectorOpen, setIsVariantSelectorOpen] = useState(false);
 
   const { toast } = useToast();
 
@@ -252,7 +268,7 @@ export default function CreativeStudio() {
             });
           }
         } catch (error) {
-          console.error("Autosave failed:", error);
+          logError("Autosave failed", error instanceof Error ? error : new Error(String(error)));
           // Continue silently - localStorage backup is in place
         } finally {
           setIsSaving(false);
@@ -284,7 +300,7 @@ export default function CreativeStudio() {
 
   // Debug: Log when design state changes
   useEffect(() => {
-    console.log("[Studio] state.design changed", { 
+    logTelemetry("[Studio] state.design changed", { 
       hasDesign: !!state.design, 
       designId: state.design?.id,
       itemsCount: state.design?.items.length 
@@ -325,7 +341,7 @@ export default function CreativeStudio() {
         return;
       }
       // If not loading and no brandId, something went wrong - but don't block
-      console.warn("[Studio] No brandId available for blank canvas, using fallback");
+      logWarning("[Studio] No brandId available for blank canvas, using fallback");
     }
 
     const newDesign = createInitialDesign(format, brandId || "workspace-default", "");
@@ -519,7 +535,7 @@ export default function CreativeStudio() {
     }
   };
 
-  const handleSelectImage = (imageUrl: string, imageName: string) => {
+  const handleSelectImage = async (imageUrl: string, imageName: string) => {
     setState((prev) => {
       if (!prev.design) return prev;
 
@@ -568,12 +584,48 @@ export default function CreativeStudio() {
       return {
         ...pushToHistory(prev, updatedDesign),
         selectedItemId: newItem.id,
+        startMode: prev.startMode || "upload", // Mark as upload if not already set
       };
     });
 
+    // ✅ PHASE 2: Create ContentPackage for uploaded image
+    const brandId = getValidBrandId();
+    if (brandId) {
+      try {
+        const contentPackage = createContentPackageFromUpload(
+          imageUrl,
+          imageName,
+          brandId,
+          state.design?.format
+        );
+
+        // Save ContentPackage via API
+        try {
+          const response = await fetch("/api/content-packages", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              contentPackage,
+              brandId,
+            }),
+          });
+
+          if (response.ok) {
+            const result = await response.json();
+            setContentPackageId(result.contentPackageId || contentPackage.id);
+          }
+        } catch (error) {
+          logWarning("[Studio] Failed to save ContentPackage for upload", { error: error instanceof Error ? error.message : String(error) });
+          // Continue anyway - Design Agent can create it
+        }
+      } catch (error) {
+        logWarning("[Studio] Failed to create ContentPackage for upload", { error: error instanceof Error ? error.message : String(error) });
+      }
+    }
+
     toast({
       title: "Image Added",
-      description: "Click and drag to reposition or resize",
+      description: "Click and drag to reposition or resize. Use 'Make on-brand' to enhance.",
     });
   };
 
@@ -795,7 +847,7 @@ const handleAddElement = (elementType: string, defaultProps: Record<string, any>
 
       logTelemetry("save_to_library", { designId: savedDesign.id, timestamp: new Date().toISOString() });
     } catch (error) {
-      console.error("Failed to save to library:", error);
+      logError("Failed to save to library", error instanceof Error ? error : new Error(String(error)));
       toast({
         title: "⚠️ Save Failed",
         description: error instanceof Error ? error.message : "Failed to save design. Please try again.",
@@ -896,7 +948,7 @@ const handleAddElement = (elementType: string, defaultProps: Record<string, any>
 
       logTelemetry("save_as_draft", { designId: savedDesign.id, timestamp: new Date().toISOString() });
     } catch (error) {
-      console.error("Failed to save draft:", error);
+      logError("Failed to save draft", error instanceof Error ? error : new Error(String(error)));
       toast({
         title: "⚠️ Save Failed",
         description: error instanceof Error ? error.message : "Failed to save draft. Please try again.",
@@ -1113,7 +1165,7 @@ const handleAddElement = (elementType: string, defaultProps: Record<string, any>
       logTelemetry("schedule", { designId, date, time, platforms });
       setShowScheduleModal(false);
     } catch (error) {
-      console.error("Failed to schedule design:", error);
+      logError("Failed to schedule design", error instanceof Error ? error : new Error(String(error)));
       toast({
         title: "⚠️ Schedule Failed",
         description: error instanceof Error ? error.message : "Failed to schedule design. Please try again.",
@@ -1222,6 +1274,44 @@ const handleAddElement = (elementType: string, defaultProps: Record<string, any>
     logTelemetry("delete_item", { itemId, itemType });
   };
 
+  const handleEnterCropMode = (itemId: string) => {
+    const item = state.design?.items.find((i) => i.id === itemId);
+    if (!item || item.type !== "image") {
+      toast({
+        title: "Invalid Selection",
+        description: "Crop tool is only available for images",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setCroppingItemId(itemId);
+    toast({
+      title: "✂️ Crop Mode",
+      description: "Adjust the crop area, then confirm or cancel",
+    });
+  };
+
+  const handleExitCropMode = () => {
+    setCroppingItemId(null);
+    setCropAspectRatio("free");
+  };
+
+  const handleConfirmCrop = (itemId: string, crop: { x: number; y: number; width: number; height: number; aspectRatio?: "1:1" | "9:16" | "16:9" | "free" }) => {
+    if (!state.design) return;
+
+    handleUpdateItem(itemId, { crop });
+    setCroppingItemId(null);
+    setCropAspectRatio("free");
+
+    toast({
+      title: "✅ Crop Applied",
+      description: "Image crop has been applied",
+    });
+
+    logTelemetry("crop_applied", { itemId, aspectRatio: crop.aspectRatio });
+  };
+
   const handleChangeBackground = (backgroundColor: string) => {
     if (!state.design) return;
 
@@ -1250,9 +1340,379 @@ const handleAddElement = (elementType: string, defaultProps: Record<string, any>
     setShowImageSelector(true);
   };
 
-  const handleSelectTemplate = (template: StarterTemplate | Design) => {
+  /**
+   * Make template/upload on-brand using Design Agent
+   */
+  const handleMakeOnBrand = async () => {
+    // ✅ UX: Guard against invalid states
+    if (!state.design) {
+      toast({
+        title: "No Design Selected",
+        description: "Please select a template or create a design first",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const brandId = getValidBrandId();
+    if (!brandId) {
+      toast({
+        title: "Brand Required",
+        description: "Please select a brand to use this feature",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // ✅ UX: Check if Brand Guide exists
+    if (!hasBrandGuide) {
+      toast({
+        title: "Brand Guide Required",
+        description: "Please create a Brand Guide in Settings to unlock AI content generation",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsMakingOnBrand(true);
+
+    try {
+      // Extract content metadata
+      const textItems = state.design.items.filter((item) => item.type === "text") as Array<
+        CanvasItem & { text?: string }
+      >;
+      const imageItems = state.design.items.filter((item) => item.type === "image") as Array<
+        CanvasItem & { imageUrl?: string; imageName?: string }
+      >;
+      
+      const headline = textItems.find((item) => item.fontSize && item.fontSize >= 40)?.text || "";
+      const body = textItems.find((item) => item.fontSize && item.fontSize < 40)?.text || "";
+      const uploadedImages = imageItems
+        .filter((item) => item.imageUrl && item.imageUrl !== "placeholder")
+        .map((item) => ({ url: item.imageUrl!, name: item.imageName || "Uploaded image" }));
+
+      // Map design format to agent format (must match enum: 'story' | 'feed' | 'reel' | 'short' | 'ad' | 'other')
+      const formatMap: Record<string, "story" | "feed" | "reel" | "short" | "ad" | "other"> = {
+        social_square: "feed",
+        story_portrait: "story",
+        blog_featured: "other", // Not in enum, use "other"
+        email_header: "other", // Not in enum, use "other"
+        custom: "feed",
+      };
+      const agentFormat = formatMap[state.design.format] || "feed";
+
+      // Determine context based on start mode
+      const isTemplate = state.startMode === "template";
+      const isUpload = state.startMode === "upload" || uploadedImages.length > 0;
+      
+      let additionalContext = "";
+      if (isTemplate) {
+        additionalContext = `Modify this template to align with brand guidelines while preserving the template structure. Template ID: ${state.design.id}. Current headline: "${headline}". Current body: "${body}". Maintain the layout and structure but ensure all colors, fonts, and imagery comply with the Brand Guide.`;
+      } else if (isUpload) {
+        additionalContext = `Modify this uploaded content to align with brand guidelines. Uploaded image(s): ${uploadedImages.map(img => img.name).join(", ")}. Current headline: "${headline}". Current body: "${body}". Ensure all colors, fonts, and imagery comply with the Brand Guide photography style rules (mustInclude/mustAvoid).`;
+      } else {
+        additionalContext = `Modify this design to align with brand guidelines. Ensure all colors, fonts, and imagery comply with the Brand Guide.`;
+      }
+
+      // ✅ UX: Create ContentPackage on-the-fly if missing
+      let finalContentPackageId = contentPackageId;
+      if (!finalContentPackageId && brandId) {
+        try {
+          const contentPackage = isTemplate
+            ? createContentPackageFromTemplate(state.design, brandId, state.design.id)
+            : isUpload && uploadedImages.length > 0
+            ? createContentPackageFromUpload(uploadedImages[0].url, uploadedImages[0].name, brandId, state.design.format)
+            : null;
+
+          if (contentPackage) {
+            const saveResponse = await fetch("/api/content-packages", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                brandId,
+                contentPackage,
+              }),
+            });
+
+            if (saveResponse.ok) {
+              const saveResult = await saveResponse.json();
+              if (saveResult.success && saveResult.contentPackageId) {
+                finalContentPackageId = saveResult.contentPackageId;
+                setContentPackageId(finalContentPackageId);
+              }
+            }
+          }
+        } catch (packageError) {
+          logWarning("[Studio] Failed to create ContentPackage", { error: packageError instanceof Error ? packageError.message : String(packageError) });
+          // Continue without ContentPackage - Design Agent can work without it
+        }
+      }
+
+      // Call Design Agent with content context
+      const response = await fetch("/api/ai/design", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          brandId, // Required
+          platform: "instagram", // Required
+          format: agentFormat, // Required, must be enum value
+          contentPackageId: finalContentPackageId || undefined, // Optional
+          visualStyle: "brand-compliant",
+          additionalContext: additionalContext.substring(0, 1000), // Max 1000 chars
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: { message: "Unknown error" } }));
+        
+        // ✅ UX: Handle specific error cases
+        const errorMessage = errorData.error?.message || errorData.message || "Failed to make content on-brand";
+        
+        if (errorMessage.includes("Brand Guide") || errorData.error?.code === "NO_BRAND_GUIDE") {
+          toast({
+            title: "Brand Guide Required",
+            description: "Please create a Brand Guide in Settings to unlock AI content generation",
+            variant: "destructive",
+          });
+          return;
+        }
+        
+        throw new Error(errorMessage);
+      }
+
+      const result = await response.json();
+
+      if (result.variants && result.variants.length > 0) {
+        // ✅ PHASE 4: Store variants and show selector instead of auto-selecting
+        setPendingVariants(result.variants);
+        setIsVariantSelectorOpen(true);
+        
+        // Update ContentPackage ID if returned
+        if (result.contentPackageId) {
+          setContentPackageId(result.contentPackageId);
+        }
+
+        toast({
+          title: "✨ Content Enhanced",
+          description: `Generated ${result.variants.length} brand-compliant variants. Select one to apply.`,
+        });
+
+        logTelemetry("studio_make_on_brand", {
+          designId: state.design.id,
+          startMode: state.startMode,
+          variantCount: result.variants.length,
+          avgBFS: result.metadata?.averageBrandFidelityScore || 0,
+          brandId,
+        });
+      } else {
+        throw new Error("No variants generated");
+      }
+    } catch (error) {
+      logError("Make on-brand failed", error instanceof Error ? error : new Error(String(error)), { designId: state.design?.id });
+      
+      // ✅ UX: User-friendly error messages
+      const errorMessage = error instanceof Error ? error.message : "Failed to make content on-brand";
+      
+      // Check for network errors
+      if (errorMessage.includes("fetch") || errorMessage.includes("network")) {
+        toast({
+          title: "Network Error",
+          description: "Please check your internet connection and try again",
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Enhancement Failed",
+          description: errorMessage,
+          variant: "destructive",
+        });
+      }
+    } finally {
+      setIsMakingOnBrand(false);
+    }
+  };
+
+  // ✅ PHASE 4: Handle variant selection
+  const handleSelectVariant = async (variant: AiDesignVariant) => {
+    if (!state.design || !getValidBrandId()) {
+      toast({
+        title: "Error",
+        description: "Design or brand not available",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const brandId = getValidBrandId();
+    if (!brandId) return;
+
+    // Close selector
+    setIsVariantSelectorOpen(false);
+    setPendingVariants(null);
+
+    try {
+      // ✅ PHASE 4: Update ContentPackage with variant selection (minimal, safe update)
+      if (contentPackageId) {
+        try {
+          // Get current ContentPackage
+          const getResponse = await fetch(`/api/content-packages/${contentPackageId}?brandId=${brandId}`);
+          if (getResponse.ok) {
+            const getResult = await getResponse.json();
+            if (getResult.success && getResult.contentPackage) {
+              const contentPackage = getResult.contentPackage;
+              
+              // Add collaboration log entry for variant selection
+              const updatedLog = [
+                ...contentPackage.collaborationLog,
+                {
+                  agent: "creative" as const,
+                  action: "variant_selected",
+                  timestamp: new Date().toISOString(),
+                  notes: `Selected variant "${variant.label}" (ID: ${variant.id}) with BFS: ${variant.brandFidelityScore.toFixed(2)}`,
+                },
+              ];
+
+              // ✅ PHASE 4: Mark variant as selected in visuals[]
+              const contentPackageWithVariant = {
+                ...contentPackage,
+                collaborationLog: updatedLog,
+                updatedAt: new Date().toISOString(),
+              };
+
+              // Update ContentPackage (backend will handle variant selection in visuals[])
+              const updateResponse = await fetch("/api/content-packages", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  brandId,
+                  contentPackage: contentPackageWithVariant,
+                  selectedVariant: variant, // ✅ PHASE 4: Pass variant to backend for visuals[] update
+                }),
+              });
+
+              if (updateResponse.ok) {
+                console.log("[Studio] ContentPackage updated with variant selection");
+              }
+            }
+          }
+        } catch (packageError) {
+          console.warn("[Studio] Failed to update ContentPackage with variant selection:", packageError);
+          // Continue anyway - variant selection still works without ContentPackage update
+        }
+      }
+
+      // ✅ PHASE 4: Apply variant to canvas
+      applyVariantToCanvas(variant);
+
+      logTelemetry("studio_variant_selected", {
+        designId: state.design.id,
+        variantId: variant.id,
+        variantLabel: variant.label,
+        brandFidelityScore: variant.brandFidelityScore,
+        brandId,
+      });
+
+    } catch (error) {
+      console.error("[Studio] Failed to select variant:", error);
+      toast({
+        title: "Selection Failed",
+        description: "Failed to apply selected variant",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleCloseVariantSelector = () => {
+    setIsVariantSelectorOpen(false);
+    setPendingVariants(null);
+  };
+
+  // ✅ PHASE 4: Apply variant to existing canvas (minimal, safe update)
+  const applyVariantToCanvas = (variant: AiDesignVariant) => {
+    if (!state.design || !brand) {
+      console.warn("[Studio] Cannot apply variant: design or brand not available");
+      return;
+    }
+
+    // Use pushToHistory pattern for undo/redo support
+    setState((prev) => {
+      if (!prev.design) return prev;
+
+      // Get brand colors and fonts
+      const primaryColor = brand.primaryColor || "#39339a";
+      const secondaryColor = brand.secondaryColor || "#632bf0";
+      const brandFont = brand.fontFamily || "Arial";
+
+      // Update existing items to match brand guide (preserve structure, update styling)
+      const updatedItems = prev.design.items.map((item) => {
+        const updates: Partial<CanvasItem> = {};
+
+        // Apply brand colors to text items
+        if (item.type === "text") {
+          // Update font to match brand
+          if (brandFont) {
+            updates.fontFamily = brandFont;
+          }
+          // Update text color to primary brand color (if not already customized)
+          if (!item.fontColor || item.fontColor === "#000000" || item.fontColor === "#333333") {
+            updates.fontColor = primaryColor;
+          }
+        }
+
+        // Apply brand colors to shapes
+        if (item.type === "shape" && item.fill) {
+          // Update shape fill to secondary brand color (if using default colors)
+          const isDefaultColor = item.fill === "#3B82F6" || item.fill === "#000000" || !item.fill;
+          if (isDefaultColor) {
+            updates.fill = secondaryColor;
+          }
+        }
+
+        // Apply brand colors to background items
+        if (item.type === "background") {
+          if (item.backgroundType === "gradient") {
+            updates.gradientFrom = primaryColor;
+            updates.gradientTo = secondaryColor;
+          } else if (item.backgroundColor) {
+            // Update solid background to primary color if it's white/default
+            if (item.backgroundColor === "#FFFFFF" || item.backgroundColor === "#ffffff") {
+              updates.backgroundColor = primaryColor;
+            }
+          }
+        }
+
+        // Return updated item if there are changes, otherwise return original
+        return Object.keys(updates).length > 0 ? { ...item, ...updates } : item;
+      });
+
+      // Optionally update design background color to match brand
+      const updatedBackgroundColor = 
+        prev.design.backgroundColor === "#FFFFFF" || prev.design.backgroundColor === "#ffffff"
+          ? primaryColor
+          : prev.design.backgroundColor;
+
+      const updatedDesign: Design = {
+        ...prev.design,
+        items: updatedItems,
+        backgroundColor: updatedBackgroundColor,
+        updatedAt: new Date().toISOString(),
+      };
+
+      // Use pushToHistory for undo/redo support
+      return pushToHistory(prev, updatedDesign);
+    });
+
+    // Show success toast
+    toast({
+      title: "✅ Variant Applied",
+      description: `"${variant.label}" styling applied to canvas. All changes are undoable.`,
+    });
+  };
+
+  const handleSelectTemplate = async (template: StarterTemplate | Design) => {
     // Convert StarterTemplate to Design if needed
     let design: Design;
+    const templateId = 'id' in template ? template.id : (template as Design).id;
     
     if ('design' in template && template.design) {
       // It's a StarterTemplate - convert to full Design with brand adaptation
@@ -1273,6 +1733,39 @@ const handleAddElement = (elementType: string, defaultProps: Record<string, any>
       design = template as Design;
     }
     
+    // ✅ PHASE 2: Create ContentPackage for agent collaboration
+    const brandId = getValidBrandId();
+    if (brandId) {
+      try {
+        const contentPackage = createContentPackageFromTemplate(design, brandId, templateId);
+        
+        // Save ContentPackage via API (create endpoint if needed, or store locally for now)
+        // For now, we'll store the ID and pass it to Design Agent when "Make on-brand" is clicked
+        setContentPackageId(contentPackage.id);
+        
+        // Save to server via API call
+        const response = await fetch("/api/content-packages", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contentPackage,
+            brandId,
+          }),
+        });
+        
+        if (response.ok) {
+          const result = await response.json();
+          setContentPackageId(result.contentPackageId || contentPackage.id);
+        } else {
+          // If endpoint doesn't exist yet, store locally (will be created when Design Agent is called)
+          // ContentPackage will be created by Design Agent
+        }
+      } catch (error) {
+        logWarning("[Studio] Failed to create ContentPackage", { error: error instanceof Error ? error.message : String(error) });
+        // Continue anyway - Design Agent can create it
+      }
+    }
+    
     const fitZoom = calculateFitToScreenZoom(design.width, design.height);
     setState((prev) => ({
       ...prev,
@@ -1290,7 +1783,7 @@ const handleAddElement = (elementType: string, defaultProps: Record<string, any>
     // Telemetry
     const brandIdForTelemetry = getValidBrandId();
     logTelemetry("studio_template_selected", {
-      templateId: 'id' in template ? template.id : design.id,
+      templateId,
       format: design.format,
       brandId: brandIdForTelemetry,
       timestamp: new Date().toISOString(),
@@ -1308,7 +1801,7 @@ const handleAddElement = (elementType: string, defaultProps: Record<string, any>
       return; // Error already shown if needed
     }
     
-    console.log("[Studio] handleUseDocVariant called", { format, hasDesign: !!state.design });
+    logTelemetry("[Studio] handleUseDocVariant called", { format, hasDesign: !!state.design });
     
     // Single state update that handles both creating design and adding content
     setState((prev) => {
@@ -1363,7 +1856,7 @@ const handleAddElement = (elementType: string, defaultProps: Record<string, any>
       if (prev.design) {
         return pushToHistory(prev, updatedDesign);
       } else {
-        console.log("[Studio] Creating new design", updatedDesign);
+        logTelemetry("[Studio] Creating new design", { designId: updatedDesign.id, format: updatedDesign.format });
         return {
           ...prev,
           design: updatedDesign,
@@ -1745,6 +2238,9 @@ const handleAddElement = (elementType: string, defaultProps: Record<string, any>
             onDownload={handleDownload}
             onSaveToLibrary={handleSaveToLibrary}
             onDesignInCanva={() => setShowCanvaModal(true)}
+            onMakeOnBrand={handleMakeOnBrand}
+            isMakingOnBrand={isMakingOnBrand}
+            showMakeOnBrand={(state.startMode === "template" || state.startMode === "upload") && !!state.design && hasBrandGuide}
             userRole={user?.role}
           />
 
@@ -1777,6 +2273,11 @@ const handleAddElement = (elementType: string, defaultProps: Record<string, any>
                 onAddElement={handleAddElement}
                 onRotateItem={handleRotateItem}
                 onDeleteItem={handleDeleteItem}
+                onEnterCropMode={handleEnterCropMode}
+                onExitCropMode={handleExitCropMode}
+                onConfirmCrop={handleConfirmCrop}
+                croppingItemId={croppingItemId}
+                cropAspectRatio={cropAspectRatio}
               />
 
               {/* Floating Toolbar - Contextual */}
@@ -1842,8 +2343,9 @@ const handleAddElement = (elementType: string, defaultProps: Record<string, any>
                   onAiRewrite={handleAiRewrite}
                   onApplyBrandStyle={handleApplyBrandStyle}
                   onCrop={() => {
-                    // TODO: Implement crop
-                    toast({ title: "Crop", description: "Crop feature coming soon" });
+                    if (state.selectedItemId) {
+                      handleEnterCropMode(state.selectedItemId);
+                    }
                   }}
                   onReplace={() => {
                     // Set the current item as pending so we update it instead of creating new
@@ -1884,6 +2386,16 @@ const handleAddElement = (elementType: string, defaultProps: Record<string, any>
                   }
                 }}
                 onApplyBrandStyle={handleApplyBrandStyle}
+                onEnterCropMode={() => {
+                  if (state.selectedItemId) {
+                    handleEnterCropMode(state.selectedItemId);
+                  }
+                }}
+                croppingItemId={croppingItemId}
+                cropAspectRatio={cropAspectRatio}
+                onCropAspectRatioChange={setCropAspectRatio}
+                onConfirmCrop={handleConfirmCrop}
+                onExitCropMode={handleExitCropMode}
               />
             ) : (
               <ContextualPropertiesPanel
@@ -2100,6 +2612,17 @@ const handleAddElement = (elementType: string, defaultProps: Record<string, any>
               activeSection={activeDrawerSection}
             />
           )}
+
+          {/* ✅ PHASE 4: Variant Selector Modal */}
+          {pendingVariants && pendingVariants.length > 0 && (
+            <VariantSelector
+              variants={pendingVariants}
+              isOpen={isVariantSelectorOpen}
+              isLoading={isMakingOnBrand}
+              onSelect={handleSelectVariant}
+              onClose={handleCloseVariantSelector}
+            />
+          )}
         </div>
       </FirstVisitTooltip>
     );
@@ -2107,7 +2630,7 @@ const handleAddElement = (elementType: string, defaultProps: Record<string, any>
 
   // Main render - always render modals so they work from entry screen
   return (
-    <>
+    <PageShell>
       {/* Modals - Always rendered so they work from entry screen */}
       <AiGenerationModal
         open={showAiModal}
@@ -2288,6 +2811,6 @@ const handleAddElement = (elementType: string, defaultProps: Record<string, any>
 
       {/* Main Content - Entry Screen or Canvas Editor */}
       {renderMainContent()}
-    </>
+    </PageShell>
   );
 }

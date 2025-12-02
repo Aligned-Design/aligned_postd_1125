@@ -4,7 +4,7 @@
  * Integrates with error-responses.ts for OWASP-compliant error handling
  */
 
-import { Request, Response, NextFunction } from "express";
+import type { Request, Response, NextFunction } from "express";
 import { v4 as uuidv4 } from "uuid";
 import { ZodError } from "zod";
 import {
@@ -89,7 +89,7 @@ export function errorHandler(
       },
     };
 
-    (res as any).status(err.statusCode).json(errorResponse);
+    res.status(err.statusCode).json(errorResponse);
     return;
   }
 
@@ -113,7 +113,7 @@ export function errorHandler(
       },
     };
 
-    (res as any).status(HTTP_STATUS.UNPROCESSABLE_ENTITY).json(response);
+    res.status(HTTP_STATUS.UNPROCESSABLE_ENTITY).json(response);
     return;
   }
 
@@ -149,7 +149,7 @@ export function errorHandler(
     },
   };
 
-  (res as any).status(statusCode).json(errorResponse);
+    res.status(statusCode).json(errorResponse);
 }
 
 /**

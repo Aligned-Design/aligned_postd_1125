@@ -1,6 +1,9 @@
-# Client-Side Routing Documentation Index
+# POSTD Client-Side Routing Documentation Index
 
-This directory contains comprehensive documentation of the Aligned AI application's client-side routing structure, navigation system, and authentication flows.
+> **Status:** ✅ Active – This is an active documentation index for POSTD client-side routing.  
+> **Last Updated:** 2025-01-20
+
+This directory contains comprehensive documentation of the POSTD application's client-side routing structure, navigation system, and authentication flows.
 
 ## Documentation Files
 
@@ -133,7 +136,7 @@ Includes:
 ## File Locations
 
 ```
-/Users/krisfoust/Documents/GitHub/Aligned-20ai/
+/Users/krisfoust/Downloads/Aligned-20ai.posted/
 
 Core Routing Files:
 ├─ client/App.tsx                       (main router)

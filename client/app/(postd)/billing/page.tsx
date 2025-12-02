@@ -8,6 +8,9 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useTrialStatus } from "@/hooks/use-trial-status";
 import { usePublishCelebration } from "@/hooks/use-publish-celebration";
 import { useNavigate } from "react-router-dom";
+import { logError } from "@/lib/logger";
+import { PageShell } from "@/components/postd/ui/layout/PageShell";
+import { PageHeader } from "@/components/postd/ui/layout/PageHeader";
 import {
   CreditCard,
   Download,
@@ -127,7 +130,7 @@ export default function Billing() {
       };
       setData(mockData);
     } catch (error) {
-      console.error("Failed to load billing data:", error);
+      logError("Failed to load billing data", error instanceof Error ? error : new Error(String(error)));
     } finally {
       setLoading(false);
     }
@@ -157,39 +160,32 @@ export default function Billing() {
 
   if (loading) {
     return (
-      <div className="p-6 space-y-6">
+      <PageShell>
         <div className="h-8 w-48 bg-gray-200 rounded animate-pulse" />
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div className="h-64 bg-gray-200 rounded-lg animate-pulse" />
           <div className="h-64 bg-gray-200 rounded-lg animate-pulse" />
         </div>
-      </div>
+      </PageShell>
     );
   }
 
-  if (!data) return <div>Failed to load billing data</div>;
+  if (!data) return <PageShell><div>Failed to load billing data</div></PageShell>;
 
   return (
-    <div className="p-6 space-y-6">
-      {/* Header */}
-      <div className="flex items-start justify-between">
-        <div className="max-w-3xl">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            Billing & Subscription
-          </h1>
-          <p className="text-gray-600 leading-relaxed">
-            Aligned AI grows with your brand. Whether you're managing one
-            business or fifty, your pricing automatically scales — no calls, no
-            surprises.
-          </p>
-        </div>
-        {!isTrial && (
-          <Button onClick={handleUpgrade} className="gap-2">
-            <ArrowUpRight className="h-4 w-4" />
-            Upgrade Plan
-          </Button>
-        )}
-      </div>
+    <PageShell>
+      <PageHeader
+        title="Billing & Subscription"
+        subtitle="Aligned AI grows with your brand. Whether you're managing one business or fifty, your pricing automatically scales — no calls, no surprises."
+        actions={
+          !isTrial ? (
+            <Button onClick={handleUpgrade} className="gap-2">
+              <ArrowUpRight className="h-4 w-4" />
+              Upgrade Plan
+            </Button>
+          ) : undefined
+        }
+      />
 
       {/* Trial-Specific Banner */}
       {isTrial && trialStatus && (
@@ -219,7 +215,7 @@ export default function Billing() {
 
       {/* Add-ons Section (For All Users) */}
       <AddOnsSection isTrial={isTrial} />
-    </div>
+    </PageShell>
   );
 }
 

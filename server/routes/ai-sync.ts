@@ -27,7 +27,7 @@ export const getSyncState: RequestHandler = async (req, res, next) => {
     const { brandId, requestId } = requestBody;
 
     // Verify brand access
-    assertBrandAccess(req, brandId);
+    await assertBrandAccess(req, brandId);
 
     // Get latest StrategyBrief
     const strategyBrief = await StrategyBriefStorage.getLatest(brandId);

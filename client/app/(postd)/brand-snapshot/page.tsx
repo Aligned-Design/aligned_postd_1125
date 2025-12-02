@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -6,6 +6,9 @@ import { supabase, Brand } from "@/lib/supabase";
 import { useToast } from "@/hooks/use-toast";
 import { Loading } from "@/components/ui/loading";
 import { ErrorState } from "@/components/ui/error-state";
+import { PageShell } from "@/components/postd/ui/layout/PageShell";
+import { PageHeader } from "@/components/postd/ui/layout/PageHeader";
+import { LoadingState } from "@/components/postd/dashboard/states/LoadingState";
 import {
   CheckCircle2,
   Palette,
@@ -25,16 +28,7 @@ export default function BrandSnapshot() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!brandId) {
-      navigate("/brands");
-      return;
-    }
-
-    fetchBrand();
-  }, [brandId]);
-
-  const fetchBrand = async () => {
+  const fetchBrand = useCallback(async () => {
     if (!brandId) return;
 
     try {
@@ -57,17 +51,31 @@ export default function BrandSnapshot() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [brandId, toast]);
+
+  useEffect(() => {
+    if (!brandId) {
+      navigate("/brands");
+      return;
+    }
+
+    fetchBrand();
+  }, [brandId, navigate, fetchBrand]);
 
   if (loading) {
-    return <Loading fullScreen text="Loading your brand snapshot..." />;
+    return (
+      <PageShell>
+        <LoadingState />
+      </PageShell>
+    );
   }
 
   if (error || !brand) {
     return (
-      <div className="p-8">
+      <PageShell>
+        <PageHeader title="Brand Snapshot" subtitle="View your brand details and configuration" />
         <ErrorState message={error || "Brand not found"} onRetry={fetchBrand} />
-      </div>
+      </PageShell>
     );
   }
 
@@ -93,9 +101,13 @@ export default function BrandSnapshot() {
   const __visualSummary = (brand.visual_summary as unknown) || {};
 
   return (
-    <div className="min-h-screen bg-[var(--surface-1)]">
-      <div className="bg-white border-b py-16">
-        <div className="max-w-7xl mx-auto px-6 text-center">
+    <PageShell>
+      <PageHeader
+        title="Brand Snapshot"
+        subtitle={`${brand.name} — View your brand details and configuration`}
+      />
+      <div className="bg-white border-b py-16 -mx-4 sm:-mx-6 md:-mx-8 lg:-mx-10 px-4 sm:px-6 md:px-8 lg:px-10 mb-6">
+        <div className="max-w-7xl mx-auto text-center">
           <div className="inline-flex items-center gap-2 mb-4">
             <CheckCircle2 className="h-12 w-12 text-[var(--accent-lime)]" />
           </div>
@@ -335,6 +347,6 @@ export default function BrandSnapshot() {
           </Button>
         </div>
       </div>
-    </div>
+    </PageShell>
   );
 }

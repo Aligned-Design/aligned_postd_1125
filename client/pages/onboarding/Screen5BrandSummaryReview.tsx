@@ -107,20 +107,65 @@ export default function Screen5BrandSummaryReview() {
           }
         }
         
-        // Extract scraped images from approvedAssets.uploadedPhotos (source='scrape')
-        // ✅ Separate logos from other images based on metadata.role
-        if (brandGuide?.approvedAssets?.uploadedPhotos) {
+        // ✅ CRITICAL FIX: Read from separate logos and images arrays (primary source)
+        // Brand Guide now exposes logos (≤2) and images/brandImages (≤15) arrays
+        if (brandGuide?.logos && Array.isArray(brandGuide.logos)) {
+          const logos = brandGuide.logos
+            .filter((img: any) => img.url && typeof img.url === "string" && img.url.startsWith("http"))
+            .map((img: any) => img.url)
+            .filter(Boolean);
+          
+          if (import.meta.env.DEV) {
+            logInfo("Found logos from brand guide", {
+              step: "fetch_images",
+              logosCount: logos.length,
+            });
+          }
+          
+          if (logos.length > 0) {
+            setLogoImages(logos);
+          }
+        }
+        
+        // ✅ Read brand images from images or brandImages array
+        const brandImagesArray = brandGuide?.images || brandGuide?.brandImages;
+        if (brandImagesArray && Array.isArray(brandImagesArray)) {
+          const images = brandImagesArray
+            .filter((img: any) => img.url && typeof img.url === "string" && img.url.startsWith("http"))
+            .map((img: any) => img.url)
+            .filter(Boolean);
+          
+          if (import.meta.env.DEV) {
+            logInfo("Found brand images from brand guide", {
+              step: "fetch_images",
+              imagesCount: images.length,
+            });
+          }
+          
+          if (images.length > 0) {
+            setOtherImages(images);
+          }
+        }
+        
+        // ✅ FALLBACK: If logos/images arrays are empty, try approvedAssets.uploadedPhotos (backward compatibility)
+        if ((!brandGuide?.logos || brandGuide.logos.length === 0) && 
+            (!brandGuide?.images || brandGuide.images.length === 0) &&
+            brandGuide?.approvedAssets?.uploadedPhotos) {
+          if (import.meta.env.DEV) {
+            logInfo("Falling back to approvedAssets.uploadedPhotos", { step: "fetch_images" });
+          }
+          
           const allScrapedImages = brandGuide.approvedAssets.uploadedPhotos
             .filter((img: any) => img.source === "scrape" && img.url && typeof img.url === "string" && img.url.startsWith("http"));
           
-          // Separate by role: logos vs other images
           const logos = allScrapedImages
             .filter((img: any) => {
               const role = img.metadata?.role || "";
               return role === "logo" || role === "Logo";
             })
             .map((img: any) => img.url)
-            .filter(Boolean);
+            .filter(Boolean)
+            .slice(0, 2); // Max 2 logos
           
           const otherImgs = allScrapedImages
             .filter((img: any) => {
@@ -128,38 +173,35 @@ export default function Screen5BrandSummaryReview() {
               return role !== "logo" && role !== "Logo";
             })
             .map((img: any) => img.url)
-            .filter(Boolean);
+            .filter(Boolean)
+            .slice(0, 15); // Max 15 brand images
           
-          if (import.meta.env.DEV) {
-            logInfo("Separated images", {
-              step: "fetch_images",
-              logosCount: logos.length,
-              otherImagesCount: otherImgs.length,
-              totalCount: allScrapedImages.length,
-            });
-          }
-          
-          if (logos.length > 0 || otherImgs.length > 0) {
-            if (import.meta.env.DEV) {
-              logInfo("Found images from brand guide", {
-                step: "fetch_images",
-                logosCount: logos.length,
-                otherImagesCount: otherImgs.length,
-              });
-            }
+          if (logos.length > 0) {
             setLogoImages(logos);
+          }
+          if (otherImgs.length > 0) {
             setOtherImages(otherImgs);
-            return;
-          } else {
-            logWarning("No valid scraped images found in brand guide", {
-              step: "fetch_images",
-              totalPhotos: brandGuide.approvedAssets.uploadedPhotos.length,
-            });
           }
-        } else {
+        }
+        
+        // ✅ FINAL FALLBACK: If still no logos but logoUrl exists, use that
+        // We'll check this after all the above logic runs
+        let hasLogos = false;
+        if (brandGuide?.logos && Array.isArray(brandGuide.logos) && brandGuide.logos.length > 0) {
+          hasLogos = true;
+        } else if (brandGuide?.approvedAssets?.uploadedPhotos) {
+          const hasScrapedLogos = brandGuide.approvedAssets.uploadedPhotos.some((img: any) => {
+            const role = img.metadata?.role || "";
+            return (role === "logo" || role === "Logo") && img.source === "scrape";
+          });
+          if (hasScrapedLogos) hasLogos = true;
+        }
+        
+        if (!hasLogos && brandGuide?.logoUrl && brandGuide.logoUrl.startsWith("http")) {
           if (import.meta.env.DEV) {
-            logWarning("No approvedAssets.uploadedPhotos in brand guide", { step: "fetch_images" });
+            logInfo("Using logoUrl as final fallback", { step: "fetch_images" });
           }
+          setLogoImages([brandGuide.logoUrl]);
         }
       } catch (error) {
         logError("Error fetching brand guide images", error instanceof Error ? error : new Error(String(error)), {
@@ -372,7 +414,10 @@ export default function Screen5BrandSummaryReview() {
             Here's your brand profile
           </h1>
           <p className="text-slate-600 font-medium text-lg mb-2">
-            We've analyzed your brand and created a profile. Want to make any changes?
+            We've automatically detected your brand assets for you
+          </p>
+          <p className="text-slate-500 text-sm">
+            Feel free to add or remove any images—everything is customizable
           </p>
         </div>
 
@@ -434,7 +479,15 @@ export default function Screen5BrandSummaryReview() {
           {/* Logos Section */}
           <div className="bg-white/50 backdrop-blur-xl rounded-2xl border border-white/60 p-6">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-black text-slate-900">Logos</h2>
+              <div>
+                <h2 className="text-lg font-black text-slate-900">Logos</h2>
+                {logoImages.length > 0 && (
+                  <p className="text-xs text-slate-500 mt-1 flex items-center gap-1">
+                    <Sparkles className="w-3 h-3" />
+                    Auto-detected from your website
+                  </p>
+                )}
+              </div>
               <span className="text-xs text-slate-500">
                 {logoImages.length > 0 ? `${logoImages.length} logo${logoImages.length !== 1 ? 's' : ''}` : "No logos found"}
               </span>
@@ -475,7 +528,15 @@ export default function Screen5BrandSummaryReview() {
         {/* Brand Images Section (always visible, even if empty) */}
         <div className="bg-white/50 backdrop-blur-xl rounded-2xl border border-white/60 p-6 mb-6">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-black text-slate-900">Brand Images</h2>
+            <div>
+              <h2 className="text-lg font-black text-slate-900">Brand Images</h2>
+              {otherImages.length > 0 && (
+                <p className="text-xs text-slate-500 mt-1 flex items-center gap-1">
+                  <Sparkles className="w-3 h-3" />
+                  Auto-detected from your website
+                </p>
+              )}
+            </div>
             <span className="text-xs text-slate-500">
               {otherImages.length > 0 ? `${otherImages.length} image${otherImages.length !== 1 ? 's' : ''}` : "No images found"}
             </span>

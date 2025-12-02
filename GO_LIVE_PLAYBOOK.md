@@ -1,15 +1,18 @@
-# Go-Live Playbook: Production Deployment & Rollback Procedures
+# POSTD Go-Live Playbook: Production Deployment & Rollback Procedures
 
-**Version**: 1.0
-**Last Updated**: 2025-11-11
-**Status**: Ready for Review & Signoff
+> **Status:** ✅ Active – This is an active deployment playbook for POSTD production deployments.  
+> **Last Updated:** 2025-01-20
+
+**Version**: 1.0  
+**Last Updated**: 2025-11-11  
+**Status**: Ready for Review & Signoff  
 **Target Go-Live Date**: [TO BE SCHEDULED]
 
 ---
 
 ## Executive Overview
 
-This playbook provides step-by-step procedures for deploying AlignedAI to production, maintaining the system during launch, and rolling back if critical issues arise.
+This playbook provides step-by-step procedures for deploying POSTD to production, maintaining the system during launch, and rolling back if critical issues arise.
 
 **Deployment Window**: Recommend Monday-Thursday, 09:00-17:00 EST (business hours)
 **Estimated Downtime**: 5-15 minutes (with maintenance mode enabled)

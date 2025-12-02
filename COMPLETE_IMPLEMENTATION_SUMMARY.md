@@ -8,7 +8,7 @@
 
 ## 🎯 Executive Summary
 
-This session delivered **three major systems** for Aligned AI:
+This session delivered **three major systems** for POSTD:
 
 1. **Pricing Page** - Public-facing pricing with trial CTA
 2. **Trial Workflow** - 7-day guided trial with 2-post limit

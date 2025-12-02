@@ -5,6 +5,7 @@
  */
 
 import { Router, RequestHandler } from "express";
+import { z } from "zod";
 import { supabase } from "../lib/supabase";
 import { AppError } from "../lib/error-middleware";
 import { ErrorCode, HTTP_STATUS } from "../lib/error-responses";
@@ -16,6 +17,18 @@ import { runOnboardingWorkflow } from "../lib/onboarding-orchestrator";
 import { transferScrapedImages } from "../lib/scraped-images-service";
 
 const router = Router();
+
+// ✅ VALIDATION: Zod schema for brand creation
+const CreateBrandSchema = z.object({
+  name: z.string().min(1, "Brand name is required").max(200, "Brand name must be 200 characters or less"),
+  slug: z.string().regex(/^[a-z0-9-]+$/, "Slug must contain only lowercase letters, numbers, and hyphens").optional(),
+  website_url: z.string().url("Invalid website URL format").optional().or(z.literal("")),
+  industry: z.string().max(100).optional(),
+  description: z.string().max(1000).optional(),
+  tenant_id: z.string().uuid("Invalid tenant ID format").optional(),
+  workspace_id: z.string().uuid("Invalid workspace ID format").optional(),
+  autoRunOnboarding: z.boolean().optional().default(true),
+}).strict();
 
 /**
  * Generate a unique slug for a brand within a tenant
@@ -135,12 +148,11 @@ router.get(
       }
 
       if (!memberships || memberships.length === 0) {
-        res.json({
+        return res.status(HTTP_STATUS.OK).json({
           success: true,
           brands: [],
           total: 0,
         });
-        return;
       }
 
       // Fetch full brand details for each brand ID
@@ -170,7 +182,7 @@ router.get(
         };
       });
 
-      res.json({
+      return res.status(HTTP_STATUS.OK).json({
         success: true,
         brands: brandsWithRole || [],
         total: brandsWithRole?.length || 0,
@@ -206,6 +218,24 @@ router.post(
     const user = (req as any).user;
 
     try {
+      // ✅ VALIDATION: Validate request body with Zod
+      let validatedBody: z.infer<typeof CreateBrandSchema>;
+      try {
+        validatedBody = CreateBrandSchema.parse(req.body);
+      } catch (validationError) {
+        if (validationError instanceof z.ZodError) {
+          throw new AppError(
+            ErrorCode.VALIDATION_ERROR,
+            "Invalid request parameters",
+            HTTP_STATUS.BAD_REQUEST,
+            "warning",
+            { validationErrors: validationError.errors },
+            "Please check your request and try again"
+          );
+        }
+        throw validationError;
+      }
+
       const {
         name,
         slug,
@@ -215,16 +245,7 @@ router.post(
         tenant_id,
         workspace_id,
         autoRunOnboarding = true,
-      } = req.body;
-
-      if (!name) {
-        throw new AppError(
-          ErrorCode.MISSING_REQUIRED_FIELD,
-          "name is required",
-          HTTP_STATUS.BAD_REQUEST,
-          "warning"
-        );
-      }
+      } = validatedBody;
 
       // Get user's workspace/tenant ID from auth context if not provided
       const finalTenantId = tenant_id || workspace_id || user?.workspaceId || user?.tenantId;

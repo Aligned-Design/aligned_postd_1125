@@ -125,6 +125,7 @@ export class MetaConnector extends BaseConnector {
         logger.error(
           {
             platform: 'meta',
+            tenantId: this.tenantId,
             error: error instanceof Error ? error.message : String(error),
           },
           'Meta authentication failed'
@@ -174,6 +175,8 @@ export class MetaConnector extends BaseConnector {
         logger.error(
           {
             platform: 'meta',
+            tenantId: this.tenantId,
+            connectionId: this.connectionId,
             error: error instanceof Error ? error.message : String(error),
           },
           'Meta token refresh failed'
@@ -344,7 +347,81 @@ export class MetaConnector extends BaseConnector {
         recordMetric('meta.publish_error', 1, { error: String(error) });
         throw error;
       }
-    }, { tenantId: this.tenantId, platform: 'meta', accountId });
+    }, { tenantId: this.tenantId, platform: 'meta', connectionId: accountId });
+  }
+
+  /**
+   * Helper to make API call with automatic token refresh on 401/403
+   */
+  private async fetchWithAutoRefresh(
+    url: string,
+    options: RequestInit,
+    accessToken: string,
+    retryCount = 0
+  ): Promise<Response> {
+    const response = await fetch(url, {
+      ...options,
+      headers: {
+        ...options.headers,
+        Authorization: `Bearer ${accessToken}`,
+      },
+    });
+
+    // Auto-refresh on 401/403 (expired/invalid token)
+    if ((response.status === 401 || response.status === 403) && retryCount === 0) {
+      try {
+        // Get refresh token and attempt refresh
+        const refreshToken = await this.vault.retrieveSecret(this.tenantId, this.connectionId, 'refresh_token');
+        if (refreshToken) {
+          logger.info(
+            {
+              tenantId: this.tenantId,
+              platform: 'meta',
+              connectionId: this.connectionId,
+              status: response.status,
+            },
+            'Token expired, attempting refresh'
+          );
+
+          await this.refreshToken(refreshToken);
+
+          // Get new access token and retry once
+          const newAccessToken = await this.vault.retrieveSecret(this.tenantId, this.connectionId, 'access_token');
+          if (newAccessToken) {
+            logger.info(
+              {
+                tenantId: this.tenantId,
+                platform: 'meta',
+                connectionId: this.connectionId,
+              },
+              'Token refreshed successfully, retrying API call'
+            );
+            return this.fetchWithAutoRefresh(url, options, newAccessToken, retryCount + 1);
+          } else {
+            logger.error(
+              {
+                tenantId: this.tenantId,
+                platform: 'meta',
+                connectionId: this.connectionId,
+              },
+              'Token refresh succeeded but new access token not found'
+            );
+          }
+        }
+      } catch (refreshError) {
+        logger.error(
+          {
+            tenantId: this.tenantId,
+            platform: 'meta',
+            connectionId: this.connectionId,
+            error: refreshError instanceof Error ? refreshError.message : String(refreshError),
+          },
+          'Token refresh failed during API call'
+        );
+      }
+    }
+
+    return response;
   }
 
   /**
@@ -353,6 +430,10 @@ export class MetaConnector extends BaseConnector {
   private async publishToFacebook(pageId: string, message: string, mediaUrls?: string[], accessToken?: string): Promise<string> {
     const token = accessToken || (await this.vault.retrieveSecret(this.tenantId, this.connectionId, 'access_token'));
 
+    if (!token) {
+      throw new Error('Access token not found');
+    }
+
     const body: any = { message };
 
     if (mediaUrls && mediaUrls.length > 0) {
@@ -360,14 +441,18 @@ export class MetaConnector extends BaseConnector {
       body.picture = mediaUrls[0];
     }
 
-    const response = await fetch(`${GRAPH_URL}/${pageId}/feed?access_token=${token}`, {
-      method: 'POST',
-      body: JSON.stringify(body),
-      headers: { 'Content-Type': 'application/json' },
-    });
+    const response = await this.fetchWithAutoRefresh(
+      `${GRAPH_URL}/${pageId}/feed?access_token=${token}`,
+      {
+        method: 'POST',
+        body: JSON.stringify(body),
+        headers: { 'Content-Type': 'application/json' },
+      },
+      token
+    );
 
     if (!response.ok) {
-      const error = await response.json();
+      const error = await response.json().catch(() => ({ error: { message: `HTTP ${response.status}` } }));
       throw new Error(`Facebook publish failed: ${error.error?.message || response.status}`);
     }
 
@@ -381,22 +466,30 @@ export class MetaConnector extends BaseConnector {
   private async publishToInstagram(igAccountId: string, caption: string, mediaUrls?: string[], accessToken?: string): Promise<string> {
     const token = accessToken || (await this.vault.retrieveSecret(this.tenantId, this.connectionId, 'access_token'));
 
+    if (!token) {
+      throw new Error('Access token not found');
+    }
+
     if (!mediaUrls || mediaUrls.length === 0) {
       throw new Error('Instagram requires media URL');
     }
 
     // Create media object
-    const mediaResponse = await fetch(`${BASE_URL}/${igAccountId}/media?access_token=${token}`, {
-      method: 'POST',
-      body: JSON.stringify({
-        image_url: mediaUrls[0],
-        caption,
-      }),
-      headers: { 'Content-Type': 'application/json' },
-    });
+    const mediaResponse = await this.fetchWithAutoRefresh(
+      `${BASE_URL}/${igAccountId}/media?access_token=${token}`,
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          image_url: mediaUrls[0],
+          caption,
+        }),
+        headers: { 'Content-Type': 'application/json' },
+      },
+      token
+    );
 
     if (!mediaResponse.ok) {
-      const error = await mediaResponse.json();
+      const error = await mediaResponse.json().catch(() => ({ error: { message: `HTTP ${mediaResponse.status}` } }));
       throw new Error(`Instagram media creation failed: ${error.error?.message || mediaResponse.status}`);
     }
 
@@ -404,18 +497,23 @@ export class MetaConnector extends BaseConnector {
     const mediaId = mediaData.id;
 
     // Publish media
-    const publishResponse = await fetch(`${BASE_URL}/${mediaId}/publish?access_token=${token}`, {
-      method: 'POST',
-      body: JSON.stringify({}),
-      headers: { 'Content-Type': 'application/json' },
-    });
+    const publishResponse = await this.fetchWithAutoRefresh(
+      `${BASE_URL}/${mediaId}/publish?access_token=${token}`,
+      {
+        method: 'POST',
+        body: JSON.stringify({}),
+        headers: { 'Content-Type': 'application/json' },
+      },
+      token
+    );
 
     if (!publishResponse.ok) {
-      const error = await publishResponse.json();
+      const error = await publishResponse.json().catch(() => ({ error: { message: `HTTP ${publishResponse.status}` } }));
       throw new Error(`Instagram publish failed: ${error.error?.message || publishResponse.status}`);
     }
 
-    return mediaId;
+    const publishData = await publishResponse.json();
+    return publishData.id || mediaId;
   }
 
   /**
@@ -513,7 +611,7 @@ export class MetaConnector extends BaseConnector {
         // Return empty metrics if failed (analytics are delayed anyway)
         return { impressions: 0, views: 0, likes: 0, comments: 0, shares: 0 };
       }
-    }, { tenantId: this.tenantId, platform: 'meta', postId });
+    }, { tenantId: this.tenantId, platform: 'meta', jobId: postId });
   }
 
   /**

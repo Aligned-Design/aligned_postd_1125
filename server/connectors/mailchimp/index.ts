@@ -25,7 +25,7 @@ export class MailchimpConnector extends BaseConnector {
   }
 
   async authenticate(code: string, state: string): Promise<OAuthResult> {
-    // TODO: Implement Mailchimp API key authentication
+    // Future work: Implement Mailchimp API key authentication
     // Mailchimp does NOT use OAuth - uses API keys directly
     // 1. User provides API key in UI
     // 2. Extract data center from API key (e.g., 'us1' from 'xxx-us1')
@@ -35,28 +35,28 @@ export class MailchimpConnector extends BaseConnector {
 
     logger.debug({ code, state }, '[Mailchimp] Authenticating via API key');
 
-    throw new Error('TODO: Implement Mailchimp API key authentication');
+    throw new Error('Future work: Implement Mailchimp API key authentication');
   }
 
   async refreshToken(refreshToken: string): Promise<OAuthResult> {
-    // TODO: Mailchimp API keys do NOT expire
+    // Note: Mailchimp API keys do NOT expire (unlike OAuth tokens)
     // No refresh needed
     // Just verify key still works
 
     logger.debug({ connectionId: this.connectionId }, '[Mailchimp] API key validation (does not expire)');
 
-    throw new Error('TODO: Implement Mailchimp API key validation');
+    throw new Error('Future work: Implement Mailchimp API key validation');
   }
 
   async fetchAccounts(): Promise<Account[]> {
-    // TODO: Implement list fetching
+    // Future work: Implement list fetching
     // 1. Get API key from vault
     // 2. Call GET /lists to fetch email lists
     // 3. Return as accounts (each list is an "account")
 
     logger.debug({ connectionId: this.connectionId }, '[Mailchimp] Fetching email lists');
 
-    throw new Error('TODO: Implement Mailchimp list fetching');
+    throw new Error('Future work: Implement Mailchimp list fetching');
   }
 
   async publish(
@@ -66,7 +66,7 @@ export class MailchimpConnector extends BaseConnector {
     mediaUrls?: string[],
     options?: PublishOptions
   ): Promise<PublishResult> {
-    // TODO: Implement campaign creation and sending
+    // Future work: Implement campaign creation and sending
     // 1. Get API key from vault
     // 2. POST /campaigns to create campaign
     // 3. PUT /campaigns/{campaignId}/content to set HTML content
@@ -79,52 +79,52 @@ export class MailchimpConnector extends BaseConnector {
       '[Mailchimp] Publishing email campaign'
     );
 
-    throw new Error('TODO: Implement Mailchimp campaign publishing');
+    throw new Error('Future work: Implement Mailchimp campaign publishing');
   }
 
   async deletePost(accountId: string, campaignId: string): Promise<void> {
-    // TODO: Implement campaign deletion
+    // Future work: Implement campaign deletion
     // DELETE /campaigns/{campaignId}
     // Only works if campaign hasn't been sent yet
 
     logger.debug({ accountId, campaignId }, '[Mailchimp] Deleting campaign');
 
-    throw new Error('TODO: Implement Mailchimp campaign deletion');
+    throw new Error('Future work: Implement Mailchimp campaign deletion');
   }
 
   async getPostAnalytics(accountId: string, campaignId: string): Promise<AnalyticsMetrics> {
-    // TODO: Implement campaign performance fetching
+    // Future work: Implement campaign performance fetching
     // GET /campaigns/{campaignId}
     // Returns: opens, clicks, bounces, unsubscribes, etc.
 
     logger.debug({ accountId, campaignId }, '[Mailchimp] Fetching campaign analytics');
 
-    throw new Error('TODO: Implement Mailchimp campaign analytics');
+    throw new Error('Future work: Implement Mailchimp campaign analytics');
   }
 
   async healthCheck(): Promise<HealthCheckResult> {
-    // TODO: Implement health check
+    // Future work: Implement health check
     // GET / with API key
     // Should return account info if key is valid
 
     logger.debug({ connectionId: this.connectionId }, '[Mailchimp] Health check');
 
-    throw new Error('TODO: Implement Mailchimp health check');
+    throw new Error('Future work: Implement Mailchimp health check');
   }
 
   validateWebhookSignature(signature: string, payload: string): boolean {
-    // TODO: Mailchimp webhooks
+    // Future work: Mailchimp webhooks
     // Mailchimp sends webhooks but does NOT include signature verification
     // Use webhook URL verification in Mailchimp admin panel instead
     // Or implement custom signature if configured
 
     logger.debug({ signatureProvided: !!signature }, '[Mailchimp] Validating webhook signature');
 
-    return true; // TODO: Implement if custom signatures used
+    return true; // Future work: Implement if custom signatures used
   }
 
   parseWebhookEvent(payload: any): any {
-    // TODO: Implement webhook event parsing
+    // Future work: Implement webhook event parsing
     // Mailchimp webhook events:
     // - subscribe (new subscriber)
     // - unsubscribe (unsubscribed)
@@ -135,7 +135,7 @@ export class MailchimpConnector extends BaseConnector {
 
     logger.debug({ eventType: payload?.type }, '[Mailchimp] Parsing webhook event');
 
-    return null; // TODO
+    return null; // Future work: Implement webhook event parsing
   }
 }
 

@@ -5,6 +5,9 @@ import { Campaign, CampaignIdea } from "@/types/campaign";
 import { Plus, TrendingUp, Users, Target } from "lucide-react";
 import { useState, useCallback } from "react";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
+import { logTelemetry } from "@/lib/logger";
+import { PageShell } from "@/components/postd/ui/layout/PageShell";
+import { PageHeader } from "@/components/postd/ui/layout/PageHeader";
 
 export default function Campaigns() {
   const { currentWorkspace } = useWorkspace();
@@ -19,7 +22,7 @@ export default function Campaigns() {
       startDate: "2024-03-01",
       endDate: "2024-03-31",
       targetPlatforms: ["instagram", "tiktok", "youtube"],
-      brand: "Aligned-20AI",
+      brand: "POSTD",
       createdDate: "2024-02-10",
       postCount: 15,
       performance: {
@@ -39,7 +42,7 @@ export default function Campaigns() {
       startDate: "2024-02-15",
       endDate: "2024-03-15",
       targetPlatforms: ["linkedin", "instagram", "facebook"],
-      brand: "Aligned-20AI",
+      brand: "POSTD",
       createdDate: "2024-02-01",
       postCount: 10,
       performance: {
@@ -58,7 +61,7 @@ export default function Campaigns() {
       startDate: "2024-04-01",
       endDate: "2024-06-30",
       targetPlatforms: ["linkedin", "youtube"],
-      brand: "Aligned-20AI",
+      brand: "POSTD",
       createdDate: "2024-02-20",
       postCount: 24,
     },
@@ -71,7 +74,7 @@ export default function Campaigns() {
       startDate: "2024-06-15",
       endDate: "2024-07-31",
       targetPlatforms: ["instagram", "tiktok", "facebook"],
-      brand: "Aligned-20AI",
+      brand: "POSTD",
       createdDate: "2024-02-18",
     },
     {
@@ -83,7 +86,7 @@ export default function Campaigns() {
       startDate: "2023-11-15",
       endDate: "2023-12-31",
       targetPlatforms: ["facebook", "instagram", "youtube"],
-      brand: "Aligned-20AI",
+      brand: "POSTD",
       createdDate: "2023-10-01",
       postCount: 28,
       performance: {
@@ -102,7 +105,7 @@ export default function Campaigns() {
       startDate: "2024-01-15",
       endDate: "2024-02-28",
       targetPlatforms: ["linkedin"],
-      brand: "Aligned-20AI",
+      brand: "POSTD",
       createdDate: "2024-01-05",
     },
   ]);
@@ -116,7 +119,7 @@ export default function Campaigns() {
       tags: ["sales", "seasonal", "high-impact"],
       theme: "Black Friday",
       createdDate: "2024-02-10",
-      brand: "Aligned-20AI",
+      brand: "POSTD",
     },
     {
       id: "idea-2",
@@ -126,7 +129,7 @@ export default function Campaigns() {
       tags: ["engagement", "authentic", "content-series"],
       theme: "Culture",
       createdDate: "2024-02-08",
-      brand: "Aligned-20AI",
+      brand: "POSTD",
     },
     {
       id: "idea-3",
@@ -136,7 +139,7 @@ export default function Campaigns() {
       tags: ["awareness", "thought-leadership", "education"],
       theme: "Education",
       createdDate: "2024-02-05",
-      brand: "Aligned-20AI",
+      brand: "POSTD",
     },
     {
       id: "idea-4",
@@ -146,7 +149,7 @@ export default function Campaigns() {
       tags: ["partnership", "growth", "collaboration"],
       theme: "Partnership",
       createdDate: "2024-01-28",
-      brand: "Aligned-20AI",
+      brand: "POSTD",
     },
   ]);
 
@@ -184,7 +187,7 @@ export default function Campaigns() {
       startDate: campaignData.startDate || new Date(now).toISOString().split("T")[0],
       endDate: campaignData.endDate || new Date(now).toISOString().split("T")[0],
       targetPlatforms: campaignData.targetPlatforms || [],
-      brand: campaignData.brand || "Aligned-20AI",
+      brand: campaignData.brand || "POSTD",
       createdDate: new Date(now).toISOString().split("T")[0],
       tone: campaignData.tone,
       keyMessage: campaignData.keyMessage,
@@ -197,12 +200,12 @@ export default function Campaigns() {
     setCampaigns([newCampaign, ...campaigns]);
 
     if (aiGenerate) {
-      console.log("AI will generate content for:", newCampaign);
+      logTelemetry("AI will generate content for campaign", { campaignId: newCampaign.id, campaignName: newCampaign.name });
     }
   };
 
   const handleEditCampaign = (campaign: Campaign) => {
-    console.log("Edit campaign:", campaign);
+    logTelemetry("Edit campaign", { campaignId: campaign.id, campaignName: campaign.name });
   };
 
   const handleDeleteCampaign = (id: string) => {
@@ -245,18 +248,14 @@ export default function Campaigns() {
   const completedCampaigns = campaigns.filter((c) => c.status === "completed");
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-indigo-50/30 via-white to-blue-50/20">
-        <div className="p-4 sm:p-6 md:p-8">
-          {/* Page Header */}
-          <div className="mb-8">
-            <h1 className="text-3xl sm:text-4xl font-black text-slate-900 mb-2">Campaigns</h1>
-            <p className="text-slate-600 text-xs sm:text-sm font-medium">
-              {currentWorkspace?.logo} {currentWorkspace?.name} — Plan, track, and analyze your marketing campaigns across all platforms
-            </p>
-          </div>
+    <PageShell>
+      <PageHeader
+        title="Campaigns"
+        subtitle={`${currentWorkspace?.logo || ""} ${currentWorkspace?.name || ""} — Plan, track, and analyze your marketing campaigns across all platforms`}
+      />
 
-          {/* Quick Stats Bar */}
-          <div className="mb-8 grid grid-cols-1 sm:grid-cols-3 gap-4">
+      {/* Quick Stats Bar */}
+      <div className="mb-8 grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="bg-white/50 backdrop-blur-xl rounded-xl p-4 sm:p-5 border border-white/60 hover:bg-white/70 transition-all duration-300">
               <div className="flex items-center justify-between">
                 <div>
@@ -306,217 +305,216 @@ export default function Campaigns() {
             </div>
           </div>
 
-          {/* Start New Campaign Button */}
-          <div className="mb-8">
+      {/* Start New Campaign Button */}
+      <div className="mb-8">
+        <button
+          onClick={() => setShowNewCampaignModal(true)}
+          className="inline-flex items-center gap-2 px-5 sm:px-6 py-3 sm:py-4 bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white font-black text-base sm:text-lg rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105 active:scale-95"
+        >
+          <Plus className="w-5 h-5" />
+          Start New Campaign
+        </button>
+      </div>
+
+      {/* AI Insights Panel */}
+      <div className="mb-12">
+        <CampaignInsightsPanel />
+      </div>
+
+      {/* Active Campaigns Section */}
+      {activeCampaigns.length > 0 && (
+        <div className="mb-12">
+          <div className="flex items-center gap-2 mb-4">
+            <div className="w-2 h-2 rounded-full bg-green-500"></div>
+            <h2 className="text-xl sm:text-2xl font-black text-slate-900">
+              Active Campaigns ({activeCampaigns.length})
+            </h2>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {activeCampaigns.map((campaign) => (
+              <CampaignCard
+                key={campaign.id}
+                campaign={campaign}
+                onEdit={handleEditCampaign}
+                onDelete={handleDeleteCampaign}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Planned Campaigns Section */}
+      {plannedCampaigns.length > 0 && (
+        <div className="mb-12">
+          <div className="flex items-center gap-2 mb-4">
+            <div className="w-2 h-2 rounded-full bg-blue-500"></div>
+            <h2 className="text-xl sm:text-2xl font-black text-slate-900">
+              Planned Campaigns ({plannedCampaigns.length})
+            </h2>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {plannedCampaigns.map((campaign) => (
+              <CampaignCard
+                key={campaign.id}
+                campaign={campaign}
+                onEdit={handleEditCampaign}
+                onDelete={handleDeleteCampaign}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Draft Campaigns Section */}
+      {draftCampaigns.length > 0 && (
+        <div className="mb-12">
+          <div className="flex items-center gap-2 mb-4">
+            <div className="w-2 h-2 rounded-full bg-slate-400"></div>
+            <h2 className="text-xl sm:text-2xl font-black text-slate-900">
+              Drafts ({draftCampaigns.length})
+            </h2>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {draftCampaigns.map((campaign) => (
+              <CampaignCard
+                key={campaign.id}
+                campaign={campaign}
+                onEdit={handleEditCampaign}
+                onDelete={handleDeleteCampaign}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Completed Campaigns Section */}
+      {completedCampaigns.length > 0 && (
+        <div className="mb-12">
+          <div className="flex items-center gap-2 mb-4">
+            <div className="w-2 h-2 rounded-full bg-purple-500"></div>
+            <h2 className="text-xl sm:text-2xl font-black text-slate-900">
+              Completed Campaigns ({completedCampaigns.length})
+            </h2>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {completedCampaigns.map((campaign) => (
+              <CampaignCard
+                key={campaign.id}
+                campaign={campaign}
+                onEdit={handleEditCampaign}
+                onDelete={handleDeleteCampaign}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Ideas Section */}
+      <div className="mb-12">
+        <div className="flex items-center gap-2 mb-4">
+          <div className="w-2 h-2 rounded-full bg-orange-500"></div>
+          <h2 className="text-xl sm:text-2xl font-black text-slate-900">
+            Campaign Ideas & Brainstorms ({ideas.length})
+          </h2>
+          <p className="text-xs text-slate-500 font-medium ml-auto">
+            Lightweight ideas ready to convert into campaigns
+          </p>
+        </div>
+
+        {ideas.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {ideas.map((idea) => (
+              <div
+                key={idea.id}
+                className="group bg-white/50 backdrop-blur-xl rounded-xl border border-white/60 hover:bg-white/70 hover:shadow-md hover:border-white/80 transition-all duration-300 overflow-hidden"
+              >
+                {/* Header */}
+                <div className="h-1 bg-gradient-to-r from-orange-500 via-yellow-500 to-orange-500"></div>
+
+                <div className="p-4 sm:p-5 relative">
+                  {/* Title */}
+                  <div className="flex items-start justify-between mb-3 gap-2">
+                    <h3 className="text-sm font-black text-slate-900 line-clamp-2">
+                      {idea.name}
+                    </h3>
+                  </div>
+
+                  {/* Notes */}
+                  <p className="text-xs text-slate-600 mb-4 line-clamp-3">
+                    {idea.notes}
+                  </p>
+
+                  {/* Theme badge */}
+                  {idea.theme && (
+                    <div className="mb-4">
+                      <span className="inline-block px-2 py-1 rounded-lg bg-orange-100/50 border border-orange-300/50 text-orange-700 text-xs font-bold">
+                        📌 {idea.theme}
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Tags */}
+                  {idea.tags && idea.tags.length > 0 && (
+                    <div className="flex flex-wrap gap-2 mb-4 pt-4 border-t border-slate-200">
+                      {idea.tags.map((tag) => (
+                        <span
+                          key={tag}
+                          className="px-2 py-1 rounded text-xs font-medium bg-slate-100/50 text-slate-600 border border-slate-200"
+                        >
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Actions */}
+                  <div className="flex gap-2 pt-3 border-t border-slate-200">
+                    <button
+                      onClick={() => handleConvertIdea(idea)}
+                      className="flex-1 px-3 py-2 rounded-lg bg-lime-400/20 border border-lime-400/60 text-lime-700 font-bold text-xs hover:bg-lime-400/30 transition-all duration-200"
+                    >
+                      Convert to Campaign
+                    </button>
+                    <button
+                      onClick={() => handleDeleteIdea(idea.id)}
+                      className="px-3 py-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-50 text-red-600 font-bold text-xs"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="bg-white/30 backdrop-blur-xl rounded-xl border border-white/60 p-12 text-center">
+            <p className="text-slate-600 font-medium mb-3">No campaign ideas yet</p>
             <button
               onClick={() => setShowNewCampaignModal(true)}
-              className="inline-flex items-center gap-2 px-5 sm:px-6 py-3 sm:py-4 bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white font-black text-base sm:text-lg rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105 active:scale-95"
+              className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm rounded-lg transition-colors"
             >
-              <Plus className="w-5 h-5" />
-              Start New Campaign
+              <Plus className="w-4 h-4" />
+              Create Your First Idea
             </button>
           </div>
+        )}
+      </div>
 
-          {/* AI Insights Panel */}
-          <div className="mb-12">
-            <CampaignInsightsPanel />
-          </div>
-
-          {/* Active Campaigns Section */}
-          {activeCampaigns.length > 0 && (
-            <div className="mb-12">
-              <div className="flex items-center gap-2 mb-4">
-                <div className="w-2 h-2 rounded-full bg-green-500"></div>
-                <h2 className="text-xl sm:text-2xl font-black text-slate-900">
-                  Active Campaigns ({activeCampaigns.length})
-                </h2>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {activeCampaigns.map((campaign) => (
-                  <CampaignCard
-                    key={campaign.id}
-                    campaign={campaign}
-                    onEdit={handleEditCampaign}
-                    onDelete={handleDeleteCampaign}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Planned Campaigns Section */}
-          {plannedCampaigns.length > 0 && (
-            <div className="mb-12">
-              <div className="flex items-center gap-2 mb-4">
-                <div className="w-2 h-2 rounded-full bg-blue-500"></div>
-                <h2 className="text-xl sm:text-2xl font-black text-slate-900">
-                  Planned Campaigns ({plannedCampaigns.length})
-                </h2>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {plannedCampaigns.map((campaign) => (
-                  <CampaignCard
-                    key={campaign.id}
-                    campaign={campaign}
-                    onEdit={handleEditCampaign}
-                    onDelete={handleDeleteCampaign}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Draft Campaigns Section */}
-          {draftCampaigns.length > 0 && (
-            <div className="mb-12">
-              <div className="flex items-center gap-2 mb-4">
-                <div className="w-2 h-2 rounded-full bg-slate-400"></div>
-                <h2 className="text-xl sm:text-2xl font-black text-slate-900">
-                  Drafts ({draftCampaigns.length})
-                </h2>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {draftCampaigns.map((campaign) => (
-                  <CampaignCard
-                    key={campaign.id}
-                    campaign={campaign}
-                    onEdit={handleEditCampaign}
-                    onDelete={handleDeleteCampaign}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Completed Campaigns Section */}
-          {completedCampaigns.length > 0 && (
-            <div className="mb-12">
-              <div className="flex items-center gap-2 mb-4">
-                <div className="w-2 h-2 rounded-full bg-purple-500"></div>
-                <h2 className="text-xl sm:text-2xl font-black text-slate-900">
-                  Completed Campaigns ({completedCampaigns.length})
-                </h2>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {completedCampaigns.map((campaign) => (
-                  <CampaignCard
-                    key={campaign.id}
-                    campaign={campaign}
-                    onEdit={handleEditCampaign}
-                    onDelete={handleDeleteCampaign}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Ideas Section */}
-          <div className="mb-12">
-            <div className="flex items-center gap-2 mb-4">
-              <div className="w-2 h-2 rounded-full bg-orange-500"></div>
-              <h2 className="text-xl sm:text-2xl font-black text-slate-900">
-                Campaign Ideas & Brainstorms ({ideas.length})
-              </h2>
-              <p className="text-xs text-slate-500 font-medium ml-auto">
-                Lightweight ideas ready to convert into campaigns
-              </p>
-            </div>
-
-            {ideas.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {ideas.map((idea) => (
-                  <div
-                    key={idea.id}
-                    className="group bg-white/50 backdrop-blur-xl rounded-xl border border-white/60 hover:bg-white/70 hover:shadow-md hover:border-white/80 transition-all duration-300 overflow-hidden"
-                  >
-                    {/* Header */}
-                    <div className="h-1 bg-gradient-to-r from-orange-500 via-yellow-500 to-orange-500"></div>
-
-                    <div className="p-4 sm:p-5 relative">
-                      {/* Title */}
-                      <div className="flex items-start justify-between mb-3 gap-2">
-                        <h3 className="text-sm font-black text-slate-900 line-clamp-2">
-                          {idea.name}
-                        </h3>
-                      </div>
-
-                      {/* Notes */}
-                      <p className="text-xs text-slate-600 mb-4 line-clamp-3">
-                        {idea.notes}
-                      </p>
-
-                      {/* Theme badge */}
-                      {idea.theme && (
-                        <div className="mb-4">
-                          <span className="inline-block px-2 py-1 rounded-lg bg-orange-100/50 border border-orange-300/50 text-orange-700 text-xs font-bold">
-                            📌 {idea.theme}
-                          </span>
-                        </div>
-                      )}
-
-                      {/* Tags */}
-                      {idea.tags && idea.tags.length > 0 && (
-                        <div className="flex flex-wrap gap-2 mb-4 pt-4 border-t border-slate-200">
-                          {idea.tags.map((tag) => (
-                            <span
-                              key={tag}
-                              className="px-2 py-1 rounded text-xs font-medium bg-slate-100/50 text-slate-600 border border-slate-200"
-                            >
-                              {tag}
-                            </span>
-                          ))}
-                        </div>
-                      )}
-
-                      {/* Actions */}
-                      <div className="flex gap-2 pt-3 border-t border-slate-200">
-                        <button
-                          onClick={() => handleConvertIdea(idea)}
-                          className="flex-1 px-3 py-2 rounded-lg bg-lime-400/20 border border-lime-400/60 text-lime-700 font-bold text-xs hover:bg-lime-400/30 transition-all duration-200"
-                        >
-                          Convert to Campaign
-                        </button>
-                        <button
-                          onClick={() => handleDeleteIdea(idea.id)}
-                          className="px-3 py-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-50 text-red-600 font-bold text-xs"
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="bg-white/30 backdrop-blur-xl rounded-xl border border-white/60 p-12 text-center">
-                <p className="text-slate-600 font-medium mb-3">No campaign ideas yet</p>
-                <button
-                  onClick={() => setShowNewCampaignModal(true)}
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm rounded-lg transition-colors"
-                >
-                  <Plus className="w-4 h-4" />
-                  Create Your First Idea
-                </button>
-              </div>
-            )}
-          </div>
-
-          {/* Empty State */}
-          {campaigns.length === 0 && ideas.length === 0 && (
-            <div className="bg-white/50 backdrop-blur-xl rounded-2xl p-12 text-center border border-white/60">
-              <div className="text-5xl mb-4">📊</div>
-              <h3 className="text-xl font-black text-slate-900 mb-2">No campaigns yet</h3>
-              <p className="text-slate-600 font-medium mb-6">Start planning your first campaign today</p>
-              <button
-                onClick={() => setShowNewCampaignModal(true)}
-                className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white font-black rounded-lg shadow-lg hover:shadow-xl transition-all"
-              >
-                <Plus className="w-5 h-5" />
-                Start New Campaign
-              </button>
-            </div>
-          )}
+      {/* Empty State */}
+      {campaigns.length === 0 && ideas.length === 0 && (
+        <div className="bg-white/50 backdrop-blur-xl rounded-2xl p-12 text-center border border-white/60">
+          <div className="text-5xl mb-4">📊</div>
+          <h3 className="text-xl font-black text-slate-900 mb-2">No campaigns yet</h3>
+          <p className="text-slate-600 font-medium mb-6">Start planning your first campaign today</p>
+          <button
+            onClick={() => setShowNewCampaignModal(true)}
+            className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white font-black rounded-lg shadow-lg hover:shadow-xl transition-all"
+          >
+            <Plus className="w-5 h-5" />
+            Start New Campaign
+          </button>
         </div>
+      )}
 
       {/* Modal */}
       <StartNewCampaignModal
@@ -524,6 +522,6 @@ export default function Campaigns() {
         onClose={() => setShowNewCampaignModal(false)}
         onCreate={handleCreateCampaign}
       />
-    </div>
+    </PageShell>
   );
 }

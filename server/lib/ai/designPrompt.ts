@@ -9,6 +9,7 @@ import type { AiDesignGenerationRequest } from "@shared/aiContent";
 import type { StrategyBrief, ContentPackage, BrandHistory, PerformanceLog } from "@shared/collaboration-artifacts";
 import type { BrandVisualIdentity } from "../brand-visual-identity";
 import type { BrandGuide } from "@shared/brand-guide";
+import { buildFullBrandGuidePrompt } from "../prompts/brand-guide-prompts";
 
 export interface DesignPromptContext {
   brand: BrandProfile;
@@ -140,38 +141,9 @@ export function buildDesignUserPrompt(context: DesignPromptContext): string {
   
   let prompt = `Create visual concepts for ${request.format} content on ${request.platform}.\n\n`;
 
-  // ✅ BRAND GUIDE (Source of Truth) - Include first, as it's the primary authority
+  // ✅ BRAND GUIDE (Source of Truth) - Use centralized prompt library
   if (brandGuide) {
-    prompt += `## Brand Guide (Source of Truth)\n`;
-    prompt += `Brand Name: ${brandGuide.brandName}\n`;
-    
-    if (brandGuide.visualIdentity) {
-      prompt += `\n### Visual Identity\n`;
-      if (brandGuide.visualIdentity.colors && brandGuide.visualIdentity.colors.length > 0) {
-        prompt += `Brand Colors: ${brandGuide.visualIdentity.colors.join(", ")}\n`;
-      }
-      if (brandGuide.visualIdentity.typography) {
-        prompt += `Typography: ${brandGuide.visualIdentity.typography.heading || "Not specified"} (heading), ${brandGuide.visualIdentity.typography.body || "Not specified"} (body)\n`;
-      }
-      if (brandGuide.visualIdentity.photographyStyle) {
-        prompt += `\n### Photography Style Rules (CRITICAL - MUST FOLLOW)\n`;
-        if (brandGuide.visualIdentity.photographyStyle.mustInclude && brandGuide.visualIdentity.photographyStyle.mustInclude.length > 0) {
-          prompt += `MUST INCLUDE: ${brandGuide.visualIdentity.photographyStyle.mustInclude.join(", ")}\n`;
-          prompt += `Example: "${brandGuide.visualIdentity.photographyStyle.mustInclude[0]}"\n`;
-        }
-        if (brandGuide.visualIdentity.photographyStyle.mustAvoid && brandGuide.visualIdentity.photographyStyle.mustAvoid.length > 0) {
-          prompt += `MUST AVOID: ${brandGuide.visualIdentity.photographyStyle.mustAvoid.join(", ")}\n`;
-          prompt += `Example: "${brandGuide.visualIdentity.photographyStyle.mustAvoid[0]}"\n`;
-        }
-      }
-    }
-    
-    if (brandGuide.contentRules) {
-      prompt += `\n### Content Rules\n`;
-      if (brandGuide.contentRules.neverDo && brandGuide.contentRules.neverDo.length > 0) {
-        prompt += `NEVER DO: ${brandGuide.contentRules.neverDo.join(", ")}\n`;
-      }
-    }
+    prompt += buildFullBrandGuidePrompt(brandGuide);
     prompt += `\n`;
   }
 

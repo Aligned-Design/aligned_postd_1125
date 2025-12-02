@@ -1,6 +1,9 @@
-# Canva Integration
+# POSTD Canva Integration
 
-This directory contains the Canva API integration scaffolding for Aligned-20AI.
+> **Status:** ✅ Active – This is an active integration guide for POSTD Canva integration.  
+> **Last Updated:** 2025-01-20
+
+This directory contains the Canva API integration scaffolding for POSTD.
 
 ## Overview
 

@@ -72,16 +72,37 @@ interface CrawledImage {
   alt?: string;
   width?: number;
   height?: number;
-  role: "logo" | "team" | "subject" | "hero" | "other";
+  role: "logo" | "team" | "subject" | "hero" | "photo" | "social_icon" | "platform_logo" | "partner_logo" | "other";
   pageType?: "main" | "team" | "about" | "other";
   filename?: string;
   priority?: number; // Calculated priority score
+  // ✅ NEW: Context metadata for logo selection
+  inHeaderOrNav?: boolean;
+  inFooter?: boolean;
+  inAffiliateOrPartnerSection?: boolean;
+  inHeroOrAboveFold?: boolean;
+  brandMatchScore?: number;
+  sourceType?: "html-img" | "css-bg" | "svg" | "og" | "favicon";
+  fallbackSelected?: boolean; // True if selected as fallback when no ideal candidates
 }
 
 interface TypographyData {
   heading: string;
   body: string;
   source: "scrape" | "google" | "custom";
+}
+
+export interface OpenGraphMetadata {
+  title?: string;
+  description?: string;
+  image?: string;
+  url?: string;
+  type?: string;
+  siteName?: string;
+  twitterTitle?: string;
+  twitterDescription?: string;
+  twitterImage?: string;
+  twitterCard?: string;
 }
 
 interface CrawlResult {
@@ -96,6 +117,7 @@ interface CrawlResult {
   images?: CrawledImage[];
   headlines?: string[];
   typography?: TypographyData;
+  openGraph?: OpenGraphMetadata;
 }
 
 interface ColorPalette {
@@ -123,6 +145,9 @@ interface BrandKitData {
   colors: ColorPalette;
   typography?: TypographyData;
   source_urls: string[];
+  metadata?: {
+    openGraph?: OpenGraphMetadata;
+  };
 }
 
 /**
@@ -261,6 +286,13 @@ export async function crawlWebsite(startUrl: string): Promise<CrawlResult[]> {
       try {
         const page = await browser.newPage({
           userAgent: CRAWL_USER_AGENT,
+        });
+
+        // Prevent bundler-generated helpers from breaking in the browser context
+        await page.addInitScript(() => {
+          // Some bundlers emit calls like __name(fn, "fnName") for stack traces.
+          // Define a no-op helper so these calls do not throw ReferenceError.
+          (window as any).__name ??= (fn: unknown, _name?: string) => fn;
         });
 
         // ✅ ENHANCED: Fetch page with retry logic and better error handling
@@ -451,6 +483,51 @@ function extractFilename(url: string): string {
 }
 
 /**
+ * ✅ NEW: Calculate brand match score for a logo candidate
+ * Uses brand name from title, og:site_name, or main H1
+ */
+function calculateBrandMatchScore(
+  img: { url: string; alt?: string; filename?: string },
+  brandName?: string,
+  pageTitle?: string,
+  ogSiteName?: string,
+  mainH1?: string
+): number {
+  if (!brandName) return 0;
+  
+  let score = 0;
+  const brandNameLower = brandName.toLowerCase();
+  const brandNameNoSpaces = brandNameLower.replace(/\s+/g, "");
+  const brandNameHyphenated = brandNameLower.replace(/\s+/g, "-");
+  
+  const altLower = img.alt?.toLowerCase() || "";
+  const filenameLower = img.filename?.toLowerCase() || "";
+  const urlLower = img.url.toLowerCase();
+  
+  // Infer brand name from page context if not provided
+  const inferredBrand = brandName || 
+    ogSiteName?.toLowerCase() || 
+    pageTitle?.toLowerCase().split("|")[0]?.trim() || 
+    mainH1?.toLowerCase() || 
+    "";
+  
+  if (!inferredBrand) return 0;
+  
+  // +1 if alt/title text contains brand name
+  if (altLower.includes(brandNameLower) || altLower.includes(brandNameNoSpaces) || altLower.includes(brandNameHyphenated)) {
+    score += 1;
+  }
+  
+  // +1 if filename/path contains brand name
+  if (filenameLower.includes(brandNameLower) || filenameLower.includes(brandNameNoSpaces) || filenameLower.includes(brandNameHyphenated) ||
+      urlLower.includes(brandNameLower) || urlLower.includes(brandNameNoSpaces) || urlLower.includes(brandNameHyphenated)) {
+    score += 1;
+  }
+  
+  return score;
+}
+
+/**
  * Enhanced logo detection - checks filename, URL path, alt text, and brand name
  */
 function isLogo(
@@ -493,17 +570,188 @@ function isLogo(
 /**
  * Categorize image based on context
  * 
- * SIMPLIFIED: More lenient categorization - accepts images even if categorization is uncertain
+ * ✅ ENHANCED: Detects social_icon, platform_logo, and partner_logo to filter them out
+ * Returns expanded role types including social_icon, platform_logo, partner_logo, and photo
+ * 
+ * ✅ SQUARESPACE CDN HANDLING:
+ * - Large images from platform CDNs (e.g., images.squarespace-cdn.com/content/v1/...)
+ *   are NOT automatically classified as platform_logo
+ * - Only small icons/badges (<= 96x96) with explicit platform branding are filtered
+ * - This ensures legitimate brand images (hero banners, photos) are preserved
+ * 
+ * ✅ NEW: Uses context fields (inHeaderOrNav, inAffiliateOrPartnerSection, etc.) for better classification
  */
 function categorizeImage(
-  img: { url: string; alt?: string; width?: number; height?: number; role?: string },
+  img: { 
+    url: string; 
+    alt?: string; 
+    width?: number; 
+    height?: number; 
+    role?: string;
+    inHeaderOrNav?: boolean;
+    inFooter?: boolean;
+    inAffiliateOrPartnerSection?: boolean;
+    inHeroOrAboveFold?: boolean;
+    brandMatchScore?: number;
+  },
   pageUrl: string,
   pageType: "main" | "team" | "about" | "other",
   brandName?: string
-): "logo" | "team" | "subject" | "hero" | "other" {
-  // Logo detection (highest priority) - use existing role if already detected
-  if (img.role === "logo" || isLogo(img, pageUrl, brandName)) {
-    return "logo";
+): "logo" | "team" | "subject" | "hero" | "photo" | "social_icon" | "platform_logo" | "partner_logo" | "other" {
+  const altLower = img.alt?.toLowerCase() || "";
+  const urlLower = img.url.toLowerCase();
+  const filenameLower = img.url.split("/").pop()?.toLowerCase() || "";
+  const pathname = new URL(img.url).pathname.toLowerCase();
+  
+  // ✅ CRITICAL: Filter out social icons and platform logos FIRST (before other categorization)
+  // Social icons: facebook, instagram, linkedin, x-logo, twitter, tiktok, etc.
+  const socialIconPatterns = [
+    "facebook", "instagram", "linkedin", "x-logo", "twitter", "tiktok", 
+    "youtube", "pinterest", "snapchat", "whatsapp", "telegram", "discord",
+    "social-icon", "social_icon", "socialicon", "social-media"
+  ];
+  
+  if (
+    socialIconPatterns.some(pattern => 
+      filenameLower.includes(pattern) || 
+      urlLower.includes(pattern) || 
+      altLower.includes(pattern) ||
+      pathname.includes(pattern)
+    )
+  ) {
+    return "social_icon";
+  }
+  
+  // ✅ FIXED: Platform logos detection - require BOTH vendor name AND logoish patterns
+  // Problem: Previous logic treated ALL Squarespace CDN images as platform_logo, even legitimate brand images
+  // Solution: Only classify as platform_logo when BOTH conditions are met:
+  //   1. Vendor name appears in URL/alt/filename (e.g., squarespace, wix, godaddy)
+  //   2. Logoish pattern appears in URL/alt/filename (e.g., logo, icon, badge, powered-by)
+  // This ensures large Squarespace CDN images (images.squarespace-cdn.com/content/v1/...) are NOT filtered out
+  // 
+  // Platform vendors (hosting platform names)
+  const platformVendors = ["squarespace", "wix", "godaddy", "canva", "shopify", "wordpress"];
+  
+  // Logoish patterns (indicators of a logo/badge/icon)
+  const logoishPatterns = ["logo", "logotype", "brandmark", "mark", "badge", "icon", "favicon", "powered-by", "powered_by", "footer-logo", "header-logo"];
+  
+  // Check if vendor name appears in URL/alt/filename
+  const hasVendor = platformVendors.some(v => 
+    urlLower.includes(v) || 
+    altLower.includes(v) || 
+    filenameLower.includes(v) ||
+    pathname.includes(v)
+  );
+  
+  // Check if logoish pattern appears in URL/alt/filename
+  const isLogoish = logoishPatterns.some(p =>
+    urlLower.includes(p) || 
+    altLower.includes(p) || 
+    filenameLower.includes(p) ||
+    pathname.includes(p)
+  );
+  
+  // ✅ CRITICAL: Only classify as platform_logo if BOTH vendor AND logoish patterns are present
+  // This prevents legitimate brand images from platform CDNs (like images.squarespace-cdn.com) from being filtered
+  if (hasVendor && isLogoish) {
+    // ✅ ENHANCED: Prefer small images (< 200x200) for platform logos, but allow if dimensions unknown
+    // If image is large (> 300x300), it's likely a legitimate brand image, not a platform logo badge
+    const isLargeImage = img.width && img.height && (img.width > 300 || img.height > 300);
+    
+    if (isLargeImage) {
+      // Large images with vendor+logoish patterns are likely false positives
+      // (e.g., a brand's hero image that happens to mention "logo" in the URL)
+      // Log for debugging but don't classify as platform_logo
+      if (process.env.DEBUG_SQUARESPACE_IMAGES === "true") {
+        console.log(`[ImageCategorizer] Large image with vendor+logoish pattern (NOT platform_logo): ${img.url.substring(0, 80)}... (${img.width}x${img.height})`);
+      }
+    } else {
+      // Small images or images without dimensions that match vendor+logoish are likely platform logos
+      if (process.env.DEBUG_SQUARESPACE_IMAGES === "true" || process.env.DEBUG_IMAGE_CLASSIFICATION === "true") {
+        console.log(`[ImageCategorizer] Classified as platform_logo: ${img.url.substring(0, 80)}...`, {
+          vendor: platformVendors.find(v => urlLower.includes(v) || altLower.includes(v) || filenameLower.includes(v)),
+          logoishPattern: logoishPatterns.find(p => urlLower.includes(p) || altLower.includes(p) || filenameLower.includes(p)),
+          dimensions: img.width && img.height ? `${img.width}x${img.height}` : "unknown",
+          alt: img.alt?.substring(0, 40) || "none",
+        });
+      }
+      return "platform_logo";
+    }
+  }
+  
+  // ✅ EXPLICIT: Large images from Squarespace CDN (and other platform CDNs) are NOT platform logos
+  // These are legitimate brand assets (hero banners, lifestyle photos, etc.)
+  // They should be classified as hero/photo/other based on their actual content
+  if (hasVendor && !isLogoish) {
+    // Has vendor but no logoish pattern - this is a legitimate brand image from a platform CDN
+    // Continue to normal classification (hero/photo/etc) - don't return platform_logo
+    if (process.env.DEBUG_SQUARESPACE_IMAGES === "true") {
+      console.log(`[ImageCategorizer] Platform CDN image without logoish pattern (NOT platform_logo): ${img.url.substring(0, 80)}... - will classify as hero/photo/other`);
+    }
+  }
+  
+  // ✅ NEW: Partner/Vendor/Badge logo detection (before primary logo detection)
+  // Check if image is in affiliate/partner section OR has partner indicators
+  const partnerPatterns = [
+    "partner", "association", "member", "vendor", "powered-by", "powered_by",
+    "badge", "sponsor", "brokers", "advisors", "custodian", "certified"
+  ];
+  
+  const hasPartnerIndicator = partnerPatterns.some(pattern =>
+    urlLower.includes(pattern) ||
+    altLower.includes(pattern) ||
+    filenameLower.includes(pattern) ||
+    pathname.includes(pattern)
+  );
+  
+  // Classify as partner_logo if:
+  // 1. In affiliate/partner section, OR
+  // 2. Small image (< 120px) with partner indicators
+  if (img.inAffiliateOrPartnerSection || (hasPartnerIndicator && img.width && img.height && Math.max(img.width, img.height) < 120)) {
+    return "partner_logo";
+  }
+
+  // Logo detection (highest priority) - STRICT: Only small images in header/nav or clear logo indicators
+  // ✅ IMPROVED: Strict logo criteria to prevent large brand images from being classified as logos
+  const isPotentialLogo = img.role === "logo" || isLogo(img, pageUrl, brandName);
+  
+  if (isPotentialLogo) {
+    // ✅ STRICT SIZE CHECK: Logos should be relatively small (< 400px in both dimensions)
+    // Large images (> 400px) are likely hero/brand images, not logos
+    const isOversized = img.width && img.height && 
+      (img.width > 400 || img.height > 400 || (img.width * img.height > 200000));
+    
+    if (isOversized) {
+      // Oversized "logo" - classify as hero or photo instead
+      if (img.inHeroOrAboveFold || (img.width && img.height && img.width > 600)) {
+        return "hero";
+      }
+      return "photo"; // Large brand image
+    }
+    
+    // ✅ STRICT LOCATION CHECK: Primary logo should be in header/nav OR small with brand match
+    const isPrimaryLogo = img.inHeaderOrNav === true || 
+      (img.inHeroOrAboveFold === true && (img.brandMatchScore || 0) >= 1 && 
+       img.width && img.height && img.width < 300 && img.height < 300);
+    
+    // If it's a logo but not a primary logo candidate, it might be a partner logo
+    if (!isPrimaryLogo && img.inAffiliateOrPartnerSection) {
+      return "partner_logo";
+    }
+    
+    // ✅ VALIDATION: Only return "logo" if it meets strict criteria (small, in header/nav, or clear logo indicators)
+    if (isPrimaryLogo || (img.inHeaderOrNav === true) || 
+        (img.width && img.height && img.width < 300 && img.height < 300 && 
+         (img.brandMatchScore || 0) >= 1)) {
+      return "logo";
+    }
+    
+    // If doesn't meet strict logo criteria but has logo indicators, classify as photo/hero
+    // This prevents false positives from images that just happen to have "logo" in filename
+    if (img.inHeroOrAboveFold) {
+      return "hero";
+    }
+    return "photo"; // Brand image, not a logo
   }
   
   // Hero images: large images near top of page - use existing role if already detected
@@ -512,13 +760,7 @@ function categorizeImage(
   }
   
   // Team images: from team/about pages, or images with faces (detected by alt text or context)
-  // More lenient - if on team/about page, prioritize team categorization
   if (pageType === "team" || pageType === "about") {
-    const altLower = img.alt?.toLowerCase() || "";
-    const urlLower = img.url.toLowerCase();
-    const filenameLower = img.url.split("/").pop()?.toLowerCase() || "";
-    
-    // More lenient team detection - check multiple signals
     if (
       altLower.includes("team") ||
       altLower.includes("staff") ||
@@ -538,12 +780,7 @@ function categorizeImage(
     }
   }
   
-  // Subject matter: product/service images (medium priority)
-  // More lenient - check multiple signals
-  const altLower = img.alt?.toLowerCase() || "";
-  const urlLower = img.url.toLowerCase();
-  const filenameLower = img.url.split("/").pop()?.toLowerCase() || "";
-  
+  // Subject matter: product/service images
   if (
     altLower.includes("product") ||
     altLower.includes("service") ||
@@ -558,7 +795,32 @@ function categorizeImage(
     return "subject";
   }
   
+  // ✅ NEW: Photo/content - real photos that depict brand, people, product, or environment
+  // Prefer larger images that aren't icons or graphics
+  // ✅ FIXED: This now correctly handles large Squarespace CDN images that were previously misclassified
+  if (img.width && img.height) {
+    const isLarge = img.width > 300 && img.height > 300;
+    const isMedium = img.width > 200 && img.height > 200;
+    const isNotIcon = !filenameLower.includes("icon") && !altLower.includes("icon");
+    const isNotGraphic = !filenameLower.includes("graphic") && !altLower.includes("graphic");
+    
+    // Large images are likely photos/hero images
+    if (isLarge && isNotIcon && isNotGraphic) {
+      // Check if it's a hero image (large and likely above the fold)
+      if (img.width > 800 || img.height > 600) {
+        return "hero";
+      }
+      return "photo";
+    }
+    
+    // Medium images might also be photos if they're not icons
+    if (isMedium && isNotIcon && isNotGraphic) {
+      return "photo";
+    }
+  }
+  
   // Default to other - accept all images even if we can't categorize them
+  // ✅ FIXED: This ensures Squarespace CDN images without clear classification still get through
   return "other";
 }
 
@@ -591,6 +853,556 @@ function calculateImagePriority(img: CrawledImage): number {
 }
 
 /**
+ * ✅ NEW: Calculate logo selection score for Brand Guide
+ * Higher score = better candidate for primary brand logo
+ */
+function calculateLogoScore(img: CrawledImage): number {
+  let score = 0;
+  
+  // Header/nav location (strongest signal)
+  if (img.inHeaderOrNav === true) score += 4;
+  
+  // Hero/above fold location
+  if (img.inHeroOrAboveFold === true) score += 2;
+  
+  // Brand match score (multiplied for importance)
+  score += (img.brandMatchScore || 0) * 2;
+  
+  // Role is logo
+  if (img.role === "logo") score += 2;
+  
+  // Penalty for affiliate/partner sections
+  if (img.inAffiliateOrPartnerSection === true) score -= 5;
+  
+  // Size bonus (logos should be reasonable size, not tiny)
+  if (img.width && img.height) {
+    const maxDim = Math.max(img.width, img.height);
+    if (maxDim >= 40 && maxDim < 500) score += 1; // Good logo size range
+    if (maxDim < 40) score -= 2; // Too small
+  }
+  
+  // Source type bonus (SVG and CSS are often better quality)
+  if (img.sourceType === "svg") score += 1;
+  if (img.sourceType === "css-bg") score += 0.5;
+  
+  return score;
+}
+
+/**
+ * ✅ NEW: Select best logos for Brand Guide from crawl results
+ * Filters out partner/platform logos and selects top 1-2 primary logos
+ */
+export function selectBrandLogos(crawlResults: CrawlResult[]): CrawledImage[] {
+  // Collect all logo candidates from all pages
+  const allLogos: CrawledImage[] = [];
+  for (const result of crawlResults) {
+    if (result.images) {
+      const logos = result.images.filter((img): img is CrawledImage => 
+        img.role === "logo"
+      );
+      allLogos.push(...logos);
+    }
+  }
+  
+  // Filter out partner/platform logos explicitly
+  const primaryCandidates = allLogos.filter(img => {
+    // Exclude if explicitly marked as partner/platform (shouldn't happen if role is "logo", but check anyway)
+    if (img.role === "platform_logo" || img.role === "partner_logo" || img.role === "social_icon") {
+      return false;
+    }
+    
+    // Exclude if in affiliate/partner section
+    if (img.inAffiliateOrPartnerSection === true) {
+      return false;
+    }
+    
+    // Exclude if too small (likely a favicon or icon)
+    if (img.width && img.height && Math.max(img.width, img.height) < 40) {
+      return false;
+    }
+    
+    return true;
+  });
+  
+  // Calculate scores and sort
+  const scoredLogos = primaryCandidates.map(img => ({
+    img,
+    score: calculateLogoScore(img),
+  }));
+  
+  scoredLogos.sort((a, b) => b.score - a.score);
+  
+  // Select top 1-2 logos
+  const selected = scoredLogos.slice(0, 2).map(item => item.img);
+  
+  // ✅ GUARDRAIL: If no logos selected but candidates exist, use fallback
+  if (selected.length === 0 && primaryCandidates.length > 0) {
+    const fallback = primaryCandidates[0];
+    fallback.fallbackSelected = true;
+    if (process.env.DEBUG_LOGO_DETECT === "true") {
+      console.log(`[LogoSelect] No ideal logos found, using fallback: ${fallback.url.substring(0, 80)}...`);
+    }
+    return [fallback];
+  }
+  
+  // ✅ DEBUG LOGGING
+  if (process.env.DEBUG_LOGO_DETECT === "true") {
+    console.log(`[LogoSelect] Selected ${selected.length} logo(s) from ${allLogos.length} candidates:`, {
+      selected: selected.map(img => ({
+        url: img.url.substring(0, 80),
+        score: calculateLogoScore(img),
+        inHeaderOrNav: img.inHeaderOrNav,
+        brandMatchScore: img.brandMatchScore,
+        sourceType: img.sourceType,
+        dimensions: img.width && img.height ? `${img.width}x${img.height}` : "unknown",
+      })),
+      filtered: allLogos.length - primaryCandidates.length,
+    });
+  }
+  
+  return selected;
+}
+
+/**
+ * ✅ NEW: Extract logo candidates from CSS background-image, mask-image, etc.
+ * Detects logos rendered via CSS (common on Squarespace, Webflow, etc.)
+ */
+async function extractCssLogos(page: Page, baseUrl: string): Promise<CrawledImage[]> {
+  try {
+    const base = new URL(baseUrl);
+    
+    const cssLogos = await page.evaluate((baseHref) => {
+      const baseUrlObj = new URL(baseHref);
+      const results: Array<{
+        url: string;
+        width?: number;
+        height?: number;
+        role: "logo";
+        source: "css-computed";
+        confidence: "css";
+        filename?: string;
+      }> = [];
+
+      // Helper to normalize URL
+      const normalizeUrl = (src: string | null): string | null => {
+        if (!src) return null;
+        try {
+          if (src.startsWith("//")) return `${baseUrlObj.protocol}${src}`;
+          if (src.startsWith("/")) return `${baseUrlObj.origin}${src}`;
+          if (src.startsWith("http://") || src.startsWith("https://")) return src;
+          return new URL(src, baseHref).href;
+        } catch {
+          return null;
+        }
+      };
+
+      // Helper to extract filename
+      const getFilename = (url: string): string => {
+        try {
+          return new URL(url).pathname.split("/").pop() || "";
+        } catch {
+          return "";
+        }
+      };
+
+      // Logo selector patterns (common class names for logo elements)
+      const logoSelectors = [
+        ".header-logo", ".site-logo", ".logo-image", ".header__logo",
+        ".branding-logo", ".SiteHeader-branding-logo", ".site-title",
+        "[class*='logo']", "[id*='logo']", "header [class*='logo']",
+        "nav [class*='logo']", ".navbar-brand", ".brand-logo"
+      ];
+
+      // Find elements that might contain logo images
+      const candidateElements: Element[] = [];
+      logoSelectors.forEach(selector => {
+        try {
+          document.querySelectorAll(selector).forEach(el => candidateElements.push(el));
+        } catch {
+          // Invalid selector, skip
+        }
+      });
+
+      // Also check header/nav elements for background images
+      document.querySelectorAll("header, nav, .header, .navbar").forEach(el => {
+        candidateElements.push(el);
+      });
+
+      candidateElements.forEach((el) => {
+        try {
+          const style = window.getComputedStyle(el);
+          const bgImage = style.backgroundImage;
+          const maskImage = style.maskImage || (style as any).webkitMaskImage;
+          
+          // Check background-image
+          if (bgImage && bgImage !== "none") {
+            const match = bgImage.match(/url\(['"]?([^'"]+)['"]?\)/);
+            if (match && match[1]) {
+              const normalizedUrl = normalizeUrl(match[1]);
+              if (normalizedUrl) {
+                const rect = el.getBoundingClientRect();
+                const filename = getFilename(normalizedUrl);
+                const urlLower = normalizedUrl.toLowerCase();
+                const filenameLower = filename.toLowerCase();
+                
+                // Only include if it looks like a logo (has "logo" in URL/filename or is in header/nav)
+                const isInHeader = el.closest("header") !== null || el.closest("nav") !== null;
+                const hasLogoIndicator = urlLower.includes("logo") || filenameLower.includes("logo");
+                
+                if (hasLogoIndicator || isInHeader) {
+                  results.push({
+                    url: normalizedUrl,
+                    width: rect.width > 0 ? Math.round(rect.width) : undefined,
+                    height: rect.height > 0 ? Math.round(rect.height) : undefined,
+                    role: "logo",
+                    source: "css-computed",
+                    confidence: "css",
+                    filename,
+                  });
+                }
+              }
+            }
+          }
+          
+          // Check mask-image (used for SVG logos)
+          if (maskImage && maskImage !== "none") {
+            const match = maskImage.match(/url\(['"]?([^'"]+)['"]?\)/);
+            if (match && match[1]) {
+              const normalizedUrl = normalizeUrl(match[1]);
+              if (normalizedUrl) {
+                const rect = el.getBoundingClientRect();
+                const filename = getFilename(normalizedUrl);
+                const urlLower = normalizedUrl.toLowerCase();
+                
+                if (urlLower.includes("logo") || el.closest("header") !== null) {
+                  results.push({
+                    url: normalizedUrl,
+                    width: rect.width > 0 ? Math.round(rect.width) : undefined,
+                    height: rect.height > 0 ? Math.round(rect.height) : undefined,
+                    role: "logo",
+                    source: "css-computed",
+                    confidence: "css",
+                    filename,
+                  });
+                }
+              }
+            }
+          }
+        } catch (elError) {
+          // Skip this element if there's an error
+        }
+      });
+
+      return results;
+    }, baseUrl);
+
+    if (process.env.DEBUG_LOGO_DETECT === "true") {
+      console.log(`[LogoDetect] Found ${cssLogos.length} CSS background-image logo candidates`);
+    }
+
+    return cssLogos.map(logo => ({
+      url: logo.url,
+      width: logo.width,
+      height: logo.height,
+      role: "logo" as const,
+      filename: logo.filename,
+    }));
+  } catch (error) {
+    console.warn("[Crawler] Error extracting CSS logos:", error);
+    return [];
+  }
+}
+
+/**
+ * ✅ NEW: Extract inline SVG logos
+ * Detects SVG logos embedded directly in HTML (common on modern sites)
+ */
+async function extractSvgLogos(page: Page, baseUrl: string): Promise<CrawledImage[]> {
+  try {
+    const svgLogos = await page.evaluate((baseHref) => {
+      const results: Array<{
+        url: string;
+        width?: number;
+        height?: number;
+        role: "logo";
+        source: "inline-svg";
+        svgContent?: string;
+        filename?: string;
+      }> = [];
+
+      // Helper to convert SVG to data URL
+      const svgToDataUrl = (svg: SVGElement): string => {
+        const serializer = new XMLSerializer();
+        const svgString = serializer.serializeToString(svg);
+        const encoded = encodeURIComponent(svgString);
+        return `data:image/svg+xml;charset=utf-8,${encoded}`;
+      };
+
+      // Find SVG logos in common locations
+      const svgSelectors = [
+        "svg.logo",
+        "svg[role='img']",
+        "header svg",
+        "nav svg",
+        ".site-title svg",
+        ".header-logo svg",
+        ".logo svg",
+        "[class*='logo'] svg"
+      ];
+
+      const candidateSvgs: SVGElement[] = [];
+      svgSelectors.forEach(selector => {
+        try {
+          document.querySelectorAll(selector).forEach(el => {
+            if (el instanceof SVGElement) candidateSvgs.push(el);
+          });
+        } catch {
+          // Invalid selector, skip
+        }
+      });
+
+      // Also check for SVG in header/nav
+      document.querySelectorAll("header svg, nav svg").forEach(el => {
+        if (el instanceof SVGElement && !candidateSvgs.includes(el)) {
+          candidateSvgs.push(el);
+        }
+      });
+
+      // Check for SVG <use> references (SVG sprites)
+      document.querySelectorAll("use[href*='logo'], use[xlink\\:href*='logo']").forEach(useEl => {
+        const svg = useEl.closest("svg");
+        if (svg && !candidateSvgs.includes(svg)) {
+          candidateSvgs.push(svg);
+        }
+      });
+
+      candidateSvgs.forEach((svg) => {
+        try {
+          const rect = svg.getBoundingClientRect();
+          const isInHeader = svg.closest("header") !== null || svg.closest("nav") !== null;
+          const parentClasses = svg.parentElement?.className?.toLowerCase() || "";
+          const parentId = svg.parentElement?.id?.toLowerCase() || "";
+          const svgId = svg.id?.toLowerCase() || "";
+          const svgClass = svg.className?.baseVal?.toLowerCase() || "";
+          
+          // Check if this looks like a logo
+          const hasLogoIndicator = 
+            svgId.includes("logo") ||
+            svgClass.includes("logo") ||
+            parentClasses.includes("logo") ||
+            parentId.includes("logo") ||
+            isInHeader;
+
+          if (hasLogoIndicator && rect.width > 0 && rect.height > 0) {
+            const svgContent = svgToDataUrl(svg);
+            results.push({
+              url: svgContent,
+              width: Math.round(rect.width),
+              height: Math.round(rect.height),
+              role: "logo",
+              source: "inline-svg",
+              svgContent: svg.outerHTML,
+              filename: "logo.svg",
+            });
+          }
+        } catch (svgError) {
+          // Skip this SVG if there's an error
+        }
+      });
+
+      return results;
+    }, baseUrl);
+
+    if (process.env.DEBUG_LOGO_DETECT === "true") {
+      console.log(`[LogoDetect] Found ${svgLogos.length} inline SVG logo(s)`);
+    }
+
+    return svgLogos.map(logo => ({
+      url: logo.url,
+      width: logo.width,
+      height: logo.height,
+      role: "logo" as const,
+      filename: logo.filename,
+    }));
+  } catch (error) {
+    console.warn("[Crawler] Error extracting SVG logos:", error);
+    return [];
+  }
+}
+
+/**
+ * ✅ NEW: Extract favicon and mask-icon as fallback logo candidates
+ */
+async function extractFaviconLogos(page: Page, baseUrl: string): Promise<CrawledImage[]> {
+  try {
+    const base = new URL(baseUrl);
+    
+    const faviconLogos = await page.evaluate((baseHref) => {
+      const baseUrlObj = new URL(baseHref);
+      const results: Array<{
+        url: string;
+        role: "logo";
+        source: "favicon";
+        fallback: true;
+        filename?: string;
+      }> = [];
+
+      // Helper to normalize URL
+      const normalizeUrl = (src: string | null): string | null => {
+        if (!src) return null;
+        try {
+          if (src.startsWith("//")) return `${baseUrlObj.protocol}${src}`;
+          if (src.startsWith("/")) return `${baseUrlObj.origin}${src}`;
+          if (src.startsWith("http://") || src.startsWith("https://")) return src;
+          return new URL(src, baseHref).href;
+        } catch {
+          return null;
+        }
+      };
+
+      // Check for favicon links
+      const faviconSelectors = [
+        'link[rel="icon"]',
+        'link[rel="shortcut icon"]',
+        'link[rel="mask-icon"]',
+        'link[rel="apple-touch-icon"]'
+      ];
+
+      faviconSelectors.forEach(selector => {
+        try {
+          document.querySelectorAll(selector).forEach(link => {
+            const href = link.getAttribute("href");
+            if (href) {
+              const normalizedUrl = normalizeUrl(href);
+              if (normalizedUrl) {
+                const filename = normalizedUrl.split("/").pop() || "favicon.ico";
+                results.push({
+                  url: normalizedUrl,
+                  role: "logo",
+                  source: "favicon",
+                  fallback: true,
+                  filename,
+                });
+              }
+            }
+          });
+        } catch {
+          // Invalid selector, skip
+        }
+      });
+
+      return results;
+    }, baseUrl);
+
+    if (process.env.DEBUG_LOGO_DETECT === "true" && faviconLogos.length > 0) {
+      console.log(`[LogoDetect] Favicon used as fallback logo: ${faviconLogos[0].url}`);
+    }
+
+    return faviconLogos.map(logo => ({
+      url: logo.url,
+      role: "logo" as const,
+      filename: logo.filename,
+    }));
+  } catch (error) {
+    console.warn("[Crawler] Error extracting favicon logos:", error);
+    return [];
+  }
+}
+
+/**
+ * ✅ NEW: Extract logo from OpenGraph metadata as fallback
+ */
+async function extractOgLogo(page: Page, baseUrl: string): Promise<CrawledImage | null> {
+  try {
+    const ogMetadata = await extractOpenGraphMetadata(page, baseUrl);
+    
+    // Prefer og:image, fallback to twitter:image
+    const ogImage = ogMetadata?.image || ogMetadata?.twitterImage;
+    
+    if (ogImage) {
+      if (process.env.DEBUG_LOGO_DETECT === "true") {
+        console.log(`[LogoDetect] OG image used as fallback logo: ${ogImage}`);
+      }
+      
+      return {
+        url: ogImage,
+        role: "logo" as const,
+        filename: ogImage.split("/").pop() || "og-image.jpg",
+      };
+    }
+    
+    return null;
+  } catch (error) {
+    console.warn("[Crawler] Error extracting OG logo:", error);
+    return null;
+  }
+}
+
+/**
+ * ✅ NEW: Merge logo candidates from all sources with priority ordering
+ * Priority: Inline SVG > CSS background-image > <img> tags > OG image > Favicon
+ */
+function mergeLogoCandidates(
+  htmlLogos: CrawledImage[],
+  cssLogos: CrawledImage[],
+  svgLogos: CrawledImage[],
+  faviconLogo: CrawledImage | null,
+  ogLogo: CrawledImage | null
+): CrawledImage[] {
+  const merged: CrawledImage[] = [];
+  const seen = new Set<string>();
+
+  // Priority 1: Inline SVG logos (strongest signal)
+  svgLogos.forEach(logo => {
+    if (!seen.has(logo.url)) {
+      merged.push(logo);
+      seen.add(logo.url);
+    }
+  });
+
+  // Priority 2: CSS background-image logos
+  cssLogos.forEach(logo => {
+    if (!seen.has(logo.url)) {
+      merged.push(logo);
+      seen.add(logo.url);
+    }
+  });
+
+  // Priority 3: HTML <img> logos
+  htmlLogos.forEach(logo => {
+    if (!seen.has(logo.url)) {
+      merged.push(logo);
+      seen.add(logo.url);
+    }
+  });
+
+  // Priority 4: OG image (only if no other logos found)
+  if (merged.length === 0 && ogLogo && !seen.has(ogLogo.url)) {
+    merged.push(ogLogo);
+    seen.add(ogLogo.url);
+  }
+
+  // Priority 5: Favicon (only if no other logos found)
+  if (merged.length === 0 && faviconLogo && !seen.has(faviconLogo.url)) {
+    merged.push(faviconLogo);
+    seen.add(faviconLogo.url);
+  }
+
+  if (process.env.DEBUG_LOGO_DETECT === "true") {
+    console.log(`[LogoDetect] Merged logo candidates:`, {
+      svgLogos: svgLogos.length,
+      cssLogos: cssLogos.length,
+      htmlLogos: htmlLogos.length,
+      ogLogo: ogLogo ? 1 : 0,
+      faviconLogo: faviconLogo ? 1 : 0,
+      totalMerged: merged.length,
+    });
+  }
+
+  return merged;
+}
+
+/**
  * Extract images from a page with smart prioritization
  * 
  * SIMPLIFIED & ROBUST: 
@@ -598,6 +1410,7 @@ function calculateImagePriority(img: CrawledImage): number {
  * - More lenient filtering (accepts images without dimensions)
  * - Better error handling
  * - Logs extraction progress
+ * - ✅ ENHANCED: Now extracts logos from CSS, SVG, favicon, and OG metadata
  */
 async function extractImages(page: Page, baseUrl: string, brandName?: string): Promise<CrawledImage[]> {
   try {
@@ -613,6 +1426,14 @@ async function extractImages(page: Page, baseUrl: string, brandName?: string): P
     // Wait a bit more for lazy-loaded images
     await page.waitForTimeout(1000);
     
+    // ✅ NEW: Get page context for brand matching
+    const pageContext = await page.evaluate(() => {
+      const title = document.title || "";
+      const ogSiteName = document.querySelector('meta[property="og:site_name"]')?.getAttribute("content") || "";
+      const mainH1 = document.querySelector("h1")?.textContent?.trim() || "";
+      return { title, ogSiteName, mainH1 };
+    });
+
     const images = await page.evaluate((args) => {
       const { url, brandName } = args;
       const base = new URL(url);
@@ -623,6 +1444,11 @@ async function extractImages(page: Page, baseUrl: string, brandName?: string): P
         height?: number;
         role?: "logo" | "hero" | "other";
         filename?: string;
+        // ✅ NEW: Context metadata
+        inHeaderOrNav?: boolean;
+        inFooter?: boolean;
+        inAffiliateOrPartnerSection?: boolean;
+        inHeroOrAboveFold?: boolean;
       }> = [];
 
       // Helper to normalize URL
@@ -657,6 +1483,40 @@ async function extractImages(page: Page, baseUrl: string, brandName?: string): P
         }
       };
 
+      // ✅ NEW: Helper to detect if element is in affiliate/partner section
+      const isInAffiliateSection = (el: Element): boolean => {
+        let current: Element | null = el;
+        const maxDepth = 10; // Prevent infinite loops
+        let depth = 0;
+        
+        while (current && depth < maxDepth) {
+          const text = current.textContent?.toLowerCase() || "";
+          const heading = current.querySelector("h1, h2, h3, h4, h5, h6")?.textContent?.toLowerCase() || "";
+          const ariaLabel = current.getAttribute("aria-label")?.toLowerCase() || "";
+          const className = current.className?.toString().toLowerCase() || "";
+          const id = current.id?.toLowerCase() || "";
+          
+          const combinedText = `${text} ${heading} ${ariaLabel} ${className} ${id}`;
+          
+          const affiliateKeywords = [
+            "partner", "partners", "association", "associations",
+            "affiliation", "affiliations", "member", "membership",
+            "vendor", "vendors", "technology partners", "sponsor", "sponsored",
+            "powered by", "as seen on", "featured in", "cause", "we support",
+            "community partners", "brokers", "advisors", "custodian"
+          ];
+          
+          if (affiliateKeywords.some(keyword => combinedText.includes(keyword))) {
+            return true;
+          }
+          
+          current = current.parentElement;
+          depth++;
+        }
+        
+        return false;
+      };
+
       // Extract <img> tags
       const imgElements = document.querySelectorAll("img");
       console.log(`[Browser] Found ${imgElements.length} img elements`);
@@ -688,33 +1548,71 @@ async function extractImages(page: Page, baseUrl: string, brandName?: string): P
           const alt = img.getAttribute("alt") || undefined;
           const filename = getFilename(normalizedUrl);
 
+          // ✅ NEW: Detect context
+          const isInHeader = img.closest("header") !== null || img.closest("nav") !== null;
+          const headerNavClasses = ["header", "site-header", "navbar", "top-nav", "logo-bar", "main-header", "site-header"];
+          const isInHeaderByClass = headerNavClasses.some(cls => {
+            const ancestor = img.closest(`.${cls}, #${cls}, [class*="${cls}"], [id*="${cls}"]`);
+            return ancestor !== null;
+          });
+          const inHeaderOrNav = isInHeader || isInHeaderByClass;
+          
+          const isInFooter = img.closest("footer") !== null;
+          const footerClasses = ["footer", "site-footer", "page-footer"];
+          const isInFooterByClass = footerClasses.some(cls => {
+            const ancestor = img.closest(`.${cls}, #${cls}, [class*="${cls}"], [id*="${cls}"]`);
+            return ancestor !== null;
+          });
+          const inFooter = isInFooter || isInFooterByClass;
+          
+          const inAffiliateOrPartnerSection = isInAffiliateSection(img);
+          
+          const rect = img.getBoundingClientRect();
+          const isAboveFold = rect.top < window.innerHeight * 1.5; // Within 1.5 viewport heights
+          const heroClasses = ["hero", "banner", "masthead", "jumbotron", "hero-section"];
+          const isInHeroByClass = heroClasses.some(cls => {
+            const ancestor = img.closest(`.${cls}, [class*="${cls}"]`);
+            return ancestor !== null;
+          });
+          const inHeroOrAboveFold = isAboveFold || isInHeroByClass;
+
           // Determine initial role (will be refined later)
           let role: "logo" | "hero" | "other" = "other";
 
-          // Enhanced logo detection
+          // ✅ IMPROVED: Stricter logo detection - prioritize size and location
           const altLower = alt?.toLowerCase() || "";
           const filenameLower = filename.toLowerCase();
           const parentClasses = img.parentElement?.className?.toLowerCase() || "";
           const parentId = img.parentElement?.id?.toLowerCase() || "";
-          const isInHeader = img.closest("header") !== null || img.closest("nav") !== null;
           const isSmall = width ? (width < 400 && height ? height < 400 : false) : false;
+          const isVerySmall = width ? (width < 300 && height ? height < 300 : false) : false;
+          const isLarge = width && height && ((width > 600 && height > 400) || (width > 400 && height > 600));
           const brandNameLower = brandName?.toLowerCase().replace(/\s+/g, "-") || "";
 
-          if (
-            altLower.includes("logo") ||
+          // ✅ STRICT LOGO DETECTION: Only classify as logo if:
+          // 1. Small image (< 400px) AND (in header/nav OR has clear logo indicators)
+          // 2. Very small image (< 300px) with logo indicators
+          // Large images are never logos - they're hero/brand images
+          const hasLogoIndicator = altLower.includes("logo") ||
             filenameLower.includes("logo") ||
             (brandNameLower && (filenameLower.includes(brandNameLower) || altLower.includes(brandName?.toLowerCase() || ""))) ||
             parentClasses.includes("logo") ||
-            parentId.includes("logo") ||
-            (isInHeader && isSmall)
-          ) {
+            parentId.includes("logo");
+          
+          if (isLarge) {
+            // Large images are hero/brand images, never logos
+            role = inHeroOrAboveFold ? "hero" : "other";
+          } else if ((inHeaderOrNav && (isSmall || isVerySmall)) || (hasLogoIndicator && isVerySmall)) {
+            // Only small images in header/nav or very small with logo indicators
             role = "logo";
           } else if (
-            // Hero detection: large image near top of page (more lenient - accept if width OR height is large)
-            width && height && ((width > 600 && height > 400) || (width > 400 && height > 600)) &&
-            img.offsetTop < window.innerHeight * 2 // More lenient - check within 2 viewport heights
+            // Hero detection: large image near top of page
+            isLarge && img.offsetTop < window.innerHeight * 2
           ) {
             role = "hero";
+          } else if (hasLogoIndicator && !isSmall) {
+            // Has logo indicator but not small - likely a brand image, not a logo
+            role = inHeroOrAboveFold ? "hero" : "other";
           }
 
           results.push({
@@ -724,6 +1622,10 @@ async function extractImages(page: Page, baseUrl: string, brandName?: string): P
             height,
             role,
             filename,
+            inHeaderOrNav,
+            inFooter,
+            inAffiliateOrPartnerSection,
+            inHeroOrAboveFold,
           });
         } catch (imgError) {
           // Skip this image if there's an error, but continue with others
@@ -764,27 +1666,131 @@ async function extractImages(page: Page, baseUrl: string, brandName?: string): P
       return results;
     }, { url: baseUrl, brandName: brandName || undefined });
     
-    console.log(`[Crawler] Extracted ${images.length} images from page ${baseUrl}`);
+    console.log(`[Crawler] Extracted ${images.length} HTML images from page ${baseUrl}`);
 
-    // Deduplicate by URL
+    // ✅ ENHANCED: Extract logos from CSS, SVG, favicon, and OG metadata
+    const cssLogos = await extractCssLogos(page, baseUrl).catch(() => []);
+    const svgLogos = await extractSvgLogos(page, baseUrl).catch(() => []);
+    const faviconLogos = await extractFaviconLogos(page, baseUrl).catch(() => []);
+    const faviconLogo = faviconLogos.length > 0 ? faviconLogos[0] : null;
+    const ogLogo = await extractOgLogo(page, baseUrl).catch(() => null);
+
+    // ✅ NEW: Enrich HTML logos with context and brand match scores
+    const htmlLogos: CrawledImage[] = images
+      .filter(img => img.role === "logo")
+      .map(img => {
+        const brandMatchScore = calculateBrandMatchScore(
+          img,
+          brandName,
+          pageContext.title,
+          pageContext.ogSiteName,
+          pageContext.mainH1
+        );
+        return {
+          url: img.url,
+          alt: img.alt,
+          width: img.width,
+          height: img.height,
+          role: "logo" as const,
+          filename: img.filename,
+          inHeaderOrNav: img.inHeaderOrNav,
+          inFooter: img.inFooter,
+          inAffiliateOrPartnerSection: img.inAffiliateOrPartnerSection,
+          inHeroOrAboveFold: img.inHeroOrAboveFold,
+          brandMatchScore,
+          sourceType: "html-img" as const,
+        };
+      });
+    const htmlNonLogos = images.filter(img => img.role !== "logo");
+
+    // ✅ NEW: Enrich CSS/SVG/favicon/OG logos with context
+    const enrichedCssLogos: CrawledImage[] = cssLogos.map(logo => ({
+      ...logo,
+      role: "logo" as const,
+      inHeaderOrNav: true, // CSS logos are typically in header/nav
+      sourceType: "css-bg" as const,
+      brandMatchScore: calculateBrandMatchScore(logo, brandName, pageContext.title, pageContext.ogSiteName, pageContext.mainH1),
+    }));
+    
+    const enrichedSvgLogos: CrawledImage[] = svgLogos.map(logo => ({
+      ...logo,
+      role: "logo" as const,
+      inHeaderOrNav: true, // SVG logos are typically in header/nav
+      sourceType: "svg" as const,
+      brandMatchScore: calculateBrandMatchScore(logo, brandName, pageContext.title, pageContext.ogSiteName, pageContext.mainH1),
+    }));
+    
+    const enrichedFaviconLogo: CrawledImage | null = faviconLogo ? {
+      ...faviconLogo,
+      role: "logo" as const,
+      sourceType: "favicon" as const,
+      brandMatchScore: 0, // Favicon is fallback, low brand match
+    } : null;
+    
+    const enrichedOgLogo: CrawledImage | null = ogLogo ? {
+      ...ogLogo,
+      role: "logo" as const,
+      sourceType: "og" as const,
+      brandMatchScore: calculateBrandMatchScore(ogLogo, brandName, pageContext.title, pageContext.ogSiteName, pageContext.mainH1),
+    } : null;
+
+    // ✅ MERGE: Combine all logo sources with priority ordering
+    const mergedLogos = mergeLogoCandidates(htmlLogos, enrichedCssLogos, enrichedSvgLogos, enrichedFaviconLogo, enrichedOgLogo);
+
+    // Deduplicate non-logo images by URL
     const seen = new Set<string>();
-    const uniqueImages = images.filter((img) => {
+    const uniqueNonLogos = htmlNonLogos.filter((img) => {
       if (seen.has(img.url)) return false;
       seen.add(img.url);
       return true;
     });
 
+    // Combine merged logos with other images
+    const allImages = [...mergedLogos, ...uniqueNonLogos];
+
     // Categorize and enrich images with page type and priority
-    const categorizedImages: CrawledImage[] = uniqueImages.map((img) => {
-      const categorized = categorizeImage(img, baseUrl, pageType, brandName);
+    // ✅ IMPROVED: Re-evaluate all images, including those initially marked as logos
+    const categorizedImages: CrawledImage[] = allImages.map((img) => {
+      // ✅ STRICT LOGO VALIDATION: Re-classify oversized "logos" as brand images
+      // If image is > 400px in either dimension, it's likely a hero/brand image, not a logo
+      const isOversizedForLogo = img.width && img.height && 
+        (img.width > 400 || img.height > 400 || (img.width * img.height > 200000)); // > 200k pixels
+      
+      // ✅ RE-EVALUATE: Even if marked as logo, re-check if it should be a brand image
+      let roleToAssign = img.role || "other";
+      
+      if (img.role === "logo" && isOversizedForLogo) {
+        // Oversized logo - reclassify as hero/photo based on context
+        if (img.inHeroOrAboveFold || (img.width && img.height && img.width > 600 && img.height > 400)) {
+          roleToAssign = "hero";
+        } else {
+          roleToAssign = "photo"; // Large brand image, not a logo
+        }
+      } else {
+        // Standard categorization - allow re-evaluation even for logos
+        roleToAssign = categorizeImage(img, baseUrl, pageType, brandName);
+        
+        // ✅ DOUBLE-CHECK: If categorized as logo but oversized, downgrade to brand image
+        if (roleToAssign === "logo" && isOversizedForLogo) {
+          roleToAssign = img.inHeroOrAboveFold ? "hero" : "photo";
+        }
+      }
+      
       return {
         url: img.url,
         alt: img.alt,
         width: img.width,
         height: img.height,
-        role: categorized,
+        role: roleToAssign,
         pageType,
         filename: img.filename,
+        // ✅ PRESERVE: Keep context fields from extraction (with type safety)
+        inHeaderOrNav: "inHeaderOrNav" in img ? img.inHeaderOrNav : undefined,
+        inFooter: "inFooter" in img ? img.inFooter : undefined,
+        inAffiliateOrPartnerSection: "inAffiliateOrPartnerSection" in img ? img.inAffiliateOrPartnerSection : undefined,
+        inHeroOrAboveFold: "inHeroOrAboveFold" in img ? img.inHeroOrAboveFold : undefined,
+        brandMatchScore: "brandMatchScore" in img ? img.brandMatchScore : undefined,
+        sourceType: "sourceType" in img ? img.sourceType : undefined,
       };
     });
 
@@ -825,6 +1831,32 @@ async function extractImages(page: Page, baseUrl: string, brandName?: string): P
 
     // Limit to 15 images max (10-15 range as specified)
     const finalImages = filteredImages.slice(0, 15);
+    
+    // ✅ ENHANCED: Log classification summary with role breakdown
+    const logoCount = finalImages.filter(img => img.role === "logo").length;
+    const heroCount = finalImages.filter(img => img.role === "hero").length;
+    const photoCount = finalImages.filter(img => img.role === "photo").length;
+    const otherCount = finalImages.filter(img => !["logo", "hero", "photo"].includes(img.role || "")).length;
+    
+    console.log(`[Crawler] Logo detection summary for ${baseUrl}:`, {
+      totalImages: finalImages.length,
+      logosFound: logoCount,
+      heroesFound: heroCount,
+      photosFound: photoCount,
+      otherImages: otherCount,
+      logosFromSvg: svgLogos.length,
+      logosFromCss: cssLogos.length,
+      logosFromHtml: htmlLogos.length,
+      logosFromOg: ogLogo ? 1 : 0,
+      logosFromFavicon: faviconLogo ? 1 : 0,
+      roleBreakdown: {
+        logo: logoCount,
+        hero: heroCount,
+        photo: photoCount,
+        other: otherCount,
+      },
+    });
+    
     console.log(`[Crawler] Returning ${finalImages.length} images for page ${baseUrl}`);
     
     return finalImages;
@@ -949,6 +1981,12 @@ async function extractPageContent(
     return undefined;
   });
 
+  // ✅ Extract Open Graph metadata
+  const openGraph = await extractOpenGraphMetadata(page, url).catch((error) => {
+    console.warn("[Crawler] Error extracting Open Graph metadata:", error);
+    return undefined;
+  });
+
   // Create hash for deduplication
   const hash = crypto.createHash("md5").update(bodyText).digest("hex");
 
@@ -964,7 +2002,106 @@ async function extractPageContent(
     images,
     headlines,
     typography,
+    openGraph,
   };
+}
+
+/**
+ * Extract Open Graph metadata from page
+ * Extracts og:title, og:description, og:image, og:url, og:type, and Twitter Card tags
+ * Normalizes relative URLs to absolute URLs
+ */
+async function extractOpenGraphMetadata(
+  page: Page,
+  baseUrl: string
+): Promise<OpenGraphMetadata | undefined> {
+  try {
+    const base = new URL(baseUrl);
+    
+    const ogData = await page.evaluate((baseHref) => {
+      const baseUrlObj = new URL(baseHref);
+      const metadata: Record<string, string> = {};
+
+      // Extract Open Graph tags
+      document.querySelectorAll('meta[property^="og:"]').forEach((meta) => {
+        const property = meta.getAttribute("property");
+        const content = meta.getAttribute("content");
+        if (property && content) {
+          // Remove "og:" prefix
+          const key = property.replace("og:", "");
+          metadata[key] = content;
+        }
+      });
+
+      // Extract Twitter Card tags
+      document.querySelectorAll('meta[name^="twitter:"]').forEach((meta) => {
+        const name = meta.getAttribute("name");
+        const content = meta.getAttribute("content");
+        if (name && content) {
+          // Remove "twitter:" prefix and add twitter prefix
+          const key = `twitter${name.replace("twitter:", "")}`;
+          metadata[key] = content;
+        }
+      });
+
+      // Normalize relative URLs to absolute URLs
+      const normalizeUrl = (url: string | undefined): string | undefined => {
+        if (!url) return undefined;
+        try {
+          // If already absolute, return as-is
+          if (url.startsWith("http://") || url.startsWith("https://")) {
+            return url;
+          }
+          // If protocol-relative, add protocol
+          if (url.startsWith("//")) {
+            return `${baseUrlObj.protocol}${url}`;
+          }
+          // If root-relative, prepend origin
+          if (url.startsWith("/")) {
+            return `${baseUrlObj.origin}${url}`;
+          }
+          // If relative, resolve against base URL
+          return new URL(url, baseHref).href;
+        } catch {
+          return undefined;
+        }
+      };
+
+      // Normalize URLs
+      if (metadata.image) {
+        metadata.image = normalizeUrl(metadata.image) || metadata.image;
+      }
+      if (metadata.url) {
+        metadata.url = normalizeUrl(metadata.url) || metadata.url;
+      }
+      if (metadata.twitterImage) {
+        metadata.twitterImage = normalizeUrl(metadata.twitterImage) || metadata.twitterImage;
+      }
+
+      return metadata;
+    }, baseUrl);
+
+    // Return undefined if no OG data found
+    if (!ogData || Object.keys(ogData).length === 0) {
+      return undefined;
+    }
+
+    return {
+      title: ogData.title || undefined,
+      description: ogData.description || undefined,
+      image: ogData.image || undefined,
+      url: ogData.url || undefined,
+      type: ogData.type || undefined,
+      siteName: ogData.site_name || undefined,
+      twitterTitle: ogData.twitterTitle || undefined,
+      twitterDescription: ogData.twitterDescription || undefined,
+      twitterImage: ogData.twitterImage || undefined,
+      twitterCard: ogData.twitterCard || undefined,
+    };
+  } catch (error) {
+    console.error("[Crawler] Error extracting Open Graph metadata:", error);
+    return undefined;
+  }
 }
 
 /**
@@ -1067,7 +2204,8 @@ async function extractTypography(page: Page): Promise<TypographyData | undefined
 }
 
 /**
- * Extract color palette using node-vibrant
+ * ✅ ENHANCED: Extract color palette focusing on UI/brand colors
+ * Prioritizes colors from UI elements (header, nav, buttons, CSS variables) over photo colors
  */
 export async function extractColors(url: string): Promise<ColorPalette> {
   let browser: Browser | null = null;
@@ -1075,52 +2213,201 @@ export async function extractColors(url: string): Promise<ColorPalette> {
   try {
     browser = await launchBrowser();
     const page = await browser.newPage({ userAgent: CRAWL_USER_AGENT });
+    
+    // Prevent bundler-generated helpers from breaking in the browser context
+    await page.addInitScript(() => {
+      // Some bundlers emit calls like __name(fn, "fnName") for stack traces.
+      // Define a no-op helper so these calls do not throw ReferenceError.
+      (window as any).__name ??= (fn: unknown, _name?: string) => fn;
+    });
+    
     await page.goto(url, {
       timeout: CRAWL_TIMEOUT_MS,
       waitUntil: "networkidle",
     });
 
-    // Take screenshot
-    const screenshot = await page.screenshot({ fullPage: false });
+    // ✅ NEW: Extract UI colors from CSS and computed styles
+    const uiColors = await page.evaluate(() => {
+      const colorCandidates: Map<string, { count: number; source: "ui" | "image" }> = new Map();
+      
+      // Helper to normalize hex color
+      const normalizeHex = (color: string): string | null => {
+        // Handle rgb/rgba
+        if (color.startsWith("rgb")) {
+          const match = color.match(/\d+/g);
+          if (match && match.length >= 3) {
+            const r = parseInt(match[0]);
+            const g = parseInt(match[1]);
+            const b = parseInt(match[2]);
+            return `#${[r, g, b].map(x => x.toString(16).padStart(2, "0")).join("")}`;
+          }
+        }
+        // Handle hex
+        if (color.startsWith("#")) {
+          if (color.length === 4) {
+            // #RGB -> #RRGGBB
+            return `#${color[1]}${color[1]}${color[2]}${color[2]}${color[3]}${color[3]}`;
+          }
+          return color.length === 7 ? color : null;
+        }
+        return null;
+      };
+      
+      // Helper to add color with weight
+      const addColor = (color: string, source: "ui" | "image", weight: number = 1) => {
+        const normalized = normalizeHex(color);
+        if (!normalized) return;
+        const existing = colorCandidates.get(normalized);
+        if (existing) {
+          existing.count += weight;
+          // Prefer UI source over image source
+          if (source === "ui" && existing.source === "image") {
+            existing.source = "ui";
+          }
+        } else {
+          colorCandidates.set(normalized, { count: weight, source });
+        }
+      };
+      
+      // ✅ PRIORITY 1: CSS Variables (--primary, --secondary, --accent, --brand-*)
+      const rootStyle = getComputedStyle(document.documentElement);
+      const cssVars = [
+        "--primary", "--secondary", "--accent", "--brand-primary", "--brand-secondary",
+        "--color-primary", "--color-secondary", "--main-color", "--accent-color"
+      ];
+      cssVars.forEach(varName => {
+        const value = rootStyle.getPropertyValue(varName).trim();
+        if (value) {
+          addColor(value, "ui", 5); // High weight for CSS variables
+        }
+      });
+      
+      // ✅ PRIORITY 2: Header/Nav background and text colors
+      const headerNav = document.querySelectorAll("header, nav, .header, .navbar, .site-header");
+      headerNav.forEach(el => {
+        const style = getComputedStyle(el);
+        // Background color
+        if (style.backgroundColor && style.backgroundColor !== "transparent" && style.backgroundColor !== "rgba(0, 0, 0, 0)") {
+          addColor(style.backgroundColor, "ui", 4);
+        }
+        // Text color
+        if (style.color) {
+          addColor(style.color, "ui", 2);
+        }
+        // Border color
+        if (style.borderColor && style.borderColor !== "transparent") {
+          addColor(style.borderColor, "ui", 1);
+        }
+      });
+      
+      // ✅ PRIORITY 3: Button and CTA colors
+      const buttons = document.querySelectorAll("button, .btn, .button, [class*='cta'], [class*='button'], a[class*='btn']");
+      buttons.forEach(btn => {
+        const style = getComputedStyle(btn);
+        // Background color
+        if (style.backgroundColor && style.backgroundColor !== "transparent" && style.backgroundColor !== "rgba(0, 0, 0, 0)") {
+          addColor(style.backgroundColor, "ui", 3);
+        }
+        // Text color
+        if (style.color) {
+          addColor(style.color, "ui", 2);
+        }
+      });
+      
+      // ✅ PRIORITY 4: Accent elements (badges, tags, chips)
+      const accentElements = document.querySelectorAll(".badge, .tag, .chip, [class*='badge'], [class*='tag'], [class*='pill']");
+      accentElements.forEach(el => {
+        const style = getComputedStyle(el);
+        if (style.backgroundColor && style.backgroundColor !== "transparent" && style.backgroundColor !== "rgba(0, 0, 0, 0)") {
+          addColor(style.backgroundColor, "ui", 2);
+        }
+      });
+      
+      // ✅ PRIORITY 5: Hero section overlays and text
+      const heroSections = document.querySelectorAll(".hero, .banner, .masthead, [class*='hero'], [class*='banner']");
+      heroSections.forEach(hero => {
+        const style = getComputedStyle(hero);
+        // Text color in hero (often brand color)
+        if (style.color) {
+          addColor(style.color, "ui", 2);
+        }
+        // Background gradient colors (extract first color)
+        if (style.backgroundImage && style.backgroundImage.includes("gradient")) {
+          const gradientMatch = style.backgroundImage.match(/rgb\([^)]+\)/);
+          if (gradientMatch) {
+            addColor(gradientMatch[0], "ui", 1);
+          }
+        }
+      });
+      
+      // ✅ DE-PRIORITIZE: Colors from images (lower weight)
+      // We'll still extract from screenshot but with lower priority
+      const images = document.querySelectorAll("img");
+      images.forEach(img => {
+        // Skip large hero images (likely photos)
+        if (img.naturalWidth > 800 || img.naturalHeight > 600) {
+          // These are likely photos, skip
+          return;
+        }
+        // Small images might be logos/brand elements, but still lower priority
+        const style = getComputedStyle(img);
+        if (style.borderColor && style.borderColor !== "transparent") {
+          addColor(style.borderColor, "image", 0.5);
+        }
+      });
+      
+      // Sort by count (frequency) and source (UI preferred)
+      const sorted = Array.from(colorCandidates.entries())
+        .sort((a, b) => {
+          // Prefer UI colors
+          if (a[1].source === "ui" && b[1].source === "image") return -1;
+          if (a[1].source === "image" && b[1].source === "ui") return 1;
+          // Then by count
+          return b[1].count - a[1].count;
+        })
+        .slice(0, 12); // Get top 12 candidates
+      
+      return sorted.map(([color]) => color);
+    });
 
-    // Extract colors with vibrant
+    // ✅ FALLBACK: Extract from screenshot if UI colors are insufficient
+    const screenshot = await page.screenshot({ fullPage: false });
     const palette = await Vibrant.from(screenshot).getPalette();
 
-    // Extract up to 6 colors: 3 primary (most dominant) + 3 secondary/accent
-    const primaryColors: string[] = [];
-    const secondaryColors: string[] = [];
+    // Combine UI colors with screenshot colors
+    const allColorCandidates: string[] = [...uiColors];
+    
+    // Add screenshot colors (but with lower priority if they're not in UI colors)
+    const screenshotColors = [
+      palette.Vibrant?.hex,
+      palette.Muted?.hex,
+      palette.DarkVibrant?.hex,
+      palette.LightVibrant?.hex,
+      palette.LightMuted?.hex,
+      palette.DarkMuted?.hex,
+    ].filter((c): c is string => !!c);
+    
+    // Only add screenshot colors that aren't already in UI colors
+    screenshotColors.forEach(color => {
+      const normalized = color.startsWith("#") ? color : `#${color}`;
+      if (!allColorCandidates.includes(normalized)) {
+        allColorCandidates.push(normalized);
+      }
+    });
 
-    // Primary colors (most dominant)
-    if (palette.Vibrant?.hex) primaryColors.push(palette.Vibrant.hex);
-    if (palette.Muted?.hex && !primaryColors.includes(palette.Muted.hex)) {
-      primaryColors.push(palette.Muted.hex);
-    }
-    if (palette.DarkVibrant?.hex && !primaryColors.includes(palette.DarkVibrant.hex)) {
-      primaryColors.push(palette.DarkVibrant.hex);
-    }
-
-    // Secondary/accent colors
-    if (palette.LightVibrant?.hex && !primaryColors.includes(palette.LightVibrant.hex)) {
-      secondaryColors.push(palette.LightVibrant.hex);
-    }
-    if (palette.LightMuted?.hex && !primaryColors.includes(palette.LightMuted.hex) && !secondaryColors.includes(palette.LightMuted.hex)) {
-      secondaryColors.push(palette.LightMuted.hex);
-    }
-    if (palette.DarkMuted?.hex && !primaryColors.includes(palette.DarkMuted.hex) && !secondaryColors.includes(palette.DarkMuted.hex)) {
-      secondaryColors.push(palette.DarkMuted.hex);
-    }
-
+    // ✅ FILTER: Remove near-duplicates and skin tones/photo colors
+    const filteredColors = filterBrandColors(allColorCandidates);
+    
     // Normalize to hex (ensure # prefix)
     const normalizeHex = (color: string | undefined): string | undefined => {
       if (!color) return undefined;
       return color.startsWith("#") ? color : `#${color}`;
     };
 
-    // Build 6-color palette structure
-    const allColors = [
-      ...primaryColors.map(normalizeHex).filter((c): c is string => !!c),
-      ...secondaryColors.map(normalizeHex).filter((c): c is string => !!c),
-    ].slice(0, 6); // Max 6 colors
+    // Build 6-color palette structure (prioritize UI colors)
+    const primaryColors = filteredColors.slice(0, 3).map(normalizeHex).filter((c): c is string => !!c);
+    const secondaryColors = filteredColors.slice(3, 6).map(normalizeHex).filter((c): c is string => !!c);
+    const allColors = [...primaryColors, ...secondaryColors].slice(0, 6);
 
     // If we have fewer than 6, that's fine - return what we have
     const primary = allColors[0] || undefined;
@@ -1138,15 +2425,117 @@ export async function extractColors(url: string): Promise<ColorPalette> {
       allColors, // All 6 colors
     };
 
+    // ✅ DEBUG LOGGING
+    if (process.env.DEBUG_COLOR_EXTRACT === "true") {
+      console.log(`[ColorExtract] Extracted palette for ${url}:`, {
+        uiColors: uiColors.length,
+        screenshotColors: screenshotColors.length,
+        filtered: filteredColors.length,
+        finalPalette: allColors,
+        primary,
+        secondary,
+        accent,
+      });
+    }
+
     await browser.close();
     return colors;
   } catch (error) {
     console.error("[Crawler] Error extracting colors:", error);
-    // ❌ NO FALLBACK - throw error instead of returning mock data
-    throw new Error(`Color extraction failed: ${error instanceof Error ? error.message : "Unknown error"}`);
+    // ✅ GUARDRAIL: Fallback to minimal palette if extraction fails
+    if (process.env.DEBUG_COLOR_EXTRACT === "true") {
+      console.warn("[ColorExtract] Color extraction failed, using fallback palette");
+    }
+    // Return minimal fallback palette
+    return {
+      primary: "#312E81",
+      secondary: "#6366F1",
+      accent: "#8B5CF6",
+      confidence: 0,
+      primaryColors: ["#312E81", "#6366F1", "#8B5CF6"],
+      secondaryColors: [],
+      allColors: ["#312E81", "#6366F1", "#8B5CF6"],
+    };
   } finally {
     if (browser) await browser.close();
   }
+}
+
+/**
+ * ✅ NEW: Filter brand colors - remove near-duplicates and photo colors
+ */
+function filterBrandColors(colors: string[]): string[] {
+  const filtered: string[] = [];
+  const seen = new Set<string>();
+  
+  // Helper to calculate color distance
+  const colorDistance = (hex1: string, hex2: string): number => {
+    const rgb1 = hexToRgb(hex1);
+    const rgb2 = hexToRgb(hex2);
+    if (!rgb1 || !rgb2) return Infinity;
+    return Math.sqrt(
+      Math.pow(rgb1.r - rgb2.r, 2) +
+      Math.pow(rgb1.g - rgb2.g, 2) +
+      Math.pow(rgb1.b - rgb2.b, 2)
+    );
+  };
+  
+  // Helper to check if color is likely a skin tone or photo color
+  const isPhotoColor = (hex: string): boolean => {
+    const rgb = hexToRgb(hex);
+    if (!rgb) return false;
+    
+    // Skin tone range (beige, tan, peach)
+    const isSkinTone = rgb.r > 200 && rgb.g > 150 && rgb.b > 100 && rgb.r - rgb.g < 50;
+    
+    // Sky/sea blue
+    const isSkyBlue = rgb.b > rgb.r + 30 && rgb.b > rgb.g + 30 && rgb.b > 150;
+    
+    // Random clothing colors (very saturated, not brand-like)
+    const saturation = Math.max(rgb.r, rgb.g, rgb.b) - Math.min(rgb.r, rgb.g, rgb.b);
+    const isRandomClothing = saturation > 100 && (rgb.r > 200 || rgb.g > 200 || rgb.b > 200);
+    
+    return isSkinTone || isSkyBlue || isRandomClothing;
+  };
+  
+  for (const color of colors) {
+    const normalized = color.startsWith("#") ? color : `#${color}`;
+    
+    // Skip if too similar to existing color (within 30 units)
+    const tooSimilar = filtered.some(existing => colorDistance(normalized, existing) < 30);
+    if (tooSimilar) continue;
+    
+    // Skip photo colors (unless we have very few colors)
+    if (filtered.length >= 3 && isPhotoColor(normalized)) {
+      if (process.env.DEBUG_COLOR_EXTRACT === "true") {
+        console.log(`[ColorExtract] Filtered photo color: ${normalized}`);
+      }
+      continue;
+    }
+    
+    // Skip if already seen
+    if (seen.has(normalized)) continue;
+    
+    filtered.push(normalized);
+    seen.add(normalized);
+    
+    // Limit to 6 colors
+    if (filtered.length >= 6) break;
+  }
+  
+  return filtered;
+}
+
+/**
+ * ✅ NEW: Helper to convert hex to RGB
+ */
+function hexToRgb(hex: string): { r: number; g: number; b: number } | null {
+  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+  return result ? {
+    r: parseInt(result[1], 16),
+    g: parseInt(result[2], 16),
+    b: parseInt(result[3], 16),
+  } : null;
 }
 
 /**
@@ -1197,7 +2586,11 @@ Respond in JSON format:
       longFormSummary: parsed.longFormSummary || parsed.about_blurb || "",
     };
   } catch (error) {
-    console.error("[AI] Error generating brand summary (both providers failed):", error);
+    // ✅ FIX: Log as warning since we have a fallback - AI generation failure is non-critical
+    console.warn("[AI] ⚠️ AI generation failed for brand summary (using content fallback):", {
+      error: error instanceof Error ? error.message : String(error),
+      hint: "Crawler will continue with content-based summary extraction"
+    });
     // Final fallback - extract from content
     const allTextFallback = crawlResults
       .map((r) => [r.h1, r.h2, r.h3, r.bodyText].flat().join(" "))
@@ -1238,7 +2631,11 @@ export async function generateBrandKit(
     try {
       brandKit = await generateBrandKitWithAI(combinedText, colors, sourceUrl);
     } catch (error) {
-      console.error("[Brand Crawler] AI generation failed, using rule-based fallback:", error);
+      // ✅ FIX: Log as warning since we have fallback - AI generation failure is non-critical
+      console.warn("[Brand Crawler] ⚠️ AI generation failed, using rule-based fallback:", {
+        error: error instanceof Error ? error.message : String(error),
+        hint: "Crawler will continue with rule-based brand kit generation"
+      });
       brandKit = await generateBrandKitFallback(uniqueResults, colors, sourceUrl);
     }
   } else {
@@ -1321,7 +2718,11 @@ Respond in JSON format:
       source_urls: [sourceUrl],
     };
   } catch (error) {
-    console.error("[AI] Error generating brand kit:", error);
+    // ✅ FIX: Log as warning since we have a fallback - AI generation failure is non-critical
+    console.warn("[AI] ⚠️ AI generation failed for brand kit (using rule-based fallback):", {
+      error: error instanceof Error ? error.message : String(error),
+      hint: "Crawler will continue with fallback brand kit generation"
+    });
     return generateBrandKitFallback(
       [{ bodyText: text } as CrawlResult],
       colors,

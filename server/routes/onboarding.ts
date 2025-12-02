@@ -38,10 +38,11 @@ router.post("/generate-week", async (req, res, next) => {
     );
 
     // Save to Supabase content_packages table
+    // Use brand_id_uuid (UUID) instead of brand_id (TEXT) - migration 005
     const { error: dbError } = await supabase
       .from("content_packages")
       .insert({
-        brand_id: brandId,
+        brand_id_uuid: brandId, // UUID - primary identifier (migration 005)
         content_id: contentPackage.id,
         request_id: `onboarding-${Date.now()}`,
         cycle_id: `onboarding-cycle-${Date.now()}`,
@@ -99,10 +100,11 @@ router.get("/content-package/:brandId", async (req, res, next) => {
     const { brandId } = req.params;
 
     // Get most recent content package from database
+    // Use brand_id_uuid (UUID) instead of brand_id (TEXT) - migration 005
     const { data: packages, error } = await supabase
       .from("content_packages")
       .select("*")
-      .eq("brand_id", brandId)
+      .eq("brand_id_uuid", brandId) // UUID - primary identifier (migration 005)
       .eq("status", "draft")
       .order("created_at", { ascending: false })
       .limit(1);
@@ -135,9 +137,10 @@ router.get("/content-package/:brandId", async (req, res, next) => {
     const copyData = packageData.copy as any;
 
     // Transform to frontend format
+    // Prefer brand_id_uuid over brand_id (deprecated) - migration 005
     const contentPackage = {
       id: packageData.content_id,
-      brandId: packageData.brand_id,
+      brandId: packageData.brand_id_uuid || packageData.brand_id, // Prefer UUID, fallback to TEXT for backward compatibility
       weeklyFocus: copyData.weeklyFocus || "",
       generatedAt: copyData.generatedAt || packageData.created_at,
       items: (copyData.items || []).map((item: any) => ({
@@ -180,10 +183,11 @@ router.post("/regenerate-week", async (req, res, next) => {
     );
 
     // Save to Supabase (will create new record)
+    // Use brand_id_uuid (UUID) instead of brand_id (TEXT) - migration 005
     const { error: dbError } = await supabase
       .from("content_packages")
       .insert({
-        brand_id: brandId,
+        brand_id_uuid: brandId, // UUID - primary identifier (migration 005)
         content_id: contentPackage.id,
         request_id: `onboarding-regenerate-${Date.now()}`,
         cycle_id: `onboarding-cycle-${Date.now()}`,

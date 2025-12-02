@@ -279,7 +279,7 @@ We sincerely apologize for any inconvenience. If you have questions,
 please contact support@aligned.ai.
 
 Best regards,
-The Aligned AI Team
+The POSTD Team
 ```
 
 **Legal Notification** (for data breaches):

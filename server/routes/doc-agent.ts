@@ -2,6 +2,10 @@
  * Doc Agent API Route
  * 
  * Handles requests to generate on-brand text content (captions, emails, blogs, ads, etc.).
+ * 
+ * @response Returns `AiDocGenerationResponse` directly (not wrapped in { success: true } envelope).
+ * This is intentional to maintain backward compatibility with existing clients.
+ * The response includes: variants[], brandContext, request, metadata, warnings, status.
  */
 
 import { RequestHandler } from "express";
@@ -163,14 +167,14 @@ function determineStatus(
   warnings: AiAgentWarning[],
 ): AiAgentResponseStatus {
   if (variantCount === 0) {
-    return "error";
+    return "failure";
   }
 
   const hasBlockingWarning = warnings.some(
     (warning) => warning.severity === "warning" || warning.severity === "critical",
   );
 
-  return hasBlockingWarning ? "partial" : "ok";
+  return hasBlockingWarning ? "partial_success" : "success";
 }
 
 function buildDocAgentResponse(
@@ -201,7 +205,7 @@ function buildDocAgentResponse(
       provider,
       latencyMs,
       retryAttempted,
-      status,
+      status: status === "ok" ? "success" : status === "partial" ? "partial_success" : status === "error" ? "failure" : (status as "success" | "partial_success" | "failure"),
       averageBrandFidelityScore: avgBFS,
       complianceTagCounts,
     },
@@ -289,7 +293,7 @@ export const generateDocContent: RequestHandler = async (req, res) => {
     const userPrompt = buildDocUserPrompt({
       brand,
       brandGuide, // Pass BrandGuide to prompt builder (source of truth)
-      request: requestBody,
+      request: requestBody as AiDocGenerationRequest,
       availableImages: availableImages.map(img => ({
         url: img.url,
         source: img.source,
@@ -327,7 +331,7 @@ export const generateDocContent: RequestHandler = async (req, res) => {
         if (avgBFS < LOW_BFS_THRESHOLD && attempt < maxAttempts) {
           retryAttempted = true;
           const retryPrompt = buildDocRetryPrompt(
-            { brand, request: requestBody },
+            { brand, request: requestBody as AiDocGenerationRequest },
             rawResponse
           );
           const retryFullPrompt = `${systemPrompt}\n\n${retryPrompt}`;
@@ -353,7 +357,7 @@ export const generateDocContent: RequestHandler = async (req, res) => {
           const response = buildDocAgentResponse(
             brandId,
             brand,
-            requestBody,
+            requestBody as AiDocGenerationRequest,
             variants,
             provider,
             latencyMs,
@@ -410,7 +414,7 @@ export const generateDocContent: RequestHandler = async (req, res) => {
             agent: "doc",
             brandId,
             userId,
-            status: response.status,
+            status: response.status === "ok" ? "success" : response.status === "partial" ? "partial_success" : response.status === "error" ? "failure" : (response.status as "success" | "partial_success" | "failure"),
             variantCount: variants.length,
             avgBFS: retryAvgBFS,
             warnings: response.warnings,
@@ -426,7 +430,7 @@ export const generateDocContent: RequestHandler = async (req, res) => {
         const response = buildDocAgentResponse(
           brandId,
           brand,
-          requestBody,
+          requestBody as AiDocGenerationRequest,
           variants,
           provider,
           latencyMs,
@@ -442,7 +446,7 @@ export const generateDocContent: RequestHandler = async (req, res) => {
           agent: "doc",
           brandId,
           userId,
-          status: response.status,
+          status: response.status === "ok" ? "success" : response.status === "partial" ? "partial_success" : response.status === "error" ? "failure" : (response.status as "success" | "partial_success" | "failure"),
           variantCount: variants.length,
           avgBFS,
           warnings: response.warnings,

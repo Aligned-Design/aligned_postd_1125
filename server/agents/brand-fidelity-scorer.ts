@@ -26,7 +26,10 @@ function getOpenAI(): OpenAI {
   return openaiClient;
 }
 
-interface BrandKit {
+import type { BrandGuide } from "@shared/brand-guide";
+
+// Support both BrandGuide and legacy BrandKit interface
+type BrandKitInput = BrandGuide | {
   tone_keywords?: string[];
   brandPersonality?: string[];
   writingStyle?: string;
@@ -34,7 +37,7 @@ interface BrandKit {
   required_disclaimers?: string[];
   required_hashtags?: string[];
   banned_phrases?: string[];
-}
+};
 
 interface GeneratedContent {
   body: string;
@@ -49,9 +52,11 @@ interface GeneratedContent {
  */
 export async function calculateBFS(
   content: GeneratedContent,
-  brandKit: BrandKit,
+  brandKit: BrandKitInput,
   brandEmbedding?: number[],
 ): Promise<BrandFidelityScore> {
+  // Normalize BrandGuide to BrandKit format for scoring
+  const normalizedKit = normalizeBrandKitForBFS(brandKit);
   const scores = {
     tone_alignment: 0,
     terminology_match: 0,
@@ -66,7 +71,7 @@ export async function calculateBFS(
   // 1. Tone Alignment (30% weight)
   scores.tone_alignment = await scoreToneAlignment(
     content,
-    brandKit,
+    normalizedKit,
     brandEmbedding,
   );
   if (scores.tone_alignment < 0.7) {
@@ -74,13 +79,13 @@ export async function calculateBFS(
   }
 
   // 2. Terminology Match (20% weight)
-  scores.terminology_match = scoreTerminologyMatch(content, brandKit);
+  scores.terminology_match = scoreTerminologyMatch(content, normalizedKit);
   if (scores.terminology_match < 0.7) {
     issues.push("Missing key brand terminology or phrases");
   }
 
   // 3. Compliance (20% weight)
-  scores.compliance = scoreCompliance(content, brandKit);
+  scores.compliance = scoreCompliance(content, normalizedKit);
   if (scores.compliance < 1.0) {
     issues.push(
       "Compliance issues detected (banned phrases or missing disclaimers)",
@@ -88,7 +93,7 @@ export async function calculateBFS(
   }
 
   // 4. CTA Fit (15% weight)
-  scores.cta_fit = scoreCTAFit(content, brandKit);
+  scores.cta_fit = scoreCTAFit(content, normalizedKit);
   if (scores.cta_fit < 0.7) {
     issues.push("CTA does not align with brand voice or goals");
   }
@@ -123,12 +128,50 @@ export async function calculateBFS(
 }
 
 /**
+ * Normalize BrandGuide to BrandKit format for BFS calculation
+ */
+export function normalizeBrandKitForBFS(brandKit: BrandKitInput): {
+  tone_keywords: string[];
+  brandPersonality: string[];
+  writingStyle: string;
+  commonPhrases: string;
+  required_disclaimers: string[];
+  required_hashtags: string[];
+  banned_phrases: string[];
+} {
+  // If it's already a legacy BrandKit, return as-is
+  if (!("identity" in brandKit)) {
+    return {
+      tone_keywords: brandKit.tone_keywords || [],
+      brandPersonality: brandKit.brandPersonality || [],
+      writingStyle: brandKit.writingStyle || "",
+      commonPhrases: brandKit.commonPhrases || "",
+      required_disclaimers: brandKit.required_disclaimers || [],
+      required_hashtags: brandKit.required_hashtags || [],
+      banned_phrases: brandKit.banned_phrases || [],
+    };
+  }
+
+  // Convert BrandGuide to BrandKit format
+  const guide = brandKit as BrandGuide;
+  return {
+    tone_keywords: guide.voiceAndTone?.tone || [],
+    brandPersonality: guide.identity?.values || [],
+    writingStyle: guide.voiceAndTone?.voiceDescription || "",
+    commonPhrases: guide.contentRules?.brandPhrases?.join(", ") || "",
+    required_disclaimers: [], // TODO: Add to BrandGuide if needed
+    required_hashtags: [], // TODO: Add to BrandGuide if needed
+    banned_phrases: guide.voiceAndTone?.avoidPhrases || [],
+  };
+}
+
+/**
  * Score 1: Tone Alignment (30%)
  * Uses embedding similarity if available, otherwise keyword matching
  */
 async function scoreToneAlignment(
   content: GeneratedContent,
-  brandKit: BrandKit,
+  brandKit: ReturnType<typeof normalizeBrandKitForBFS>,
   brandEmbedding?: number[],
 ): Promise<number> {
   const combinedText = `${content.headline || ""} ${content.body} ${content.cta || ""}`;
@@ -179,7 +222,7 @@ async function scoreToneAlignment(
  */
 function scoreTerminologyMatch(
   content: GeneratedContent,
-  brandKit: BrandKit,
+  brandKit: ReturnType<typeof normalizeBrandKitForBFS>,
 ): number {
   const combinedText = `${content.headline || ""} ${content.body} ${content.cta || ""}`;
   const textLower = combinedText.toLowerCase();
@@ -236,7 +279,7 @@ function scoreTerminologyMatch(
  */
 function scoreCompliance(
   content: GeneratedContent,
-  brandKit: BrandKit,
+  brandKit: ReturnType<typeof normalizeBrandKitForBFS>,
 ): number {
   const combinedText = `${content.headline || ""} ${content.body} ${content.cta || ""}`;
   const textLower = combinedText.toLowerCase();
@@ -286,7 +329,7 @@ function scoreCompliance(
  * Score 4: CTA Fit (15%)
  * Evaluates call-to-action quality and alignment
  */
-function scoreCTAFit(content: GeneratedContent, brandKit: BrandKit): number {
+function scoreCTAFit(content: GeneratedContent, brandKit: ReturnType<typeof normalizeBrandKitForBFS>): number {
   const cta = content.cta || "";
 
   if (!cta || cta.trim().length === 0) return 0.3; // Missing CTA

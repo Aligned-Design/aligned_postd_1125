@@ -2,6 +2,10 @@
  * Advisor API Route
  * 
  * Handles requests to the AI Advisor endpoint for generating marketing insights.
+ * 
+ * @response Returns `AdvisorResponse` directly (not wrapped in { success: true } envelope).
+ * This is intentional to maintain backward compatibility with existing clients.
+ * The response includes: insights[], brandContext, request, metadata, warnings, compliance, rawModelInfo.
  */
 
 import { RequestHandler } from "express";
@@ -360,7 +364,7 @@ export const getAdvisorInsights: RequestHandler = async (req, res) => {
                   },
                 },
                 voice: {
-                  tone: brand.tone || "professional",
+                  tone: (brand.tone as "professional" | "friendly" | "casual" | "energetic" | "authoritative" | "mixed") || "professional",
                   personality: brand.values || [],
                   keyMessages: insights.slice(0, 3).map(i => i.title),
                   avoidPhrases: brand.forbiddenPhrases || [],
@@ -405,7 +409,7 @@ export const getAdvisorInsights: RequestHandler = async (req, res) => {
             agent: "advisor",
             brandId,
             userId,
-            status: response.status,
+            status: response.status === "ok" ? "success" : response.status === "partial" ? "partial_success" : response.status === "error" ? "failure" : (response.status as "success" | "partial_success" | "failure"),
             avgBFS: retryComplianceResult.brandFidelityScore,
             warnings: response.warnings,
             latencyMs,
@@ -448,7 +452,7 @@ export const getAdvisorInsights: RequestHandler = async (req, res) => {
                 },
               },
               voice: {
-                tone: brand.tone || "professional",
+                tone: (brand.tone as "professional" | "friendly" | "casual" | "energetic" | "authoritative" | "mixed") || "professional",
                 personality: brand.values || [],
                 keyMessages: insights.slice(0, 3).map(i => i.title),
                 avoidPhrases: brand.forbiddenPhrases || [],
@@ -494,7 +498,7 @@ export const getAdvisorInsights: RequestHandler = async (req, res) => {
           agent: "advisor",
           brandId,
           userId,
-          status: response.status,
+          status: response.status === "ok" ? "success" : response.status === "partial" ? "partial_success" : response.status === "error" ? "failure" : (response.status as "success" | "partial_success" | "failure"),
           avgBFS: complianceResult.brandFidelityScore,
           warnings: response.warnings,
           latencyMs,

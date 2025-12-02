@@ -13,11 +13,16 @@ import { ErrorState } from "@/components/postd/ui/feedback/ErrorState";
 import { EmptyState } from "@/components/postd/ui/feedback/EmptyState";
 import { X, Filter, Calendar as CalendarIcon } from "lucide-react";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
+import { usePlatformConnections } from "@/hooks/usePlatformConnections";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { AlertCircle, Settings } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 type ViewType = "day" | "week" | "month";
 
 export default function Calendar() {
   const { currentWorkspace } = useWorkspace();
+  const { hasAnyConnection, isLoading: connectionsLoading } = usePlatformConnections();
   const [view, setView] = useState<ViewType>("week");
   const [selectedBrand, setSelectedBrand] = useState<string | null>(null);
   const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>([]);
@@ -115,6 +120,28 @@ export default function Calendar() {
       />
       <FirstVisitTooltip page="calendar">
         <div className="space-y-6">
+          {/* Platform Connection Banner */}
+          {!connectionsLoading && !hasAnyConnection && (
+            <Alert className="border-amber-200 bg-amber-50">
+              <AlertCircle className="h-4 w-4 text-amber-600" />
+              <AlertDescription className="text-sm text-amber-800 flex items-center justify-between">
+                <span>
+                  You can plan your schedule here, but nothing will publish until you connect at least one platform.
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    window.location.href = "/linked-accounts";
+                  }}
+                  className="ml-4"
+                >
+                  <Settings className="w-4 h-4 mr-2" />
+                  Connect Platform
+                </Button>
+              </AlertDescription>
+            </Alert>
+          )}
 
           {/* ZONE 1: View Toggles & Filters */}
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">

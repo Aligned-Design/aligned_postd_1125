@@ -4,7 +4,7 @@
  * Provides consistent error handling and type coercion
  */
 
-import { Request, Response, NextFunction } from "express";
+import type { Request, Response, NextFunction } from "express";
 import { ZodSchema, ZodError } from "zod";
 
 /**
@@ -40,7 +40,7 @@ export function validateBody(schema: ZodSchema) {
             code: err.code,
           })),
         };
-        return (res as any).status(400).json(validationError);
+        return res.status(400).json(validationError);
       }
       next(error);
     }
@@ -68,7 +68,7 @@ export function validateQuery(schema: ZodSchema) {
             code: err.code,
           })),
         };
-        return (res as any).status(400).json(validationError);
+        return res.status(400).json(validationError);
       }
       next(error);
     }
@@ -96,7 +96,7 @@ export function validateParams(schema: ZodSchema) {
             code: err.code,
           })),
         };
-        return (res as any).status(400).json(validationError);
+        return res.status(400).json(validationError);
       }
       next(error);
     }
@@ -176,7 +176,7 @@ export function validateRequest(validators: {
         message: "Request validation failed",
         errors,
       };
-      return (res as any).status(400).json(validationError);
+      return res.status(400).json(validationError);
     }
 
     next();

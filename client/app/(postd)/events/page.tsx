@@ -18,6 +18,8 @@ import {
   Grid3x3,
 } from "lucide-react";
 import { useState, useMemo } from "react";
+import { PageShell } from "@/components/postd/ui/layout/PageShell";
+import { PageHeader } from "@/components/postd/ui/layout/PageHeader";
 
 export default function Events() {
   const { currentWorkspace } = useWorkspace();
@@ -387,28 +389,22 @@ export default function Events() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-indigo-50/30 via-white to-blue-50/20">
-        <div className="p-4 sm:p-6 md:p-8 max-w-7xl mx-auto">
-          {/* Zone 1: Strategic Overview */}
-          <div className="mb-12">
-            {/* Header */}
-            <div className="flex items-center justify-between gap-4 mb-6">
-              <div>
-                <h1 className="text-3xl sm:text-4xl font-black text-slate-900 mb-2">
-                  Events
-                </h1>
-                <p className="text-slate-600 text-xs sm:text-sm font-medium">
-                  {currentWorkspace?.logo} {currentWorkspace?.name} — Manage business events, sync across platforms, and amplify reach with AI promotions.
-                </p>
-              </div>
-              <button
-                onClick={handleAddEvent}
-                className="flex items-center gap-2 px-4 py-2.5 bg-lime-400 text-indigo-950 rounded-lg hover:bg-lime-500 transition-colors font-bold text-sm sm:text-base whitespace-nowrap"
-              >
-                <Plus className="w-5 h-5" />
-                Add Event
-              </button>
-            </div>
+    <PageShell>
+      <PageHeader
+        title="Events"
+        subtitle={`${currentWorkspace?.logo || ""} ${currentWorkspace?.name || ""} — Manage business events, sync across platforms, and amplify reach with AI promotions.`}
+        actions={
+          <button
+            onClick={handleAddEvent}
+            className="flex items-center gap-2 px-4 py-2.5 bg-lime-400 text-indigo-950 rounded-lg hover:bg-lime-500 transition-colors font-bold text-sm sm:text-base whitespace-nowrap"
+          >
+            <Plus className="w-5 h-5" />
+            Add Event
+          </button>
+        }
+      />
+      {/* Zone 1: Strategic Overview */}
+      <div className="mb-12">
 
             {/* Summary Strip */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
@@ -540,7 +536,6 @@ export default function Events() {
               </div>
             </div>
           </div>
-        </div>
 
       {/* Event Editor Modal */}
       <EventEditorModal
@@ -637,6 +632,6 @@ export default function Events() {
         onLaunchManually={handleLaunchManually}
         onSkip={handleSkipCampaign}
       />
-    </div>
+    </PageShell>
   );
 }

@@ -93,9 +93,9 @@ export interface ContentItem {
   brandId: string;
   title: string;
   description?: string;
-  content: string;
+  content: Record<string, unknown>; // JSONB column - matches schema: content JSONB NOT NULL
   status: 'draft' | 'scheduled' | 'published' | 'archived';
-  contentType: 'post' | 'story' | 'reel' | 'article' | 'video';
+  type: string; // Matches schema: type TEXT NOT NULL (not contentType)
   scheduledAt?: string;
   publishedAt?: string;
   createdAt: string;
@@ -358,4 +358,202 @@ export interface PaginatedResult<T> {
   pageSize: number;
   totalPages: number;
   hasMore: boolean;
+}
+
+// ============================================================================
+// BRAND GUIDE TYPES
+// ============================================================================
+
+export interface BrandGuideVersionRow {
+  id: string;
+  brandId: string; // UUID
+  version: number;
+  brandGuide: Record<string, unknown>; // JSONB
+  changedFields: string[]; // TEXT[]
+  changedBy: string | null; // UUID (nullable)
+  changeReason: string | null;
+  createdAt: string; // TIMESTAMPTZ
+}
+
+// ============================================================================
+// SCHEDULING TYPES
+// ============================================================================
+
+export interface ScheduledContentRow {
+  id: string;
+  brandId: string; // UUID
+  contentId: string; // UUID
+  scheduledAt: string; // TIMESTAMPTZ
+  platforms: string[]; // TEXT[]
+  status: string; // TEXT (default: 'scheduled')
+  createdAt: string; // TIMESTAMPTZ
+  updatedAt: string; // TIMESTAMPTZ
+}
+
+// ============================================================================
+// PERSISTENCE SCHEMA TYPES (AI Learning Loop)
+// ============================================================================
+
+export interface StrategyBriefRow {
+  id: string;
+  /** @deprecated Legacy TEXT column dropped in migration 006. Use brandIdUuid instead. */
+  brandId?: string; // TEXT (deprecated, dropped in migration 006) - use brandIdUuid instead
+  brandIdUuid: string; // UUID (primary, required) - migration 005 adds FK, migration 006 drops brand_id TEXT
+  requestId: string;
+  cycleId: string;
+  version: string;
+  positioning: Record<string, unknown>; // JSONB
+  voice: Record<string, unknown>; // JSONB
+  visual: Record<string, unknown>; // JSONB
+  competitive: Record<string, unknown>; // JSONB
+  createdAt: string; // TIMESTAMPTZ
+  updatedAt: string; // TIMESTAMPTZ
+}
+
+export interface ContentPackageRow {
+  id: string;
+  /** @deprecated Legacy TEXT column dropped in migration 006. Use brandIdUuid instead. */
+  brandId?: string; // TEXT (deprecated, dropped in migration 006) - use brandIdUuid instead
+  brandIdUuid: string; // UUID (primary, required) - migration 005 adds FK, migration 006 drops brand_id TEXT
+  contentId: string;
+  requestId: string;
+  cycleId: string;
+  copy: Record<string, unknown>; // JSONB
+  designContext: Record<string, unknown> | null; // JSONB (nullable)
+  collaborationLog: Record<string, unknown>; // JSONB
+  status: string; // TEXT (default: 'draft')
+  qualityScore: number | null; // DECIMAL(3,1) (nullable)
+  requiresApproval: boolean; // BOOLEAN (default: true)
+  createdAt: string; // TIMESTAMPTZ
+  updatedAt: string; // TIMESTAMPTZ
+  publishedAt: string | null; // TIMESTAMPTZ (nullable)
+}
+
+export interface BrandHistoryRow {
+  id: string;
+  /** @deprecated Legacy TEXT column dropped in migration 006. Use brandIdUuid instead. */
+  brandId?: string; // TEXT (deprecated, dropped in migration 006) - use brandIdUuid instead
+  brandIdUuid: string; // UUID (primary, required) - migration 005 adds FK, migration 006 drops brand_id TEXT
+  entryId: string;
+  timestamp: string; // TIMESTAMPTZ
+  agent: string;
+  action: string;
+  contentId: string | null;
+  details: Record<string, unknown> | null; // JSONB (nullable)
+  rationale: string | null;
+  performance: Record<string, unknown> | null; // JSONB (nullable)
+  tags: string[]; // TEXT[] (default: '{}')
+  createdAt: string; // TIMESTAMPTZ
+}
+
+export interface BrandSuccessPatternRow {
+  id: string;
+  /** @deprecated Legacy TEXT column dropped in migration 006. Use brandIdUuid instead. */
+  brandId?: string; // TEXT (deprecated, dropped in migration 006) - use brandIdUuid instead
+  brandIdUuid: string; // UUID (primary, required) - migration 005 adds FK, migration 006 drops brand_id TEXT
+  pattern: string;
+  frequency: number; // INTEGER (default: 1)
+  avgPerformance: number | null; // DECIMAL(4,2) (nullable)
+  examples: string[]; // TEXT[] (default: '{}')
+  lastSeen: string; // TIMESTAMPTZ (default: NOW())
+  createdAt: string; // TIMESTAMPTZ
+}
+
+export interface CollaborationLogRow {
+  id: string;
+  cycleId: string;
+  requestId: string;
+  /** @deprecated Legacy TEXT column dropped in migration 006. Use brandIdUuid instead. */
+  brandId?: string; // TEXT (deprecated, dropped in migration 006) - use brandIdUuid instead
+  brandIdUuid: string; // UUID (primary, required) - migration 005 adds FK, migration 006 drops brand_id TEXT
+  agent: string;
+  action: string;
+  timestamp: string; // TIMESTAMPTZ
+  contentId: string | null;
+  notes: string | null;
+  metadata: Record<string, unknown> | null; // JSONB (nullable)
+  createdAt: string; // TIMESTAMPTZ
+}
+
+export interface PerformanceLogRow {
+  id: string;
+  /** @deprecated Legacy TEXT column dropped in migration 006. Use brandIdUuid instead. */
+  brandId?: string; // TEXT (deprecated, dropped in migration 006) - use brandIdUuid instead
+  brandIdUuid: string; // UUID (primary, required) - migration 005 adds FK, migration 006 drops brand_id TEXT
+  contentId: string | null;
+  cycleId: string | null;
+  contentType: string | null;
+  platform: string;
+  engagement: Record<string, unknown>; // JSONB
+  reach: number | null; // INTEGER (nullable)
+  impressions: number | null; // INTEGER (nullable)
+  clickThroughRate: number | null; // DECIMAL(5,2) (nullable)
+  recordedAt: string; // TIMESTAMPTZ
+  createdAt: string; // TIMESTAMPTZ
+}
+
+export interface PlatformInsightRow {
+  id: string;
+  /** @deprecated Legacy TEXT column dropped in migration 006. Use brandIdUuid instead. */
+  brandId?: string; // TEXT (deprecated, dropped in migration 006) - use brandIdUuid instead
+  brandIdUuid: string; // UUID (primary, required) - migration 005 adds FK, migration 006 drops brand_id TEXT
+  platform: string;
+  topVisualStyle: string | null;
+  bestPostingTime: string | null;
+  topicAffinity: string[]; // TEXT[] (default: '{}')
+  avgEngagement: number | null; // DECIMAL(4,2) (nullable)
+  sampleSize: number | null; // INTEGER (nullable)
+  lastUpdated: string; // TIMESTAMPTZ (default: NOW())
+  createdAt: string; // TIMESTAMPTZ
+}
+
+export interface TokenHealthRow {
+  id: string;
+  /** @deprecated Legacy TEXT column dropped in migration 006. Use brandIdUuid instead. */
+  brandId?: string; // TEXT (deprecated, dropped in migration 006) - use brandIdUuid instead
+  brandIdUuid: string; // UUID (primary, required) - migration 005 adds FK, migration 006 drops brand_id TEXT
+  platform: string;
+  tokenType: string;
+  status: string; // TEXT (default: 'healthy')
+  expiresAt: string | null; // TIMESTAMPTZ (nullable)
+  lastVerified: string; // TIMESTAMPTZ (default: NOW())
+  errorMessage: string | null;
+  createdAt: string; // TIMESTAMPTZ
+}
+
+export interface WeeklySummaryRow {
+  id: string;
+  /** @deprecated Legacy TEXT column dropped in migration 006. Use brandIdUuid instead. */
+  brandId?: string; // TEXT (deprecated, dropped in migration 006) - use brandIdUuid instead
+  brandIdUuid: string; // UUID (primary, required) - migration 005 adds FK, migration 006 drops brand_id TEXT
+  weekStart: string; // DATE
+  weekEnd: string; // DATE
+  totalCycles: number; // INTEGER (default: 0)
+  avgQualityScore: number | null; // DECIMAL(4,2) (nullable)
+  topPerformers: Record<string, unknown> | null; // JSONB (nullable)
+  successPatterns: Record<string, unknown> | null; // JSONB (nullable)
+  recommendations: Record<string, unknown> | null; // JSONB (nullable)
+  createdAt: string; // TIMESTAMPTZ
+}
+
+export interface AdvisorReviewAuditRow {
+  id: string;
+  cycleId: string; // UNIQUE
+  requestId: string;
+  /** @deprecated Legacy TEXT column dropped in migration 006. Use brandIdUuid instead. */
+  brandId?: string; // TEXT (deprecated, dropped in migration 006) - use brandIdUuid instead
+  brandIdUuid: string; // UUID (primary, required) - migration 005 adds FK, migration 006 drops brand_id TEXT
+  contentId: string;
+  platform: string;
+  clarityScore: number; // DECIMAL(3,1)
+  alignmentScore: number; // DECIMAL(3,1)
+  resonanceScore: number; // DECIMAL(3,1)
+  actionabilityScore: number; // DECIMAL(3,1)
+  platformFitScore: number; // DECIMAL(3,1)
+  averageScore: number; // DECIMAL(4,2)
+  weightedScore: number; // DECIMAL(4,2)
+  severityLevel: string;
+  reflectionQuestion: string | null;
+  suggestedActions: Record<string, unknown> | null; // JSONB (nullable)
+  createdAt: string; // TIMESTAMPTZ
 }

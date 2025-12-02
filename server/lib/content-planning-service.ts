@@ -12,6 +12,7 @@
 import { logger } from "./logger";
 import { supabase } from "./supabase";
 import { getCurrentBrandGuide } from "./brand-guide-service";
+import { buildFullBrandGuidePrompt } from "./prompts/brand-guide-prompts";
 import { getBrandProfile } from "./brand-profile";
 import { generateWithAI } from "../workers/ai-generation";
 import { getScrapedImages } from "./scraped-images-service";
@@ -231,7 +232,8 @@ Guidelines:
 
     return { ...brandGuide, ...completedFields };
   } catch (error: any) {
-    logger.error("Brand guide completion failed", error, { brandId });
+    const err = error instanceof Error ? error : new Error(String(error));
+    logger.error("Brand guide completion failed", err, { brandId });
     return brandGuide; // Return original on error
   }
 }
@@ -287,7 +289,8 @@ Guidelines:
 
     return recommendations;
   } catch (error: any) {
-    logger.error("Advisor recommendations failed", error, { brandId });
+    const err = error instanceof Error ? error : new Error(String(error));
+    logger.error("Advisor recommendations failed", err, { brandId });
     return []; // Return empty array on error
   }
 }
@@ -392,10 +395,11 @@ Guidelines:
         // The system will work with fewer items if needed
       }
     } catch (parseError) {
-      logger.error("Failed to parse content plan", { brandId, error: parseError });
+      const error = parseError instanceof Error ? parseError : new Error(String(parseError));
+      logger.error("Failed to parse content plan", error, { brandId });
       // Don't generate default placeholder content - throw error instead
       // This ensures we only show real AI-generated content
-      throw new Error(`Failed to generate content plan: ${parseError instanceof Error ? parseError.message : "Parse error"}`);
+      throw new Error(`Failed to generate content plan: ${error.message}`);
     }
 
     // Assign images from scraped images
@@ -432,7 +436,8 @@ Guidelines:
 
     return validatedItems;
   } catch (error: any) {
-    logger.error("Content planning failed", error, { brandId });
+    const err = error instanceof Error ? error : new Error(String(error));
+    logger.error("Content planning failed", err, { brandId });
     // Don't return default plan - throw error so caller knows generation failed
     throw error;
   }
@@ -458,17 +463,17 @@ async function storeContentItems(
       // Map platform for Google Business
       const platform = item.contentType === "gbp" ? "google_business" : item.platform;
       
-      // ✅ FIX: Build insert data compatible with migration 009 schema (production)
-      // Migration 009: content_type, body, scheduled_for, title, platform, media_urls
-      // Migration 012: tries to rename content_type to type, adds content JSONB
-      // We'll use migration 009 schema (most likely in production) but be resilient
+      // ✅ SCHEMA ALIGNMENT: Use canonical schema from 001_bootstrap_schema.sql
+      // Schema: type TEXT NOT NULL, content JSONB NOT NULL (not content_type/body)
       const insertData: any = {
         id: item.id,
         brand_id: brandId,
         title: item.title,
-        content_type: contentType, // ✅ Use content_type (migration 009 schema)
+        type: contentType, // ✅ Matches schema: type TEXT NOT NULL
         platform: platform,
-        body: item.content, // ✅ Use body (migration 009 schema)
+        content: typeof item.content === "string" 
+          ? { body: item.content } // Wrap string content in JSONB object
+          : item.content, // Already an object
         media_urls: item.imageUrl ? [item.imageUrl] : [],
         scheduled_for: scheduledFor,
         status: "pending_review", // Set to pending_review so it appears in queue
@@ -486,19 +491,21 @@ async function storeContentItems(
 
       if (error) {
         // ✅ ENHANCED LOGGING: Log full error details for debugging
-        logger.error("Failed to store content item", {
+        const dbError = new Error(error.message || "Database error");
+        logger.error("Failed to store content item", dbError, {
           brandId,
           itemId: item.id,
           title: item.title,
           platform: platform,
           contentType: contentType,
           errorCode: error.code,
-          errorMessage: error.message,
           errorDetails: error.details,
           errorHint: error.hint,
           insertData: {
             ...insertData,
-            body: insertData.body?.substring(0, 100) + "...", // Truncate for logging
+            content: typeof insertData.content === "object" && insertData.content?.body
+              ? { body: insertData.content.body.substring(0, 100) + "..." } // Truncate for logging
+              : insertData.content,
           },
         });
         continue;
@@ -519,12 +526,11 @@ async function storeContentItems(
       });
     } catch (error: any) {
       // ✅ ENHANCED LOGGING: Log full error for debugging
-      logger.error("Error storing content item (exception)", {
+      const err = error instanceof Error ? error : new Error(String(error));
+      logger.error("Error storing content item (exception)", err, {
         brandId,
         itemId: item.id,
         title: item.title,
-        error: error?.message || String(error),
-        stack: error?.stack,
       });
       continue;
     }
@@ -543,14 +549,20 @@ function buildBrandGuideCompletionPrompt(
 ): string {
   let prompt = `Complete and enhance the Brand Guide for this brand.\n\n`;
 
-  // Include industry context prominently
-  const industry = brandKit.industry || brandGuide?.identity?.businessType || "General Business";
-  prompt += `## Industry Context\n`;
-  prompt += `Business Type/Industry: ${industry}\n`;
-  prompt += `This is a ${industry} business. Ensure all brand guide fields reflect industry-appropriate language, values, and positioning.\n\n`;
+  // Use centralized Brand Guide prompt if available
+  if (brandGuide && typeof brandGuide === "object" && "identity" in brandGuide) {
+    prompt += buildFullBrandGuidePrompt(brandGuide as any);
+    prompt += `\n\n`;
+  } else {
+    // Fallback for legacy format
+    const industry = brandKit.industry || brandGuide?.identity?.businessType || "General Business";
+    prompt += `## Industry Context\n`;
+    prompt += `Business Type/Industry: ${industry}\n`;
+    prompt += `This is a ${industry} business. Ensure all brand guide fields reflect industry-appropriate language, values, and positioning.\n\n`;
+    prompt += `## Current Brand Guide\n`;
+    prompt += JSON.stringify(brandGuide, null, 2);
+  }
 
-  prompt += `## Current Brand Guide\n`;
-  prompt += JSON.stringify(brandGuide, null, 2);
   prompt += `\n\n## Brand Profile\n`;
   prompt += JSON.stringify(brandProfile, null, 2);
   prompt += `\n\n## Scraped Content\n`;
@@ -563,6 +575,7 @@ function buildBrandGuideCompletionPrompt(
 
   prompt += `\n\n## Instructions\n`;
   prompt += `Fill in missing fields and enhance existing ones based on scraped content.\n`;
+  const industry = brandKit.industry || brandGuide?.identity?.businessType || "General Business";
   prompt += `Ensure all fields are industry-specific and appropriate for a ${industry} business.\n`;
   prompt += `Return JSON with completed/enhanced brand guide fields.`;
 
@@ -609,29 +622,37 @@ function buildContentPlanningPrompt(
 ): string {
   let prompt = `Plan a 7-day content calendar for this brand.\n\n`;
 
-  // ✅ CRITICAL: Include comprehensive brand context
-  prompt += `## Brand Identity\n`;
-  prompt += `Brand Name: ${brandGuide?.brandName || brandProfile?.name || "Brand"}\n`;
-  
-  // Industry/Business Type (CRITICAL for generating appropriate content)
+  // Industry/Business Type (CRITICAL for generating appropriate content) - declare at function level
   const industry = brandKit.industry || brandGuide?.identity?.businessType || "General Business";
-  prompt += `Industry/Business Type: ${industry}\n`;
-  prompt += `This is a ${industry} business. Generate content that is appropriate for this industry, uses industry-specific terminology, and addresses industry-specific pain points and opportunities.\n`;
-  
-  if (brandKit.description || brandGuide?.purpose) {
-    prompt += `Business Description: ${brandKit.description || brandGuide.purpose || ""}\n`;
-  }
-  
-  if (brandKit.about_blurb) {
-    prompt += `About: ${brandKit.about_blurb}\n`;
-  }
 
-  prompt += `\n## Brand Guide\n`;
-  prompt += `Tone: ${(brandGuide?.voiceAndTone?.tone || []).join(", ") || "Professional"}\n`;
-  prompt += `Target Audience: ${brandProfile?.targetAudience || brandGuide?.identity?.targetAudience || "General audience"}\n`;
-  
-  if (brandGuide?.voiceAndTone?.voiceDescription) {
-    prompt += `Voice Description: ${brandGuide.voiceAndTone.voiceDescription}\n`;
+  // ✅ CRITICAL: Use centralized Brand Guide prompt if available
+  if (brandGuide && typeof brandGuide === "object" && "identity" in brandGuide) {
+    prompt += buildFullBrandGuidePrompt(brandGuide as any);
+    prompt += `\n\n`;
+  } else {
+    // Fallback for legacy format
+    prompt += `## Brand Identity\n`;
+    prompt += `Brand Name: ${brandGuide?.brandName || brandProfile?.name || "Brand"}\n`;
+    
+    // Industry/Business Type (CRITICAL for generating appropriate content)
+    prompt += `Industry/Business Type: ${industry}\n`;
+    prompt += `This is a ${industry} business. Generate content that is appropriate for this industry, uses industry-specific terminology, and addresses industry-specific pain points and opportunities.\n`;
+    
+    if (brandKit.description || brandGuide?.purpose) {
+      prompt += `Business Description: ${brandKit.description || brandGuide.purpose || ""}\n`;
+    }
+    
+    if (brandKit.about_blurb) {
+      prompt += `About: ${brandKit.about_blurb}\n`;
+    }
+
+    prompt += `\n## Brand Guide\n`;
+    prompt += `Tone: ${(brandGuide?.voiceAndTone?.tone || []).join(", ") || "Professional"}\n`;
+    prompt += `Target Audience: ${brandProfile?.targetAudience || brandGuide?.identity?.targetAudience || "General audience"}\n`;
+    
+    if (brandGuide?.voiceAndTone?.voiceDescription) {
+      prompt += `Voice Description: ${brandGuide.voiceAndTone.voiceDescription}\n`;
+    }
   }
   
   if (brandKit.keyword_themes && brandKit.keyword_themes.length > 0) {

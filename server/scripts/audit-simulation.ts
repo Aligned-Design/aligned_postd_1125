@@ -61,7 +61,7 @@ async function runAuditSimulation() {
         },
       },
       voice: {
-        tone: "calm",
+        tone: "professional",
         personality: ["trustworthy", "slightly witty", "supportive"],
         keyMessages: ["stress reset", "personalized wellness", "booking available"],
         avoidPhrases: ["medical claims", "cure", "guaranteed results"],
@@ -97,26 +97,36 @@ async function runAuditSimulation() {
         brandId: "refined-wellness",
         contentPerformance: [
           {
-            contentType: "carousel",
+            contentId: "test-content-2",
             platform: "instagram",
-            engagement: {
-              likes: 420,
-              comments: 32,
-              shares: 12,
-              saves: 89,
+            publishedAt: new Date().toISOString(),
+            metrics: {
+              reach: { value: 3200, change: 0 } as any,
+              engagement: { value: 420, change: 0 } as any,
+              clicks: { value: 67, change: 0 } as any,
             },
-            reach: 3200,
-            impressions: 8900,
-            clickThroughRate: 2.1,
+            visualAttributes: {
+              layout: "carousel",
+              colorScheme: "brand-primary",
+              motionType: "static",
+              imageType: "photo",
+            },
+            copyAttributes: {
+              tone: "professional",
+              length: 120,
+              hasEmoji: false,
+              hasCallToAction: true,
+            },
           },
         ],
-        platforms: ["instagram"],
+        // Type assertion for dev-only script - platforms property exists at runtime
+        ...({ platforms: ["instagram"] } as any),
         patterns: [
           {
             pattern: "High engagement on wellness-focused carousels",
-            frequency: 5,
             strength: "strong",
-            avgPerformance: 2.3,
+            example: "Carousel posts with wellness themes show 2.3x higher engagement",
+            impact: "Consider increasing wellness-focused carousel content",
           },
         ],
       }),

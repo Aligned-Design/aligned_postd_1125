@@ -41,10 +41,11 @@ export class DatabaseError extends Error {
 function handleError(error: unknown, operation: string): DatabaseError {
   console.error(`[Database] ${operation} failed:`, error);
 
+  const errorObj = error as { message?: string; error_description?: string; code?: string };
   const message =
-    (error && (error.message || error.error_description)) ||
+    (errorObj?.message || errorObj?.error_description) ||
     "Unknown database error";
-  const code = (error && (error.code || "UNKNOWN")) || "UNKNOWN";
+  const code = errorObj?.code || "UNKNOWN";
 
   return new DatabaseError(`${operation}: ${message}`, code, error as Error);
 }

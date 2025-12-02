@@ -1,4 +1,7 @@
-# Aligned AI Platform - Testing Scripts
+# POSTD Platform - Testing Scripts
+
+> **Status:** ✅ Active – These testing scripts are active and in use.  
+> **Last Updated:** 2025-01-20
 
 Comprehensive test suite for validating Supabase configuration, database setup, and system functionality.
 

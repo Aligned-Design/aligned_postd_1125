@@ -1,3 +1,6 @@
+import { logTelemetry } from "./logger";
+import type { LogContext } from "./logger";
+
 /**
  * Analytics wrapper - centralized event tracking
  * Can be swapped to Segment/Mixpanel later without changing call sites
@@ -25,10 +28,8 @@ class Analytics {
     // Example: segment.track(eventName, properties);
     
     // Development-only logging
-    if (import.meta.env.DEV) {
-      // eslint-disable-next-line no-console
-      console.log(`[Analytics] ${eventName}:`, properties);
-    }
+    // Cast to LogContext since all event properties are compatible with index signature
+    logTelemetry(`[Analytics] ${eventName}`, properties as LogContext);
   }
 }
 

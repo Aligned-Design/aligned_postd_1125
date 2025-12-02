@@ -204,7 +204,7 @@ Currently, we do not have a formal bug bounty program. However, we greatly appre
 
 ## Acknowledgments
 
-We appreciate the security community's help in keeping Aligned AI secure. See [ACKNOWLEDGMENTS.md](./docs/ACKNOWLEDGMENTS.md) for recognized researchers.
+We appreciate the security community's help in keeping POSTD secure. See [ACKNOWLEDGMENTS.md](./docs/ACKNOWLEDGMENTS.md) for recognized researchers.
 
 ---
 

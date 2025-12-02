@@ -6,6 +6,9 @@ import { Review, ReviewSource, ReviewListResponse } from "@shared/reviews";
 import { MOCK_BRAND_GUIDE, MOCK_AUTO_REPLY_SETTINGS } from "@/types/review";
 import { Star, Settings, Filter, MessageCircle, AlertCircle } from "lucide-react";
 import { useState, useEffect } from "react";
+import { PageShell } from "@/components/postd/ui/layout/PageShell";
+import { PageHeader } from "@/components/postd/ui/layout/PageHeader";
+import { logError, logWarning, logInfo } from "@/lib/logger";
 
 export default function Reviews() {
   const { currentWorkspace } = useWorkspace();
@@ -29,7 +32,7 @@ export default function Reviews() {
   // Load reviews from API
   useEffect(() => {
     if (!brandId) {
-      console.warn("[Reviews] No brandId available, skipping fetch");
+      logWarning("[Reviews] No brandId available, skipping fetch");
       setLoading(false);
       setError("No brand selected. Please select a brand to view reviews.");
       return;
@@ -38,7 +41,7 @@ export default function Reviews() {
     // Validate brandId is a valid UUID before making the request
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     if (!uuidRegex.test(brandId)) {
-      console.warn("[Reviews] Invalid brandId format, skipping fetch:", brandId);
+      logWarning("[Reviews] Invalid brandId format, skipping fetch", { brandId });
       setLoading(false);
       setError("Invalid brand. Please select a valid brand to view reviews.");
       return;
@@ -49,10 +52,10 @@ export default function Reviews() {
         setLoading(true);
         setError(null);
 
-        console.log("[Reviews] Fetching reviews for brandId:", brandId);
+        logInfo("[Reviews] Fetching reviews for brandId", { brandId });
         const response = await fetch(`/api/reviews/${brandId}`);
         
-        console.log("[Reviews] Response status:", response.status, response.statusText);
+        logInfo("[Reviews] Response status", { status: response.status, statusText: response.statusText });
         
         if (!response.ok) {
           // Try to parse error message from response
@@ -103,7 +106,7 @@ export default function Reviews() {
         }
 
         const data: ReviewListResponse = await response.json();
-        console.log("[Reviews] Received data:", { reviewCount: data.reviews.length, stats: data.stats });
+        logInfo("[Reviews] Received data", { reviewCount: data.reviews.length, stats: data.stats });
         
         setReviews(data.reviews);
         setStats({
@@ -115,7 +118,7 @@ export default function Reviews() {
           avgRating: data.stats.avgRating.toFixed(1),
         });
       } catch (err) {
-        console.error("[Reviews] Failed to load reviews:", err);
+        logError("[Reviews] Failed to load reviews", err instanceof Error ? err : new Error(String(err)), { brandId });
         const errorMessage = err instanceof Error ? err.message : "Failed to load reviews";
         setError(errorMessage);
         // Set empty state on error (no mock data fallback)
@@ -144,7 +147,7 @@ export default function Reviews() {
   });
 
   const handleReply = (reviewId: string) => {
-    console.log("Reply to review:", reviewId);
+    logInfo("Reply to review", { reviewId });
   };
 
   const handleFlag = (reviewId: string) => {
@@ -162,47 +165,39 @@ export default function Reviews() {
   // Loading state
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-indigo-50/30 via-white to-blue-50/20">
-        <div className="p-4 sm:p-6 md:p-8">
-          <div className="space-y-4 animate-pulse">
-            <div className="h-8 w-48 bg-gray-200 rounded" />
-            <div className="h-96 bg-gray-200 rounded-lg" />
-          </div>
+      <PageShell>
+        <div className="space-y-4 animate-pulse">
+          <div className="h-8 w-48 bg-gray-200 rounded" />
+          <div className="h-96 bg-gray-200 rounded-lg" />
         </div>
-      </div>
+      </PageShell>
     );
   }
 
   // Error state
   if (error) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-indigo-50/30 via-white to-blue-50/20">
-        <div className="p-4 sm:p-6 md:p-8">
-          <div className="rounded-lg bg-red-50 border border-red-200 p-4 flex gap-3">
-            <AlertCircle className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
-            <div>
-              <p className="font-medium text-red-900">Failed to load reviews</p>
-              <p className="text-sm text-red-700">{error}</p>
-              <p className="text-xs text-red-600 mt-2">
-                Reviews feature is currently being set up. Please check back later.
-              </p>
-            </div>
+      <PageShell>
+        <div className="rounded-lg bg-red-50 border border-red-200 p-4 flex gap-3">
+          <AlertCircle className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
+          <div>
+            <p className="font-medium text-red-900">Failed to load reviews</p>
+            <p className="text-sm text-red-700">{error}</p>
+            <p className="text-xs text-red-600 mt-2">
+              Reviews feature is currently being set up. Please check back later.
+            </p>
           </div>
         </div>
-      </div>
+      </PageShell>
     );
   }
 
   return (    
-      <div className="min-h-screen bg-gradient-to-b from-indigo-50/30 via-white to-blue-50/20">
-        <div className="p-4 sm:p-6 md:p-8">
-          {/* Page Header */}
-          <div className="mb-8">
-            <h1 className="text-3xl sm:text-4xl font-black text-slate-900 mb-2">Reviews</h1>
-            <p className="text-slate-600 text-xs sm:text-sm font-medium">
-              {currentWorkspace?.logo} {currentWorkspace?.name} — Centralized reputation management and review analysis
-            </p>
-          </div>
+      <PageShell>
+        <PageHeader
+          title="Reviews"
+          subtitle={`${currentWorkspace?.logo || ""} ${currentWorkspace?.name || ""} — Centralized reputation management and review analysis`}
+        />
 
           {/* Stats Cards */}
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3 mb-8">
@@ -394,8 +389,6 @@ export default function Reviews() {
               </div>
             </div>
           </div>
-        </div>
-      </div>
-    
+      </PageShell>
   );
 }

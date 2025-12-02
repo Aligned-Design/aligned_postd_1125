@@ -41,6 +41,7 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/design-system";
+import { logError } from "@/lib/logger";
 
 interface Tenant {
   id: string;
@@ -118,19 +119,19 @@ export default function AdminPanel() {
 
       const [tenantsRes, usersRes, billingRes, flagsRes] = await Promise.all([
         fetch("/api/admin/tenants").catch((err) => {
-          console.error("[Admin] Failed to fetch tenants:", err);
+          logError("[Admin] Failed to fetch tenants", err instanceof Error ? err : new Error(String(err)));
           return null;
         }),
         fetch("/api/admin/users").catch((err) => {
-          console.error("[Admin] Failed to fetch users:", err);
+          logError("[Admin] Failed to fetch users", err instanceof Error ? err : new Error(String(err)));
           return null;
         }),
         fetch("/api/admin/billing").catch((err) => {
-          console.error("[Admin] Failed to fetch billing:", err);
+          logError("[Admin] Failed to fetch billing", err instanceof Error ? err : new Error(String(err)));
           return null;
         }),
         fetch("/api/admin/feature-flags").catch((err) => {
-          console.error("[Admin] Failed to fetch feature flags:", err);
+          logError("[Admin] Failed to fetch feature flags", err instanceof Error ? err : new Error(String(err)));
           return null;
         }),
       ]);
@@ -215,7 +216,7 @@ export default function AdminPanel() {
         setErrors((prev) => ({ ...prev, flags: undefined }));
       }
     } catch (error) {
-      console.error("[Admin] Unexpected error loading admin data:", error);
+      logError("[Admin] Unexpected error loading admin data", error instanceof Error ? error : new Error(String(error)));
       setErrors({
         tenants: "An unexpected error occurred. Please refresh the page.",
         users: "An unexpected error occurred. Please refresh the page.",

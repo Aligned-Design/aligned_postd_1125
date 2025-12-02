@@ -1,7 +1,7 @@
 # Brand Intelligence - Marketing Copy & USP
 
-**Campaign Focus:** Differentiate Aligned AI through proprietary Brand Intelligence
-**Target Audience:** Agencies, in-house marketing teams, content strategists
+**Campaign Focus:** Differentiate POSTD through proprietary Brand Intelligence  
+**Target Audience:** Agencies, in-house marketing teams, content strategists  
 **Message Pillar:** "The Only Platform That Understands Your Brand"
 
 ---
@@ -44,7 +44,7 @@ Result: Confused messaging. Lost clients. No scale.
 
 **Solution:**
 ```
-Aligned AI's Brand Intelligence learns what makes each client
+POSTD's Brand Intelligence learns what makes each client
 unique: their tone, style, visual identity, and content strategy.
 
 Same team. Same AI. Different voice for every client.
@@ -92,7 +92,7 @@ Meet Your Brand in Data
 
 #### Copy
 ```
-Aligned AI analyzes your existing content across 50+ brand attributes:
+POSTD analyzes your existing content across 50+ brand attributes:
 
 Tone & Voice: Casual, formal, witty, authoritative, conversational
 Visual Style: Color palette, imagery preferences, design patterns
@@ -112,12 +112,12 @@ Consistency That Scales
 
 #### Copy
 ```
-New social post? Aligned AI checks it against your Brand Intelligence.
+New social post? POSTD checks it against your Brand Intelligence.
 Does the tone match? ✓
 Does the visual style align? ✓
 Does the message fit your strategy? ✓
 
-If something's off, Aligned AI flags it before it goes live.
+If something's off, POSTD flags it before it goes live.
 
 For agencies: Spend 70% less time on revision requests.
 For teams: Never publish something that doesn't feel "right" again.
@@ -145,26 +145,26 @@ Understanding the "why" lets your team create more winners.
 
 ## Comparison Copy
 
-### Aligned AI vs. Generic AI Tools
+### POSTD vs. Generic AI Tools
 ```
 Generic AI: "Write a social media post about coffee"
 Result: Boring. Could be any brand.
 
-Aligned AI: "Write a post about coffee in our brand voice"
+POSTD: "Write a post about coffee in our brand voice"
 Result: Authentic. Unmistakably you.
 ```
 
-### Aligned AI vs. Social Media Scheduling Tools
+### POSTD vs. Social Media Scheduling Tools
 ```
 Scheduling Tool: Schedule when to post
-Aligned AI: Know WHAT to post that aligns with your brand
+POSTD: Know WHAT to post that aligns with your brand
 ```
 
-### Aligned AI vs. Content Agencies
+### POSTD vs. Content Agencies
 ```
 Content Agency: $5,000 - $15,000/month per brand
 Team takes weeks to understand your voice
-Aligned AI: $99 - $299/month per brand
+POSTD: $99 - $299/month per brand
 AI understands your voice in 24 hours
 ```
 
@@ -193,7 +193,7 @@ That's why in-house teams stay up late editing AI outputs.
 
 What if your AI knew your brand as well as your team does?
 
-Aligned AI's Brand Intelligence learns from your best content.
+POSTD's Brand Intelligence learns from your best content.
 Then enforces your brand voice in every generation.
 
 No more generic. No more revisions. No more compromise.
@@ -215,7 +215,7 @@ Client B: Conversational and entertaining
 Using generic AI was impossible.
 Using a copywriter for each brand didn't scale.
 
-Then they found Aligned AI's Brand Intelligence.
+Then they found POSTD's Brand Intelligence.
 
 Now? 12 client brands. Same team. Different voice for each.
 
@@ -269,7 +269,7 @@ Scale without sacrifice.
 Most agencies say this.
 But their AI doesn't know it.
 
-Aligned AI's Brand Intelligence does.
+POSTD's Brand Intelligence does.
 
 [See it in action]
 ---
@@ -339,7 +339,7 @@ E-commerce brands increasing conversion rates with on-brand copy.
 Your competitors are using generic AI.
 You could use AI that understands your unique brand.
 
-[Try Aligned AI Free]
+[Try POSTD Free]
 
 Best regards,
 The Aligned AI Team

@@ -1,9 +1,13 @@
 import { ActionableAdvisor, AdvisorInsight } from "@/components/dashboard/ActionableAdvisor";
 import { Zap, AlertCircle, TrendingUp, DollarSign, Plus, RefreshCw, Clock } from "lucide-react";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
-import { useState, useEffect } from "react";
+import { useMemo } from "react";
 import { usePaidAds } from "@/hooks/use-paid-ads";
 import { useToast } from "@/hooks/use-toast";
+import { PageShell } from "@/components/postd/ui/layout/PageShell";
+import { PageHeader } from "@/components/postd/ui/layout/PageHeader";
+import { LoadingState } from "@/components/postd/dashboard/states/LoadingState";
+import { ErrorState } from "@/components/postd/ui/feedback/ErrorState";
 
 export default function PaidAds() {
   const { currentWorkspace } = useWorkspace();
@@ -12,10 +16,9 @@ export default function PaidAds() {
     autoFetch: true,
   });
 
-  const [advisorInsights, setAdvisorInsights] = useState<AdvisorInsight[]>([]);
-
   // Generate advisor insights based on campaign data
-  useEffect(() => {
+  // Use useMemo instead of useEffect + setState to avoid setState in effect
+  const advisorInsights = useMemo<AdvisorInsight[]>(() => {
     const newInsights: AdvisorInsight[] = [];
 
     if (campaigns.length === 0 && accounts.length > 0) {
@@ -106,52 +109,57 @@ export default function PaidAds() {
       });
     }
 
-    setAdvisorInsights(newInsights);
+    return newInsights;
   }, [campaigns, accounts, toast]);
 
   const totalSpend = campaigns.reduce((sum, c) => sum + c.performance.spend, 0);
   const totalRoas = campaigns.length > 0 ? campaigns.reduce((sum, c) => sum + c.performance.roas, 0) / campaigns.length : 0;
   const activeCampaigns = campaigns.filter((c) => c.status === "active").length;
 
-  return (    
-      <div className="min-h-screen bg-gradient-to-b from-indigo-50/30 via-white to-blue-50/20">
-        <div className="p-4 sm:p-6 md:p-8">
-          {/* BETA BANNER - Prominent "Coming Soon" Message */}
-          <div className="mb-8 p-4 bg-gradient-to-r from-amber-50 to-orange-50 border-2 border-amber-300 rounded-lg flex items-start gap-3">
-            <Clock className="w-6 h-6 text-amber-600 flex-shrink-0 mt-0.5" />
-            <div>
-              <h2 className="font-black text-amber-900 text-lg">Paid Ads – Coming Soon</h2>
-              <p className="text-sm text-amber-800 mt-1">
-                This feature is currently in beta testing. Full campaign management across Meta, Google, and LinkedIn will be available in a future update.
-              </p>
-              <button
-                onClick={() => {
-                  toast({
-                    title: "Notify Me",
-                    description: "We'll let you know when Paid Ads launches!",
-                  });
-                }}
-                className="mt-3 px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white text-sm font-bold rounded-lg transition-colors"
-              >
-                Notify Me When Live
-              </button>
-            </div>
-          </div>
+  if (loading) {
+    return (
+      <PageShell>
+        <LoadingState />
+      </PageShell>
+    );
+  }
 
-          {/* Page Header */}
-          <div className="mb-8 sm:mb-12">
-            <div className="flex items-center gap-3 mb-2">
-              <h1 className="text-3xl sm:text-4xl font-black text-slate-900">
-                Paid Ads
-              </h1>
-              <span className="px-3 py-1 bg-amber-100 text-amber-800 text-xs font-black rounded-full uppercase tracking-wide">
-                Beta
-              </span>
-            </div>
-            <p className="text-slate-600 text-xs sm:text-sm font-medium">
-              {currentWorkspace?.logo} {currentWorkspace?.name} — Preview: Manage and optimize campaigns across Meta, Google, and LinkedIn (coming soon).
+  if (error) {
+    return (
+      <PageShell>
+        <PageHeader title="Paid Ads" subtitle="Manage and optimize your paid advertising campaigns" />
+        <ErrorState title="Failed to load paid ads data" onRetry={() => { fetchAccounts(); fetchCampaigns(); }} />
+      </PageShell>
+    );
+  }
+
+  return (    
+      <PageShell>
+        <PageHeader
+          title="Paid Ads"
+          subtitle={`${currentWorkspace?.logo || ""} ${currentWorkspace?.name || ""} — Manage and optimize your paid advertising campaigns across Meta, Google, and LinkedIn`}
+        />
+        {/* BETA BANNER - Prominent "Coming Soon" Message */}
+        <div className="mb-8 p-4 bg-gradient-to-r from-amber-50 to-orange-50 border-2 border-amber-300 rounded-lg flex items-start gap-3">
+          <Clock className="w-6 h-6 text-amber-600 flex-shrink-0 mt-0.5" />
+          <div>
+            <h2 className="font-black text-amber-900 text-lg">Paid Ads – Coming Soon</h2>
+            <p className="text-sm text-amber-800 mt-1">
+              This feature is currently in beta testing. Full campaign management across Meta, Google, and LinkedIn will be available in a future update.
             </p>
+            <button
+              onClick={() => {
+                toast({
+                  title: "Notify Me",
+                  description: "We'll let you know when Paid Ads launches!",
+                });
+              }}
+              className="mt-3 px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white text-sm font-bold rounded-lg transition-colors"
+            >
+              Notify Me When Live
+            </button>
           </div>
+        </div>
 
           {/* Error State */}
           {error && (
@@ -300,8 +308,6 @@ export default function PaidAds() {
               />
             </div>
           </div>
-        </div>
-      </div>
-    
+      </PageShell>
   );
 }

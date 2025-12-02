@@ -1,8 +1,11 @@
-# Aligned-20AI Design Import Package
+# POSTD Design Import Package
+
+> **Status:** ✅ Active – This design import package is active and in use.  
+> **Last Updated:** 2025-01-20
 
 ## Overview
 
-This package contains **design-only** components, tokens, and styles extracted from the Builder.io design specification for the Aligned-20AI marketing and product suite.
+This package contains **design-only** components, tokens, and styles extracted from the Builder.io design specification for the POSTD marketing and product suite. (Note: This package was originally created when the product was called "Aligned-20AI".)
 
 ### What's Included ✅
 - **20 React Components** (TSX) - All landing, dashboard, and auth page components

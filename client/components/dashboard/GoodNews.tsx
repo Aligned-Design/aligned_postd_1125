@@ -46,7 +46,7 @@ export function GoodNews() {
         Your content is resonating. Here's what's performing best this week.
       </p>
       <p className="text-xs font-medium text-blue-100/70 mb-6">
-        Aligned-20AI Summary — Updated Today · Powered by Advisor
+        POSTD Summary — Updated Today · Powered by Advisor
       </p>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">

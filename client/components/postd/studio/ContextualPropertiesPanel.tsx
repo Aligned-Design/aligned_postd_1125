@@ -17,6 +17,12 @@ interface ContextualPropertiesPanelProps {
   onUpdateDesign?: (updates: Partial<Design>) => void;
   onApplyBrandStyle?: () => void;
   onReplaceImage?: () => void;
+  onEnterCropMode?: () => void;
+  croppingItemId?: string | null;
+  cropAspectRatio?: "1:1" | "9:16" | "16:9" | "free";
+  onCropAspectRatioChange?: (ratio: "1:1" | "9:16" | "16:9" | "free") => void;
+  onConfirmCrop?: (itemId: string, crop: { x: number; y: number; width: number; height: number; aspectRatio?: "1:1" | "9:16" | "16:9" | "free" }) => void;
+  onExitCropMode?: () => void;
   className?: string;
 }
 
@@ -29,6 +35,12 @@ export function ContextualPropertiesPanel({
   onUpdateDesign,
   onApplyBrandStyle,
   onReplaceImage,
+  onEnterCropMode,
+  croppingItemId,
+  cropAspectRatio = "free",
+  onCropAspectRatioChange,
+  onConfirmCrop,
+  onExitCropMode,
   className,
 }: ContextualPropertiesPanelProps) {
   if (!item) {
@@ -267,9 +279,54 @@ export function ContextualPropertiesPanel({
             <button className="w-full px-4 py-2 text-sm bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors">
               Apply Filters
             </button>
-            <button className="w-full px-4 py-2 text-sm bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors">
-              Crop Image
-            </button>
+            {croppingItemId === item.id ? (
+              <div className="space-y-2">
+                {/* Aspect Ratio Selector */}
+                {onCropAspectRatioChange && (
+                  <div className="space-y-2">
+                    <label className="block text-xs font-medium text-slate-700">Aspect Ratio</label>
+                    <div className="grid grid-cols-4 gap-2">
+                      {(["free", "1:1", "9:16", "16:9"] as const).map((ratio) => (
+                        <button
+                          key={ratio}
+                          onClick={() => onCropAspectRatioChange(ratio)}
+                          className={`px-3 py-1.5 text-xs rounded-lg transition-colors ${
+                            cropAspectRatio === ratio
+                              ? "bg-lime-400 text-indigo-950 font-bold"
+                              : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                          }`}
+                        >
+                          {ratio === "free" ? "Free" : ratio}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {/* Confirm/Cancel */}
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => {
+                      if (onExitCropMode) onExitCropMode();
+                    }}
+                    className="flex-1 px-4 py-2 text-sm bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <p className="text-xs text-slate-500 text-center">
+                    Use the Confirm button in the crop overlay on the canvas
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <button
+                onClick={() => {
+                  if (onEnterCropMode) onEnterCropMode();
+                }}
+                className="w-full px-4 py-2 text-sm bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors"
+              >
+                Crop Image
+              </button>
+            )}
           </div>
         </div>
       )}

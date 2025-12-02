@@ -1,7 +1,10 @@
-# Aligned AI Design System Guidelines for AI Assistants
+# POSTD Design System Guidelines for AI Assistants
+
+> **Status:** ✅ Active – This is an active design system guide for POSTD.  
+> **Last Updated:** 2025-01-20
 
 ## Project Overview
-This is a **Fusion Starter** project - a React SPA with integrated Express server for the Aligned AI marketing platform.
+This is a **Fusion Starter** project - a React SPA with integrated Express server for the POSTD marketing platform.
 
 ## Core Architecture Principles
 

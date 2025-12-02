@@ -1,7 +1,10 @@
-# Aligned AI - Visual Sitemap Tree
+# POSTD - Visual Sitemap Tree
+
+> **Status:** ✅ Active – This is an active visual sitemap reference for POSTD.  
+> **Last Updated:** 2025-01-20
 
 ```
-🌟 Aligned AI
+🌟 POSTD
 │
 ├─── 🌐 PUBLIC / MARKETING
 │    │
@@ -478,7 +481,7 @@
      │  │  └─ Actions (Edit, Duplicate, Cancel, Delete)
      │  │
      │  ├─ Calendar Sync
-     │  │  ├─ Auto-add to Aligned AI calendar
+     │  │  ├─ Auto-add to POSTD calendar
      │  │  ├─ Sync to website (optional)
      │  │  └─ iCal export
      │  │

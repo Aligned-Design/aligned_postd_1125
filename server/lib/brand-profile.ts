@@ -80,9 +80,13 @@ export async function getBrandProfile(brandId: string): Promise<BrandProfile> {
       tone = "professional";
     }
 
-    // Values: from voice_summary.personality or brand_kit.brandPersonality
+    // Values: from brand_kit.values (new field) or voice_summary.personality or brand_kit.brandPersonality
     let values: string[] = [];
-    if (Array.isArray(voiceSummary.personality) && voiceSummary.personality.length > 0) {
+    if (Array.isArray(brandKit.values) && brandKit.values.length > 0) {
+      values = brandKit.values;
+    } else if (Array.isArray(brandKit.coreValues) && brandKit.coreValues.length > 0) {
+      values = brandKit.coreValues;
+    } else if (Array.isArray(voiceSummary.personality) && voiceSummary.personality.length > 0) {
       values = voiceSummary.personality;
     } else if (typeof voiceSummary.personality === "string") {
       values = [voiceSummary.personality];
@@ -90,8 +94,9 @@ export async function getBrandProfile(brandId: string): Promise<BrandProfile> {
       values = brandKit.brandPersonality;
     }
 
-    // Target Audience: from brand_kit.primaryAudience or voice_summary.audience
+    // Target Audience: from brand_kit.targetAudience (new field) or brand_kit.primaryAudience or voice_summary.audience
     const targetAudience = 
+      brandKit.targetAudience ||
       brandKit.primaryAudience || 
       voiceSummary.audience || 
       "general";

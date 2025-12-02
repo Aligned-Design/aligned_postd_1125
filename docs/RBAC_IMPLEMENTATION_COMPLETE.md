@@ -41,7 +41,7 @@
 | `WhiteLabelSettings.tsx`    | ✅ Updated | Admin only          | Uses `useCan('white_label:manage')`              |
 | `ActionButtonsHeader.tsx`   | ✅ Updated | Content actions     | Create/publish/schedule checks                   |
 | `DashboardWidgets.tsx`      | ✅ Updated | Approval actions    | Approval permission check                        |
-| `AlignedAISummary.tsx`      | ✅ Updated | Edit capability     | Uses `useCan('content:edit')`                    |
+| `POSTDSummary.tsx`      | ✅ Updated | Edit capability     | Uses `useCan('content:edit')`                    |
 | `SmartDashboard.tsx`        | ✅ Updated | Advanced analytics  | Export permission check                          |
 | `RoleBasedApprovalFlow.tsx` | ✅ Updated | Approval UI         | 4 distinct flows (creator/approver/admin/viewer) |
 | `Dashboard.tsx`             | ✅ Updated | Page layout         | Full RBAC integration                            |

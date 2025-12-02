@@ -218,7 +218,7 @@ VITE_APP_URL=https://your-vercel-domain.com (for OAuth redirects)
 **Files**: `ReportSettingsModal.tsx`, `WinCelebration.tsx`
 
 **Tasks**:
-1. Update `AlignedAISummaryProps` interface
+1. Update `POSTDSummaryProps` interface
 2. Fix `WinCelebration` ReactNode type
 3. Test components still work
 

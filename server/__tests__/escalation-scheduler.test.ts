@@ -5,7 +5,7 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { EscalationScheduler } from '../lib/escalation-scheduler';
-import { calculateEscalationTime, shouldTriggerEscalation, getEscalationLevelLabel } from '@shared/escalation';
+import { calculateEscalationTime, shouldTriggerEscalation, getEscalationLevelLabel, type EscalationLevel } from '@shared/escalation';
 
 describe('Escalation Scheduler', () => {
   let scheduler: EscalationScheduler;
@@ -170,7 +170,7 @@ describe('Escalation Scheduler', () => {
     });
 
     it('should handle unknown escalation levels gracefully', () => {
-      const label = getEscalationLevelLabel('custom_level' as unknown);
+      const label = getEscalationLevelLabel('custom_level' as EscalationLevel);
       expect(label).toBe('custom_level');
     });
   });
@@ -270,7 +270,7 @@ describe('Escalation Scheduler', () => {
   describe('Error Handling', () => {
     it('should handle invalid escalation level gracefully', () => {
       expect(() => {
-        getEscalationLevelLabel('invalid_level' as unknown);
+        getEscalationLevelLabel('invalid_level' as EscalationLevel);
       }).not.toThrow();
     });
 

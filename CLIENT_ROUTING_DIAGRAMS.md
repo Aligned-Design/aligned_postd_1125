@@ -1,4 +1,7 @@
-# Aligned AI - Client Routing Architecture Diagram
+# POSTD Client Routing Architecture Diagram
+
+> **Status:** ✅ Active – This is an active routing architecture diagram for POSTD.  
+> **Last Updated:** 2025-01-20
 
 ## Application Flow
 
@@ -58,7 +61,7 @@
 ## Sidebar Navigation Hierarchy
 
 ```
-ALIGNED AI
+POSTD
 ─────────────────────────────
 
 MAIN

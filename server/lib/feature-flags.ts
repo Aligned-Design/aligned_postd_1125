@@ -20,9 +20,7 @@
  */
 
 import { createClient } from '@supabase/supabase-js';
-import pino from 'pino';
-
-const logger = pino();
+import { logger } from './logger';
 
 export const AVAILABLE_FLAGS = {
   // Connector integrations
@@ -136,12 +134,13 @@ export class FeatureFlagsManager {
       return true;
     } catch (error) {
       logger.error(
+        'Error checking feature flag, defaulting to false',
+        error instanceof Error ? error : undefined,
         {
           flagName,
           tenantId,
           error: error instanceof Error ? error.message : String(error),
-        },
-        'Error checking feature flag, defaulting to false'
+        }
       );
       return false;
     }
@@ -188,8 +187,8 @@ export class FeatureFlagsManager {
 
       if (error) {
         logger.warn(
-          { error: error.message },
-          'Failed to load feature flags from database, using defaults'
+          'Failed to load feature flags from database, using defaults',
+          { error: error.message }
         );
         // Use defaults
         this.cache.clear();
@@ -207,15 +206,16 @@ export class FeatureFlagsManager {
           });
         });
 
-        logger.info({ flagCount: this.cache.size }, 'Feature flags loaded from database');
+        logger.info('Feature flags loaded from database', { flagCount: this.cache.size });
       }
 
       // Update cache expiry
       this.cacheExpiresAt = Date.now() + this.CACHE_TTL_MS;
     } catch (error) {
       logger.error(
-        { error: error instanceof Error ? error.message : String(error) },
-        'Error loading feature flags'
+        'Error loading feature flags',
+        error instanceof Error ? error : undefined,
+        { error: error instanceof Error ? error.message : String(error) }
       );
       // Fall back to defaults
       this.cache.clear();
@@ -267,16 +267,17 @@ export class FeatureFlagsManager {
       this.cacheExpiresAt = 0;
 
       logger.info(
-        { flagName, enabled },
-        enabled ? 'Feature flag enabled' : 'Feature flag disabled'
+        enabled ? 'Feature flag enabled' : 'Feature flag disabled',
+        { flagName, enabled }
       );
     } catch (error) {
       logger.error(
+        'Failed to update feature flag',
+        error instanceof Error ? error : undefined,
         {
           flagName,
           error: error instanceof Error ? error.message : String(error),
-        },
-        'Failed to update feature flag'
+        }
       );
       throw error;
     }
@@ -304,17 +305,18 @@ export class FeatureFlagsManager {
       this.cacheExpiresAt = 0;
 
       logger.info(
-        { flagName, percentage },
-        'Rollout percentage updated'
+        'Rollout percentage updated',
+        { flagName, percentage }
       );
     } catch (error) {
       logger.error(
+        'Failed to update rollout percentage',
+        error instanceof Error ? error : undefined,
         {
           flagName,
           percentage,
           error: error instanceof Error ? error.message : String(error),
-        },
-        'Failed to update rollout percentage'
+        }
       );
       throw error;
     }
@@ -343,7 +345,7 @@ export class FeatureFlagsManager {
             updated_at: new Date().toISOString(),
           });
 
-          logger.info({ flagName }, 'Feature flag seeded');
+          logger.info('Feature flag seeded', { flagName });
         }
       }
 
@@ -351,8 +353,9 @@ export class FeatureFlagsManager {
       this.cacheExpiresAt = 0;
     } catch (error) {
       logger.error(
-        { error: error instanceof Error ? error.message : String(error) },
-        'Failed to seed feature flags'
+        'Failed to seed feature flags',
+        error instanceof Error ? error : undefined,
+        { error: error instanceof Error ? error.message : String(error) }
       );
     }
   }

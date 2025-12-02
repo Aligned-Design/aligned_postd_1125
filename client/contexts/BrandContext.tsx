@@ -3,6 +3,7 @@ import { supabase, Brand } from "@/lib/supabase";
 import { useAuth } from "./AuthContext";
 import { useLocation, useNavigate } from "react-router-dom";
 import { getBrandTheme, applyTheme } from "@/lib/theme-config";
+import { logError, logWarning, logTelemetry } from "@/lib/logger";
 
 type BrandContextType = {
   brands: Brand[];
@@ -25,7 +26,7 @@ async function createDevBrandForUser(userId: string): Promise<void> {
   // ✅ DISABLED in production - use backend API instead
   // Direct Supabase calls require session tokens which we don't have in production
   if (process.env.NODE_ENV === "production") {
-    console.warn("[BrandContext] createDevBrandForUser is disabled in production - use backend API");
+    logWarning("[BrandContext] createDevBrandForUser is disabled in production - use backend API");
     return;
   }
 
@@ -75,7 +76,7 @@ async function createDevBrandForUser(userId: string): Promise<void> {
 
     if (brandError && brandError.code !== "23505") {
       // Ignore duplicate key errors (23505)
-      console.warn("[BrandContext] Error creating dev brand:", brandError);
+      logWarning("[BrandContext] Error creating dev brand", { error: brandError.message, code: brandError.code, userId });
       return;
     }
 
@@ -86,9 +87,9 @@ async function createDevBrandForUser(userId: string): Promise<void> {
       role: "owner",
     });
 
-    console.log("[BrandContext] Created dev brand for user:", userId);
+    logTelemetry("[BrandContext] Created dev brand for user", { userId });
   } catch (error) {
-    console.error("[BrandContext] Error creating dev brand:", error);
+    logError("[BrandContext] Error creating dev brand", error instanceof Error ? error : new Error(String(error)), { userId });
     // Don't throw - allow app to continue without brand
   }
 }
@@ -155,7 +156,7 @@ export function BrandProvider({ children }: { children: React.ReactNode }) {
     // This ensures JWT token is present before making API calls
     const token = localStorage.getItem("aligned_access_token");
     if (!token) {
-      console.warn("[BrandContext] No auth token available, waiting for session...");
+      logWarning("[BrandContext] No auth token available, waiting for session...", { userId: user.id });
       setLoading(false);
       return;
     }
@@ -165,7 +166,7 @@ export function BrandProvider({ children }: { children: React.ReactNode }) {
     const isDevMock = user.id === "user-dev-mock" || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(user.id);
     
     if (isDevMock) {
-      console.log("[BrandContext] Dev/mock user detected, attempting to fetch brands anyway:", user.id);
+      logTelemetry("[BrandContext] Dev/mock user detected, attempting to fetch brands anyway", { userId: user.id });
     }
 
     try {
@@ -173,7 +174,7 @@ export function BrandProvider({ children }: { children: React.ReactNode }) {
       // This replaces direct Supabase access which required session tokens
       const { apiGet } = await import("@/lib/api");
       
-      console.log("[BrandContext] Fetching brands via API", {
+      logTelemetry("[BrandContext] Fetching brands via API", {
         userId: user.id,
         hasToken: !!token,
       });
@@ -182,14 +183,14 @@ export function BrandProvider({ children }: { children: React.ReactNode }) {
       try {
         const response = await apiGet<{ success: boolean; brands: any[]; total: number }>("/api/brands");
         brandsData = response.brands || [];
-        console.log("[BrandContext] ✅ Fetched brands via API", {
+        logTelemetry("[BrandContext] ✅ Fetched brands via API", {
           count: brandsData.length,
         });
       } catch (apiError) {
-        console.error("[BrandContext] ❌ API error fetching brands:", apiError);
+        logError("[BrandContext] ❌ API error fetching brands", apiError instanceof Error ? apiError : new Error(String(apiError)), { userId: user.id });
         // Check if it's a 401 - token might be invalid
         if (apiError instanceof Error && apiError.message.includes("401")) {
-          console.error("[BrandContext] 401 Unauthorized - token may be invalid or expired");
+          logError("[BrandContext] 401 Unauthorized - token may be invalid or expired", new Error("401 Unauthorized"), { userId: user.id });
           // Clear invalid token
           localStorage.removeItem("aligned_access_token");
           localStorage.removeItem("aligned_refresh_token");
@@ -201,7 +202,7 @@ export function BrandProvider({ children }: { children: React.ReactNode }) {
       // ✅ API already returns full brand data, no need to fetch again
       if (!brandsData || brandsData.length === 0) {
         // No brands found - show empty state
-        console.log("[BrandContext] No brands found for user:", user.id);
+        logTelemetry("[BrandContext] No brands found for user", { userId: user.id });
         setBrands([]);
         setCurrentBrand(null);
         setLoading(false);
@@ -239,7 +240,7 @@ export function BrandProvider({ children }: { children: React.ReactNode }) {
         setCurrentBrand(null);
       }
     } catch (error) {
-      console.error("[BrandContext] Error fetching brands:", error);
+      logError("[BrandContext] Error fetching brands", error instanceof Error ? error : new Error(String(error)), { userId: user.id });
       // On error, show empty state (don't use DEFAULT_BRAND)
       setBrands([]);
       setCurrentBrand(null);

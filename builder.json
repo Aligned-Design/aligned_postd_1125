@@ -3,7 +3,7 @@
   "description": "Multi-platform brand intelligence and content management system",
   "publicApiKey": "39bfc067b694403ca329597d360f18f4",
   "runtime": {
-    "node": "22",
+    "node": "24",
     "pnpm": ">=9.0.0"
   },
   "build": {

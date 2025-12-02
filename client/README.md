@@ -4,7 +4,7 @@ The client is a modern React 18 + TypeScript application built with Vite, featur
 
 ## Overview
 
-The frontend provides the user interface for the Aligned AI platform, including:
+The frontend provides the user interface for the POSTD platform, including:
 - User authentication and dashboard
 - Brand and content management
 - AI-powered content generation

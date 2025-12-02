@@ -131,14 +131,21 @@ export const handleOAuthCallback: RequestHandler = async (req, res) => {
       tokenData.expiresIn
         ? new Date(Date.now() + tokenData.expiresIn * 1000)
         : undefined,
-      [], // TODO: Extract permissions from token response
+      [], // Future enhancement: Extract permissions from OAuth token response (platform-specific)
       accountInfo,
       userId,
     );
 
     res.redirect("/integrations?success=Connected successfully");
   } catch (error) {
-    console.error("OAuth callback error:", error);
+    const logger = (await import("../lib/logger")).logger;
+    logger.error(
+      "OAuth callback error",
+      error instanceof Error ? error : new Error(String(error)),
+      {
+        platform: req.params.platform,
+      }
+    );
     const errorMsg =
       error instanceof Error ? error.message : "Connection failed";
     res.redirect(`/integrations?error=${encodeURIComponent(errorMsg)}`);
@@ -151,7 +158,7 @@ export const getConnections: RequestHandler = async (req, res) => {
     const { brandId } = req.params;
 
     // ✅ SECURITY: Verify user has access to this brand
-    assertBrandAccess(req, brandId);
+    await assertBrandAccess(req, brandId);
 
     // Fetch connections from database
     const connections: any[] = await connectionsDB.getBrandConnections(brandId);
@@ -189,7 +196,7 @@ export const disconnectPlatform: RequestHandler = async (req, res) => {
     const { brandId, platform } = req.params;
 
     // ✅ SECURITY: Verify user has access to this brand
-    assertBrandAccess(req, brandId);
+    await assertBrandAccess(req, brandId);
 
     // Disconnect in database
     await connectionsDB.disconnectPlatform(brandId, platform as Platform);
@@ -509,7 +516,7 @@ export const verifyConnection: RequestHandler = async (req, res) => {
     const { brandId, platform } = req.params;
 
     // ✅ SECURITY: Verify user has access to this brand
-    assertBrandAccess(req, brandId);
+    await assertBrandAccess(req, brandId);
 
     // Get connection from database
     const connection = await connectionsDB.getConnection(
@@ -597,7 +604,7 @@ export const refreshToken: RequestHandler = async (req, res) => {
     const { brandId, platform } = req.params;
 
     // ✅ SECURITY: Verify user has access to this brand
-    assertBrandAccess(req, brandId);
+    await assertBrandAccess(req, brandId);
 
     // Get connection from database
     const connection = await connectionsDB.getConnection(
@@ -796,24 +803,44 @@ export const updateScheduledTime: RequestHandler = async (req, res) => {
       );
     }
 
-    // Check if content requires approval (only allow rescheduling approved/scheduled content)
-    if (job.status === "reviewing" || job.status === "draft") {
+    // Only allow rescheduling jobs that are scheduled or pending
+    // Jobs in "processing", "published", or "failed" states cannot be rescheduled
+    if (job.status !== "scheduled" && job.status !== "pending") {
       throw new AppError(
         ErrorCode.FORBIDDEN,
-        "Cannot reschedule content that is not approved",
+        "Cannot reschedule content that is not in scheduled or pending state",
         HTTP_STATUS.FORBIDDEN,
         "warning",
         undefined,
-        "Please approve the content before rescheduling."
+        "Only scheduled or pending jobs can be rescheduled."
       );
     }
 
-    // Update scheduled time
+    // Update scheduled time in database
     const updatedJob = await publishingDBService.updateScheduledTime(
       jobId,
       brandId,
       scheduledDate,
     );
+
+    // Update in-memory queue job if it exists
+    try {
+      await publishingQueue.updateScheduledTime(jobId, scheduledAt);
+    } catch (error) {
+      // Log but don't fail - DB update succeeded
+      // Queue will resync on next job load, but log for observability
+      const logger = (await import("../lib/logger")).logger;
+      logger.warn(
+        "Failed to update in-memory queue job (DB update succeeded)",
+        {
+          jobId,
+          brandId,
+          platforms: job.platforms,
+          scheduledAt,
+          error: error instanceof Error ? error.message : String(error),
+        }
+      );
+    }
 
     (res as any).json({
       success: true,

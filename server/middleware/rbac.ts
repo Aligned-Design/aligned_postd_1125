@@ -1,4 +1,4 @@
-import { Request, Response, NextFunction } from "express";
+import type { Request, Response, NextFunction } from "express";
 import { AppError } from "../lib/error-middleware";
 import { ErrorCode, HTTP_STATUS } from "../lib/error-responses";
 
@@ -191,7 +191,7 @@ export function hasAllPermissions(
  * Middleware: Require authentication
  */
 export function requireAuth(req: Request, _res: Response, next: NextFunction) {
-  const auth = (req as any).auth;
+  const auth = req.auth;
 
   if (!auth || !auth.userId) {
     throw new AppError(
@@ -210,7 +210,7 @@ export function requireAuth(req: Request, _res: Response, next: NextFunction) {
  */
 export function requireRole(...roles: Role[]) {
   return (req: Request, _res: Response, next: NextFunction) => {
-    const auth = (req as any).auth;
+    const auth = req.auth;
 
     if (!auth || !auth.role) {
       throw new AppError(
@@ -240,7 +240,7 @@ export function requireRole(...roles: Role[]) {
  */
 export function requirePermission(...permissions: Permission[]) {
   return (req: Request, _res: Response, next: NextFunction) => {
-    const auth = (req as any).auth;
+    const auth = req.auth;
 
     if (!auth || !auth.role) {
       throw new AppError(
@@ -277,7 +277,7 @@ export function requireBrandAccess(
   _res: Response,
   next: NextFunction,
 ) {
-  const auth = (req as any).auth;
+  const auth = req.auth;
   const brandId = req.params.brandId || req.body.brandId || req.query.brandId;
 
   if (!auth || !auth.userId) {
@@ -291,7 +291,7 @@ export function requireBrandAccess(
 
   if (!brandId) {
     throw new AppError(
-      ErrorCode.BAD_REQUEST,
+      ErrorCode.VALIDATION_ERROR,
       "Brand ID required",
       HTTP_STATUS.BAD_REQUEST,
       "warning",
@@ -321,7 +321,7 @@ export function requireBrandAccess(
  */
 export function requireOwnership(userIdField: string = "userId") {
   return (req: Request, _res: Response, next: NextFunction) => {
-    const auth = (req as any).auth;
+    const auth = req.auth;
     const resourceUserId =
       req.params[userIdField] ||
       req.body[userIdField] ||

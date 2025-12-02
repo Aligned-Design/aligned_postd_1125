@@ -182,14 +182,14 @@ async function testBrandsTable(ctx: TestContext): Promise<void> {
   assert(brand?.updated_at, "Brand should have updated_at");
 
   // Validate optional columns that should exist per migration 009
-  assert(brand.hasOwnProperty("primary_color"), "Brand should have primary_color column");
-  assert(brand.hasOwnProperty("website_url"), "Brand should have website_url column");
-  assert(brand.hasOwnProperty("industry"), "Brand should have industry column");
-  assert(brand.hasOwnProperty("tone_keywords"), "Brand should have tone_keywords column");
-  assert(brand.hasOwnProperty("brand_kit"), "Brand should have brand_kit column");
-  assert(brand.hasOwnProperty("voice_summary"), "Brand should have voice_summary column");
-  assert(brand.hasOwnProperty("visual_summary"), "Brand should have visual_summary column");
-  assert(brand.hasOwnProperty("scraper_status"), "Brand should have scraper_status column");
+  assert(Object.prototype.hasOwnProperty.call(brand, "primary_color"), "Brand should have primary_color column");
+  assert(Object.prototype.hasOwnProperty.call(brand, "website_url"), "Brand should have website_url column");
+  assert(Object.prototype.hasOwnProperty.call(brand, "industry"), "Brand should have industry column");
+  assert(Object.prototype.hasOwnProperty.call(brand, "tone_keywords"), "Brand should have tone_keywords column");
+  assert(Object.prototype.hasOwnProperty.call(brand, "brand_kit"), "Brand should have brand_kit column");
+  assert(Object.prototype.hasOwnProperty.call(brand, "voice_summary"), "Brand should have voice_summary column");
+  assert(Object.prototype.hasOwnProperty.call(brand, "visual_summary"), "Brand should have visual_summary column");
+  assert(Object.prototype.hasOwnProperty.call(brand, "scraper_status"), "Brand should have scraper_status column");
 
   ctx.brandId = brand.id;
   ctx.workspaceId = brand.workspace_id || ctx.tenantId;
@@ -238,7 +238,7 @@ async function testBrandMembersTable(ctx: TestContext): Promise<void> {
   assert(member?.user_id, "BrandMember should have user_id");
   assert(member?.role, "BrandMember should have role");
   assert(member?.created_at, "BrandMember should have created_at");
-  assert(member.hasOwnProperty("updated_at"), "BrandMember should have updated_at column");
+  assert(Object.prototype.hasOwnProperty.call(member, "updated_at"), "BrandMember should have updated_at column");
 
   ctx.createdIds.brandMembers.push(member.id);
 
@@ -276,10 +276,11 @@ async function testMediaAssetsTable(ctx: TestContext): Promise<void> {
     mediaData.tenant_id = ctx.tenantId;
   }
 
+  // ✅ FIX: Explicitly select only columns that exist (exclude thumbnail_url and url)
   const { data: media, error: insertError } = await supabase
     .from("media_assets")
     .insert(mediaData)
-    .select()
+    .select("id, brand_id, tenant_id, category, filename, path, hash, mime_type, size_bytes, used_in, usage_count, metadata, created_at, updated_at, status")
     .single();
 
   if (insertError) {
@@ -294,11 +295,11 @@ async function testMediaAssetsTable(ctx: TestContext): Promise<void> {
   assert(media?.mime_type, "MediaAsset should have mime_type");
   
   // CRITICAL: Validate size_bytes (not file_size - this was the bug!)
-  assert(media.hasOwnProperty("size_bytes"), "MediaAsset should have size_bytes column (not file_size)");
+  assert(Object.prototype.hasOwnProperty.call(media, "size_bytes"), "MediaAsset should have size_bytes column (not file_size)");
   assert(typeof media.size_bytes === "number", "MediaAsset size_bytes should be a number");
   
-  assert(media.hasOwnProperty("metadata"), "MediaAsset should have metadata column");
-  assert(media.hasOwnProperty("usage_count"), "MediaAsset should have usage_count column");
+  assert(Object.prototype.hasOwnProperty.call(media, "metadata"), "MediaAsset should have metadata column");
+  assert(Object.prototype.hasOwnProperty.call(media, "usage_count"), "MediaAsset should have usage_count column");
   assert(media?.created_at, "MediaAsset should have created_at");
 
   ctx.mediaAssetId = media.id;
@@ -347,9 +348,9 @@ async function testStorageQuotasTable(ctx: TestContext): Promise<void> {
   assert(quota?.id, "StorageQuota should have id");
   assert(quota?.brand_id, "StorageQuota should have brand_id");
   assert(typeof quota?.limit_bytes === "number", "StorageQuota should have limit_bytes");
-  assert(quota.hasOwnProperty("used_bytes"), "StorageQuota should have used_bytes column");
-  assert(quota.hasOwnProperty("warning_threshold_percent"), "StorageQuota should have warning_threshold_percent");
-  assert(quota.hasOwnProperty("hard_limit_percent"), "StorageQuota should have hard_limit_percent");
+  assert(Object.prototype.hasOwnProperty.call(quota, "used_bytes"), "StorageQuota should have used_bytes column");
+  assert(Object.prototype.hasOwnProperty.call(quota, "warning_threshold_percent"), "StorageQuota should have warning_threshold_percent");
+  assert(Object.prototype.hasOwnProperty.call(quota, "hard_limit_percent"), "StorageQuota should have hard_limit_percent");
 
   ctx.createdIds.storageQuotas.push(quota.id);
 
@@ -391,11 +392,11 @@ async function testContentItemsTable(ctx: TestContext): Promise<void> {
   assert(content?.brand_id, "ContentItem should have brand_id");
   
   // CRITICAL: Validate "type" column exists (renamed from "content_type")
-  assert(content.hasOwnProperty("type"), "ContentItem should have type column (not content_type)");
+  assert(Object.prototype.hasOwnProperty.call(content, "type"), "ContentItem should have type column (not content_type)");
   assert(content?.type === "post", "ContentItem type should match inserted value");
   
   // CRITICAL: Validate "content" JSONB column exists
-  assert(content.hasOwnProperty("content"), "ContentItem should have content JSONB column");
+  assert(Object.prototype.hasOwnProperty.call(content, "content"), "ContentItem should have content JSONB column");
   assert(typeof content.content === "object", "ContentItem content should be JSONB object");
   
   assert(content?.status, "ContentItem should have status");
@@ -494,7 +495,7 @@ async function testAnalyticsMetricsTable(ctx: TestContext): Promise<void> {
   assert(analytics?.date, "AnalyticsMetrics should have date");
   
   // CRITICAL: Validate "metrics" JSONB column
-  assert(analytics.hasOwnProperty("metrics"), "AnalyticsMetrics should have metrics JSONB column");
+  assert(Object.prototype.hasOwnProperty.call(analytics, "metrics"), "AnalyticsMetrics should have metrics JSONB column");
   assert(typeof analytics.metrics === "object", "AnalyticsMetrics metrics should be JSONB object");
 
   logStep("analytics_metrics table (JSONB metrics validated)", "✓");
@@ -531,7 +532,7 @@ async function testMilestonesTable(ctx: TestContext): Promise<void> {
   assert(milestone?.workspace_id, "Milestone should have workspace_id");
   assert(milestone?.key, "Milestone should have key");
   assert(milestone?.unlocked_at, "Milestone should have unlocked_at");
-  assert(milestone.hasOwnProperty("acknowledged_at"), "Milestone should have acknowledged_at column");
+  assert(Object.prototype.hasOwnProperty.call(milestone, "acknowledged_at"), "Milestone should have acknowledged_at column");
 
   logStep("milestones table (insert/read)", "✓");
 }

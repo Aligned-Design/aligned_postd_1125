@@ -147,7 +147,7 @@ export const uploadMedia: RequestHandler = async (req, res, next) => {
     }
 
     // Verify user has access to this brand
-    assertBrandAccess(req, brandId);
+    await assertBrandAccess(req, brandId);
 
     // Create media asset in database
     const assetRecord = await mediaDB.createMediaAsset(
@@ -190,7 +190,7 @@ export const listMedia: RequestHandler = async (req, res, next) => {
     }
 
     // Verify user has access to this brand
-    assertBrandAccess(req, brandId as string);
+    await assertBrandAccess(req, brandId as string);
 
     // Fetch assets from database
     const { assets: assetRecords, total } = await mediaDB.listMediaAssets(
@@ -232,7 +232,7 @@ export const getStorageUsage: RequestHandler = async (req, res, next) => {
     }
 
     // Verify user has access to this brand
-    assertBrandAccess(req, brandId);
+    await assertBrandAccess(req, brandId);
 
     // Get storage usage from database
     const usage = await mediaDB.getStorageUsage(brandId);
@@ -289,7 +289,7 @@ export const getAssetUrl: RequestHandler = async (req, res, next) => {
     }
 
     // ✅ SECURITY: Verify user has access to this asset's brand
-    assertBrandAccess(req, asset.brandId);
+    await assertBrandAccess(req, asset.brandId);
 
     // Generate signed URL using asset path (generateSignedUrl expects storage path)
     const url = await mediaDB.generateSignedUrl(asset.bucketPath, parseInt(expirationSeconds as string) || 3600);

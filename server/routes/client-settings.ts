@@ -9,6 +9,7 @@ import { AppError } from "../lib/error-middleware";
 import { ErrorCode, HTTP_STATUS } from "../lib/error-responses";
 import {
   ClientSettings,
+  EmailPreferences,
   UpdateClientSettingsSchema,
   DEFAULT_CLIENT_SETTINGS,
   UnsubscribeRequest,
@@ -17,24 +18,25 @@ import {
 import { logAuditAction } from "../lib/audit-logger";
 import {
   clientSettings as dbClientSettings,
+  ClientSettingsRecord,
 } from "../lib/dbClient";
 import crypto from "crypto";
 
 /**
  * Helper function to convert database record to API response format
  */
-function dbRecordToClientSettings(record: unknown): ClientSettings {
+function dbRecordToClientSettings(record: ClientSettingsRecord): ClientSettings {
   return {
     id: record.id,
     clientId: record.client_id,
     brandId: record.brand_id,
     emailPreferences:
-      record.email_preferences || DEFAULT_CLIENT_SETTINGS.emailPreferences,
+      (record.email_preferences as unknown as EmailPreferences) || DEFAULT_CLIENT_SETTINGS.emailPreferences,
     timezone: record.timezone,
-    language: record.language,
+    language: record.language as 'en' | 'es' | 'fr' | 'de',
     unsubscribeToken: record.unsubscribe_token,
     unsubscribedFromAll: record.unsubscribed_from_all,
-    unsubscribedTypes: record.unsubscribed_types || [],
+    unsubscribedTypes: (record.unsubscribed_types || []) as EmailNotificationType[],
     createdAt: record.created_at,
     updatedAt: record.updated_at,
     lastModifiedBy: record.last_modified_by,

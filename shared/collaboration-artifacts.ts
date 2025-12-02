@@ -113,6 +113,12 @@ export interface ContentPackage {
       emotion: string; // Emotional tone (e.g., "energetic", "calm", "professional")
       layoutStyle: string; // Layout description (e.g., "centered", "asymmetric", "grid")
       aspectRatio: string; // e.g., "1:1", "9:16", "16:9"
+      // ✅ PHASE 4: Extended fields for Design Agent variants (backward-compatible)
+      variantLabel?: string; // Variant label/name
+      brandFidelityScore?: number; // BFS score for this variant
+      source?: string; // Source of visual (e.g., "design_agent_make_on_brand", "template", "upload")
+      selected?: boolean; // Whether this variant was selected by user
+      selectedAt?: string; // ISO timestamp when variant was selected
     };
     performanceInsights?: {
       basedOnTrend?: string; // What performance trend influenced this
@@ -206,6 +212,7 @@ export interface PerformanceMetrics {
   unit: string;
   target?: number;
   status: "excellent" | "good" | "fair" | "poor";
+  change?: number; // Change from previous period (used in scripts and analytics)
 }
 
 export interface ContentPerformance {
@@ -260,6 +267,11 @@ export interface PerformanceLog {
       clicks: number;
     };
     contentCount: number;
+    // Additional properties for backward compatibility with weekly-summary
+    layout?: string;
+    colorScheme?: string;
+    motionType?: string;
+    engagement?: number; // Flattened engagement value for easier access
   }>;
 
   // Performance by copy attribute
@@ -272,6 +284,8 @@ export interface PerformanceLog {
       clicks: number;
     };
     contentCount: number;
+    // Additional properties for backward compatibility
+    engagement?: number; // Flattened engagement value for easier access
   }>;
 
   // Platform-specific insights
@@ -287,6 +301,17 @@ export interface PerformanceLog {
   // Detailed content performance history
   contentPerformance: ContentPerformance[];
 
+  // Legacy/flattened content metrics (for backward compatibility with weekly-summary)
+  // Maps to contentPerformance but with flattened structure for easier access
+  contentMetrics?: Array<{
+    platform: string;
+    tone?: string;
+    engagement?: number;
+    reach?: number;
+    clicks?: number;
+    [key: string]: unknown; // Allow additional properties
+  }>;
+
   // Recommendations for next content
   recommendations: {
     visualRecommendations: string[];
@@ -300,6 +325,12 @@ export interface PerformanceLog {
     strength: "strong" | "moderate" | "weak";
     example: string;
     impact: string;
+    // Additional properties for weekly-summary compatibility
+    evidence?: string[];
+    recommendation?: string;
+    frequency?: number;
+    avgPerformance?: number;
+    examples?: string[];
   }>;
 
   alerts: Array<{

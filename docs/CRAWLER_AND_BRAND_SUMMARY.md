@@ -1,5 +1,8 @@
 # Crawler and Brand Summary Documentation
 
+**Status:** ✅ **CANONICAL** - Authoritative documentation for brand intake and crawler functionality  
+**Last Updated:** 2025-01-20
+
 ## Overview
 
 The crawler extracts brand assets (images, colors, content) from websites during onboarding, and the brand summary generator creates a long-form narrative summary (8-10 paragraphs) using the Doc Agent.

@@ -1,4 +1,4 @@
-import { Request, Response, NextFunction } from "express";
+import type { Request, Response, NextFunction } from "express";
 import crypto from "crypto";
 import { AppError } from "../lib/error-middleware";
 import { ErrorCode, HTTP_STATUS } from "../lib/error-responses";
@@ -18,12 +18,12 @@ export function authenticateUser(
   try {
     jwtAuth(req, res, () => {
       // Normalize req.user for backward compatibility
-      const auth = (req as any).auth;
+      const auth = req.auth;
       if (auth) {
         // ✅ CRITICAL: Extract tenantId from JWT payload
         const tenantId = auth.tenantId || auth.workspaceId || null;
         
-        (req as any).user = {
+        req.user = {
           id: auth.userId,
           email: auth.email,
           role: auth.role,
@@ -36,7 +36,7 @@ export function authenticateUser(
         };
         
         // Also add to auth object for consistency
-        (req as any).auth = {
+        req.auth = {
           ...auth,
           tenantId: tenantId,
           workspaceId: tenantId,
@@ -44,7 +44,7 @@ export function authenticateUser(
       }
 
       // Log auth context for debugging (remove in production if sensitive)
-      const user = (req as any).user;
+      const user = req.user;
       if (user) {
         console.log("[Auth] Request authenticated", {
           userId: user.id,
@@ -53,10 +53,10 @@ export function authenticateUser(
           brandIds: user.brandIds,
           scopes: user.scopes || [],
           role: user.role,
-          path: (req as any).path || (req as any).url,
+          path: req.path || req.url,
         });
       } else {
-        console.warn("[Auth] No user context found for path:", (req as any).path || (req as any).url);
+        console.warn("[Auth] No user context found for path:", req.path || req.url);
       }
 
       next();
@@ -128,7 +128,7 @@ export function rateLimit(config: RateLimitConfig) {
     maxRequests,
     keyGenerator = (req) => {
       const ip = req.ip || req.socket.remoteAddress || "unknown";
-      const userId = (req as any).auth?.userId || "anonymous";
+      const userId = req.auth?.userId || "anonymous";
       return `${ip}-${userId}`;
     },
     skipSuccessfulRequests = false,
@@ -340,7 +340,7 @@ export function requestSizeLimit(maxSizeBytes: number) {
 
     if (contentLength > maxSizeBytes) {
       throw new AppError(
-        ErrorCode.PAYLOAD_TOO_LARGE,
+        ErrorCode.VALIDATION_ERROR,
         `Request body too large. Maximum size: ${maxSizeBytes} bytes`,
         HTTP_STATUS.PAYLOAD_TOO_LARGE,
         "warning",

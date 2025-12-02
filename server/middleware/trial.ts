@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import { AppError } from "../lib/error-middleware";
+import { ErrorCode, HTTP_STATUS } from "../lib/error-responses";
 
 /**
  * Trial Middleware - Enforces trial limitations
@@ -23,10 +24,16 @@ export async function checkTrialLimit(
   next: NextFunction,
 ) {
   try {
-    const user = req.user as TrialUser | undefined;
+    // Type assertion: req.user may have additional properties, but we only need TrialUser fields
+    const user = (req.user as unknown) as TrialUser | undefined;
 
     if (!user) {
-      return next(new AppError("Unauthorized", 401, "UNAUTHORIZED"));
+      return next(new AppError(
+        ErrorCode.UNAUTHORIZED,
+        "Authentication required",
+        HTTP_STATUS.UNAUTHORIZED,
+        "warning"
+      ));
     }
 
     // Only apply limits to trial users

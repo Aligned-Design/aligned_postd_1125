@@ -5,7 +5,7 @@
 
 import { MailchimpClient } from './mailchimp-client';
 import { SquarespaceClient } from './squarespace-client';
-import { WordPressClient } from './wordpress-client';
+import { WordPressClient, WordPressPost } from './wordpress-client';
 import { WixClient } from './wix-client';
 
 // Platform provider type
@@ -80,7 +80,7 @@ export class IntegrationService {
           const created = await client.createBlogPost(ssPost);
           return created; // Squarespace scheduling handled separately
         } else {
-          const created = await client.createBlogPost(ssPost);
+          const created = await client.createBlogPost(ssPost) as { id?: string };
           return client.publishBlogPost(created.id!);
         }
       }
@@ -97,10 +97,10 @@ export class IntegrationService {
 
         if (post.scheduledFor) {
           const created = await client.createBlogPost(wixPost);
-          return client.scheduleBlogPost(created.id!, post.scheduledFor);
+          return client.scheduleBlogPost(created.id, post.scheduledFor);
         } else {
           const created = await client.createBlogPost(wixPost);
-          return client.publishBlogPost(created.id!);
+          return client.publishBlogPost(created.id);
         }
       }
 
@@ -138,7 +138,7 @@ export class IntegrationService {
           },
         };
 
-        const created = await client.createCampaign(mcCampaign);
+        const created = await client.createCampaign(mcCampaign) as { id: string };
 
         if (campaign.scheduledFor) {
           return client.scheduleCampaign(created.id, campaign.scheduledFor);
@@ -160,7 +160,7 @@ export class IntegrationService {
           listIds: campaign.listIds || [],
         };
 
-        const created = await client.createEmailCampaign(ssCampaign);
+        const created = await client.createEmailCampaign(ssCampaign) as { id?: string };
 
         if (campaign.scheduledFor) {
           const sendAt = new Date(campaign.scheduledFor).getTime() / 1000;
@@ -245,7 +245,7 @@ export class IntegrationService {
     client: WordPressClient,
     post: unknown
   ): Promise<number> {
-    const created = await client.createPost(post);
+    const created = await client.createPost(post as WordPressPost) as { id?: number };
     return created.id!;
   }
 }

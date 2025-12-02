@@ -36,24 +36,26 @@ export default function Dashboard() {
   const { currentWorkspace } = useWorkspace();
   const { data, isLoading, isError, error, refetch } = useDashboardData({ brandId, timeRange: "30d" });
   const [retryCount, setRetryCount] = useState(0);
-  const [showFirstTimeWelcome, setShowFirstTimeWelcome] = useState(false);
   const { shouldShowTour, markTourCompleted } = usePostOnboardingTour();
 
   // Check if this is a first-time visit (onboarding complete, welcome not dismissed)
-  useEffect(() => {
+  // Use useState with lazy initializer to compute initial state safely
+  const [showFirstTimeWelcome, setShowFirstTimeWelcome] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false; // guard for SSR
+
     if (!onboardingStep) {
-      // Onboarding is complete
       const dismissed = localStorage.getItem("aligned:first_time_welcome:dismissed");
       const onboardingCompleted = localStorage.getItem("aligned:onboarding:completed");
       
       // Show welcome if onboarding was just completed (first time after onboarding)
       if (!dismissed && onboardingCompleted === "true") {
-        setShowFirstTimeWelcome(true);
         // Mark as shown so it doesn't show again
         localStorage.setItem("aligned:onboarding:completed", "shown");
+        return true;
       }
     }
-  }, [onboardingStep]);
+    return false;
+  });
 
   const handleRetry = () => {
     setRetryCount((prev) => prev + 1);

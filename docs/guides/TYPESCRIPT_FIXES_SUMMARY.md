@@ -47,7 +47,7 @@ All TypeScript errors that were blocking the build have been successfully resolv
 
 ```bash
 $ pnpm typecheck
-> aligned-ai@1.0.0 typecheck /Users/krisfoust/Documents/Aligned-20ai
+> postd@1.0.0 typecheck /Users/krisfoust/Downloads/Aligned-20ai.posted
 > tsc --noEmit
 
 ✅ SUCCESS - 0 errors, 0 warnings

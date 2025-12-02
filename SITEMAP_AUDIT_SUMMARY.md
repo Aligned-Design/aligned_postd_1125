@@ -8,10 +8,13 @@
 
 ## Summary
 
-- **Total Routes**: 27
+- **Total Routes**: 27 (canonical routes)
+- **Total with Aliases**: ~46 (includes route aliases like /queue, /studio, /ads, /reports)
 - **Passed Routes**: 27
 - **Failed Routes**: 0
 - **Skipped Routes**: 0
+
+**Note:** The count of 27 refers to canonical routes. Additional route aliases (e.g., `/queue` and `/content-queue` both map to Content Queue) bring the total to approximately 46 routes.
 
 - **Total Workflows**: 5
 - **Passed Workflows**: 0

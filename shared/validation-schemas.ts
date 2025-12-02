@@ -607,6 +607,132 @@ export const AiDesignGenerationRequestSchema = z.object({
 
 export type AiDesignGenerationRequest = z.infer<typeof AiDesignGenerationRequestSchema>;
 
+// ==================== ContentPackage Routes ====================
+
+/**
+ * Save ContentPackage Request
+ * POST /api/content-packages
+ */
+export const SaveContentPackageSchema = z.object({
+  brandId: z.string()
+    .uuid('Invalid brand ID format')
+    .describe('Brand ID for ContentPackage'),
+  // ✅ PHASE 4: Optional selectedVariant for variant selection
+  selectedVariant: z.object({
+    id: z.string(),
+    label: z.string(),
+    prompt: z.string(),
+    description: z.string().optional(),
+    aspectRatio: z.string().optional(),
+    useCase: z.string().optional(),
+    brandFidelityScore: z.number().min(0).max(1),
+    complianceTags: z.array(z.string()).optional(),
+    status: z.enum(['draft', 'approved', 'needs_review']),
+    metadata: z.object({
+      colorUsage: z.array(z.string()).optional(),
+      typeStructure: z.object({
+        headingFont: z.string().optional(),
+        bodyFont: z.string().optional(),
+        fontSize: z.string().optional(),
+        fontWeight: z.string().optional(),
+      }).optional(),
+      layoutStyle: z.string().optional(),
+      emotion: z.string().optional(),
+    }).optional(),
+  }).optional()
+    .describe('Optional Design Agent variant to mark as selected in visuals[]'),
+  contentPackage: z.object({
+    id: z.string().describe('ContentPackage ID'),
+    brandId: z.string().uuid('Invalid brand ID format').describe('Brand ID'),
+    contentId: z.string().describe('Content ID'),
+    platform: z.string().min(1, 'Platform is required').describe('Target platform'),
+    status: z.enum(['draft', 'in_review', 'approved', 'published']).describe('ContentPackage status'),
+    copy: z.object({
+      headline: z.string().min(1, 'Headline is required'),
+      subheadline: z.string().optional(),
+      body: z.string().min(1, 'Body is required'),
+      callToAction: z.string().min(1, 'Call to action is required'),
+      tone: z.string().min(1, 'Tone is required'),
+      keywords: z.array(z.string()).default([]),
+      estimatedReadTime: z.number().int().min(0).default(0),
+    }),
+    designContext: z.object({
+      suggestedLayout: z.string(),
+      componentPrecedence: z.array(z.string()).default([]),
+      colorTheme: z.string(),
+      motionConsiderations: z.array(z.string()).default([]),
+      accessibilityNotes: z.array(z.string()).default([]),
+    }).optional(),
+    visuals: z.array(z.object({
+      id: z.string(),
+      type: z.enum(['template', 'image', 'graphic', 'layout']),
+      format: z.enum(['ig_post', 'reel_cover', 'carousel', 'linkedin_post', 'quote_card', 'announcement', 'story', 'feed', 'ad', 'other']),
+      templateRef: z.string().optional(),
+      imagePrompt: z.string().optional(),
+      metadata: z.object({
+        format: z.string(),
+        colorUsage: z.array(z.string()).default([]),
+        typeStructure: z.object({
+          headingFont: z.string().optional(),
+          bodyFont: z.string().optional(),
+          fontSize: z.string().optional(),
+          fontWeight: z.string().optional(),
+        }).optional(),
+        emotion: z.string(),
+        layoutStyle: z.string(),
+        aspectRatio: z.string(),
+        // ✅ PHASE 4: Extended fields for Design Agent variants (backward-compatible)
+        variantLabel: z.string().optional(),
+        brandFidelityScore: z.number().min(0).max(1).optional(),
+        source: z.string().optional(),
+        selected: z.boolean().optional(),
+        selectedAt: z.string().optional(),
+      }),
+      performanceInsights: z.object({
+        basedOnTrend: z.string().optional(),
+        expectedOutcome: z.string().optional(),
+      }).optional(),
+    })).optional(),
+    collaborationLog: z.array(z.object({
+      agent: z.enum(['copywriter', 'creative', 'advisor']),
+      action: z.string(),
+      timestamp: z.string(),
+      notes: z.string(),
+    })).default([]),
+    createdAt: z.string().optional(),
+    updatedAt: z.string().optional(),
+    createdBy: z.string(),
+    requestId: z.string(),
+  }),
+}).strict();
+
+export type SaveContentPackageRequest = z.infer<typeof SaveContentPackageSchema>;
+
+/**
+ * Get ContentPackage Query Params
+ * GET /api/content-packages/:packageId
+ */
+export const GetContentPackageQuerySchema = z.object({
+  brandId: z.string()
+    .uuid('Invalid brand ID format')
+    .optional()
+    .describe('Optional brand ID for access verification'),
+}).strict();
+
+export type GetContentPackageQuery = z.infer<typeof GetContentPackageQuerySchema>;
+
+/**
+ * Get ContentPackage Params
+ * GET /api/content-packages/:packageId
+ */
+export const GetContentPackageParamsSchema = z.object({
+  packageId: z.string()
+    .min(1, 'Package ID is required')
+    .describe('ContentPackage ID'),
+}).strict();
+
+export type GetContentPackageParams = z.infer<typeof GetContentPackageParamsSchema>;
+
 // ==================== Utilities ====================
 
 /**
@@ -654,3 +780,222 @@ export function validateQuery<T extends z.ZodSchema>(schema: T, query: unknown) 
 export function validateParams<T extends z.ZodSchema>(schema: T, params: unknown) {
   return schema.parse(params);
 }
+
+// ==================== Database Table Schemas ====================
+// These schemas validate data for direct database inserts/updates
+// Used in routes that write directly to tables
+
+/**
+ * Brand Guide Version Schema
+ * Used for creating version history entries
+ */
+export const BrandGuideVersionSchema = z.object({
+  brandId: z.string().uuid('Invalid brand ID'),
+  version: z.number().int().positive('Version must be positive'),
+  brandGuide: z.record(z.unknown()).describe('JSONB snapshot of Brand Guide'),
+  changedFields: z.array(z.string()).default([]).describe('Array of changed field paths'),
+  changedBy: z.string().uuid('Invalid user ID').nullable().optional(),
+  changeReason: z.string().max(500, 'Reason too long').nullable().optional(),
+});
+
+export type BrandGuideVersionInput = z.infer<typeof BrandGuideVersionSchema>;
+
+/**
+ * Scheduled Content Schema
+ * Used for scheduling content posts
+ */
+export const ScheduledContentSchema = z.object({
+  brandId: z.string().uuid('Invalid brand ID'),
+  contentId: z.string().uuid('Invalid content ID'),
+  scheduledAt: z.string().datetime('Invalid scheduled time'),
+  platforms: z.array(z.string()).min(1, 'At least one platform required'),
+  status: z.enum(['scheduled', 'published', 'cancelled', 'failed']).default('scheduled'),
+});
+
+export type ScheduledContentInput = z.infer<typeof ScheduledContentSchema>;
+
+/**
+ * Strategy Brief Schema (for persistence schema tables)
+ * Note: Migration 005 finalizes UUID transition - brandIdUuid is now primary
+ */
+export const StrategyBriefSchema = z.object({
+  brandIdUuid: z.string().uuid('Invalid brand ID UUID').describe('Brand ID (UUID) - required for new inserts'),
+  brandId: z.string().optional().describe('DEPRECATED: Use brandIdUuid instead'),
+  requestId: z.string().min(1, 'Request ID required'),
+  cycleId: z.string().min(1, 'Cycle ID required'),
+  version: z.string().min(1, 'Version required'),
+  positioning: z.record(z.unknown()).describe('Positioning JSONB'),
+  voice: z.record(z.unknown()).describe('Voice JSONB'),
+  visual: z.record(z.unknown()).describe('Visual JSONB'),
+  competitive: z.record(z.unknown()).describe('Competitive JSONB'),
+});
+
+export type StrategyBriefInput = z.infer<typeof StrategyBriefSchema>;
+
+/**
+ * Content Package Schema (for persistence schema tables)
+ * Note: Migration 005 finalizes UUID transition - brandIdUuid is now primary
+ */
+export const ContentPackageDBSchema = z.object({
+  brandIdUuid: z.string().uuid('Invalid brand ID UUID').describe('Brand ID (UUID) - required for new inserts'),
+  brandId: z.string().optional().describe('DEPRECATED: Use brandIdUuid instead'),
+  contentId: z.string().min(1, 'Content ID required'),
+  requestId: z.string().min(1, 'Request ID required'),
+  cycleId: z.string().min(1, 'Cycle ID required'),
+  copy: z.record(z.unknown()).describe('Copy JSONB'),
+  designContext: z.record(z.unknown()).nullable().optional().describe('Design context JSONB'),
+  collaborationLog: z.record(z.unknown()).describe('Collaboration log JSONB'),
+  status: z.enum(['draft', 'in_review', 'approved', 'published']).default('draft'),
+  qualityScore: z.number().min(0).max(1).nullable().optional(),
+  requiresApproval: z.boolean().default(true),
+  publishedAt: z.string().datetime().nullable().optional(),
+});
+
+export type ContentPackageDBInput = z.infer<typeof ContentPackageDBSchema>;
+
+/**
+ * Brand History Schema (for persistence schema tables)
+ * Note: Uses brandIdUuid as primary (migration 005 adds FK)
+ */
+export const BrandHistorySchema = z.object({
+  brandIdUuid: z.string().uuid('Invalid brand ID UUID').describe('Brand ID (UUID) - required for new inserts'),
+  brandId: z.string().optional().describe('DEPRECATED: Use brandIdUuid instead'),
+  entryId: z.string().min(1, 'Entry ID required'),
+  timestamp: z.string().datetime('Invalid timestamp'),
+  agent: z.string().min(1, 'Agent required'),
+  action: z.string().min(1, 'Action required'),
+  contentId: z.string().nullable().optional(),
+  details: z.record(z.unknown()).nullable().optional().describe('Details JSONB'),
+  rationale: z.string().nullable().optional(),
+  performance: z.record(z.unknown()).nullable().optional().describe('Performance JSONB'),
+  tags: z.array(z.string()).default([]).describe('Tags array'),
+});
+
+export type BrandHistoryInput = z.infer<typeof BrandHistorySchema>;
+
+/**
+ * Brand Success Pattern Schema (for persistence schema tables)
+ */
+export const BrandSuccessPatternSchema = z.object({
+  brandIdUuid: z.string().uuid('Invalid brand ID UUID').describe('Brand ID (UUID) - required for new inserts'),
+  brandId: z.string().optional().describe('DEPRECATED: Use brandIdUuid instead'),
+  pattern: z.string().min(1, 'Pattern required'),
+  frequency: z.number().int().min(1).default(1),
+  avgPerformance: z.number().min(0).max(100).nullable().optional(),
+  examples: z.array(z.string()).default([]),
+  lastSeen: z.string().datetime().optional(),
+});
+
+export type BrandSuccessPatternInput = z.infer<typeof BrandSuccessPatternSchema>;
+
+/**
+ * Performance Log Schema (for persistence schema tables)
+ */
+export const PerformanceLogSchema = z.object({
+  brandIdUuid: z.string().uuid('Invalid brand ID UUID').describe('Brand ID (UUID) - required for new inserts'),
+  brandId: z.string().optional().describe('DEPRECATED: Use brandIdUuid instead'),
+  contentId: z.string().nullable().optional(),
+  cycleId: z.string().nullable().optional(),
+  contentType: z.string().nullable().optional(),
+  platform: z.string().min(1, 'Platform required'),
+  engagement: z.record(z.unknown()).describe('Engagement JSONB'),
+  reach: z.number().int().min(0).nullable().optional(),
+  impressions: z.number().int().min(0).nullable().optional(),
+  clickThroughRate: z.number().min(0).max(100).nullable().optional(),
+  recordedAt: z.string().datetime('Invalid recorded timestamp'),
+});
+
+export type PerformanceLogInput = z.infer<typeof PerformanceLogSchema>;
+
+/**
+ * Platform Insight Schema (for persistence schema tables)
+ */
+export const PlatformInsightSchema = z.object({
+  brandIdUuid: z.string().uuid('Invalid brand ID UUID').describe('Brand ID (UUID) - required for new inserts'),
+  brandId: z.string().optional().describe('DEPRECATED: Use brandIdUuid instead'),
+  platform: z.string().min(1, 'Platform required'),
+  topVisualStyle: z.string().nullable().optional(),
+  bestPostingTime: z.string().nullable().optional(),
+  topicAffinity: z.array(z.string()).default([]),
+  avgEngagement: z.number().min(0).max(100).nullable().optional(),
+  sampleSize: z.number().int().min(0).nullable().optional(),
+  lastUpdated: z.string().datetime().optional(),
+});
+
+export type PlatformInsightInput = z.infer<typeof PlatformInsightSchema>;
+
+/**
+ * Token Health Schema (for persistence schema tables)
+ */
+export const TokenHealthSchema = z.object({
+  brandIdUuid: z.string().uuid('Invalid brand ID UUID').describe('Brand ID (UUID) - required for new inserts'),
+  brandId: z.string().optional().describe('DEPRECATED: Use brandIdUuid instead'),
+  platform: z.string().min(1, 'Platform required'),
+  tokenType: z.string().min(1, 'Token type required'),
+  status: z.string().default('healthy'),
+  expiresAt: z.string().datetime().nullable().optional(),
+  lastVerified: z.string().datetime().optional(),
+  errorMessage: z.string().nullable().optional(),
+});
+
+export type TokenHealthInput = z.infer<typeof TokenHealthSchema>;
+
+/**
+ * Weekly Summary Schema (for persistence schema tables)
+ */
+export const WeeklySummarySchema = z.object({
+  brandIdUuid: z.string().uuid('Invalid brand ID UUID').describe('Brand ID (UUID) - required for new inserts'),
+  brandId: z.string().optional().describe('DEPRECATED: Use brandIdUuid instead'),
+  weekStart: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Invalid date format (YYYY-MM-DD)'),
+  weekEnd: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Invalid date format (YYYY-MM-DD)'),
+  totalCycles: z.number().int().min(0).default(0),
+  avgQualityScore: z.number().min(0).max(1).nullable().optional(),
+  topPerformers: z.record(z.unknown()).nullable().optional().describe('Top performers JSONB'),
+  successPatterns: z.record(z.unknown()).nullable().optional().describe('Success patterns JSONB'),
+  recommendations: z.record(z.unknown()).nullable().optional().describe('Recommendations JSONB'),
+});
+
+export type WeeklySummaryInput = z.infer<typeof WeeklySummarySchema>;
+
+/**
+ * Advisor Review Audit Schema (for persistence schema tables)
+ */
+export const AdvisorReviewAuditSchema = z.object({
+  brandIdUuid: z.string().uuid('Invalid brand ID UUID').describe('Brand ID (UUID) - required for new inserts'),
+  brandId: z.string().optional().describe('DEPRECATED: Use brandIdUuid instead'),
+  cycleId: z.string().min(1, 'Cycle ID required'),
+  requestId: z.string().min(1, 'Request ID required'),
+  contentId: z.string().min(1, 'Content ID required'),
+  platform: z.string().min(1, 'Platform required'),
+  clarityScore: z.number().min(0).max(10),
+  alignmentScore: z.number().min(0).max(10),
+  resonanceScore: z.number().min(0).max(10),
+  actionabilityScore: z.number().min(0).max(10),
+  platformFitScore: z.number().min(0).max(10),
+  averageScore: z.number().min(0).max(10),
+  weightedScore: z.number().min(0).max(10),
+  severityLevel: z.string().min(1, 'Severity level required'),
+  reflectionQuestion: z.string().nullable().optional(),
+  suggestedActions: z.record(z.unknown()).nullable().optional().describe('Suggested actions JSONB'),
+});
+
+export type AdvisorReviewAuditInput = z.infer<typeof AdvisorReviewAuditSchema>;
+
+/**
+ * Generation Log Schema (for generation_logs table)
+ * Note: This table uses UUID brand_id (not TEXT) - migration 004
+ */
+export const GenerationLogSchema = z.object({
+  brandId: z.string().uuid('Invalid brand ID').describe('Brand ID (UUID)'),
+  agent: z.enum(['copywriter', 'creative', 'advisor']).describe('Agent type'),
+  promptVersion: z.string().nullable().optional(),
+  input: z.record(z.unknown()).describe('Input JSONB'),
+  output: z.record(z.unknown()).describe('Output JSONB'),
+  bfsScore: z.number().min(0).max(1).nullable().optional(),
+  linterResults: z.record(z.unknown()).nullable().optional(),
+  approved: z.boolean().default(false),
+  reviewerId: z.string().uuid('Invalid reviewer ID').nullable().optional(),
+  revision: z.number().int().min(0).default(0),
+});
+
+export type GenerationLogInput = z.infer<typeof GenerationLogSchema>;

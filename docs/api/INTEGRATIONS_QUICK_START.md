@@ -2,7 +2,7 @@
 
 ## What's New? 🎉
 
-Your Aligned AI platform now includes a complete **Integration & Platform Management System** with:
+Your POSTD platform now includes a complete **Integration & Platform Management System** with:
 
 ✅ **4 New Pages** in your navigation:
 

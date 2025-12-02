@@ -244,7 +244,7 @@ const [showModal, setShowModal] = useState(true);
 | 1       | First failure  | Soft Reminder  | "Heads up — your payment didn't go through 💳"         |
 | 3       | Second failure | Second Attempt | "Payment reminder — update needed 💳"                  |
 | 7       | Third failure  | Final Warning  | "⚠️ Action required to keep your content live"         |
-| 10/14   | Suspension     | Grace End      | "Your Aligned AI account is now paused"                |
+| 10/14   | Suspension     | Grace End      | "Your POSTD account is now paused"                |
 | 30      | Archival       | Archive Notice | "Your account has been archived (reactivate anytime)"  |
 | 83      | Pre-deletion   | Final Warning  | "⚠️ Final reminder: Account will be deleted in 7 days" |
 | Success | Payment        | Celebration    | "Welcome back! Your account is active 🎉"              |

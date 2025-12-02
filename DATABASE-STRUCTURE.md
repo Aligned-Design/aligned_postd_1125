@@ -1,7 +1,9 @@
-# Aligned-20ai Database Structure & Mock Storage Analysis
+# POSTD Database Structure & Storage Analysis
+
+**Schema Note:** Updated to align with `001_bootstrap_schema.sql` in Phase 5.
 
 ## Executive Summary
-The Aligned-20ai codebase has a **hybrid database architecture** with partial Supabase integration. There are **3 main database service files** handling specific domains, **12 Supabase migrations** defining the schema, and **minimal mock/in-memory storage** with a focus on real database persistence.
+The POSTD codebase has a **hybrid database architecture** with Supabase integration. There are **3 main database service files** handling specific domains, **Supabase migrations** defining the schema, and **minimal mock/in-memory storage** with a focus on real database persistence.
 
 ---
 
@@ -10,7 +12,7 @@ The Aligned-20ai codebase has a **hybrid database architecture** with partial Su
 ### 3 Main Database Service Files
 
 #### 1.1 **dbClient.ts** - Core Database Client (Primary)
-**Location:** `/Users/krisfoust/Documents/GitHub/Aligned-20ai/server/lib/dbClient.ts`
+**Location:** `/Users/krisfoust/Downloads/Aligned-20ai.posted/server/lib/dbClient.ts`
 **Purpose:** Unified Supabase client wrapper with type-safe interfaces
 
 **Entities Handled:**
@@ -65,7 +67,7 @@ interface EscalationEventRecord {
 ---
 
 #### 1.2 **analytics-db-service.ts** - Analytics & Metrics
-**Location:** `/Users/krisfoust/Documents/GitHub/Aligned-20ai/server/lib/analytics-db-service.ts`
+**Location:** `/Users/krisfoust/Downloads/Aligned-20ai.posted/server/lib/analytics-db-service.ts`
 **Purpose:** Analytics metrics, goals, and learning feedback
 
 **Entities:**
@@ -99,7 +101,7 @@ export const analyticsDB = new AnalyticsDBService();
 ---
 
 #### 1.3 **connections-db-service.ts** - Platform Connections (OAuth)
-**Location:** `/Users/krisfoust/Documents/GitHub/Aligned-20ai/server/lib/connections-db-service.ts`
+**Location:** `/Users/krisfoust/Downloads/Aligned-20ai.posted/server/lib/connections-db-service.ts`
 **Purpose:** OAuth token management and platform connection lifecycle
 
 **Entity:**
@@ -133,7 +135,7 @@ class ConnectionsDBService {
 ---
 
 #### 1.4 **publishing-db-service.ts** - Publishing Jobs & Logs
-**Location:** `/Users/krisfoust/Documents/GitHub/Aligned-20ai/server/lib/publishing-db-service.ts`
+**Location:** `/Users/krisfoust/Downloads/Aligned-20ai.posted/server/lib/publishing-db-service.ts`
 **Purpose:** Publishing job persistence and audit trail
 
 **Entities:**
@@ -491,7 +493,7 @@ VITE_SUPABASE_URL=[same-as-SUPABASE_URL]
 
 ## CONCLUSION
 
-**The Aligned-20ai database architecture is:**
+**The POSTD database architecture is:**
 1. **Production-ready** - Using Supabase with proper RLS policies
 2. **Feature-rich** - Covers approvals, analytics, webhooks, escalations
 3. **Type-safe** - Conservative TypeScript interfaces

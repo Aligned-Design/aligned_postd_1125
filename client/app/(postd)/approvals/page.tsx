@@ -31,6 +31,7 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/design-system";
+import { logError, logWarning } from "@/lib/logger";
 import {
   ReviewActionRequest,
   ReviewActionResponse,
@@ -85,7 +86,7 @@ export default function Approvals() {
 
       // If API server is not available, use empty queue
       if (!response.ok) {
-        console.warn("API server not available, using empty queue");
+        logWarning("API server not available, using empty queue", { brandId, responseStatus: response.status });
         setReviewItems([]);
         setLoading(false);
         return;
@@ -124,7 +125,7 @@ export default function Approvals() {
       }));
       setReviewItems(mappedItems);
     } catch (error) {
-      console.warn("Error loading review queue, using empty queue:", error);
+      logWarning("Error loading review queue, using empty queue", { error: error instanceof Error ? error.message : String(error), brandId });
       // Set empty queue instead of showing error
       setReviewItems([]);
     } finally {
@@ -160,7 +161,7 @@ export default function Approvals() {
         throw new Error(result.error || "Failed to approve content");
       }
     } catch (error) {
-      console.error("Error approving content:", error);
+      logError("Error approving content", error instanceof Error ? error : new Error(String(error)), { itemId });
       toast({
         title: "Error",
         description:
@@ -200,7 +201,7 @@ export default function Approvals() {
         throw new Error(result.error || "Failed to reject content");
       }
     } catch (error) {
-      console.error("Error rejecting content:", error);
+      logError("Error rejecting content", error instanceof Error ? error : new Error(String(error)), { itemId });
       toast({
         title: "Error",
         description:
@@ -275,11 +276,14 @@ export default function Approvals() {
         {reviewItems.length === 0 ? (
           <EmptyState
             icon={<Clock className="w-8 h-8 text-slate-400" />}
-            title="No Content to Review"
-            description="All AI-generated content has been automatically approved or there's no pending content."
+            title="No content waiting for approval"
+            description="Nothing's in the queue right now. Tip: Turn ON 'Require approval' when scheduling content to send items here."
             action={{
-              label: "Refresh Queue",
-              onClick: loadReviewQueue,
+              label: "Schedule Content",
+              onClick: () => {
+                // Navigate to calendar or studio
+                window.location.href = "/calendar";
+              },
             }}
           />
         ) : (

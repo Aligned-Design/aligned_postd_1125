@@ -10,6 +10,8 @@ import { buildDocSystemPrompt, buildDocUserPrompt } from "./ai/docPrompt";
 import { calculateBrandFidelityScore } from "./ai/brandFidelity";
 import { getBrandProfile } from "./brand-profile";
 import { getPrioritizedImage } from "./image-sourcing";
+import { getCurrentBrandGuide } from "./brand-guide-service";
+import { buildFullBrandGuidePrompt } from "./prompts/brand-guide-prompts";
 import type { BrandProfile } from "@shared/advisor";
 
 // BrandSnapshot type (from onboarding context)
@@ -61,26 +63,35 @@ async function generateContentItem(
 ): Promise<ContentItem> {
   const systemPrompt = buildDocSystemPrompt();
   
+  // ✅ Get Brand Guide (preferred over BrandProfile)
+  const brandGuide = await getCurrentBrandGuide(brandId);
+  
   // Build enhanced prompt with weekly focus and brand snapshot context
   let userPrompt = `Create ${itemSpec.contentType} content for ${itemSpec.platform}.\n\n`;
   
-  // Brand context
-  userPrompt += `## Brand Profile\n`;
-  userPrompt += `Name: ${brand.name}\n`;
-  if (brand.tone) {
-    userPrompt += `Tone: ${brand.tone}\n`;
-  }
-  if (brand.values && brand.values.length > 0) {
-    userPrompt += `Values: ${brand.values.join(", ")}\n`;
-  }
-  if (brand.targetAudience) {
-    userPrompt += `Target Audience: ${brand.targetAudience}\n`;
-  }
-  if (brand.allowedToneDescriptors && brand.allowedToneDescriptors.length > 0) {
-    userPrompt += `Allowed Tone: ${brand.allowedToneDescriptors.join(", ")}\n`;
-  }
-  if (brand.forbiddenPhrases && brand.forbiddenPhrases.length > 0) {
-    userPrompt += `FORBIDDEN PHRASES (DO NOT USE): ${brand.forbiddenPhrases.join(", ")}\n`;
+  // ✅ BRAND GUIDE (Source of Truth) - Use centralized prompt library
+  if (brandGuide) {
+    userPrompt += buildFullBrandGuidePrompt(brandGuide);
+    userPrompt += `\n`;
+  } else {
+    // Fallback to Brand Profile if Brand Guide not available
+    userPrompt += `## Brand Profile\n`;
+    userPrompt += `Name: ${brand.name}\n`;
+    if (brand.tone) {
+      userPrompt += `Tone: ${brand.tone}\n`;
+    }
+    if (brand.values && brand.values.length > 0) {
+      userPrompt += `Values: ${brand.values.join(", ")}\n`;
+    }
+    if (brand.targetAudience) {
+      userPrompt += `Target Audience: ${brand.targetAudience}\n`;
+    }
+    if (brand.allowedToneDescriptors && brand.allowedToneDescriptors.length > 0) {
+      userPrompt += `Allowed Tone: ${brand.allowedToneDescriptors.join(", ")}\n`;
+    }
+    if (brand.forbiddenPhrases && brand.forbiddenPhrases.length > 0) {
+      userPrompt += `FORBIDDEN PHRASES (DO NOT USE): ${brand.forbiddenPhrases.join(", ")}\n`;
+    }
   }
   
   // Weekly focus context
@@ -88,8 +99,8 @@ async function generateContentItem(
   userPrompt += `This week's focus: ${weeklyFocus}\n`;
   userPrompt += `Align the content with this focus while staying true to the brand.\n`;
   
-  // Brand snapshot context (if available)
-  if (brandSnapshot) {
+  // Brand snapshot context (if available and Brand Guide not present)
+  if (brandSnapshot && !brandGuide) {
     if (brandSnapshot.brandIdentity) {
       userPrompt += `\n## Brand Identity\n${brandSnapshot.brandIdentity}\n`;
     }

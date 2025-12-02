@@ -9,6 +9,20 @@ import type { BrandGuide } from "@/types/brandGuide";
 import { logInfo, logError } from "@/lib/logger";
 
 /**
+ * Extract pain points from personas array
+ */
+function extractPainPointsFromPersonas(personas: any[]): string[] {
+  if (!Array.isArray(personas)) return [];
+  const allPainPoints: string[] = [];
+  personas.forEach((persona) => {
+    if (persona.painPoints && Array.isArray(persona.painPoints)) {
+      allPainPoints.push(...persona.painPoints);
+    }
+  });
+  return [...new Set(allPainPoints)]; // Remove duplicates
+}
+
+/**
  * Convert Brand Snapshot (onboarding format) to Brand Guide format
  * Uses the new nested Brand Guide structure to ensure alignment
  */
@@ -54,9 +68,13 @@ export function brandSnapshotToBrandGuide(
     identity: {
       name: brandName,
       businessType: brandSnapshot.industry || brandSnapshot.businessType,
+      industry: brandSnapshot.industry || brandSnapshot.businessType, // Explicit industry field
       industryKeywords: brandSnapshot.extractedMetadata?.keywords || [],
       competitors: brandSnapshot.competitors || [],
       sampleHeadlines: brandSnapshot.extractedMetadata?.headlines || [],
+      values: brandSnapshot.values || brandSnapshot.coreValues || [],
+      targetAudience: brandSnapshot.audience || brandSnapshot.targetAudience || "",
+      painPoints: extractPainPointsFromPersonas(brandSnapshot.personas) || [],
     },
 
     // Voice & Tone
@@ -94,6 +112,7 @@ export function brandSnapshotToBrandGuide(
       preferredPostTypes: brandSnapshot.preferredPostTypes || [],
       brandPhrases: brandSnapshot.brandPhrases || [],
       formalityLevel: brandSnapshot.formalityLevel,
+      contentPillars: brandSnapshot.contentPillars || brandSnapshot.messagingPillars || [],
       neverDo: brandSnapshot.extractedMetadata?.donts || [],
       guardrails: (brandSnapshot.extractedMetadata?.donts || []).map((dont: string, idx: number) => ({
         id: `guardrail-${idx}`,

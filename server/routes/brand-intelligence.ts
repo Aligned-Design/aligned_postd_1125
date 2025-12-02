@@ -34,7 +34,7 @@ export const getBrandIntelligence: RequestHandler = async (req, res) => {
     }
 
     // Verify user has access to this brand
-    assertBrandAccess(req, brandId);
+    await assertBrandAccess(req, brandId);
 
     // Mock comprehensive brand intelligence data
     const intelligence: BrandIntelligence = {
@@ -424,7 +424,7 @@ export const submitRecommendationFeedback: RequestHandler = async (
   } catch (error) {
     console.error("[Brand Intelligence Feedback] Error:", {
       message: error instanceof Error ? error.message : "Unknown error",
-      recommendationId: (req.body as unknown)?.recommendationId,
+      recommendationId: req.body && typeof req.body === 'object' && 'recommendationId' in req.body ? String(req.body.recommendationId) : undefined,
       timestamp: new Date().toISOString(),
     });
 

@@ -1,3 +1,5 @@
+import { logError } from "./logger";
+
 /**
  * Feature flags for Phase 2+ features
  * Set via localStorage key "featureFlags" (JSON object)
@@ -47,10 +49,7 @@ export function getFeatureFlags(): FeatureFlags {
       return { ...flags, ...parsed };
     } catch (e) {
       // Failed to parse feature flags - use defaults
-      if (import.meta.env.DEV) {
-        // eslint-disable-next-line no-console
-        console.error("Failed to parse feature flags from localStorage", e);
-      }
+      logError("Failed to parse feature flags from localStorage", e instanceof Error ? e : new Error(String(e)));
     }
   }
 

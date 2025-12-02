@@ -7,7 +7,7 @@
 
 ## 🎯 Overview
 
-Implemented a complete blog system and API-compliant privacy policy page for Aligned-20AI.
+Implemented a complete blog system and API-compliant privacy policy page for POSTD.
 
 ---
 
@@ -155,7 +155,7 @@ interface BlogPost {
 
 ## 📝 Sample Blog Posts Included
 
-1. **Getting Started with Aligned AI** (5 min read)
+1. **Getting Started with POSTD** (5 min read)
    - Category: Getting Started
    - Covers onboarding and setup
 

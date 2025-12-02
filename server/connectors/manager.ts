@@ -106,11 +106,11 @@ export class ConnectorManager {
         break;
 
       case 'gbp':
-        // TODO: Import GBPConnector
+        // Future work: Import GBPConnector
         throw new Error('GBP connector not yet implemented');
 
       case 'mailchimp':
-        // TODO: Import MailchimpConnector
+        // Future work: Import MailchimpConnector
         throw new Error('Mailchimp connector not yet implemented');
 
       default:
@@ -139,7 +139,9 @@ export class ConnectorManager {
       const key = idempotencyKey || `publish_${Date.now()}_${Math.random().toString(36)}`;
 
       // Add job to queue
-      const job = await publishJobQueue.add(
+      // Type assertion for queue.add - Bull runtime supports this 3-arg signature
+      const queueAdd = publishJobQueue.add as any;
+      const job = await queueAdd(
         'publish',
         {
           jobId: key,
@@ -215,7 +217,9 @@ export class ConnectorManager {
 
         if (!platform) continue;
 
-        await publishJobQueue.add(
+        // Type assertion for queue.add - Bull runtime supports this 3-arg signature
+        const queueAdd = publishJobQueue.add as any;
+        await queueAdd(
           'token_refresh',
           {
             tenantId: this.tenantId,
@@ -316,7 +320,7 @@ export class ConnectorManager {
           recordMetric('connector.health_check', 1, {
             platform: platform.platform_name,
             status: health.status,
-            latency_ms: health.latencyMs,
+            latency_ms: String(health.latencyMs),
           });
         } catch (checkError) {
           logger.error(

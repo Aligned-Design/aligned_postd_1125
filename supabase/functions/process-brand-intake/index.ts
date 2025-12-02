@@ -27,31 +27,22 @@ interface BrandKitData {
 }
 
 /**
- * Fallback brand kit generation without crawler
- * Used when the crawler is not available or fails
+ * ⚠️ DEPRECATED: This Edge Function should NOT be used.
+ * 
+ * All brand intake scraping should use the real crawler API:
+ * POST /api/crawl/start?sync=true
+ * 
+ * This Edge Function is kept for backward compatibility only.
+ * It will return an error directing clients to use the real crawler.
+ * 
+ * @deprecated Use /api/crawl/start instead
  */
 function generateBrandKitFallback(url: string): BrandKitData {
-  const urlObj = new URL(url);
-  const domain = urlObj.hostname.replace("www.", "");
-
-  return {
-    voice_summary: {
-      tone: ["professional", "trustworthy"],
-      style: "Clear and direct",
-      avoid: ["jargon", "slang"],
-      audience: "Business professionals",
-      personality: ["helpful", "reliable"],
-    },
-    keyword_themes: [domain],
-    about_blurb: `Brand from ${domain}. Please complete intake form for more details.`,
-    colors: {
-      primary: "#8B5CF6",
-      secondary: "#F0F7F7",
-      accent: "#EC4899",
-      confidence: 0,
-    },
-    source_urls: [url],
-  };
+  // ⚠️ This function should not be called - return error structure instead
+  throw new Error(
+    "This Edge Function is deprecated. Please use POST /api/crawl/start?sync=true instead. " +
+    "The real crawler provides accurate brand data extraction."
+  );
 }
 
 serve(async (req) => {
@@ -73,6 +64,27 @@ serve(async (req) => {
       );
     }
 
+    // ⚠️ DEPRECATED: This Edge Function should NOT be used.
+    // All brand intake scraping should use the real crawler API:
+    // POST /api/crawl/start?sync=true
+    // 
+    // This Edge Function is kept for backward compatibility only.
+    // It will return an error directing clients to use the real crawler.
+    return new Response(
+      JSON.stringify({
+        error: "This Edge Function is deprecated",
+        message: "Please use POST /api/crawl/start?sync=true instead. The real crawler provides accurate brand data extraction.",
+        deprecated: true,
+        alternativeEndpoint: "/api/crawl/start?sync=true",
+      }),
+      {
+        status: 410, // 410 Gone - indicates resource is deprecated
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      },
+    );
+
+    // ⚠️ CODE BELOW IS UNREACHABLE - KEPT FOR REFERENCE ONLY
+    /*
     // Create Supabase client with service role
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -118,6 +130,7 @@ serve(async (req) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       },
     );
+    */
   } catch (error) {
     console.error("[Edge Function] Error:", error);
 

@@ -8,6 +8,7 @@ import type { BrandProfile } from "@shared/advisor";
 import type { AiDocGenerationRequest } from "@shared/aiContent";
 import type { StrategyBrief } from "@shared/collaboration-artifacts";
 import type { BrandGuide } from "@shared/brand-guide";
+import { buildFullBrandGuidePrompt } from "../prompts/brand-guide-prompts";
 
 export interface DocPromptContext {
   brand: BrandProfile;
@@ -152,61 +153,9 @@ export function buildDocUserPrompt(context: DocPromptContext): string {
   
   let prompt = `Create ${request.contentType} content for ${request.platform}.\n\n`;
 
-  // ✅ BRAND GUIDE (Source of Truth) - Include first, as it's the primary authority
+  // ✅ BRAND GUIDE (Source of Truth) - Use centralized prompt library
   if (brandGuide) {
-    prompt += `## Brand Guide (Source of Truth)\n`;
-    prompt += `Brand Name: ${brandGuide.brandName}\n`;
-    
-    if (brandGuide.identity) {
-      const businessType = brandGuide.identity.businessType || "Not specified";
-      prompt += `Business Type/Industry: ${businessType}\n`;
-      prompt += `CRITICAL: This is a ${businessType} business. Generate content that is specific to this industry, uses industry-appropriate terminology, and addresses industry-specific needs.\n`;
-      if (brandGuide.identity.industryKeywords && brandGuide.identity.industryKeywords.length > 0) {
-        prompt += `Industry Keywords: ${brandGuide.identity.industryKeywords.join(", ")}\n`;
-      }
-      if (brandGuide.identity.competitors && brandGuide.identity.competitors.length > 0) {
-        prompt += `Competitive Context: ${brandGuide.identity.competitors.join(", ")}\n`;
-      }
-    }
-    
-    if (brandGuide.voiceAndTone) {
-      prompt += `\n### Voice & Tone\n`;
-      if (brandGuide.voiceAndTone.tone && brandGuide.voiceAndTone.tone.length > 0) {
-        prompt += `Tone: ${brandGuide.voiceAndTone.tone.join(", ")}\n`;
-      }
-      if (brandGuide.voiceAndTone.voiceDescription) {
-        prompt += `Voice Description: ${brandGuide.voiceAndTone.voiceDescription}\n`;
-      }
-      if (brandGuide.voiceAndTone.writingRules && brandGuide.voiceAndTone.writingRules.length > 0) {
-        prompt += `Writing Rules: ${brandGuide.voiceAndTone.writingRules.join(", ")}\n`;
-      }
-      if (brandGuide.voiceAndTone.avoidPhrases && brandGuide.voiceAndTone.avoidPhrases.length > 0) {
-        prompt += `FORBIDDEN PHRASES (DO NOT USE): ${brandGuide.voiceAndTone.avoidPhrases.join(", ")}\n`;
-      }
-    }
-    
-    if (brandGuide.visualIdentity?.photographyStyle) {
-      prompt += `\n### Photography Style Rules\n`;
-      if (brandGuide.visualIdentity.photographyStyle.mustInclude && brandGuide.visualIdentity.photographyStyle.mustInclude.length > 0) {
-        prompt += `MUST INCLUDE: ${brandGuide.visualIdentity.photographyStyle.mustInclude.join(", ")}\n`;
-      }
-      if (brandGuide.visualIdentity.photographyStyle.mustAvoid && brandGuide.visualIdentity.photographyStyle.mustAvoid.length > 0) {
-        prompt += `MUST AVOID: ${brandGuide.visualIdentity.photographyStyle.mustAvoid.join(", ")}\n`;
-      }
-    }
-    
-    if (brandGuide.contentRules) {
-      prompt += `\n### Content Rules\n`;
-      if (brandGuide.contentRules.neverDo && brandGuide.contentRules.neverDo.length > 0) {
-        prompt += `NEVER DO: ${brandGuide.contentRules.neverDo.join(", ")}\n`;
-      }
-      if (brandGuide.contentRules.guardrails && brandGuide.contentRules.guardrails.length > 0) {
-        const activeGuardrails = brandGuide.contentRules.guardrails.filter(g => g.isActive);
-        if (activeGuardrails.length > 0) {
-          prompt += `Active Guardrails: ${activeGuardrails.map(g => g.title).join(", ")}\n`;
-        }
-      }
-    }
+    prompt += buildFullBrandGuidePrompt(brandGuide);
     prompt += `\n`;
   }
 

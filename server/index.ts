@@ -43,6 +43,7 @@ import {
 } from "./routes/builder";
 import analyticsRouter from "./routes/analytics";
 import orchestrationRouter from "./routes/orchestration";
+import contentPackagesRouter from "./routes/content-packages";
 import {
   getAuditLogs,
   getPostAuditLog,
@@ -126,8 +127,18 @@ import crawlerRouter from "./routes/crawler";
 import agentsHealthRouter from "./routes/agents-health";
 import contentPlanRouter from "./routes/content-plan";
 import calendarRouter from "./routes/calendar";
+import { validateEnvironment } from "./lib/env-validate";
+import { errorHandler, notFoundHandler } from "./lib/error-middleware";
 
 export function createServer() {
+  // ✅ Validate environment variables at startup
+  try {
+    validateEnvironment();
+  } catch (error) {
+    console.error("Server startup failed due to environment validation errors");
+    process.exit(1);
+  }
+
   const app = express();
 
   // Middleware
@@ -180,6 +191,7 @@ export function createServer() {
 
   // Health check endpoints
   app.use("/health", healthRouter);
+  app.use("/api/health", healthRouter); // Also mount at /api/health for client access
   
   // Agents health endpoint (public, no auth required for monitoring)
   app.use("/api/agents/health", agentsHealthRouter);
@@ -227,6 +239,9 @@ export function createServer() {
 
   // Orchestration routes (full collaboration pipeline)
   app.use("/api/orchestration", orchestrationRouter);
+
+  // ContentPackage routes (agent collaboration)
+  app.use("/api/content-packages", authenticateUser, requireScope("ai:generate"), contentPackagesRouter);
 
   // Brand Guide routes
   app.use("/api/brand-guide", authenticateUser, brandGuideRouter);
@@ -359,6 +374,11 @@ export function createServer() {
   app.use("/api/calendar", authenticateUser, calendarRouter);
 
   // Notifications routes (already registered above, removing duplicate)
+
+  // ✅ CRITICAL: Register error handler middleware LAST (after all routes)
+  // This ensures all errors are caught and formatted consistently
+  app.use(notFoundHandler); // 404 handler for unmatched routes
+  app.use(errorHandler); // Global error handler
 
   return app;
 }

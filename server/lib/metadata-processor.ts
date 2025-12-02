@@ -31,10 +31,22 @@ export async function extractMetadata(
   }
 
   // Process EXIF data (keep useful, strip sensitive)
+  const exifData = rawMetadata.exif as { 
+    image?: { 
+      Orientation?: number;
+      Make?: string;
+      Model?: string;
+    }; 
+    exif?: { 
+      DateTimeOriginal?: string; 
+      GPSLatitude?: number; 
+      GPSLongitude?: number;
+    } 
+  } | undefined;
   const metadata: MediaMetadata = {
     width: sharpMetadata.width || 0,
     height: sharpMetadata.height || 0,
-    orientation: rawMetadata.exif?.image?.Orientation,
+    orientation: exifData?.image?.Orientation,
     colorSpace: sharpMetadata.space,
     keywords: [],
     aiTags: [],
@@ -43,8 +55,8 @@ export async function extractMetadata(
   };
 
   // Extract safe EXIF data
-  if (rawMetadata.exif) {
-    const { image, exif } = rawMetadata.exif;
+  if (exifData) {
+    const { image, exif } = exifData;
 
     // Camera info (safe to keep)
     if (image?.Make && image?.Model) {
@@ -64,17 +76,18 @@ export async function extractMetadata(
   }
 
   // Extract IPTC data (SEO-relevant)
-  if (rawMetadata.iptc) {
-    metadata.title = rawMetadata.iptc.object_name;
-    metadata.caption = rawMetadata.iptc.caption;
-    metadata.copyright = rawMetadata.iptc.copyright_notice;
-    metadata.creator = rawMetadata.iptc.by_line;
+  const iptcData = rawMetadata.iptc as { object_name?: string; caption?: string; copyright_notice?: string; by_line?: string; keywords?: string | string[] } | undefined;
+  if (iptcData) {
+    metadata.title = iptcData.object_name;
+    metadata.caption = iptcData.caption;
+    metadata.copyright = iptcData.copyright_notice;
+    metadata.creator = iptcData.by_line;
 
     // Extract keywords from IPTC
-    if (rawMetadata.iptc.keywords) {
-      metadata.keywords = Array.isArray(rawMetadata.iptc.keywords)
-        ? rawMetadata.iptc.keywords
-        : [rawMetadata.iptc.keywords];
+    if (iptcData.keywords) {
+      metadata.keywords = Array.isArray(iptcData.keywords)
+        ? iptcData.keywords
+        : [iptcData.keywords];
     }
   }
 
@@ -108,15 +121,16 @@ export async function extractVideoMetadata(
     aiTags: [],
     usedIn: [],
     usageCount: 0,
-    duration: 0, // TODO: Extract with ffprobe
-    frameRate: 30, // TODO: Extract with ffprobe
+    duration: 0, // Future enhancement: Extract with ffprobe for video duration
+    frameRate: 30, // Future enhancement: Extract with ffprobe for video frame rate
   };
 
   return metadata;
 }
 
 async function analyzeImageContent(fileBuffer: Buffer): Promise<string[]> {
-  // TODO: Integrate with AI service (OpenAI Vision, Google Vision, etc.)
+  // Future work: Integrate with AI service (OpenAI Vision, Google Vision, etc.)
+  // This would enable automatic image content analysis and tagging
   // For now, return basic analysis based on image characteristics
   const tags: string[] = [];
 
@@ -168,7 +182,8 @@ function extractDominantColors(stats: sharp.Stats): string[] {
 }
 
 async function detectTextInImage(_fileBuffer: Buffer): Promise<boolean> {
-  // TODO: Integrate with OCR service (Tesseract, Google Vision, etc.)
+  // Future work: Integrate with OCR service (Tesseract, Google Vision, etc.)
+  // This would enable text detection in images for accessibility and search
   // For now, return false as placeholder
   return false;
 }

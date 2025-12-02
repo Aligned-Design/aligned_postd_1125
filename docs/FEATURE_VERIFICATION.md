@@ -1,4 +1,7 @@
-# Aligned-20AI — Feature Verification Test Plan
+# POSTD — Feature Verification Test Plan
+
+> **Status:** ✅ Active – This is an active test plan for POSTD feature verification.  
+> **Last Updated:** 2025-01-20
 
 ## Smoke + Functional Testing Checklist
 

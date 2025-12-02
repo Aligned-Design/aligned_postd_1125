@@ -76,7 +76,7 @@ export class MediaDBService {
    */
   async createMediaAsset(
     brandId: string,
-    tenantId: string,
+    tenantId: string | null,
     filename: string,
     mimeType: string,
     path: string,
@@ -100,60 +100,122 @@ export class MediaDBService {
       );
     }
 
-    // Check storage quota before inserting
-    const usage = await this.getStorageUsage(brandId);
-    if (usage.isHardLimit) {
-      throw new AppError(
-        ErrorCode.QUOTA_EXCEEDED,
-        "Storage quota exceeded",
-        HTTP_STATUS.CONFLICT,
-        "warning",
-        {
-          quotaLimitBytes: usage.quotaLimitBytes,
-          usedBytes: usage.totalUsedBytes,
-        },
-        "Storage quota has been reached. Delete unused assets or upgrade your plan."
-      );
+    // ✅ CRITICAL FIX: For scraped images (external URLs with size_bytes=0), skip quota check entirely
+    // Scraped images don't use Supabase Storage, so quota doesn't apply
+    // This MUST be checked FIRST before any quota logic runs
+    const isScrapedImage = fileSize === 0 && (path.startsWith("http://") || path.startsWith("https://"));
+    
+    if (isScrapedImage) {
+      // ✅ SCRAPED IMAGES: Skip quota check entirely - they don't use storage
+      // This prevents any quota system issues from blocking scraped image persistence
+      console.log(`[MediaDB] ✅ Skipping quota check for scraped image (external URL, no storage used): ${path.substring(0, 60)}...`);
+    } else {
+      // ✅ UPLOADED FILES: Only check quota for real uploads with actual file sizes
+      // getStorageUsage() is now bulletproof and never throws, but we still wrap in try-catch for safety
+      try {
+        const usage = await this.getStorageUsage(brandId);
+        // ✅ SAFE: getStorageUsage() always returns a valid object, so usage.isHardLimit is safe to check
+        if (usage.isHardLimit) {
+          throw new AppError(
+            ErrorCode.QUOTA_EXCEEDED,
+            "Storage quota exceeded",
+            HTTP_STATUS.CONFLICT,
+            "warning",
+            {
+              quotaLimitBytes: usage.quotaLimitBytes,
+              usedBytes: usage.totalUsedBytes,
+            },
+            "Storage quota has been reached. Delete unused assets or upgrade your plan."
+          );
+        }
+      } catch (quotaError: any) {
+        // ✅ DEFENSIVE: Catch any errors (though getStorageUsage() should never throw)
+        // If it's a quota exceeded error, re-throw it (user should see this)
+        if (quotaError.code === ErrorCode.QUOTA_EXCEEDED) {
+          throw quotaError; // Re-throw quota exceeded errors
+        }
+        // For any other error (shouldn't happen, but be defensive), log and allow persistence
+        console.warn(`[MediaDB] Quota check failed (non-critical), allowing persistence:`, {
+          error: quotaError?.message || String(quotaError),
+          code: quotaError?.code,
+          hint: "Quota system may not be fully configured - allowing upload to proceed"
+        });
+        // Don't re-throw - allow the upload to proceed
+      }
     }
 
-    // ✅ FIX: media_assets table may not have 'url' column (depends on migration)
+    // ✅ FIX: media_assets table does not have 'url' or 'thumbnail_url' columns in current schema
     // For scraped images, URL is stored in path column
-    // Only include url/thumbnail_url if they exist in schema (Supabase will ignore unknown columns)
     // ✅ FIX: Column is size_bytes not file_size in production schema
+    // ✅ CRITICAL: Include status field explicitly (migration 007 adds it with default, but safer to be explicit)
     const insertData: any = {
-      tenant_id: tenantId,
+      tenant_id: tenantId || null, // ✅ FIX: Explicitly set to null if missing (schema allows nullable)
       brand_id: brandId,
       filename,
       mime_type: mimeType,
       path, // For scraped images, path contains the actual URL
       size_bytes: fileSize,
-      hash,
-      category,
-      metadata,
+      hash: hash || null, // Hash is optional in schema
+      category: category || null, // Category is optional in schema
+      metadata: metadata || null, // Metadata is optional in schema
+      status: 'active', // ✅ CRITICAL: Explicitly set status (migration 007 adds this column with default 'active')
     };
     
-    // Only add url/thumbnail_url if they might exist (won't error if column doesn't exist)
-    // For scraped images, we store URL in path, so url is redundant
-    if (url && url.startsWith("http")) {
-      insertData.url = url;
-    }
-    if (thumbnailUrl) {
-      insertData.thumbnail_url = thumbnailUrl;
+    // ✅ FIX: Do NOT include url or thumbnail_url in insertData - these columns don't exist in the schema
+    // PostgREST will error (PGRST204) if we try to insert/select columns that don't exist
+
+    // ✅ ENHANCED: Log insert payload for debugging (excluding sensitive data)
+    if (process.env.DEBUG_MEDIA_DB === "true") {
+      console.log(`[MediaDB] Inserting media asset:`, {
+        brand_id: brandId,
+        tenant_id: tenantId || "null",
+        filename,
+        category,
+        path: path.substring(0, 80),
+        size_bytes: fileSize,
+        has_hash: !!hash,
+        has_metadata: !!metadata,
+        status: insertData.status,
+      });
     }
 
+    // ✅ FIX: Explicitly select only columns that exist in the schema
+    // Do NOT select thumbnail_url or url - these columns don't exist
     const { data, error } = await supabase
       .from("media_assets")
       .insert(insertData)
-      .select()
+      .select("id, brand_id, tenant_id, category, filename, path, hash, mime_type, size_bytes, used_in, usage_count, metadata, created_at, updated_at, status")
       .single();
 
     if (error) {
+      // ✅ ENHANCED: Log detailed Postgres error information
+      const errorDetails = {
+        message: error.message,
+        code: error.code, // Postgres error code (e.g., '23505' for unique violation, '23503' for FK violation)
+        details: (error as any).details, // Postgres error details
+        hint: (error as any).hint, // Postgres error hint
+        // Include subset of insert data for debugging (excluding secrets)
+        insertData: {
+          brand_id: brandId,
+          tenant_id: tenantId || "null",
+          filename,
+          category,
+          path: path.substring(0, 80),
+          size_bytes: fileSize,
+          status: insertData.status,
+          has_hash: !!hash,
+          has_metadata: !!metadata,
+        },
+      };
+      
+      console.error(`[MediaDB] ❌ Database error creating media asset:`, errorDetails);
+      
       throw new AppError(
         ErrorCode.DATABASE_ERROR,
         "Failed to create media asset",
         HTTP_STATUS.INTERNAL_SERVER_ERROR,
         "critical",
-        { details: error.message }
+        errorDetails // ✅ ENHANCED: Include full error details in AppError
       );
     }
 
@@ -280,11 +342,12 @@ export class MediaDBService {
     assetId: string,
     metadata: Record<string, unknown>
   ): Promise<MediaAssetRecord> {
+    // ✅ FIX: Explicitly select only columns that exist (exclude thumbnail_url and url)
     const { data, error } = await supabase
       .from("media_assets")
       .update({ metadata })
       .eq("id", assetId)
-      .select()
+      .select("id, brand_id, tenant_id, category, filename, path, hash, mime_type, size_bytes, used_in, usage_count, metadata, created_at, updated_at, status")
       .single();
 
     if (error) {
@@ -345,11 +408,12 @@ export class MediaDBService {
       };
     }
 
+    // ✅ FIX: Explicitly select only columns that exist (exclude thumbnail_url and url)
     const { data, error } = await supabase
       .from("media_assets")
       .update(updatePayload)
       .eq("id", assetId)
-      .select()
+      .select("id, brand_id, tenant_id, category, filename, path, hash, mime_type, size_bytes, used_in, usage_count, metadata, created_at, updated_at, status")
       .single();
 
     if (error) {
@@ -417,28 +481,142 @@ export class MediaDBService {
 
   /**
    * Get storage usage statistics for a brand
-   * ⚠️ TEMP FIX: Gracefully handle missing storage_quotas table until migration is run
+   * ✅ CRITICAL FIX: This method MUST NEVER throw errors. It always returns a valid StorageUsageStats
+   * to prevent quota system issues from blocking image persistence.
+   * 
+   * For scraped images (external URLs), quota check is not needed since they don't use storage.
+   * This method is only called for uploaded files, but we still make it bulletproof.
    */
   async getStorageUsage(brandId: string): Promise<StorageUsageStats> {
-    // Get quota - gracefully handle table not existing yet
-    const { data: quotaData, error: quotaError } = await supabase
-      .from("storage_quotas")
-      .select("*")
-      .eq("brand_id", brandId)
-      .single();
+    // ✅ BULLETPROOF: Wrap entire method in try-catch to ensure it NEVER throws
+    try {
+      // Get quota - gracefully handle table not existing yet or any lookup errors
+      const { data: quotaData, error: quotaError } = await supabase
+        .from("storage_quotas")
+        .select("*")
+        .eq("brand_id", brandId)
+        .single();
 
-    // ⚠️ TEMP FIX: If storage_quotas table doesn't exist, use default quota
-    if (quotaError && (quotaError.code === 'PGRST204' || quotaError.code === 'PGRST205')) {
-      console.warn(`[MediaDB] storage_quotas table not found, using default quota for brand ${brandId}`);
-      const defaultQuota = {
-        limit_bytes: 5_000_000_000, // 5GB default
-        warning_threshold_percent: 80,
-        hard_limit_percent: 95,
-      };
+      // ✅ FIX: If storage_quotas table doesn't exist OR quota row doesn't exist, use default quota
+      // This allows image persistence to proceed even if quota system isn't fully set up
+      if (quotaError) {
+        // PGRST204 = No rows returned (no quota row for this brand)
+        // PGRST205 = Table doesn't exist
+        // 42P01 = relation does not exist (PostgreSQL error code)
+        // Any other error = treat as "no quota row" and use defaults
+        const isNoQuotaRow = quotaError.code === 'PGRST204' || quotaError.code === 'PGRST205' || quotaError.code === '42P01';
+        
+        if (isNoQuotaRow) {
+          console.warn(`[MediaDB] storage_quotas table/row not found for brand ${brandId}, using default unlimited quota`);
+        } else {
+          // For other errors (permissions, connection issues, etc.), log but don't block
+          console.warn(`[MediaDB] Error fetching storage quota for brand ${brandId}:`, {
+            code: quotaError.code,
+            message: quotaError.message,
+            hint: "Using default unlimited quota to allow image persistence"
+          });
+        }
+        
+        // Return default values - allow uploads to proceed (unlimited quota)
+        return {
+          quotaLimitBytes: Number.MAX_SAFE_INTEGER, // Effectively unlimited
+          totalUsedBytes: 0,
+          percentageUsed: 0,
+          isWarning: false,
+          isHardLimit: false,
+          assetCount: 0,
+        };
+      }
+
+      // ✅ SAFE: Check quotaData exists before accessing properties
+      if (!quotaData) {
+        console.warn(`[MediaDB] No quota data returned for brand ${brandId}, using default unlimited quota`);
+        return {
+          quotaLimitBytes: Number.MAX_SAFE_INTEGER,
+          totalUsedBytes: 0,
+          percentageUsed: 0,
+          isWarning: false,
+          isHardLimit: false,
+          assetCount: 0,
+        };
+      }
+
+      const quota = quotaData as StorageQuotaRecord;
+
+      // ✅ SAFE: Validate quota object has required properties
+      if (!quota || typeof quota.limit_bytes !== 'number') {
+        console.warn(`[MediaDB] Invalid quota data for brand ${brandId}, using default unlimited quota`);
+        return {
+          quotaLimitBytes: Number.MAX_SAFE_INTEGER,
+          totalUsedBytes: 0,
+          percentageUsed: 0,
+          isWarning: false,
+          isHardLimit: false,
+          assetCount: 0,
+        };
+      }
+
+      // Get total used bytes - ✅ FIX: Column is size_bytes not file_size
+      // ✅ GRACEFUL: If query fails, return 0 usage rather than throwing
+      // This allows quota checks to proceed even if media_assets table has issues
+      const { data: usageData, error: usageError } = await supabase
+        .from("media_assets")
+        .select("size_bytes")
+        .eq("brand_id", brandId);
+
+      // ✅ GRACEFUL FALLBACK: Return 0 usage on error instead of throwing
+      // This ensures quota system doesn't break if media_assets table has issues
+      if (usageError) {
+        console.warn(`[MediaDB] Error calculating storage usage for brand ${brandId}:`, usageError.message);
+        return {
+          quotaLimitBytes: quota.limit_bytes,
+          totalUsedBytes: 0, // Assume 0 usage if query fails
+          percentageUsed: 0,
+          isWarning: false,
+          isHardLimit: false,
+          assetCount: 0,
+        };
+      }
+
+      // ✅ SAFE: Handle null/undefined usageData
+      const totalUsedBytes = (usageData || []).reduce(
+        (sum, asset: any) => sum + (Number(asset?.size_bytes) || 0),
+        0
+      );
+
+      // ✅ SAFE: Prevent division by zero
+      const quotaLimit = quota.limit_bytes || Number.MAX_SAFE_INTEGER;
+      const percentageUsed = quotaLimit > 0 
+        ? Math.round((totalUsedBytes / quotaLimit) * 100)
+        : 0;
       
-      // Return default values - allow uploads to proceed
+      const warningThreshold = quota.warning_threshold_percent || 80;
+      const hardLimitThreshold = quota.hard_limit_percent || 95;
+      
+      const isWarning = percentageUsed >= warningThreshold;
+      const isHardLimit = percentageUsed >= hardLimitThreshold;
+
       return {
-        quotaLimitBytes: defaultQuota.limit_bytes,
+        totalUsedBytes,
+        quotaLimitBytes: quotaLimit,
+        percentageUsed,
+        isWarning,
+        isHardLimit,
+        assetCount: usageData?.length || 0,
+      };
+    } catch (error: any) {
+      // ✅ CRITICAL: Catch ANY error (including unexpected ones) and return default unlimited quota
+      // This ensures quota system failures NEVER block image persistence
+      console.warn(`[MediaDB] Unexpected error in getStorageUsage for brand ${brandId}, using default unlimited quota:`, {
+        error: error?.message || String(error),
+        code: error?.code,
+        stack: error?.stack?.substring(0, 200), // Log first 200 chars of stack for debugging
+        hint: "Quota system may not be fully configured - allowing persistence to proceed"
+      });
+      
+      // ✅ NEVER THROW: Always return a valid StorageUsageStats object
+      return {
+        quotaLimitBytes: Number.MAX_SAFE_INTEGER, // Effectively unlimited
         totalUsedBytes: 0,
         percentageUsed: 0,
         isWarning: false,
@@ -446,52 +624,6 @@ export class MediaDBService {
         assetCount: 0,
       };
     }
-
-    if (quotaError) {
-      throw new AppError(
-        ErrorCode.DATABASE_ERROR,
-        "Failed to fetch storage quota",
-        HTTP_STATUS.INTERNAL_SERVER_ERROR,
-        "critical"
-      );
-    }
-
-    const quota = quotaData as StorageQuotaRecord;
-
-    // Get total used bytes - ✅ FIX: Column is size_bytes not file_size
-    const { data: usageData, error: usageError } = await supabase
-      .from("media_assets")
-      .select("size_bytes")
-      .eq("brand_id", brandId);
-
-    if (usageError) {
-      throw new AppError(
-        ErrorCode.DATABASE_ERROR,
-        "Failed to calculate storage usage",
-        HTTP_STATUS.INTERNAL_SERVER_ERROR,
-        "critical"
-      );
-    }
-
-    const totalUsedBytes = (usageData || []).reduce(
-      (sum, asset: any) => sum + (asset.size_bytes || 0),
-      0
-    );
-
-    const percentageUsed = Math.round(
-      (totalUsedBytes / quota.limit_bytes) * 100
-    );
-    const isWarning = percentageUsed >= quota.warning_threshold_percent;
-    const isHardLimit = percentageUsed >= quota.hard_limit_percent;
-
-    return {
-      totalUsedBytes,
-      quotaLimitBytes: quota.limit_bytes,
-      percentageUsed,
-      isWarning,
-      isHardLimit,
-      assetCount: usageData?.length || 0,
-    };
   }
 
   /**
@@ -553,9 +685,10 @@ export class MediaDBService {
     brandId: string,
     limit: number = 20
   ): Promise<MediaAssetRecord[]> {
+    // ✅ FIX: Explicitly select only columns that exist (exclude thumbnail_url and url)
     const { data, error } = await supabase
       .from("media_assets")
-      .select("*")
+      .select("id, brand_id, tenant_id, category, filename, path, hash, mime_type, size_bytes, used_in, usage_count, metadata, created_at, updated_at, status")
       .eq("brand_id", brandId)
       .eq("status", "active")
       .order("usage_count", { ascending: false })
@@ -577,11 +710,12 @@ export class MediaDBService {
    * Archive an asset (soft delete alternative)
    */
   async archiveMediaAsset(assetId: string): Promise<MediaAssetRecord> {
+    // ✅ FIX: Explicitly select only columns that exist (exclude thumbnail_url and url)
     const { data, error } = await supabase
       .from("media_assets")
       .update({ status: "archived" })
       .eq("id", assetId)
-      .select()
+      .select("id, brand_id, tenant_id, category, filename, path, hash, mime_type, size_bytes, used_in, usage_count, metadata, created_at, updated_at, status")
       .single();
 
     if (error) {

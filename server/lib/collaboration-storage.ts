@@ -53,10 +53,11 @@ export class StrategyBriefStorage {
     if (cached) return cached;
 
     try {
+      // Use brand_id_uuid (UUID) instead of brand_id (TEXT) - migration 005
       const { data, error } = await supabase
         .from("strategy_briefs")
         .select("*")
-        .eq("brand_id", brandId)
+        .eq("brand_id_uuid", brandId) // UUID - primary identifier (migration 005)
         .order("updated_at", { ascending: false })
         .limit(1)
         .single();
@@ -72,9 +73,10 @@ export class StrategyBriefStorage {
 
       if (!data) return null;
 
+      // Prefer brand_id_uuid over brand_id (deprecated) - migration 005
       const brief: StrategyBrief = {
         id: data.id,
-        brandId: data.brand_id,
+        brandId: data.brand_id_uuid || data.brand_id, // Prefer UUID, fallback to TEXT for backward compatibility
         version: data.version || "1.0.0",
         updatedAt: data.updated_at,
         positioning: data.positioning,
@@ -96,11 +98,12 @@ export class StrategyBriefStorage {
    */
   static async save(brief: StrategyBrief): Promise<StrategyBrief> {
     try {
+      // Use brand_id_uuid (UUID) instead of brand_id (TEXT) - migration 005
       const { data, error } = await supabase
         .from("strategy_briefs")
         .upsert({
           id: brief.id,
-          brand_id: brief.brandId,
+          brand_id_uuid: brief.brandId, // UUID - primary identifier (migration 005)
           version: brief.version,
           updated_at: brief.updatedAt,
           positioning: brief.positioning,
@@ -120,9 +123,10 @@ export class StrategyBriefStorage {
         );
       }
 
+      // Prefer brand_id_uuid over brand_id (deprecated) - migration 005
       const saved: StrategyBrief = {
         id: data.id,
-        brandId: data.brand_id,
+        brandId: data.brand_id_uuid || data.brand_id, // Prefer UUID, fallback to TEXT for backward compatibility
         version: data.version,
         updatedAt: data.updated_at,
         positioning: data.positioning,
@@ -178,9 +182,10 @@ export class ContentPackageStorage {
 
       if (!data) return null;
 
+      // Prefer brand_id_uuid over brand_id (deprecated) - migration 005
       const pkg: ContentPackage = {
         id: data.id,
-        brandId: data.brand_id,
+        brandId: data.brand_id_uuid || data.brand_id, // Prefer UUID, fallback to TEXT for backward compatibility
         contentId: data.content_id,
         platform: data.platform,
         status: data.status,
@@ -225,9 +230,10 @@ export class ContentPackageStorage {
 
       if (!data) return null;
 
+      // Prefer brand_id_uuid over brand_id (deprecated) - migration 005
       const pkg: ContentPackage = {
         id: data.id,
-        brandId: data.brand_id,
+        brandId: data.brand_id_uuid || data.brand_id, // Prefer UUID, fallback to TEXT for backward compatibility
         contentId: data.content_id,
         platform: data.platform,
         status: data.status,
@@ -252,11 +258,12 @@ export class ContentPackageStorage {
    */
   static async save(pkg: ContentPackage): Promise<ContentPackage> {
     try {
+      // Use brand_id_uuid (UUID) instead of brand_id (TEXT) - migration 005
       const { data, error } = await supabase
         .from("content_packages")
         .upsert({
           id: pkg.id,
-          brand_id: pkg.brandId,
+          brand_id_uuid: pkg.brandId, // UUID - primary identifier (migration 005)
           content_id: pkg.contentId,
           platform: pkg.platform,
           status: pkg.status,
@@ -281,9 +288,10 @@ export class ContentPackageStorage {
         );
       }
 
+      // Prefer brand_id_uuid over brand_id (deprecated) - migration 005
       const saved: ContentPackage = {
         id: data.id,
-        brandId: data.brand_id,
+        brandId: data.brand_id_uuid || data.brand_id, // Prefer UUID, fallback to TEXT for backward compatibility
         contentId: data.content_id,
         platform: data.platform,
         status: data.status,
@@ -348,11 +356,12 @@ export class BrandHistoryStorage {
     if (cached) return cached;
 
     // Try to fetch from database (if tables exist)
+    // Use brand_id_uuid (UUID) instead of brand_id (TEXT) - migration 005
     try {
       const { data, error } = await supabase
         .from("brand_history")
         .select("*")
-        .eq("brand_id", brandId)
+        .eq("brand_id_uuid", brandId) // UUID - primary identifier (migration 005)
         .single();
 
       if (error && error.code !== "PGRST116") {
@@ -361,9 +370,10 @@ export class BrandHistoryStorage {
       }
 
       if (data) {
+        // Prefer brand_id_uuid over brand_id (deprecated) - migration 005
         const history: BrandHistory = {
           id: data.id,
-          brandId: data.brand_id,
+          brandId: data.brand_id_uuid || data.brand_id, // Prefer UUID, fallback to TEXT for backward compatibility
           entries: data.entries || [],
           successPatterns: data.success_patterns || [],
           designFatigueAlerts: data.design_fatigue_alerts || [],
@@ -387,12 +397,13 @@ export class BrandHistoryStorage {
     setCache(cacheKey, history);
 
     // Try to persist to database (if tables exist)
+    // Use brand_id_uuid (UUID) instead of brand_id (TEXT) - migration 005
     try {
       const { error } = await supabase
         .from("brand_history")
         .upsert({
           id: history.id,
-          brand_id: history.brandId,
+          brand_id_uuid: history.brandId, // UUID - primary identifier (migration 005)
           entries: history.entries,
           success_patterns: history.successPatterns,
           design_fatigue_alerts: history.designFatigueAlerts,

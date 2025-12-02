@@ -5,12 +5,13 @@
  * Only enable in development/staging
  */
 
-import { Router, RequestHandler } from "express";
+import type { Router, RequestHandler } from "express";
+import { Router as ExpressRouter } from "express";
 import { supabase } from "../lib/supabase";
 import { AppError } from "../lib/error-middleware";
 import { ErrorCode, HTTP_STATUS } from "../lib/error-responses";
 
-const router = Router();
+const router = ExpressRouter();
 
 /**
  * GET /api/auth/diagnostics
@@ -110,7 +111,7 @@ router.get("/diagnostics", (async (req, res, next) => {
       diagnostics.recommendations.push("Auth service unavailable - check Supabase project status");
     }
 
-    (res as any).json(diagnostics);
+    res.json(diagnostics);
   } catch (error) {
     next(error);
   }

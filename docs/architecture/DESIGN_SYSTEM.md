@@ -1,4 +1,7 @@
-# Aligned AI Design System Guidelines for AI Assistants
+# POSTD Design System Guidelines for AI Assistants
+
+> **Status:** ✅ Active – This is an active design system guide for POSTD.  
+> **Last Updated:** 2025-01-20
 
 ## Project Architecture (Fusion Starter)
 

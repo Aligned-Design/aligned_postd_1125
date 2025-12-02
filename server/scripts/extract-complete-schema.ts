@@ -94,7 +94,7 @@ function extractSQLSchema() {
         for (const line of lines) {
           if (line.startsWith('PRIMARY KEY') || line.startsWith('REFERENCES')) continue;
           
-          const columnMatch = line.match(/^(\w+)\s+([A-Z][A-Z0-9\[\]()]*(?:\s+[A-Z][A-Z0-9]*)*)/i);
+          const columnMatch = line.match(/^(\w+)\s+([A-Z][A-Z0-9[\]()]*(?:\s+[A-Z][A-Z0-9]*)*)/i);
           if (columnMatch) {
             const colName = columnMatch[1];
             let colType = columnMatch[2].trim();
@@ -124,7 +124,7 @@ function extractSQLSchema() {
       while ((match = alterTableRegex.exec(content)) !== null) {
         const tableName = match[1].toLowerCase();
         const colName = match[2];
-        let colDef = match[3].trim();
+        const colDef = match[3].trim();
         
         if (!tables.has(tableName)) {
           tables.set(tableName, {
@@ -139,7 +139,7 @@ function extractSQLSchema() {
         const table = tables.get(tableName)!;
         
         // Extract type, NOT NULL, DEFAULT
-        const typeMatch = colDef.match(/^([A-Z][A-Z0-9\[\]()]*(?:\s+[A-Z][A-Z0-9]*)*)/i);
+        const typeMatch = colDef.match(/^([A-Z][A-Z0-9[\]()]*(?:\s+[A-Z][A-Z0-9]*)*)/i);
         const colType = typeMatch ? typeMatch[1].trim() : 'UNKNOWN';
         const notNull = colDef.includes('NOT NULL');
         const defaultMatch = colDef.match(/DEFAULT\s+([^,]+)/i);

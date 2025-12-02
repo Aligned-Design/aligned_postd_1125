@@ -38,23 +38,19 @@ export function initializeWebSocketServer(
     ? (process.env.ALLOWED_ORIGINS || process.env.FRONTEND_URL || "*")
     : "*");
   
-  const corsConfigTyped: {
-    origin: string | string[] | boolean;
-    credentials: boolean;
-    methods: string[];
-  } = {
-    origin: corsOrigin,
-    credentials: true,
-    methods: ["GET", "POST"],
-  };
-
+  // Socket.io CORS configuration
+  // Socket.io accepts cors in runtime even if types don't fully reflect it
   const io = new SocketIOServer(httpServer, {
-    cors: corsConfigTyped,
+    cors: {
+      origin: corsOrigin,
+      credentials: true,
+      methods: ["GET", "POST"],
+    },
     transports: ["websocket", "polling"],
     pingInterval: 25000,
     pingTimeout: 20000,
     maxHttpBufferSize: 1e6, // 1MB
-  });
+  } as any);
 
   // Namespaces
   setupJobsNamespace(io);
@@ -219,7 +215,7 @@ export function broadcastJobStatusUpdate(jobId: string, data: unknown): void {
 
   io.of("/jobs").to(room).emit("job:status-changed", {
     jobId,
-    ...data,
+    ...(data as Record<string, unknown>),
     timestamp: new Date().toISOString(),
   });
 }
@@ -233,7 +229,7 @@ export function broadcastAnalyticsSyncProgress(brandId: string, data: unknown): 
 
   io.of("/analytics").to(room).emit("analytics:sync-progress", {
     brandId,
-    ...data,
+    ...(data as Record<string, unknown>),
     timestamp: new Date().toISOString(),
   });
 }
@@ -247,7 +243,7 @@ export function broadcastNotificationToUser(userId: string, data: unknown): void
 
   io.of("/notifications").to(room).emit("notification:received", {
     userId,
-    ...data,
+    ...(data as Record<string, unknown>),
     timestamp: new Date().toISOString(),
   });
 }

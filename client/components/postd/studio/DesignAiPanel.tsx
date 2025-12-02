@@ -13,6 +13,7 @@ import { useBrandGuide } from "@/hooks/useBrandGuide";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { useToast } from "@/hooks/use-toast";
 import { Link } from "react-router-dom";
+import { logError } from "@/lib/logger";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -141,7 +142,7 @@ export function DesignAiPanel({ onUseVariant }: DesignAiPanelProps) {
         });
       } else {
         // Generic error - hook will show toast
-        console.error("Design generation error:", err);
+        logError("Design generation error", err instanceof Error ? err : new Error(String(err)), { brandId: effectiveBrandId, campaignName: formData.campaignName, platform: normalizedPlatform });
         if (err instanceof Error && !err.message.includes("HTTP")) {
           toast({
             title: "Generation Failed",

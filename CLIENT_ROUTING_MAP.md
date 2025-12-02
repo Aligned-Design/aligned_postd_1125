@@ -1,7 +1,7 @@
-# Client-Side Routing Map - Aligned AI Platform
+# Client-Side Routing Map - POSTD Platform
 
 ## Overview
-This document provides a comprehensive map of all client-side routes in the Aligned AI application. The application uses React Router v6 for client-side routing with Vite as the build tool.
+This document provides a comprehensive map of all client-side routes in the POSTD application. The application uses React Router v6 for client-side routing with Vite as the build tool.
 
 ---
 
@@ -10,15 +10,42 @@ This document provides a comprehensive map of all client-side routes in the Alig
 ### Framework & Setup
 - **Router**: React Router v6 (BrowserRouter)
 - **Build Tool**: Vite
-- **Layout System**: Component-based with MainLayout (protected) and UnauthenticatedLayout (public)
+- **Layout System**: Component-based with PostdLayout (protected) and UnauthenticatedLayout (public)
 - **State Management**: Context API (AuthContext, WorkspaceContext, UserContext, BrandContext)
-- **Location**: `/Users/krisfoust/Documents/GitHub/Aligned-20ai/client/`
+- **Location**: `/Users/krisfoust/Downloads/Aligned-20ai.posted/client/`
+
+### Page Structure (Source of Truth)
+
+**Canonical Page Locations:**
+- **Authenticated Pages**: `/client/app/(postd)/<feature>/page.tsx` - All production app pages live here
+- **Public Pages**: `/client/app/(public)/<section>/page.tsx` - All public/marketing/legal pages live here
+- **Compatibility Pages**: `/client/pages/` - Only for:
+  - `Index.tsx` (landing page `/`)
+  - `Pricing.tsx` (pricing page `/pricing`)
+  - `Onboarding.tsx` (onboarding container `/onboarding`)
+  - `NotFound.tsx` (404 catch-all `*`)
+  - `onboarding/Screen*.tsx` (onboarding step screens)
+
+**Legacy & Experimental Pages:**
+- **Legacy Pages**: `/client/pages/_legacy/` - Archived pages replaced by `app/(postd)` versions
+- **Experimental Pages**: `/client/pages/_experiments/` - Unrouted experimental features
+
+**⚠️ Important:** Do NOT add new feature pages to `client/pages/`. All new pages must go in `client/app/(postd)/` or `client/app/(public)/`.
 
 ### Entry Points
 - **Main App Component**: `/client/App.tsx`
-- **Pages Directory**: `/client/pages/`
 - **Components Directory**: `/client/components/`
 - **Layout Components**: `/client/components/layout/`
+
+### Route Aliases
+
+The following routes have aliases for backwards compatibility:
+- `/queue` → `/content-queue` (canonical)
+- `/studio` → `/creative-studio` (canonical)
+- `/ads` → `/paid-ads` (canonical)
+- `/reports` → `/reporting` (canonical)
+
+**Note:** These aliases may be consolidated into redirects in a future release. New code should use the canonical paths.
 
 ---
 
@@ -59,9 +86,9 @@ All protected routes are wrapped in `ProtectedRoutes()` component that enforces:
 #### Root Route
 ```
 PATH: /
-COMPONENT: Index.tsx
+COMPONENT: client/pages/Index.tsx
 LAYOUT: UnauthenticatedLayout
-AUTH: Required (redirects to / if not authenticated)
+AUTH: Public (redirects authenticated users to /dashboard)
 STATUS: Production
 DESCRIPTION: Landing page with hero, features, testimonials
 NAVIGATION: CTA buttons to /dashboard (if authed) or /onboarding (if not)
@@ -74,7 +101,7 @@ NAVIGATION: CTA buttons to /dashboard (if authed) or /onboarding (if not)
 #### Onboarding Container
 ```
 PATH: /onboarding
-COMPONENT: Onboarding.tsx
+COMPONENT: client/pages/Onboarding.tsx
 LAYOUT: (Custom - no MainLayout)
 AUTH: Required
 STATUS: Production
@@ -86,39 +113,61 @@ LOGIC: Displays different screens based on onboardingStep
 ```
 Step 1: Sign Up
   PATH: /onboarding?step=1 (internal routing via state)
-  COMPONENT: Screen1SignUp.tsx
+  COMPONENT: client/pages/onboarding/Screen1SignUp.tsx
   DESCRIPTION: User registration and initial setup
 
-Step 2: Role Setup
+Step 2: Business Essentials
   PATH: /onboarding?step=2
-  COMPONENT: Screen2RoleSetup.tsx
+  COMPONENT: client/pages/onboarding/Screen2BusinessEssentials.tsx
   DESCRIPTION: Agency vs Single Business selection
 
-Step 3: Brand Intake
+Step 3: Expectation Setting
   PATH: /onboarding?step=3
-  COMPONENT: Screen3BrandIntake.tsx
-  DESCRIPTION: Brand information collection
+  COMPONENT: client/pages/onboarding/Screen3ExpectationSetting.tsx
+  DESCRIPTION: Setting expectations
 
-Step 3.5: Connect Accounts
+Step 3.5: Brand Intake
   PATH: /onboarding?step=3.5
-  COMPONENT: Screen35ConnectAccounts.tsx
+  COMPONENT: client/pages/onboarding/Screen3BrandIntake.tsx
+  DESCRIPTION: Brand information collection (manual intake for users without website)
+
+Step 4: AI Scrape
+  PATH: /onboarding?step=4
+  COMPONENT: client/pages/onboarding/Screen3AiScrape.tsx
+  DESCRIPTION: AI-powered brand scraping
+
+Step 5: Brand Summary Review
+  PATH: /onboarding?step=5
+  COMPONENT: client/pages/onboarding/Screen5BrandSummaryReview.tsx
+  DESCRIPTION: Review brand summary
+
+Step 6: Weekly Focus
+  PATH: /onboarding?step=6
+  COMPONENT: client/pages/onboarding/Screen6WeeklyFocus.tsx
+  DESCRIPTION: Set weekly content focus
+
+Step 7: Content Generation
+  PATH: /onboarding?step=7
+  COMPONENT: client/pages/onboarding/Screen7ContentGeneration.tsx
+  DESCRIPTION: Content generation introduction
+
+Step 8: Calendar Preview
+  PATH: /onboarding?step=8
+  COMPONENT: client/pages/onboarding/Screen8CalendarPreview.tsx
+  DESCRIPTION: Calendar preview
+
+Step 9: Connect Accounts
+  PATH: /onboarding?step=9
+  COMPONENT: client/pages/onboarding/Screen9ConnectAccounts.tsx
   DESCRIPTION: Social media account connection
 
-Step 4: Brand Snapshot
-  PATH: /onboarding?step=4
-  COMPONENT: Screen4BrandSnapshot.tsx
-  DESCRIPTION: Brand voice, tone, colors, audience
+Step 10: Dashboard Welcome
+  PATH: /onboarding?step=10
+  COMPONENT: client/pages/onboarding/Screen10DashboardWelcome.tsx
+  DESCRIPTION: Final welcome screen
 
-Step 4.5: Set Goal
-  PATH: /onboarding?step=4.5
-  COMPONENT: Screen45SetGoal.tsx
-  DESCRIPTION: Campaign goals and targets
-
-Step 5: Guided Tour
-  PATH: /onboarding?step=5
-  COMPONENT: Screen5GuidedTour.tsx
-  DESCRIPTION: Interactive product tour
-  NOTE: Can be replayed from MainLayout help drawer
+NOTE: Screen35ConnectAccounts.tsx exists but is not used in the current flow.
+      It has been archived to client/pages/_legacy/onboarding/
 ```
 
 ---
@@ -129,8 +178,8 @@ Step 5: Guided Tour
 
 ```
 PATH: /dashboard
-COMPONENT: Dashboard.tsx
-LAYOUT: MainLayout
+COMPONENT: client/app/(postd)/dashboard/page.tsx
+LAYOUT: PostdLayout (via app/(postd)/layout.tsx)
 AUTH: Required
 STATUS: Production
 SIDEBAR: "Dashboard" (Main > Home icon)
@@ -146,8 +195,8 @@ FEATURES:
 
 ```
 PATH: /calendar
-COMPONENT: Calendar.tsx
-LAYOUT: MainLayout
+COMPONENT: client/app/(postd)/calendar/page.tsx
+LAYOUT: PostdLayout (via app/(postd)/layout.tsx)
 AUTH: Required
 STATUS: Production
 SIDEBAR: "Calendar" (Main > Calendar icon)
@@ -163,35 +212,39 @@ FEATURES:
 ```
 
 ```
-PATH: /content-queue
-COMPONENT: ContentQueue.tsx
-LAYOUT: MainLayout
+PATH: /content-queue (canonical)
+PATH: /queue (alias)
+COMPONENT: client/app/(postd)/queue/page.tsx
+LAYOUT: PostdLayout (via app/(postd)/layout.tsx)
 AUTH: Required
 STATUS: Production
 SIDEBAR: "Content Queue" (Main > ListTodo icon)
 BREADCRUMB: Content Queue
 DESCRIPTION: Content pipeline and approval queue
 FEATURES: Post scheduling, status management
+NOTE: /queue is an alias for backwards compatibility. May be consolidated into redirects later.
 ```
 
 ```
-PATH: /creative-studio
-COMPONENT: CreativeStudio.tsx
-LAYOUT: MainLayout
+PATH: /creative-studio (canonical)
+PATH: /studio (alias)
+COMPONENT: client/app/(postd)/studio/page.tsx
+LAYOUT: PostdLayout (via app/(postd)/layout.tsx)
 AUTH: Required
 STATUS: Production
 SIDEBAR: "Creative Studio" (Main > Sparkles icon)
 BREADCRUMB: Creative Studio
 DESCRIPTION: AI-powered creative asset generation
 FEATURES: Template selection, AI generation, asset preview
+NOTE: /studio is an alias for backwards compatibility. May be consolidated into redirects later.
 ```
 
 #### STRATEGY NAVIGATION GROUP (Planning & Analytics)
 
 ```
 PATH: /campaigns
-COMPONENT: Campaigns.tsx
-LAYOUT: MainLayout
+COMPONENT: client/app/(postd)/campaigns/page.tsx
+LAYOUT: PostdLayout (via app/(postd)/layout.tsx)
 AUTH: Required
 STATUS: Production
 SIDEBAR: "Campaigns" (Strategy > Zap icon)
@@ -202,8 +255,8 @@ FEATURES: Campaign builder, performance tracking
 
 ```
 PATH: /analytics
-COMPONENT: Analytics.tsx
-LAYOUT: MainLayout
+COMPONENT: client/app/(postd)/analytics/page.tsx
+LAYOUT: PostdLayout (via app/(postd)/layout.tsx)
 AUTH: Required
 STATUS: Production
 SIDEBAR: "Analytics" (Strategy > BarChart3 icon)
@@ -214,8 +267,8 @@ FEATURES: Multi-brand analytics, trend analysis
 
 ```
 PATH: /reviews
-COMPONENT: Reviews.tsx
-LAYOUT: MainLayout
+COMPONENT: client/app/(postd)/reviews/page.tsx
+LAYOUT: PostdLayout (via app/(postd)/layout.tsx)
 AUTH: Required
 STATUS: Production
 SIDEBAR: "Reviews" (Strategy > Star icon)
@@ -225,9 +278,10 @@ FEATURES: Review monitoring, sentiment analysis
 ```
 
 ```
-PATH: /paid-ads
-COMPONENT: PaidAds.tsx
-LAYOUT: MainLayout
+PATH: /paid-ads (canonical)
+PATH: /ads (alias)
+COMPONENT: client/app/(postd)/paid-ads/page.tsx
+LAYOUT: PostdLayout (via app/(postd)/layout.tsx)
 AUTH: Required
 STATUS: Beta (Feature flag: beta = true)
 SIDEBAR: "Paid Ads" (Strategy > DollarSign icon) - Shows Beta badge
@@ -236,12 +290,13 @@ DESCRIPTION: Paid advertising campaign management
 BETA_FLAG: Yes - displays "Beta" badge in sidebar with tooltip "Beta feature - coming soon"
 FEATURES: Meta, Google, LinkedIn ad integration
 COMING_SOON: Campaign creation wizard
+NOTE: /ads is an alias for backwards compatibility. May be consolidated into redirects later.
 ```
 
 ```
 PATH: /events
-COMPONENT: Events.tsx
-LAYOUT: MainLayout
+COMPONENT: client/app/(postd)/events/page.tsx
+LAYOUT: PostdLayout (via app/(postd)/layout.tsx)
 AUTH: Required
 STATUS: Production
 SIDEBAR: "Events" (Strategy > MapPin icon)
@@ -258,8 +313,8 @@ FEATURES:
 
 ```
 PATH: /brand-guide
-COMPONENT: BrandGuide.tsx
-LAYOUT: MainLayout
+COMPONENT: client/app/(postd)/brand-guide/page.tsx
+LAYOUT: PostdLayout (via app/(postd)/layout.tsx)
 AUTH: Required
 STATUS: Production
 SIDEBAR: "Brand Guide" (Assets > Palette icon)
@@ -270,8 +325,8 @@ FEATURES: Visual standards, color palette, typography
 
 ```
 PATH: /library
-COMPONENT: Library.tsx
-LAYOUT: MainLayout
+COMPONENT: client/app/(postd)/library/page.tsx
+LAYOUT: PostdLayout (via app/(postd)/layout.tsx)
 AUTH: Required
 STATUS: Production
 SIDEBAR: "Library" (Assets > Library icon)
@@ -287,8 +342,8 @@ FEATURES:
 
 ```
 PATH: /linked-accounts
-COMPONENT: LinkedAccounts.tsx
-LAYOUT: MainLayout
+COMPONENT: client/app/(postd)/linked-accounts/page.tsx
+LAYOUT: PostdLayout (via app/(postd)/layout.tsx)
 AUTH: Required
 STATUS: Production
 SIDEBAR: "Linked Accounts" (Assets > Link2 icon)
@@ -306,8 +361,8 @@ FEATURES:
 
 ```
 PATH: /approvals
-COMPONENT: Approvals.tsx
-LAYOUT: MainLayout
+COMPONENT: client/app/(postd)/approvals/page.tsx
+LAYOUT: PostdLayout (via app/(postd)/layout.tsx)
 AUTH: Required
 STATUS: Production
 SIDEBAR: (Not directly in main sidebar - likely accessed via content-queue)
@@ -317,8 +372,8 @@ FEATURES: Multi-level approval workflows
 
 ```
 PATH: /content-generator
-COMPONENT: ContentGenerator.tsx
-LAYOUT: MainLayout
+COMPONENT: client/app/(postd)/content-generator/page.tsx
+LAYOUT: PostdLayout (via app/(postd)/layout.tsx)
 AUTH: Required
 STATUS: Production
 SIDEBAR: (Not directly in main sidebar)
@@ -328,8 +383,8 @@ FEATURES: Template-based generation, batch creation
 
 ```
 PATH: /brands
-COMPONENT: Brands.tsx
-LAYOUT: MainLayout
+COMPONENT: client/app/(postd)/brands/page.tsx
+LAYOUT: PostdLayout (via app/(postd)/layout.tsx)
 AUTH: Required
 STATUS: Production
 SIDEBAR: (Not directly in main sidebar - strategy section)
@@ -339,8 +394,8 @@ FEATURES: Brand listing, brand switching, creation
 
 ```
 PATH: /brand-intake
-COMPONENT: BrandIntake.tsx
-LAYOUT: MainLayout
+COMPONENT: client/app/(postd)/brand-intake/page.tsx
+LAYOUT: PostdLayout (via app/(postd)/layout.tsx)
 AUTH: Required
 STATUS: Production
 SIDEBAR: (Strategy group, optional)
@@ -350,8 +405,8 @@ FEATURES: Structured brand data collection
 
 ```
 PATH: /brand-snapshot
-COMPONENT: BrandSnapshot.tsx
-LAYOUT: MainLayout
+COMPONENT: client/app/(postd)/brand-snapshot/page.tsx
+LAYOUT: PostdLayout (via app/(postd)/layout.tsx)
 AUTH: Required
 STATUS: Production
 SIDEBAR: (Strategy group, optional)
@@ -361,8 +416,8 @@ FEATURES: Voice, tone, audience, colors summary
 
 ```
 PATH: /brand-intelligence
-COMPONENT: BrandIntelligence.tsx
-LAYOUT: MainLayout
+COMPONENT: client/app/(postd)/brand-intelligence/page.tsx
+LAYOUT: PostdLayout (via app/(postd)/layout.tsx)
 AUTH: Required
 STATUS: Production
 SIDEBAR: (Strategy group, likely)
@@ -371,20 +426,22 @@ FEATURES: Competitive analysis, market positioning
 ```
 
 ```
-PATH: /reporting
-COMPONENT: Reporting.tsx
-LAYOUT: MainLayout
+PATH: /reporting (canonical)
+PATH: /reports (alias)
+COMPONENT: client/app/(postd)/reporting/page.tsx
+LAYOUT: PostdLayout (via app/(postd)/layout.tsx)
 AUTH: Required
 STATUS: Production
 SIDEBAR: (Strategy group, optional)
 DESCRIPTION: Report generation and distribution
 FEATURES: Custom reports, scheduled delivery, export
+NOTE: /reports is an alias for backwards compatibility. May be consolidated into redirects later.
 ```
 
 ```
 PATH: /client-portal
-COMPONENT: ClientPortal.tsx
-LAYOUT: MainLayout
+COMPONENT: client/app/(postd)/client-portal/page.tsx
+LAYOUT: PostdLayout (via app/(postd)/layout.tsx)
 AUTH: Required
 STATUS: Production
 SIDEBAR: (Assets group, optional)
@@ -394,8 +451,8 @@ FEATURES: Approval requests, client messaging
 
 ```
 PATH: /client-settings
-COMPONENT: ClientSettings.tsx
-LAYOUT: MainLayout
+COMPONENT: client/app/(postd)/client-settings/page.tsx
+LAYOUT: PostdLayout (via app/(postd)/layout.tsx)
 AUTH: Required
 STATUS: Production
 SIDEBAR: (Not in sidebar - system settings)
@@ -407,8 +464,8 @@ FEATURES: Invite management, permissions, workspace settings
 
 ```
 PATH: /settings
-COMPONENT: Settings.tsx
-LAYOUT: MainLayout
+COMPONENT: client/app/(postd)/settings/page.tsx
+LAYOUT: PostdLayout (via app/(postd)/layout.tsx)
 AUTH: Required
 STATUS: Production
 SIDEBAR: "Settings" (System > Settings icon)
@@ -427,8 +484,8 @@ FEATURES:
 
 ```
 PATH: /billing
-COMPONENT: Billing.tsx
-LAYOUT: MainLayout
+COMPONENT: client/app/(postd)/billing/page.tsx
+LAYOUT: PostdLayout (via app/(postd)/layout.tsx)
 AUTH: Required
 STATUS: Production
 SIDEBAR: (Likely in settings group or separate)
@@ -447,8 +504,125 @@ BEHAVIOR: Clears auth state and redirects to /
 ```
 
 ```
+PATH: /pricing
+COMPONENT: client/pages/Pricing.tsx
+LAYOUT: UnauthenticatedLayout (or custom)
+AUTH: Public
+STATUS: Production
+DESCRIPTION: Pricing page with plan comparison
+```
+
+```
+PATH: /login
+COMPONENT: client/pages/onboarding/Screen0Login.tsx
+LAYOUT: (Custom - no MainLayout)
+AUTH: Public (redirects authenticated users)
+STATUS: Production
+DESCRIPTION: Login screen
+```
+
+```
+PATH: /blog
+COMPONENT: client/app/(public)/blog/page.tsx
+LAYOUT: UnauthenticatedLayout
+AUTH: Public
+STATUS: Production
+DESCRIPTION: Blog index page
+```
+
+```
+PATH: /blog/:slug
+COMPONENT: client/app/(public)/blog/[slug]/page.tsx
+LAYOUT: UnauthenticatedLayout
+AUTH: Public
+STATUS: Production
+DESCRIPTION: Individual blog post
+```
+
+```
+PATH: /legal/privacy-policy
+COMPONENT: client/app/(public)/legal/privacy-policy/page.tsx
+LAYOUT: UnauthenticatedLayout
+AUTH: Public
+STATUS: Production
+DESCRIPTION: Privacy policy
+```
+
+```
+PATH: /legal/terms
+COMPONENT: client/app/(public)/legal/terms/page.tsx
+LAYOUT: UnauthenticatedLayout
+AUTH: Public
+STATUS: Production
+DESCRIPTION: Terms of service
+```
+
+```
+PATH: /legal/cookies
+COMPONENT: client/app/(public)/legal/cookies/page.tsx
+LAYOUT: UnauthenticatedLayout
+AUTH: Public
+STATUS: Production
+DESCRIPTION: Cookie policy
+```
+
+```
+PATH: /legal/data-deletion
+COMPONENT: client/app/(public)/legal/data-deletion/page.tsx
+LAYOUT: UnauthenticatedLayout
+AUTH: Public
+STATUS: Production
+DESCRIPTION: Data deletion policy
+```
+
+```
+PATH: /legal/acceptable-use
+COMPONENT: client/app/(public)/legal/acceptable-use/page.tsx
+LAYOUT: UnauthenticatedLayout
+AUTH: Public
+STATUS: Production
+DESCRIPTION: Acceptable use policy
+```
+
+```
+PATH: /legal/refunds
+COMPONENT: client/app/(public)/legal/refunds/page.tsx
+LAYOUT: UnauthenticatedLayout
+AUTH: Public
+STATUS: Production
+DESCRIPTION: Refund policy
+```
+
+```
+PATH: /legal/api-policy
+COMPONENT: client/app/(public)/legal/api-policy/page.tsx
+LAYOUT: UnauthenticatedLayout
+AUTH: Public
+STATUS: Production
+DESCRIPTION: API policy
+```
+
+```
+PATH: /legal/ai-disclosure
+COMPONENT: client/app/(public)/legal/ai-disclosure/page.tsx
+LAYOUT: UnauthenticatedLayout
+AUTH: Public
+STATUS: Production
+DESCRIPTION: AI disclosure
+```
+
+```
+PATH: /legal/security
+COMPONENT: client/app/(public)/legal/security/page.tsx
+LAYOUT: UnauthenticatedLayout
+AUTH: Public
+STATUS: Production
+DESCRIPTION: Security statement
+```
+
+```
 PATH: *
-COMPONENT: NotFound.tsx
+COMPONENT: client/pages/NotFound.tsx
 LAYOUT: (No specific layout)
 AUTH: N/A (Shown for invalid routes)
 STATUS: Production
@@ -689,33 +863,44 @@ const activeGroup = navGroups.find(group =>
 
 | Path | Component | Auth | Layout | Status | Group | Notes |
 |------|-----------|------|--------|--------|-------|-------|
-| / | Index.tsx | - | Unauth | Prod | Public | Landing page |
-| /onboarding | Onboarding.tsx | Req | Custom | Prod | Auth | Multi-step wizard |
-| /dashboard | Dashboard.tsx | Req | Main | Prod | Main | Command center |
-| /calendar | Calendar.tsx | Req | Main | Prod | Main | Content calendar |
-| /content-queue | ContentQueue.tsx | Req | Main | Prod | Main | Approval queue |
-| /creative-studio | CreativeStudio.tsx | Req | Main | Prod | Main | AI generation |
-| /campaigns | Campaigns.tsx | Req | Main | Prod | Strategy | Campaign mgmt |
-| /analytics | Analytics.tsx | Req | Main | Prod | Strategy | Performance |
-| /reviews | Reviews.tsx | Req | Main | Prod | Strategy | Review mgmt |
-| /paid-ads | PaidAds.tsx | Req | Main | Beta | Strategy | Ad management |
-| /events | Events.tsx | Req | Main | Prod | Strategy | Event scheduling |
-| /brand-guide | BrandGuide.tsx | Req | Main | Prod | Assets | Brand guidelines |
-| /library | Library.tsx | Req | Main | Prod | Assets | Asset management |
-| /linked-accounts | LinkedAccounts.tsx | Req | Main | Prod | Assets | Social connections |
-| /approvals | Approvals.tsx | Req | Main | Prod | - | Review queue |
-| /content-generator | ContentGenerator.tsx | Req | Main | Prod | - | Content AI |
-| /brands | Brands.tsx | Req | Main | Prod | - | Multi-brand |
-| /brand-intake | BrandIntake.tsx | Req | Main | Prod | Strategy | Brand form |
-| /brand-snapshot | BrandSnapshot.tsx | Req | Main | Prod | Strategy | Brand summary |
-| /brand-intelligence | BrandIntelligence.tsx | Req | Main | Prod | Strategy | Brand insights |
-| /reporting | Reporting.tsx | Req | Main | Prod | Strategy | Reports |
-| /client-portal | ClientPortal.tsx | Req | Main | Prod | Assets | Client view |
-| /client-settings | ClientSettings.tsx | Req | Main | Prod | - | Client config |
-| /settings | Settings.tsx | Req | Main | Prod | System | Workspace settings |
-| /billing | Billing.tsx | Req | Main | Prod | System | Billing mgmt |
+| / | client/pages/Index.tsx | Public | Unauth | Prod | Public | Landing page |
+| /pricing | client/pages/Pricing.tsx | Public | Unauth | Prod | Public | Pricing page |
+| /onboarding | client/pages/Onboarding.tsx | Req | Custom | Prod | Auth | Multi-step wizard |
+| /login | client/pages/onboarding/Screen0Login.tsx | Public | Custom | Prod | Auth | Login screen |
+| /dashboard | client/app/(postd)/dashboard/page.tsx | Req | PostdLayout | Prod | Main | Command center |
+| /calendar | client/app/(postd)/calendar/page.tsx | Req | PostdLayout | Prod | Main | Content calendar |
+| /content-queue | client/app/(postd)/queue/page.tsx | Req | PostdLayout | Prod | Main | Approval queue |
+| /queue | client/app/(postd)/queue/page.tsx | Req | PostdLayout | Prod | Main | Alias for /content-queue |
+| /creative-studio | client/app/(postd)/studio/page.tsx | Req | PostdLayout | Prod | Main | AI generation |
+| /studio | client/app/(postd)/studio/page.tsx | Req | PostdLayout | Prod | Main | Alias for /creative-studio |
+| /campaigns | client/app/(postd)/campaigns/page.tsx | Req | PostdLayout | Prod | Strategy | Campaign mgmt |
+| /analytics | client/app/(postd)/analytics/page.tsx | Req | PostdLayout | Prod | Strategy | Performance |
+| /reviews | client/app/(postd)/reviews/page.tsx | Req | PostdLayout | Prod | Strategy | Review mgmt |
+| /paid-ads | client/app/(postd)/paid-ads/page.tsx | Req | PostdLayout | Beta | Strategy | Ad management |
+| /ads | client/app/(postd)/paid-ads/page.tsx | Req | PostdLayout | Beta | Strategy | Alias for /paid-ads |
+| /events | client/app/(postd)/events/page.tsx | Req | PostdLayout | Prod | Strategy | Event scheduling |
+| /brand-guide | client/app/(postd)/brand-guide/page.tsx | Req | PostdLayout | Prod | Assets | Brand guidelines |
+| /library | client/app/(postd)/library/page.tsx | Req | PostdLayout | Prod | Assets | Asset management |
+| /linked-accounts | client/app/(postd)/linked-accounts/page.tsx | Req | PostdLayout | Prod | Assets | Social connections |
+| /approvals | client/app/(postd)/approvals/page.tsx | Req | PostdLayout | Prod | - | Review queue |
+| /content-generator | client/app/(postd)/content-generator/page.tsx | Req | PostdLayout | Prod | - | Content AI |
+| /brands | client/app/(postd)/brands/page.tsx | Req | PostdLayout | Prod | - | Multi-brand |
+| /brand-intake | client/app/(postd)/brand-intake/page.tsx | Req | PostdLayout | Prod | Strategy | Brand form |
+| /brand-snapshot | client/app/(postd)/brand-snapshot/page.tsx | Req | PostdLayout | Prod | Strategy | Brand summary |
+| /brand-intelligence | client/app/(postd)/brand-intelligence/page.tsx | Req | PostdLayout | Prod | Strategy | Brand insights |
+| /reporting | client/app/(postd)/reporting/page.tsx | Req | PostdLayout | Prod | Strategy | Reports |
+| /reports | client/app/(postd)/reporting/page.tsx | Req | PostdLayout | Prod | Strategy | Alias for /reporting |
+| /client-portal | client/app/(postd)/client-portal/page.tsx | Req | PostdLayout | Prod | Assets | Client view |
+| /client-settings | client/app/(postd)/client-settings/page.tsx | Req | PostdLayout | Prod | - | Client config |
+| /settings | client/app/(postd)/settings/page.tsx | Req | PostdLayout | Prod | System | Workspace settings |
+| /billing | client/app/(postd)/billing/page.tsx | Req | PostdLayout | Prod | System | Billing mgmt |
+| /insights-roi | client/app/(postd)/insights-roi/page.tsx | Req | PostdLayout | Prod | Strategy | ROI insights |
+| /admin | client/app/(postd)/admin/page.tsx | Req | PostdLayout | Prod | System | Admin panel |
+| /blog | client/app/(public)/blog/page.tsx | Public | Unauth | Prod | Public | Blog index |
+| /blog/:slug | client/app/(public)/blog/[slug]/page.tsx | Public | Unauth | Prod | Public | Blog post |
+| /legal/* | client/app/(public)/legal/*/page.tsx | Public | Unauth | Prod | Public | Legal pages |
 | /auth/logout | (handler) | Req | - | Prod | System | Sign out |
-| * | NotFound.tsx | - | - | Prod | System | 404 page |
+| * | client/pages/NotFound.tsx | - | - | Prod | System | 404 page |
 
 ---
 
@@ -725,41 +910,64 @@ const activeGroup = navGroups.find(group =>
 /client/
 ├── App.tsx                          # Main router setup
 ├── main.tsx                         # Entry point
-├── pages/
-│   ├── Index.tsx                   # Landing page
-│   ├── Onboarding.tsx              # Onboarding container
-│   ├── onboarding/
+├── app/
+│   ├── (postd)/                     # Authenticated app pages
+│   │   ├── dashboard/page.tsx
+│   │   ├── calendar/page.tsx
+│   │   ├── queue/page.tsx
+│   │   ├── studio/page.tsx
+│   │   ├── campaigns/page.tsx
+│   │   ├── analytics/page.tsx
+│   │   ├── reviews/page.tsx
+│   │   ├── paid-ads/page.tsx
+│   │   ├── events/page.tsx
+│   │   ├── brand-guide/page.tsx
+│   │   ├── library/page.tsx
+│   │   ├── linked-accounts/page.tsx
+│   │   ├── approvals/page.tsx
+│   │   ├── content-generator/page.tsx
+│   │   ├── brands/page.tsx
+│   │   ├── brand-intake/page.tsx
+│   │   ├── brand-snapshot/page.tsx
+│   │   ├── brand-intelligence/page.tsx
+│   │   ├── reporting/page.tsx
+│   │   ├── client-portal/page.tsx
+│   │   ├── client-settings/page.tsx
+│   │   ├── settings/page.tsx
+│   │   ├── billing/page.tsx
+│   │   ├── insights-roi/page.tsx
+│   │   └── admin/page.tsx
+│   └── (public)/                    # Public/marketing pages
+│       ├── blog/
+│       └── legal/
+├── pages/                           # Compatibility/legacy directory
+│   ├── Index.tsx                    # Landing page
+│   ├── Pricing.tsx                  # Pricing page
+│   ├── Onboarding.tsx               # Onboarding container
+│   ├── NotFound.tsx                 # 404 page
+│   ├── onboarding/                 # Onboarding step screens
 │   │   ├── Screen1SignUp.tsx
-│   │   ├── Screen2RoleSetup.tsx
+│   │   ├── Screen2BusinessEssentials.tsx
+│   │   ├── Screen3ExpectationSetting.tsx
 │   │   ├── Screen3BrandIntake.tsx
-│   │   ├── Screen35ConnectAccounts.tsx
-│   │   ├── Screen4BrandSnapshot.tsx
-│   │   ├── Screen45SetGoal.tsx
-│   │   └── Screen5GuidedTour.tsx
-│   ├── Dashboard.tsx
-│   ├── Calendar.tsx
-│   ├── ContentQueue.tsx
-│   ├── CreativeStudio.tsx
-│   ├── Campaigns.tsx
-│   ├── Analytics.tsx
-│   ├── Reviews.tsx
-│   ├── PaidAds.tsx
-│   ├── Events.tsx
-│   ├── BrandGuide.tsx
-│   ├── Library.tsx
-│   ├── LinkedAccounts.tsx
-│   ├── Approvals.tsx
-│   ├── ContentGenerator.tsx
-│   ├── Brands.tsx
-│   ├── BrandIntake.tsx
-│   ├── BrandSnapshot.tsx
-│   ├── BrandIntelligence.tsx
-│   ├── Reporting.tsx
-│   ├── ClientPortal.tsx
-│   ├── ClientSettings.tsx
-│   ├── Settings.tsx
-│   ├── Billing.tsx
-│   └── NotFound.tsx
+│   │   ├── Screen3AiScrape.tsx
+│   │   ├── Screen5BrandSummaryReview.tsx
+│   │   ├── Screen6WeeklyFocus.tsx
+│   │   ├── Screen7ContentGeneration.tsx
+│   │   ├── Screen8CalendarPreview.tsx
+│   │   ├── Screen9ConnectAccounts.tsx
+│   │   └── Screen10DashboardWelcome.tsx
+│   ├── _legacy/                     # Archived legacy pages
+│   │   ├── onboarding/              # Legacy onboarding screens
+│   │   │   ├── Screen2RoleSetup.tsx
+│   │   │   ├── Screen4BrandSnapshot.tsx
+│   │   │   ├── Screen45SetGoal.tsx
+│   │   │   ├── Screen5GuidedTour.tsx
+│   │   │   └── Screen35ConnectAccounts.tsx
+│   │   └── [22 legacy page files]
+│   └── _experiments/                # Experimental pages
+│       ├── BatchCreativeStudio.tsx
+│       └── AdminBilling.tsx
 ├── components/
 │   ├── layout/
 │   │   ├── AppLayout.tsx
@@ -828,7 +1036,7 @@ const activeGroup = navGroups.find(group =>
 
 ## Summary
 
-The Aligned AI platform uses a well-organized, role-based routing structure with:
+The POSTD platform uses a well-organized, role-based routing structure with:
 
 1. **Clear separation** between public (/) and authenticated routes
 2. **Multi-step onboarding** with state-driven screen display

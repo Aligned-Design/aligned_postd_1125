@@ -1,6 +1,7 @@
-import { useRef, useState, useCallback, useEffect } from "react";
+import { useRef, useState, useCallback, useEffect, useMemo } from "react";
 import { Trash2, RotateCw, Image as ImageIcon } from "lucide-react";
 import { Design, CanvasItem } from "@/types/creativeStudio";
+import { logError } from "@/lib/logger";
 
 interface CreativeStudioCanvasProps {
   design: Design;
@@ -12,6 +13,11 @@ interface CreativeStudioCanvasProps {
   onAddElement?: (elementType: string, props: Record<string, any>, x: number, y: number) => void;
   onRotateItem?: (angle: number) => void;
   onDeleteItem?: () => void;
+  onEnterCropMode?: (itemId: string) => void;
+  onExitCropMode?: () => void;
+  onConfirmCrop?: (itemId: string, crop: { x: number; y: number; width: number; height: number; aspectRatio?: "1:1" | "9:16" | "16:9" | "free" }) => void;
+  croppingItemId?: string | null;
+  cropAspectRatio?: "1:1" | "9:16" | "16:9" | "free";
 }
 
 interface EditingState {
@@ -27,6 +33,15 @@ interface DragState {
   offsetY: number;
 }
 
+interface CropState {
+  itemId: string;
+  x: number; // 0-1 relative to image
+  y: number; // 0-1 relative to image
+  width: number; // 0-1 relative to image
+  height: number; // 0-1 relative to image
+  aspectRatio?: "1:1" | "9:16" | "16:9" | "free";
+}
+
 export function CreativeStudioCanvas({
   design,
   selectedItemId,
@@ -37,14 +52,92 @@ export function CreativeStudioCanvas({
   onAddElement,
   onRotateItem,
   onDeleteItem,
+  onEnterCropMode,
+  onExitCropMode,
+  onConfirmCrop,
+  croppingItemId,
+  cropAspectRatio = "free",
 }: CreativeStudioCanvasProps) {
   const canvasRef = useRef<HTMLDivElement>(null);
   const [dragState, setDragState] = useState<DragState | null>(null);
   const [resizing, setResizing] = useState<{ itemId: string; handle: string } | null>(null);
   const [editingText, setEditingText] = useState<EditingState | null>(null);
+  const [cropState, setCropState] = useState<CropState | null>(null);
+  const [cropResizing, setCropResizing] = useState<{ handle: string } | null>(null);
   const textInputRef = useRef<HTMLTextAreaElement>(null);
 
   const canvasScale = zoom / 100;
+  const previousCroppingItemIdRef = useRef<string | null | undefined>(croppingItemId);
+  const previousCropAspectRatioRef = useRef<string | undefined>(cropAspectRatio);
+
+  // Compute initial crop state when entering crop mode
+  // Crop coordinates are normalized (0-1) relative to image dimensions for scalability
+  const initialCropState = useMemo<CropState | null>(() => {
+    if (croppingItemId) {
+      const item = design.items.find((i) => i.id === croppingItemId);
+      if (item && item.type === "image") {
+        // Initialize crop to full image or use existing crop
+        // Ensure crop values are valid (0-1 range, width/height > 0)
+        const existingCrop = item.crop;
+        return {
+          itemId: croppingItemId,
+          x: Math.max(0, Math.min(1, existingCrop?.x ?? 0)),
+          y: Math.max(0, Math.min(1, existingCrop?.y ?? 0)),
+          width: Math.max(0.1, Math.min(1, existingCrop?.width ?? 1)),
+          height: Math.max(0.1, Math.min(1, existingCrop?.height ?? 1)),
+          aspectRatio: cropAspectRatio,
+        };
+      }
+    }
+    return null;
+  }, [croppingItemId, design.items, cropAspectRatio]);
+
+  // Initialize crop state when entering crop mode or update when aspect ratio changes
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- cropState is also updated by user interactions, so we need to sync computed state
+  useEffect(() => {
+    // Initialize when entering crop mode
+    if (croppingItemId && !cropState && initialCropState) {
+      setCropState(initialCropState);
+      setCropResizing(null);
+      previousCroppingItemIdRef.current = croppingItemId;
+    } 
+    // Clean up when exiting crop mode
+    else if (!croppingItemId && cropState) {
+      setCropState(null);
+      setCropResizing(null);
+      previousCroppingItemIdRef.current = null;
+    }
+    // Update aspect ratio when it changes
+    else if (cropState && cropAspectRatio !== previousCropAspectRatioRef.current && cropAspectRatio !== cropState.aspectRatio) {
+      // Adjust crop to maintain aspect ratio
+      const [w, h] = cropAspectRatio === "free" ? [1, 1] : cropAspectRatio.split(":").map(Number);
+      const targetRatio = w / h;
+      const currentRatio = cropState.width / cropState.height;
+
+      const newCrop = { ...cropState, aspectRatio: cropAspectRatio };
+
+      if (cropAspectRatio !== "free") {
+        if (currentRatio > targetRatio) {
+          // Too wide - adjust height
+          newCrop.height = newCrop.width / targetRatio;
+          if (newCrop.y + newCrop.height > 1) {
+            newCrop.height = 1 - newCrop.y;
+            newCrop.width = newCrop.height * targetRatio;
+          }
+        } else {
+          // Too tall - adjust width
+          newCrop.width = newCrop.height * targetRatio;
+          if (newCrop.x + newCrop.width > 1) {
+            newCrop.width = 1 - newCrop.x;
+            newCrop.height = newCrop.width / targetRatio;
+          }
+        }
+      }
+
+      setCropState(newCrop);
+      previousCropAspectRatioRef.current = cropAspectRatio;
+    }
+  }, [croppingItemId, cropState, initialCropState, cropAspectRatio]);
 
   // Focus text input when editing starts (only when itemId changes, not on every text change)
   useEffect(() => {
@@ -80,6 +173,51 @@ export function CreativeStudioCanvas({
     const item = design.items.find((i) => i.id === itemId);
     if (!item) return;
 
+    // If in crop mode for this item, handle crop interactions
+    if (croppingItemId === itemId && cropState) {
+      const targetClassName = typeof target.className === "string" ? target.className : target.getAttribute("class") || "";
+      
+      // Check if clicking on crop resize handle
+      if (targetClassName.includes("crop-handle-")) {
+        const handle = targetClassName.match(/crop-handle-(\w+)/)?.[1] || "";
+        setCropResizing({ handle });
+        return;
+      }
+      
+      // Check if clicking inside crop area (to drag crop)
+      const itemRect = {
+        left: item.x * canvasScale,
+        top: item.y * canvasScale,
+        width: item.width * canvasScale,
+        height: item.height * canvasScale,
+      };
+      const cropRect = {
+        left: itemRect.left + cropState.x * itemRect.width,
+        top: itemRect.top + cropState.y * itemRect.height,
+        width: cropState.width * itemRect.width,
+        height: cropState.height * itemRect.height,
+      };
+      const clickX = e.clientX - rect.left;
+      const clickY = e.clientY - rect.top;
+      
+      if (
+        clickX >= cropRect.left &&
+        clickX <= cropRect.left + cropRect.width &&
+        clickY >= cropRect.top &&
+        clickY <= cropRect.top + cropRect.height
+      ) {
+        // Start dragging crop area
+        setCropState({
+          ...cropState,
+          // Store initial mouse position relative to crop area
+        });
+        return;
+      }
+      
+      // Clicked outside crop area - ignore
+      return;
+    }
+
     onSelectItem(itemId);
 
     // Check if clicking on resize handle
@@ -108,6 +246,81 @@ export function CreativeStudioCanvas({
       if (!canvas) return;
 
       const rect = canvas.getBoundingClientRect();
+
+      // Handle crop interactions first (if in crop mode)
+      // Crop coordinates are normalized (0-1) relative to image dimensions
+      if (cropState && cropResizing) {
+        const item = design.items.find((i) => i.id === cropState.itemId);
+        if (!item || item.type !== "image") return;
+
+        const itemX = item.x * canvasScale;
+        const itemY = item.y * canvasScale;
+        const itemWidth = item.width * canvasScale;
+        const itemHeight = item.height * canvasScale;
+
+        // Convert mouse position to normalized crop coordinates (0-1)
+        const mouseX = Math.max(0, Math.min(1, (e.clientX - rect.left - itemX) / itemWidth));
+        const mouseY = Math.max(0, Math.min(1, (e.clientY - rect.top - itemY) / itemHeight));
+
+        const newCrop = { ...cropState };
+
+        // Calculate new crop bounds based on handle
+        // Minimum crop size: 10% of image (0.1) to prevent disappearing crop
+        if (cropResizing.handle.includes("e")) {
+          // Resize from east (right) edge
+          newCrop.width = Math.max(0.1, Math.min(1 - newCrop.x, mouseX - newCrop.x));
+        }
+        if (cropResizing.handle.includes("w")) {
+          // Resize from west (left) edge
+          const newX = Math.max(0, Math.min(newCrop.x + newCrop.width - 0.1, mouseX));
+          newCrop.width = newCrop.x + newCrop.width - newX;
+          newCrop.x = newX;
+        }
+        if (cropResizing.handle.includes("s")) {
+          // Resize from south (bottom) edge
+          newCrop.height = Math.max(0.1, Math.min(1 - newCrop.y, mouseY - newCrop.y));
+        }
+        if (cropResizing.handle.includes("n")) {
+          // Resize from north (top) edge
+          const newY = Math.max(0, Math.min(newCrop.y + newCrop.height - 0.1, mouseY));
+          newCrop.height = newCrop.y + newCrop.height - newY;
+          newCrop.y = newY;
+        }
+
+        // Apply aspect ratio constraint if set (e.g., "1:1", "9:16")
+        if (newCrop.aspectRatio && newCrop.aspectRatio !== "free") {
+          const [w, h] = newCrop.aspectRatio.split(":").map(Number);
+          const targetRatio = w / h;
+          const currentRatio = newCrop.width / newCrop.height;
+
+          if (currentRatio > targetRatio) {
+            // Too wide - adjust height to match target ratio
+            newCrop.height = newCrop.width / targetRatio;
+            // Ensure crop stays within image bounds
+            if (newCrop.y + newCrop.height > 1) {
+              newCrop.height = 1 - newCrop.y;
+              newCrop.width = newCrop.height * targetRatio;
+            }
+          } else {
+            // Too tall - adjust width to match target ratio
+            newCrop.width = newCrop.height * targetRatio;
+            // Ensure crop stays within image bounds
+            if (newCrop.x + newCrop.width > 1) {
+              newCrop.width = 1 - newCrop.x;
+              newCrop.height = newCrop.width / targetRatio;
+            }
+          }
+        }
+
+        // Final bounds check: ensure crop stays within image (0-1 range)
+        newCrop.x = Math.max(0, Math.min(1 - newCrop.width, newCrop.x));
+        newCrop.y = Math.max(0, Math.min(1 - newCrop.height, newCrop.y));
+        newCrop.width = Math.max(0.1, Math.min(1 - newCrop.x, newCrop.width));
+        newCrop.height = Math.max(0.1, Math.min(1 - newCrop.y, newCrop.height));
+
+        setCropState(newCrop);
+        return;
+      }
 
       if (dragState) {
         const deltaX = (e.clientX - rect.left - dragState.startX) / canvasScale;
@@ -146,12 +359,13 @@ export function CreativeStudioCanvas({
         onUpdateItem(resizing.itemId, updates);
       }
     },
-    [dragState, resizing, canvasScale, onUpdateItem, design.items]
+    [dragState, resizing, cropState, cropResizing, canvasScale, onUpdateItem, design.items]
   );
 
   const handleMouseUp = () => {
     setDragState(null);
     setResizing(null);
+    setCropResizing(null);
   };
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -176,7 +390,7 @@ export function CreativeStudioCanvas({
         const props = JSON.parse(propsStr);
         onAddElement(elementType, props, Math.max(0, x), Math.max(0, y));
       } catch (error) {
-        console.error("Failed to parse element props:", error);
+        logError("Failed to parse element props", error instanceof Error ? error : new Error(String(error)), { elementType, propsStr });
       }
     }
   };
@@ -325,7 +539,113 @@ export function CreativeStudioCanvas({
                     </div>
                   </div>
                 ) : (
-                  <img src={item.imageUrl} alt={item.imageName} className="w-full h-full object-cover" />
+                  <div className="w-full h-full relative overflow-hidden">
+                    <img
+                      src={item.imageUrl}
+                      alt={item.imageName}
+                      className="w-full h-full object-cover"
+                      style={{
+                        // Apply crop using CSS clip-path and object-position
+                        // Crop coordinates are normalized (0-1), convert to percentages for CSS
+                        // clip-path inset: top right bottom left (percentages)
+                        // object-position: center point of visible crop area
+                        ...(item.crop && {
+                          objectPosition: `${(item.crop.x + item.crop.width / 2) * 100}% ${(item.crop.y + item.crop.height / 2) * 100}%`,
+                          clipPath: `inset(${(1 - item.crop.y - item.crop.height) * 100}% ${(1 - item.crop.x - item.crop.width) * 100}% ${item.crop.y * 100}% ${item.crop.x * 100}%)`,
+                        }),
+                      }}
+                      onError={(e) => {
+                        // Fallback for broken image URLs - show placeholder
+                        const target = e.target as HTMLImageElement;
+                        target.style.display = "none";
+                      }}
+                    />
+                    {/* Crop Overlay - shown when in crop mode */}
+                    {croppingItemId === item.id && cropState && (
+                      <>
+                        {/* Darkened overlay outside crop area */}
+                        <div
+                          className="absolute inset-0 pointer-events-none"
+                          style={{
+                            background: `linear-gradient(to right, 
+                              rgba(0,0,0,0.5) 0%, 
+                              rgba(0,0,0,0.5) ${cropState.x * 100}%, 
+                              transparent ${cropState.x * 100}%, 
+                              transparent ${(cropState.x + cropState.width) * 100}%, 
+                              rgba(0,0,0,0.5) ${(cropState.x + cropState.width) * 100}%, 
+                              rgba(0,0,0,0.5) 100%),
+                              linear-gradient(to bottom, 
+                              rgba(0,0,0,0.5) 0%, 
+                              rgba(0,0,0,0.5) ${cropState.y * 100}%, 
+                              transparent ${cropState.y * 100}%, 
+                              transparent ${(cropState.y + cropState.height) * 100}%, 
+                              rgba(0,0,0,0.5) ${(cropState.y + cropState.height) * 100}%, 
+                              rgba(0,0,0,0.5) 100%)`,
+                          }}
+                        />
+                        {/* Crop rectangle border */}
+                        <div
+                          className="absolute border-2 border-lime-400 pointer-events-none"
+                          style={{
+                            left: `${cropState.x * 100}%`,
+                            top: `${cropState.y * 100}%`,
+                            width: `${cropState.width * 100}%`,
+                            height: `${cropState.height * 100}%`,
+                          }}
+                        />
+                        {/* Crop resize handles */}
+                        {["nw", "ne", "sw", "se", "n", "s", "e", "w"].map((handle) => (
+                          <div
+                            key={handle}
+                            className={`absolute w-3 h-3 bg-lime-400 border-2 border-white rounded-sm cursor-${handle}-resize crop-handle-${handle}`}
+                            style={{
+                              left: handle.includes("w")
+                                ? `${cropState.x * 100}%`
+                                : handle.includes("e")
+                                ? `${(cropState.x + cropState.width) * 100}%`
+                                : `${(cropState.x + cropState.width / 2) * 100}%`,
+                              top: handle.includes("n")
+                                ? `${cropState.y * 100}%`
+                                : handle.includes("s")
+                                ? `${(cropState.y + cropState.height) * 100}%`
+                                : `${(cropState.y + cropState.height / 2) * 100}%`,
+                              transform: `translate(-50%, -50%)`,
+                              pointerEvents: "auto",
+                            }}
+                          />
+                        ))}
+                        {/* Crop confirm/cancel buttons */}
+                        <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 translate-y-full mt-2 flex gap-2">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (onExitCropMode) onExitCropMode();
+                            }}
+                            className="px-4 py-2 text-sm bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (onConfirmCrop && cropState) {
+                                onConfirmCrop(cropState.itemId, {
+                                  x: cropState.x,
+                                  y: cropState.y,
+                                  width: cropState.width,
+                                  height: cropState.height,
+                                  aspectRatio: cropState.aspectRatio,
+                                });
+                              }
+                            }}
+                            className="px-4 py-2 text-sm bg-lime-400 hover:bg-lime-500 text-indigo-950 font-bold rounded-lg transition-colors"
+                          >
+                            Confirm
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </div>
                 )
               )}
 

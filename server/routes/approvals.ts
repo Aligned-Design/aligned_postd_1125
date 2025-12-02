@@ -492,7 +492,7 @@ const SEND_TO_DRAFT_ALLOWED = new Set([
 ]);
 const READY_FOR_SCHEDULE_ALLOWED = new Set(["client_review", "approved"]);
 
-const getPendingApprovals: RequestHandler = async (req, res, next) => {
+export const getPendingApprovals: RequestHandler = async (req, res, next) => {
   try {
     const user = getRequestUser(req);
     const { brandId, limit, offset, status, search } =
@@ -607,7 +607,8 @@ const approveForClient: RequestHandler = async (req, res, next) => {
       record.brand_id,
       user.id,
       user.email
-      // TODO: Get clientUserId from brand_members or brand settings
+      // Future work: Get clientUserId from brand_members or brand settings
+      // This would allow targeting specific client users for approval notifications
     );
 
     broadcastApprovalUpdated({

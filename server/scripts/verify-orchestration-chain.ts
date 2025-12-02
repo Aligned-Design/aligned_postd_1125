@@ -36,41 +36,56 @@ async function verifyOrchestrationChain() {
       brandId,
       contentPerformance: [
         {
-          contentType: "carousel",
+          contentId: "test-content-1",
           platform: "instagram",
-          engagement: {
-            likes: 1250,
-            comments: 89,
-            shares: 45,
-            saves: 234,
+          publishedAt: new Date().toISOString(),
+          metrics: {
+            reach: { value: 18500, change: 0 } as any,
+            engagement: { value: 1250, change: 0 } as any,
+            clicks: { value: 1353, change: 0 } as any,
           },
-          reach: 18500,
-          impressions: 42300,
-          clickThroughRate: 3.2,
+          visualAttributes: {
+            layout: "carousel",
+            colorScheme: "brand-primary",
+            motionType: "static",
+            imageType: "photo",
+          },
+          copyAttributes: {
+            tone: "professional",
+            length: 150,
+            hasEmoji: false,
+            hasCallToAction: true,
+          },
         },
       ],
       visualPerformance: [
         {
+          attribute: "layout",
           attributeValue: "Hero with body text and CTA",
           contentCount: 12,
-          avgEngagement: 2.8,
+          avgMetrics: {
+            engagement: 2.8,
+            reach: 15000,
+            clicks: 450,
+          },
         },
       ],
-      platforms: ["instagram", "twitter"],
+      // Type assertion for dev-only script - platforms property exists at runtime
+      ...({ platforms: ["instagram", "twitter"] } as any),
       patterns: [
         {
           pattern: "High engagement on carousel posts",
-          frequency: 8,
           strength: "strong",
-          avgPerformance: 3.1,
+          example: "Carousel posts with 3+ slides show 3.1x higher engagement",
+          impact: "Consider increasing carousel content frequency",
         },
       ],
       platformInsights: [
         {
           platform: "instagram",
           topVisualStyle: "Hero + Body Text",
-          bestPostingTime: "2-4 PM EST",
-          topicAffinity: ["strategy", "insights", "growth"],
+          topCopyStyle: "Professional",
+          optimalPostTime: "2-4 PM EST",
         },
       ],
       recommendations: {
@@ -79,6 +94,10 @@ async function verifyOrchestrationChain() {
           "Include data visualizations for credibility",
         ],
         copyRecommendations: ["Keep headlines under 10 words", "Use actionable language"],
+        platformRecommendations: [
+          "Focus on Instagram for visual content",
+          "Post during 2-4 PM EST for optimal engagement",
+        ],
       },
       alerts: [
         {

@@ -1,6 +1,7 @@
 import { Router, Request, Response } from "express";
 import { authenticateUser } from "../middleware/security";
 import { AppError } from "../lib/error-middleware";
+import { ErrorCode, HTTP_STATUS } from "../lib/error-responses";
 import { getAccountStatus } from "../lib/account-status-service";
 
 const router = Router();
@@ -17,7 +18,7 @@ router.post(
       const user = req.user as any;
 
       if (!user) {
-        throw new AppError("Unauthorized", 401, "UNAUTHORIZED");
+        throw new AppError(ErrorCode.UNAUTHORIZED, "Unauthorized", HTTP_STATUS.UNAUTHORIZED, "warning");
       }
 
       const { paymentMethodId } = req.body;
@@ -99,7 +100,7 @@ router.get(
       const user = req.user as any;
 
       if (!user) {
-        throw new AppError("Unauthorized", 401, "UNAUTHORIZED");
+        throw new AppError(ErrorCode.UNAUTHORIZED, "Unauthorized", HTTP_STATUS.UNAUTHORIZED, "warning");
       }
 
       // Calculate days past due
@@ -147,7 +148,7 @@ router.post(
 
       // Check if user is admin
       if (adminUser.role !== "admin") {
-        throw new AppError("Forbidden", 403, "FORBIDDEN");
+        throw new AppError(ErrorCode.FORBIDDEN, "Forbidden", HTTP_STATUS.FORBIDDEN, "warning");
       }
 
       const { userId, extensionDays } = req.body;

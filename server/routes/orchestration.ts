@@ -46,7 +46,7 @@ function createOrchestrationRouter(): Router {
         }
 
         // Verify brand access
-        assertBrandAccess(req, brandId);
+        await assertBrandAccess(req, brandId);
 
         // ✅ BRAND GUIDE: Load Brand Guide (source of truth)
         const brandGuide = await getCurrentBrandGuide(brandId);
@@ -332,7 +332,7 @@ function createOrchestrationRouter(): Router {
         }
 
         // Verify brand access
-        assertBrandAccess(req, brandId);
+        await assertBrandAccess(req, brandId);
 
         // Import and run onboarding orchestrator
         const { runOnboardingWorkflow } = await import("../lib/onboarding-orchestrator");
@@ -387,7 +387,7 @@ function createOrchestrationRouter(): Router {
         }
 
         // Verify brand access
-        assertBrandAccess(req, brandId);
+        await assertBrandAccess(req, brandId);
 
         // Import and run onboarding orchestrator
         const { runOnboardingWorkflow } = await import("../lib/onboarding-orchestrator");

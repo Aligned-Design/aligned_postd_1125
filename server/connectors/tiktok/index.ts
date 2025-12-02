@@ -43,7 +43,8 @@ export class TikTokConnector extends BaseConnector {
   }
 
   async authenticate(code: string, state: string): Promise<OAuthResult> {
-    // TODO: Implement TikTok OAuth flow
+    // Future work: Implement TikTok OAuth flow
+    // TikTok connector is a placeholder - full implementation requires TikTok API access
     // 1. Exchange code for tokens
     // 2. Get user ID and info
     // 3. Encrypt and store tokens
@@ -53,29 +54,58 @@ export class TikTokConnector extends BaseConnector {
 
     logger.debug({ code, state }, '[TikTok] Authenticating via OAuth');
 
-    throw new Error('TODO: Implement TikTok OAuth authentication');
+    throw new Error('Future work: Implement TikTok OAuth authentication');
   }
 
+  /**
+   * Refresh access token
+   * 
+   * STATUS: NOT IMPLEMENTED - Future Work
+   * 
+   * TikTok tokens have a 24-hour lifetime and require refresh via:
+   * POST https://open.tiktokapis.com/v2/oauth/token/
+   * 
+   * Current limitation: Token refresh is not implemented. Users must re-authenticate
+   * when tokens expire (every 24 hours).
+   * 
+   * Implementation requirements:
+   * - Use refresh_token from initial OAuth flow
+   * - Call POST /oauth/token/ with grant_type=refresh_token
+   * - Store new access_token and refresh_token
+   * - Handle refresh failures gracefully
+   * - Consider proactive refresh at 18-20 hours to avoid expiration
+   * 
+   * See: https://developers.tiktok.com/doc/oauth-get-access-token/
+   * 
+   * @param refreshToken - Refresh token from initial OAuth flow
+   * @returns OAuthResult with new tokens
+   * @throws Error indicating this is future work
+   */
   async refreshToken(refreshToken: string): Promise<OAuthResult> {
-    // TODO: Implement token refresh
-    // TikTok tokens expire in 24 hours (aggressive!)
-    // Refresh endpoint: POST /oauth/token/
-    // Must refresh every 18 hours to be safe
-
-    logger.debug({ connectionId: this.connectionId }, '[TikTok] Refreshing access token (24h lifetime!)');
-
-    throw new Error('TODO: Implement TikTok token refresh');
+    logger.warn(
+      {
+        connectionId: this.connectionId,
+        platform: 'tiktok',
+      },
+      '[TikTok] Token refresh requested but not implemented - tokens expire in 24h'
+    );
+    
+    throw new Error(
+      'TikTok token refresh not implemented. Tokens expire in 24 hours. ' +
+      'Users must re-authenticate when tokens expire. ' +
+      'See: https://developers.tiktok.com/doc/oauth-get-access-token/'
+    );
   }
 
   async fetchAccounts(): Promise<Account[]> {
-    // TODO: Implement account fetching
+    // Future work: Implement account fetching
     // 1. Get access token from vault
     // 2. Call GET /user/info/ to get user profile
     // 3. Return array with single account (TikTok is single-account)
 
     logger.debug({ connectionId: this.connectionId }, '[TikTok] Fetching accounts');
 
-    throw new Error('TODO: Implement TikTok account fetching');
+    throw new Error('Future work: Implement TikTok account fetching');
   }
 
   async publish(
@@ -85,7 +115,7 @@ export class TikTokConnector extends BaseConnector {
     mediaUrls?: string[],
     options?: PublishOptions
   ): Promise<PublishResult> {
-    // TODO: Implement video publishing with chunked upload
+    // Future work: Implement video publishing with chunked upload
     // 1. Get access token from vault
     // 2. If video file URL provided:
     //    a. Download video from mediaUrls[0]
@@ -102,50 +132,50 @@ export class TikTokConnector extends BaseConnector {
       '[TikTok] Publishing video (complex chunked upload)'
     );
 
-    throw new Error('TODO: Implement TikTok video publishing with chunked upload');
+    throw new Error('Future work: Implement TikTok video publishing with chunked upload');
   }
 
   async deletePost(accountId: string, postId: string): Promise<void> {
-    // TODO: Implement video deletion
+    // Future work: Implement video deletion
     // POST /video/delete/ with video_id
 
     logger.debug({ accountId, postId }, '[TikTok] Deleting video');
 
-    throw new Error('TODO: Implement TikTok video deletion');
+    throw new Error('Future work: Implement TikTok video deletion');
   }
 
   async getPostAnalytics(accountId: string, postId: string): Promise<AnalyticsMetrics> {
-    // TODO: Implement analytics fetching
+    // Future work: Implement analytics fetching
     // GET /video/query/ with fields=view_count,like_count,comment_count,share_count
     // Note: Analytics delayed by 1-3 hours
 
     logger.debug({ accountId, postId }, '[TikTok] Fetching video analytics (delayed by 1-3h)');
 
-    throw new Error('TODO: Implement TikTok analytics');
+    throw new Error('Future work: Implement TikTok analytics');
   }
 
   async healthCheck(): Promise<HealthCheckResult> {
-    // TODO: Implement health check
+    // Future work: Implement health check
     // GET /user/info/ with access token
     // Should return user profile if token is valid
 
     logger.debug({ connectionId: this.connectionId }, '[TikTok] Health check');
 
-    throw new Error('TODO: Implement TikTok health check');
+    throw new Error('Future work: Implement TikTok health check');
   }
 
   validateWebhookSignature(signature: string, payload: string): boolean {
-    // TODO: Implement webhook signature validation
+    // Future work: Implement webhook signature validation
     // HMAC-SHA256 with webhook secret
     // TikTok provides webhook_secret
 
     logger.debug({ signatureProvided: !!signature }, '[TikTok] Validating webhook signature');
 
-    return false; // TODO
+    return false; // Future work: Implement webhook signature validation
   }
 
   parseWebhookEvent(payload: any): any {
-    // TODO: Implement webhook event parsing
+    // Future work: Implement webhook event parsing
     // TikTok webhooks:
     // - video.complete (upload finished)
     // - video.publish.complete (video published)
@@ -155,7 +185,7 @@ export class TikTokConnector extends BaseConnector {
 
     logger.debug({ eventType: payload?.type }, '[TikTok] Parsing webhook event');
 
-    return null; // TODO
+    return null; // Future work: Implement webhook event parsing
   }
 }
 

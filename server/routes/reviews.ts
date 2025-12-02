@@ -4,12 +4,19 @@
  */
 
 import { Router, RequestHandler } from "express";
+import { z } from "zod";
 import { Review, ReviewListResponse, ReviewSentiment } from "@shared/reviews";
 import { AppError } from "../lib/error-middleware";
 import { ErrorCode, HTTP_STATUS } from "../lib/error-responses";
 import { requireScope } from "../middleware/requireScope";
+import { assertBrandAccess } from "../lib/brand-access";
 
 const reviewsRouter = Router();
+
+// ✅ VALIDATION: Zod schema for reviews routes
+const BrandIdParamSchema = z.object({
+  brandId: z.string().uuid("Invalid brand ID format"),
+});
 
 /**
  * Helper function to detect sentiment from rating and text
@@ -34,37 +41,28 @@ reviewsRouter.get(
   requireScope("content:view"),
   (async (req, res, next) => {
     try {
-      const { brandId } = req.params;
-      
-      // Validate brandId parameter
-      if (!brandId || brandId === "undefined") {
-        throw new AppError(
-          ErrorCode.BAD_REQUEST,
-          "Brand ID is required",
-          HTTP_STATUS.BAD_REQUEST,
-          "warning",
-          { brandId },
-          "Please provide a valid brand ID"
-        );
+      // ✅ VALIDATION: Validate brandId parameter
+      let brandId: string;
+      try {
+        const validated = BrandIdParamSchema.parse(req.params);
+        brandId = validated.brandId;
+      } catch (validationError) {
+        if (validationError instanceof z.ZodError) {
+          throw new AppError(
+            ErrorCode.VALIDATION_ERROR,
+            "Invalid brand ID format",
+            HTTP_STATUS.BAD_REQUEST,
+            "warning",
+            { validationErrors: validationError.errors },
+            "Please provide a valid brand ID"
+          );
+        }
+        throw validationError;
       }
 
       const authReq = req as any;
       const user = authReq.user || authReq.auth;
-      const userBrandIds = Array.isArray(user?.brandIds) ? user.brandIds : (user?.brandId ? [user.brandId] : []);
-      const userRole = user?.role?.toUpperCase();
       const userScopes = user?.scopes || [];
-
-      // Enhanced logging for debugging
-      console.log("[Reviews] Request:", {
-        brandId,
-        userId: user?.id || user?.userId,
-        userEmail: user?.email,
-        userBrandIds,
-        userRole,
-        userScopes,
-        hasContentViewScope: userScopes.includes("content:view"),
-        hasAccess: userBrandIds.includes(brandId) || userRole === "SUPERADMIN",
-      });
 
       // Check for content:view scope
       if (!userScopes.includes("content:view")) {
@@ -84,43 +82,11 @@ reviewsRouter.get(
         );
       }
 
-      // Verify user has access to this brand
-      // Allow SUPERADMIN or users with brand access
-      // In dev mode, allow access if brandIds are missing (for testing)
-      const isDev = process.env.NODE_ENV !== "production";
-      const isSuperAdmin = userRole === "SUPERADMIN";
-      const hasBrandAccess = userBrandIds.includes(brandId);
-      
-      let hasAccess = hasBrandAccess || isSuperAdmin;
-      
-      // Dev mode: allow access if brandIds are missing (for testing)
-      if (!hasAccess && isDev && !userBrandIds.length) {
-        console.warn("[Reviews] Dev mode: Allowing access without brandIds for testing");
-        hasAccess = true;
-      }
-      
-      if (!hasAccess) {
-        console.warn("[Reviews] Access denied:", {
-          brandId,
-          userId: user?.id || user?.userId,
-          userBrandIds,
-          userRole,
-          isSuperAdmin,
-          hasBrandAccess,
-        });
-        throw new AppError(
-          ErrorCode.FORBIDDEN,
-          "Not authorized for this brand",
-          HTTP_STATUS.FORBIDDEN,
-          "warning",
-          { brandId, userBrandIds, userRole },
-          "You don't have access to reviews for this brand. Please contact your administrator."
-        );
-      }
+      // ✅ SECURITY: Verify user has access to this brand using database-backed check
+      await assertBrandAccess(req, brandId, true, true);
 
-      // TODO: Replace with actual database query
-      // For now, return empty array as placeholder
-      // This allows the frontend to work without errors while the feature is being built
+      // Future work: Replace with actual database query to content_items or reviews table
+      // This feature is being built - returning empty array allows frontend to work without errors
       const reviews: Review[] = [];
 
       // Calculate stats
