@@ -711,19 +711,47 @@ function categorizeImage(
     return "partner_logo";
   }
 
-  // Logo detection (highest priority) - use existing role if already detected
-  // ✅ ENHANCED: Primary logo should be in header/nav OR (in hero AND has brand match)
-  if (img.role === "logo" || isLogo(img, pageUrl, brandName)) {
-    // Primary logo criteria: inHeaderOrNav OR (inHeroOrAboveFold AND brandMatchScore >= 1)
+  // Logo detection (highest priority) - STRICT: Only small images in header/nav or clear logo indicators
+  // ✅ IMPROVED: Strict logo criteria to prevent large brand images from being classified as logos
+  const isPotentialLogo = img.role === "logo" || isLogo(img, pageUrl, brandName);
+  
+  if (isPotentialLogo) {
+    // ✅ STRICT SIZE CHECK: Logos should be relatively small (< 400px in both dimensions)
+    // Large images (> 400px) are likely hero/brand images, not logos
+    const isOversized = img.width && img.height && 
+      (img.width > 400 || img.height > 400 || (img.width * img.height > 200000));
+    
+    if (isOversized) {
+      // Oversized "logo" - classify as hero or photo instead
+      if (img.inHeroOrAboveFold || (img.width && img.height && img.width > 600)) {
+        return "hero";
+      }
+      return "photo"; // Large brand image
+    }
+    
+    // ✅ STRICT LOCATION CHECK: Primary logo should be in header/nav OR small with brand match
     const isPrimaryLogo = img.inHeaderOrNav === true || 
-      (img.inHeroOrAboveFold === true && (img.brandMatchScore || 0) >= 1);
+      (img.inHeroOrAboveFold === true && (img.brandMatchScore || 0) >= 1 && 
+       img.width && img.height && img.width < 300 && img.height < 300);
     
     // If it's a logo but not a primary logo candidate, it might be a partner logo
     if (!isPrimaryLogo && img.inAffiliateOrPartnerSection) {
       return "partner_logo";
     }
     
-    return "logo";
+    // ✅ VALIDATION: Only return "logo" if it meets strict criteria (small, in header/nav, or clear logo indicators)
+    if (isPrimaryLogo || (img.inHeaderOrNav === true) || 
+        (img.width && img.height && img.width < 300 && img.height < 300 && 
+         (img.brandMatchScore || 0) >= 1)) {
+      return "logo";
+    }
+    
+    // If doesn't meet strict logo criteria but has logo indicators, classify as photo/hero
+    // This prevents false positives from images that just happen to have "logo" in filename
+    if (img.inHeroOrAboveFold) {
+      return "hero";
+    }
+    return "photo"; // Brand image, not a logo
   }
   
   // Hero images: large images near top of page - use existing role if already detected
@@ -1551,29 +1579,40 @@ async function extractImages(page: Page, baseUrl: string, brandName?: string): P
           // Determine initial role (will be refined later)
           let role: "logo" | "hero" | "other" = "other";
 
-          // Enhanced logo detection
+          // ✅ IMPROVED: Stricter logo detection - prioritize size and location
           const altLower = alt?.toLowerCase() || "";
           const filenameLower = filename.toLowerCase();
           const parentClasses = img.parentElement?.className?.toLowerCase() || "";
           const parentId = img.parentElement?.id?.toLowerCase() || "";
           const isSmall = width ? (width < 400 && height ? height < 400 : false) : false;
+          const isVerySmall = width ? (width < 300 && height ? height < 300 : false) : false;
+          const isLarge = width && height && ((width > 600 && height > 400) || (width > 400 && height > 600));
           const brandNameLower = brandName?.toLowerCase().replace(/\s+/g, "-") || "";
 
-          if (
-            altLower.includes("logo") ||
+          // ✅ STRICT LOGO DETECTION: Only classify as logo if:
+          // 1. Small image (< 400px) AND (in header/nav OR has clear logo indicators)
+          // 2. Very small image (< 300px) with logo indicators
+          // Large images are never logos - they're hero/brand images
+          const hasLogoIndicator = altLower.includes("logo") ||
             filenameLower.includes("logo") ||
             (brandNameLower && (filenameLower.includes(brandNameLower) || altLower.includes(brandName?.toLowerCase() || ""))) ||
             parentClasses.includes("logo") ||
-            parentId.includes("logo") ||
-            (inHeaderOrNav && isSmall)
-          ) {
+            parentId.includes("logo");
+          
+          if (isLarge) {
+            // Large images are hero/brand images, never logos
+            role = inHeroOrAboveFold ? "hero" : "other";
+          } else if ((inHeaderOrNav && (isSmall || isVerySmall)) || (hasLogoIndicator && isVerySmall)) {
+            // Only small images in header/nav or very small with logo indicators
             role = "logo";
           } else if (
-            // Hero detection: large image near top of page (more lenient - accept if width OR height is large)
-            width && height && ((width > 600 && height > 400) || (width > 400 && height > 600)) &&
-            img.offsetTop < window.innerHeight * 2 // More lenient - check within 2 viewport heights
+            // Hero detection: large image near top of page
+            isLarge && img.offsetTop < window.innerHeight * 2
           ) {
             role = "hero";
+          } else if (hasLogoIndicator && !isSmall) {
+            // Has logo indicator but not small - likely a brand image, not a logo
+            role = inHeroOrAboveFold ? "hero" : "other";
           }
 
           results.push({
@@ -1710,15 +1749,39 @@ async function extractImages(page: Page, baseUrl: string, brandName?: string): P
     const allImages = [...mergedLogos, ...uniqueNonLogos];
 
     // Categorize and enrich images with page type and priority
+    // ✅ IMPROVED: Re-evaluate all images, including those initially marked as logos
     const categorizedImages: CrawledImage[] = allImages.map((img) => {
-      // If already classified as logo, keep it; otherwise categorize
-      const categorized = img.role === "logo" ? "logo" : categorizeImage(img, baseUrl, pageType, brandName);
+      // ✅ STRICT LOGO VALIDATION: Re-classify oversized "logos" as brand images
+      // If image is > 400px in either dimension, it's likely a hero/brand image, not a logo
+      const isOversizedForLogo = img.width && img.height && 
+        (img.width > 400 || img.height > 400 || (img.width * img.height > 200000)); // > 200k pixels
+      
+      // ✅ RE-EVALUATE: Even if marked as logo, re-check if it should be a brand image
+      let roleToAssign = img.role || "other";
+      
+      if (img.role === "logo" && isOversizedForLogo) {
+        // Oversized logo - reclassify as hero/photo based on context
+        if (img.inHeroOrAboveFold || (img.width && img.height && img.width > 600 && img.height > 400)) {
+          roleToAssign = "hero";
+        } else {
+          roleToAssign = "photo"; // Large brand image, not a logo
+        }
+      } else {
+        // Standard categorization - allow re-evaluation even for logos
+        roleToAssign = categorizeImage(img, baseUrl, pageType, brandName);
+        
+        // ✅ DOUBLE-CHECK: If categorized as logo but oversized, downgrade to brand image
+        if (roleToAssign === "logo" && isOversizedForLogo) {
+          roleToAssign = img.inHeroOrAboveFold ? "hero" : "photo";
+        }
+      }
+      
       return {
         url: img.url,
         alt: img.alt,
         width: img.width,
         height: img.height,
-        role: categorized,
+        role: roleToAssign,
         pageType,
         filename: img.filename,
         // ✅ PRESERVE: Keep context fields from extraction (with type safety)
@@ -1769,19 +1832,30 @@ async function extractImages(page: Page, baseUrl: string, brandName?: string): P
     // Limit to 15 images max (10-15 range as specified)
     const finalImages = filteredImages.slice(0, 15);
     
-    // ✅ ENHANCED: Log logo detection summary
+    // ✅ ENHANCED: Log classification summary with role breakdown
     const logoCount = finalImages.filter(img => img.role === "logo").length;
-    if (logoCount > 0 || process.env.DEBUG_LOGO_DETECT === "true") {
-      console.log(`[Crawler] Logo detection summary for ${baseUrl}:`, {
-        totalImages: finalImages.length,
-        logosFound: logoCount,
-        logosFromSvg: svgLogos.length,
-        logosFromCss: cssLogos.length,
-        logosFromHtml: htmlLogos.length,
-        logosFromOg: ogLogo ? 1 : 0,
-        logosFromFavicon: faviconLogo ? 1 : 0,
-      });
-    }
+    const heroCount = finalImages.filter(img => img.role === "hero").length;
+    const photoCount = finalImages.filter(img => img.role === "photo").length;
+    const otherCount = finalImages.filter(img => !["logo", "hero", "photo"].includes(img.role || "")).length;
+    
+    console.log(`[Crawler] Logo detection summary for ${baseUrl}:`, {
+      totalImages: finalImages.length,
+      logosFound: logoCount,
+      heroesFound: heroCount,
+      photosFound: photoCount,
+      otherImages: otherCount,
+      logosFromSvg: svgLogos.length,
+      logosFromCss: cssLogos.length,
+      logosFromHtml: htmlLogos.length,
+      logosFromOg: ogLogo ? 1 : 0,
+      logosFromFavicon: faviconLogo ? 1 : 0,
+      roleBreakdown: {
+        logo: logoCount,
+        hero: heroCount,
+        photo: photoCount,
+        other: otherCount,
+      },
+    });
     
     console.log(`[Crawler] Returning ${finalImages.length} images for page ${baseUrl}`);
     
