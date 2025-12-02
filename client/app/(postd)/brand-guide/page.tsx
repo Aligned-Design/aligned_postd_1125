@@ -38,6 +38,7 @@ export default function BrandGuidePageComponent() {
     isLoading,
     isError,
     isSaving,
+    saveStatus,
     lastSaved,
     validationWarnings,
     updateBrandGuide,
@@ -276,12 +277,26 @@ export default function BrandGuidePageComponent() {
           <PageHeader
             title="Brand Guide"
             subtitle={
-              <span>
-                <span className="bg-slate-200 text-black px-2 py-1 rounded-lg font-semibold">
-                  {currentBrand?.name || currentWorkspace?.name}
+              <div className="flex items-center gap-3 flex-wrap">
+                <span>
+                  <span className="bg-slate-200 text-black px-2 py-1 rounded-lg font-semibold">
+                    {currentBrand?.name || currentWorkspace?.name}
+                  </span>
+                  {" — Define your brand identity, voice, and visual standards"}
                 </span>
-                {" — Define your brand identity, voice, and visual standards"}
-              </span>
+                {/* Save Status Indicator */}
+                {saveStatus !== 'idle' && (
+                  <span className={`text-xs font-semibold px-2 py-1 rounded ${
+                    saveStatus === 'saving' ? 'bg-amber-100 text-amber-800' :
+                    saveStatus === 'saved' ? 'bg-green-100 text-green-800' :
+                    'bg-red-100 text-red-800'
+                  }`}>
+                    {saveStatus === 'saving' && 'Saving...'}
+                    {saveStatus === 'saved' && '✓ Saved'}
+                    {saveStatus === 'error' && '⚠ Error saving'}
+                  </span>
+                )}
+              </div>
             }
             actions={
               <div className="text-right">

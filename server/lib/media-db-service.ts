@@ -100,18 +100,21 @@ export class MediaDBService {
       );
     }
 
-    // Check storage quota before inserting
-    // ✅ FIX: For scraped images (external URLs with size_bytes=0), skip quota check
+    // ✅ CRITICAL FIX: For scraped images (external URLs with size_bytes=0), skip quota check entirely
     // Scraped images don't use Supabase Storage, so quota doesn't apply
-    const isScrapedImage = fileSize === 0 && path.startsWith("http");
+    // This MUST be checked FIRST before any quota logic runs
+    const isScrapedImage = fileSize === 0 && (path.startsWith("http://") || path.startsWith("https://"));
     
     if (isScrapedImage) {
-      // Scraped images are external URLs, don't use storage, skip quota check
-      console.log(`[MediaDB] Skipping quota check for scraped image (external URL, no storage used)`);
+      // ✅ SCRAPED IMAGES: Skip quota check entirely - they don't use storage
+      // This prevents any quota system issues from blocking scraped image persistence
+      console.log(`[MediaDB] ✅ Skipping quota check for scraped image (external URL, no storage used): ${path.substring(0, 60)}...`);
     } else {
-      // Only check quota for uploaded files (non-scraped images)
+      // ✅ UPLOADED FILES: Only check quota for real uploads with actual file sizes
+      // getStorageUsage() is now bulletproof and never throws, but we still wrap in try-catch for safety
       try {
         const usage = await this.getStorageUsage(brandId);
+        // ✅ SAFE: getStorageUsage() always returns a valid object, so usage.isHardLimit is safe to check
         if (usage.isHardLimit) {
           throw new AppError(
             ErrorCode.QUOTA_EXCEEDED,
@@ -126,13 +129,18 @@ export class MediaDBService {
           );
         }
       } catch (quotaError: any) {
-        // ✅ FIX: If quota lookup fails, log warning but allow persistence
-        // This prevents quota system issues from blocking image persistence
-        // The getStorageUsage() method already returns unlimited quota on error,
-        // so we only get here if there's a different error (like AppError from isHardLimit check)
-        console.warn(`[MediaDB] Quota check failed, allowing persistence (quota system may not be fully configured):`, quotaError.message);
+        // ✅ DEFENSIVE: Catch any errors (though getStorageUsage() should never throw)
+        // If it's a quota exceeded error, re-throw it (user should see this)
+        if (quotaError.code === ErrorCode.QUOTA_EXCEEDED) {
+          throw quotaError; // Re-throw quota exceeded errors
+        }
+        // For any other error (shouldn't happen, but be defensive), log and allow persistence
+        console.warn(`[MediaDB] Quota check failed (non-critical), allowing persistence:`, {
+          error: quotaError?.message || String(quotaError),
+          code: quotaError?.code,
+          hint: "Quota system may not be fully configured - allowing upload to proceed"
+        });
         // Don't re-throw - allow the upload to proceed
-        // This ensures scraped images and other uploads work even if quota system has issues
       }
     }
 
@@ -437,13 +445,14 @@ export class MediaDBService {
 
   /**
    * Get storage usage statistics for a brand
-   * ✅ FIX: Gracefully handle missing storage_quotas table or quota lookup failures
-   * For scraped images (external URLs), quota check is not needed since they don't use storage
-   * 
-   * CRITICAL: This method MUST NEVER throw errors. It always returns a valid StorageUsageStats
+   * ✅ CRITICAL FIX: This method MUST NEVER throw errors. It always returns a valid StorageUsageStats
    * to prevent quota system issues from blocking image persistence.
+   * 
+   * For scraped images (external URLs), quota check is not needed since they don't use storage.
+   * This method is only called for uploaded files, but we still make it bulletproof.
    */
   async getStorageUsage(brandId: string): Promise<StorageUsageStats> {
+    // ✅ BULLETPROOF: Wrap entire method in try-catch to ensure it NEVER throws
     try {
       // Get quota - gracefully handle table not existing yet or any lookup errors
       const { data: quotaData, error: quotaError } = await supabase
@@ -483,7 +492,33 @@ export class MediaDBService {
         };
       }
 
+      // ✅ SAFE: Check quotaData exists before accessing properties
+      if (!quotaData) {
+        console.warn(`[MediaDB] No quota data returned for brand ${brandId}, using default unlimited quota`);
+        return {
+          quotaLimitBytes: Number.MAX_SAFE_INTEGER,
+          totalUsedBytes: 0,
+          percentageUsed: 0,
+          isWarning: false,
+          isHardLimit: false,
+          assetCount: 0,
+        };
+      }
+
       const quota = quotaData as StorageQuotaRecord;
+
+      // ✅ SAFE: Validate quota object has required properties
+      if (!quota || typeof quota.limit_bytes !== 'number') {
+        console.warn(`[MediaDB] Invalid quota data for brand ${brandId}, using default unlimited quota`);
+        return {
+          quotaLimitBytes: Number.MAX_SAFE_INTEGER,
+          totalUsedBytes: 0,
+          percentageUsed: 0,
+          isWarning: false,
+          isHardLimit: false,
+          assetCount: 0,
+        };
+      }
 
       // Get total used bytes - ✅ FIX: Column is size_bytes not file_size
       // ✅ GRACEFUL: If query fails, return 0 usage rather than throwing
@@ -507,34 +542,43 @@ export class MediaDBService {
         };
       }
 
+      // ✅ SAFE: Handle null/undefined usageData
       const totalUsedBytes = (usageData || []).reduce(
-        (sum, asset: any) => sum + (asset.size_bytes || 0),
+        (sum, asset: any) => sum + (Number(asset?.size_bytes) || 0),
         0
       );
 
-      const percentageUsed = Math.round(
-        (totalUsedBytes / quota.limit_bytes) * 100
-      );
-      const isWarning = percentageUsed >= quota.warning_threshold_percent;
-      const isHardLimit = percentageUsed >= quota.hard_limit_percent;
+      // ✅ SAFE: Prevent division by zero
+      const quotaLimit = quota.limit_bytes || Number.MAX_SAFE_INTEGER;
+      const percentageUsed = quotaLimit > 0 
+        ? Math.round((totalUsedBytes / quotaLimit) * 100)
+        : 0;
+      
+      const warningThreshold = quota.warning_threshold_percent || 80;
+      const hardLimitThreshold = quota.hard_limit_percent || 95;
+      
+      const isWarning = percentageUsed >= warningThreshold;
+      const isHardLimit = percentageUsed >= hardLimitThreshold;
 
       return {
         totalUsedBytes,
-        quotaLimitBytes: quota.limit_bytes,
+        quotaLimitBytes: quotaLimit,
         percentageUsed,
         isWarning,
         isHardLimit,
         assetCount: usageData?.length || 0,
       };
     } catch (error: any) {
-      // ✅ CRITICAL: Catch any unexpected errors and return default unlimited quota
-      // This ensures quota system failures never block image persistence
+      // ✅ CRITICAL: Catch ANY error (including unexpected ones) and return default unlimited quota
+      // This ensures quota system failures NEVER block image persistence
       console.warn(`[MediaDB] Unexpected error in getStorageUsage for brand ${brandId}, using default unlimited quota:`, {
         error: error?.message || String(error),
         code: error?.code,
+        stack: error?.stack?.substring(0, 200), // Log first 200 chars of stack for debugging
         hint: "Quota system may not be fully configured - allowing persistence to proceed"
       });
       
+      // ✅ NEVER THROW: Always return a valid StorageUsageStats object
       return {
         quotaLimitBytes: Number.MAX_SAFE_INTEGER, // Effectively unlimited
         totalUsedBytes: 0,

@@ -12,13 +12,30 @@ const router = Router();
 
 /**
  * GET /health
- * Basic health check
+ * Basic health check with AI and integration status
  */
 router.get("/", ((_req, res) => {
+  // Check AI configuration
+  const provider = process.env.AI_PROVIDER || "openai";
+  const hasOpenAI = !!process.env.OPENAI_API_KEY;
+  const hasAnthropic = !!process.env.ANTHROPIC_API_KEY;
+  const aiConfigured = hasOpenAI || hasAnthropic;
+
+  // Check integration configuration (OAuth redirect URLs)
+  // Note: We don't check actual connections here, just if OAuth is configured
+  const hasOAuthConfig = !!(
+    process.env.META_APP_ID ||
+    process.env.LINKEDIN_CLIENT_ID ||
+    process.env.TIKTOK_CLIENT_KEY
+  );
+
   res.json({
     status: "ok",
     timestamp: new Date().toISOString(),
     service: "postd-backend",
+    aiConfigured,
+    aiProvider: aiConfigured ? (hasOpenAI ? "openai" : "anthropic") : null,
+    integrationsConfigured: hasOAuthConfig,
   });
 }) as RequestHandler);
 

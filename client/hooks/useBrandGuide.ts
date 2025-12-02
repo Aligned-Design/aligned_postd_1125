@@ -13,6 +13,8 @@ import { fetchJSON, isFetchError } from "@/lib/api-client";
 import { logError } from "@/lib/logger";
 import type { BrandGuide } from "@/types/brandGuide";
 
+type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
+
 interface UseBrandGuideReturn {
   brandGuide: BrandGuide | null;
   hasBrandGuide: boolean;
@@ -20,6 +22,7 @@ interface UseBrandGuideReturn {
   isError: boolean;
   error: Error | null;
   isSaving: boolean;
+  saveStatus: SaveStatus;
   lastSaved: string | null;
   validationWarnings: string[];
   updateBrandGuide: (updates: Partial<BrandGuide>) => Promise<void>;
@@ -32,6 +35,7 @@ export function useBrandGuide(): UseBrandGuideReturn {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [isSaving, setIsSaving] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
   const [lastSaved, setLastSaved] = useState<string | null>(null);
   const [validationWarnings, setValidationWarnings] = useState<string[]>([]);
 
@@ -101,6 +105,12 @@ export function useBrandGuide(): UseBrandGuideReturn {
       // Invalidate and refetch
       queryClient.invalidateQueries({ queryKey: ["brandGuide", brandId] });
       setLastSaved(new Date().toLocaleTimeString());
+      setSaveStatus('saved');
+      
+      // Reset to idle after 2 seconds
+      setTimeout(() => {
+        setSaveStatus('idle');
+      }, 2000);
       
       // Update validation warnings if present
       if (data?.validationWarnings && Array.isArray(data.validationWarnings)) {
@@ -117,6 +127,7 @@ export function useBrandGuide(): UseBrandGuideReturn {
       });
     },
     onError: (error: Error) => {
+      setSaveStatus('error');
       logError("Brand Guide update failed", error, {
         brandId: brandId,
         action: "update",
@@ -182,8 +193,12 @@ export function useBrandGuide(): UseBrandGuideReturn {
   const updateBrandGuide = useCallback(
     async (updates: Partial<BrandGuide>) => {
       setIsSaving(true);
+      setSaveStatus('saving');
       try {
         await updateMutation.mutateAsync(updates);
+      } catch (error) {
+        // Error already handled in onError
+        setSaveStatus('error');
       } finally {
         setIsSaving(false);
       }
@@ -211,6 +226,7 @@ export function useBrandGuide(): UseBrandGuideReturn {
     isError,
     error: error as Error | null,
     isSaving: isSaving || updateMutation.isPending || saveMutation.isPending,
+    saveStatus,
     lastSaved,
     validationWarnings,
     updateBrandGuide,

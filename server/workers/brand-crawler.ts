@@ -72,7 +72,7 @@ interface CrawledImage {
   alt?: string;
   width?: number;
   height?: number;
-  role: "logo" | "team" | "subject" | "hero" | "other";
+  role: "logo" | "team" | "subject" | "hero" | "photo" | "social_icon" | "platform_logo" | "other";
   pageType?: "main" | "team" | "about" | "other";
   filename?: string;
   priority?: number; // Calculated priority score
@@ -510,14 +510,57 @@ function isLogo(
 /**
  * Categorize image based on context
  * 
- * SIMPLIFIED: More lenient categorization - accepts images even if categorization is uncertain
+ * ✅ ENHANCED: Detects social_icon and platform_logo to filter them out
+ * Returns expanded role types including social_icon, platform_logo, and photo
  */
 function categorizeImage(
   img: { url: string; alt?: string; width?: number; height?: number; role?: string },
   pageUrl: string,
   pageType: "main" | "team" | "about" | "other",
   brandName?: string
-): "logo" | "team" | "subject" | "hero" | "other" {
+): "logo" | "team" | "subject" | "hero" | "photo" | "social_icon" | "platform_logo" | "other" {
+  const altLower = img.alt?.toLowerCase() || "";
+  const urlLower = img.url.toLowerCase();
+  const filenameLower = img.url.split("/").pop()?.toLowerCase() || "";
+  const pathname = new URL(img.url).pathname.toLowerCase();
+  
+  // ✅ CRITICAL: Filter out social icons and platform logos FIRST (before other categorization)
+  // Social icons: facebook, instagram, linkedin, x-logo, twitter, tiktok, etc.
+  const socialIconPatterns = [
+    "facebook", "instagram", "linkedin", "x-logo", "twitter", "tiktok", 
+    "youtube", "pinterest", "snapchat", "whatsapp", "telegram", "discord",
+    "social-icon", "social_icon", "socialicon", "social-media"
+  ];
+  
+  if (
+    socialIconPatterns.some(pattern => 
+      filenameLower.includes(pattern) || 
+      urlLower.includes(pattern) || 
+      altLower.includes(pattern) ||
+      pathname.includes(pattern)
+    )
+  ) {
+    return "social_icon";
+  }
+  
+  // Platform logos: squarespace, wix, godaddy, canva, google-my-business, adobe, etc.
+  const platformLogoPatterns = [
+    "squarespace", "wix", "godaddy", "canva", "google-my-business", "adobe",
+    "shopify", "wordpress", "elementor", "divi", "beaver", "webflow",
+    "platform-logo", "platform_logo", "powered-by", "made-with"
+  ];
+  
+  if (
+    platformLogoPatterns.some(pattern => 
+      filenameLower.includes(pattern) || 
+      urlLower.includes(pattern) || 
+      altLower.includes(pattern) ||
+      pathname.includes(pattern)
+    )
+  ) {
+    return "platform_logo";
+  }
+  
   // Logo detection (highest priority) - use existing role if already detected
   if (img.role === "logo" || isLogo(img, pageUrl, brandName)) {
     return "logo";
@@ -529,13 +572,7 @@ function categorizeImage(
   }
   
   // Team images: from team/about pages, or images with faces (detected by alt text or context)
-  // More lenient - if on team/about page, prioritize team categorization
   if (pageType === "team" || pageType === "about") {
-    const altLower = img.alt?.toLowerCase() || "";
-    const urlLower = img.url.toLowerCase();
-    const filenameLower = img.url.split("/").pop()?.toLowerCase() || "";
-    
-    // More lenient team detection - check multiple signals
     if (
       altLower.includes("team") ||
       altLower.includes("staff") ||
@@ -555,12 +592,7 @@ function categorizeImage(
     }
   }
   
-  // Subject matter: product/service images (medium priority)
-  // More lenient - check multiple signals
-  const altLower = img.alt?.toLowerCase() || "";
-  const urlLower = img.url.toLowerCase();
-  const filenameLower = img.url.split("/").pop()?.toLowerCase() || "";
-  
+  // Subject matter: product/service images
   if (
     altLower.includes("product") ||
     altLower.includes("service") ||
@@ -573,6 +605,18 @@ function categorizeImage(
     filenameLower.includes("service")
   ) {
     return "subject";
+  }
+  
+  // ✅ NEW: Photo/content - real photos that depict brand, people, product, or environment
+  // Prefer larger images that aren't icons or graphics
+  if (img.width && img.height) {
+    const isLarge = img.width > 300 && img.height > 300;
+    const isNotIcon = !filenameLower.includes("icon") && !altLower.includes("icon");
+    const isNotGraphic = !filenameLower.includes("graphic") && !altLower.includes("graphic");
+    
+    if (isLarge && isNotIcon && isNotGraphic) {
+      return "photo";
+    }
   }
   
   // Default to other - accept all images even if we can't categorize them

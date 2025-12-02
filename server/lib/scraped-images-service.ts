@@ -29,7 +29,7 @@ export interface CrawledImage {
   alt?: string;
   width?: number;
   height?: number;
-  role?: "logo" | "team" | "subject" | "hero" | "other";
+  role?: "logo" | "team" | "subject" | "hero" | "photo" | "social_icon" | "platform_logo" | "other";
 }
 
 /**
@@ -87,31 +87,106 @@ export async function persistScrapedImages(
   // The schema allows tenant_id to be nullable, so we can still persist images
   // This prevents a single validation failure from blocking all image persistence
 
-  // ✅ SMART PERSISTENCE: Try to get 15 unique images
-  // If we find duplicates, keep trying more images until we get 15 unique ones
-  const persistedIds: string[] = [];
-  const maxImages = 15;
-  const maxAttempts = Math.min(images.length, maxImages * 2); // Try up to 30 images to get 15 unique
-
-  for (let i = 0; i < maxAttempts && persistedIds.length < maxImages; i++) {
-    const image = images[i];
-    if (!image) break;
-    // ✅ VALIDATION: Ensure image URL is valid
-    if (!image.url || !image.url.startsWith("http")) {
-      console.warn(`[ScrapedImages] Skipping invalid image URL: ${image.url}`);
-      continue;
+  // ✅ CRITICAL: Filter and classify images according to hard rules
+  // 1. Filter out social_icon and platform_logo (completely ignore)
+  // 2. Separate logos (max 2) from brand images (max 15)
+  // 3. Sort and prioritize before persistence
+  
+  const validImages = images.filter(img => {
+    // ✅ FILTER: Ignore social_icon and platform_logo completely
+    if (img.role === "social_icon" || img.role === "platform_logo") {
+      console.log(`[ScrapedImages] Filtering out ${img.role}: ${img.url.substring(0, 60)}...`);
+      return false;
     }
+    
+    // ✅ VALIDATION: Ensure image URL is valid
+    if (!img.url || !img.url.startsWith("http")) {
+      console.warn(`[ScrapedImages] Skipping invalid image URL: ${img.url}`);
+      return false;
+    }
+    
+    return true;
+  });
+  
+  // ✅ SEPARATE: Split into logos and brand images
+  const logoImages = validImages.filter(img => img.role === "logo");
+  const brandImages = validImages.filter(img => 
+    img.role !== "logo" && 
+    (img.role === "hero" || img.role === "photo" || img.role === "team" || img.role === "subject" || img.role === "other")
+  );
+  
+  // ✅ SORT LOGOS: Prioritize larger resolution, PNG, brand name in filename
+  logoImages.sort((a, b) => {
+    // 1. Prefer PNG (transparent)
+    const aFilename = a.url.split("/").pop() || "";
+    const bFilename = b.url.split("/").pop() || "";
+    const aIsPng = a.url.toLowerCase().includes(".png") || aFilename.toLowerCase().endsWith(".png");
+    const bIsPng = b.url.toLowerCase().includes(".png") || bFilename.toLowerCase().endsWith(".png");
+    if (aIsPng && !bIsPng) return -1;
+    if (!aIsPng && bIsPng) return 1;
+    
+    // 2. Prefer larger resolution
+    const aSize = (a.width || 0) * (a.height || 0);
+    const bSize = (b.width || 0) * (b.height || 0);
+    if (aSize !== bSize) return bSize - aSize; // Descending
+    
+    // 3. Prefer brand name in filename/alt (handled by priority score if available)
+    return 0;
+  });
+  
+  // ✅ LIMIT LOGOS: Max 2 (1 primary + 1 alternate if clearly different)
+  const selectedLogos = logoImages.slice(0, 2);
+  
+  // ✅ SORT BRAND IMAGES: Prioritize hero, then larger photos
+  brandImages.sort((a, b) => {
+    // 1. Prefer hero images
+    if (a.role === "hero" && b.role !== "hero") return -1;
+    if (b.role === "hero" && a.role !== "hero") return 1;
+    
+    // 2. Prefer larger resolution
+    const aSize = (a.width || 0) * (a.height || 0);
+    const bSize = (b.width || 0) * (b.height || 0);
+    return bSize - aSize; // Descending
+  });
+  
+  // ✅ LIMIT BRAND IMAGES: Max 15
+  const selectedBrandImages = brandImages.slice(0, 15);
+  
+  // ✅ COMBINE: Logos first, then brand images
+  const imagesToPersist = [...selectedLogos, ...selectedBrandImages];
+  
+  console.log(`[ScrapedImages] Image selection summary:`, {
+    totalImages: images.length,
+    filteredOut: images.length - validImages.length,
+    logosFound: logoImages.length,
+    logosSelected: selectedLogos.length,
+    brandImagesFound: brandImages.length,
+    brandImagesSelected: selectedBrandImages.length,
+    totalToPersist: imagesToPersist.length,
+  });
+
+  // ✅ PERSIST: Try to persist all selected images
+  const persistedIds: string[] = [];
+  const persistedLogoIds: string[] = []; // Track logos separately for accurate counting
+  const persistedBrandImageIds: string[] = []; // Track brand images separately
+
+  for (let i = 0; i < imagesToPersist.length; i++) {
+    const image = imagesToPersist[i];
+    if (!image) break;
+    
+    // Track if this is a logo (logos come first in imagesToPersist)
+    const isLogo = i < selectedLogos.length;
     
     // Generate hash from URL for duplicate detection (outside try block for error handling)
     const hash = crypto.createHash("sha256").update(image.url).digest("hex");
     
     try {
       
-      // Determine category based on role
+      // ✅ DETERMINE CATEGORY: Map role to media_assets category
       let category: "logos" | "images" | "graphics" = "images";
       if (image.role === "logo") {
         category = "logos";
-      } else if (image.role === "hero" || image.role === "team" || image.role === "subject") {
+      } else if (image.role === "hero" || image.role === "photo" || image.role === "team" || image.role === "subject" || image.role === "other") {
         category = "images";
       }
 
@@ -160,14 +235,28 @@ export async function persistScrapedImages(
       );
 
       persistedIds.push(assetRecord.id);
+      // Track logos vs brand images for accurate counting
+      if (isLogo) {
+        persistedLogoIds.push(assetRecord.id);
+      } else {
+        persistedBrandImageIds.push(assetRecord.id);
+      }
       console.log(`[ScrapedImages] ✅ Persisted image: ${filename} (${image.url.substring(0, 50)}...)`);
     } catch (error: any) {
+      // ✅ CRITICAL FIX: Handle errors gracefully - one failure shouldn't cancel entire batch
+      
       // If duplicate, get the existing asset ID and add it to persistedIds
       if (error?.code === ErrorCode.DUPLICATE_RESOURCE || error?.message?.includes("duplicate") || error?.message?.includes("already exists")) {
         // Extract existing asset ID from error details
         const existingAssetId = error?.details?.existingAssetId;
         if (existingAssetId) {
           persistedIds.push(existingAssetId);
+          // Track logos vs brand images for duplicates too
+          if (isLogo) {
+            persistedLogoIds.push(existingAssetId);
+          } else {
+            persistedBrandImageIds.push(existingAssetId);
+          }
           console.log(`[ScrapedImages] Image already exists (using existing): ${image.url.substring(0, 50)}... (ID: ${existingAssetId})`);
         } else {
           // Fallback: query for existing asset by hash
@@ -175,6 +264,12 @@ export async function persistScrapedImages(
             const existingAsset = await mediaDB.checkDuplicateAsset(brandId, hash);
             if (existingAsset) {
               persistedIds.push(existingAsset.id);
+              // Track logos vs brand images for duplicates too
+              if (isLogo) {
+                persistedLogoIds.push(existingAsset.id);
+              } else {
+                persistedBrandImageIds.push(existingAsset.id);
+              }
               console.log(`[ScrapedImages] Image already exists (found by hash): ${image.url.substring(0, 50)}... (ID: ${existingAsset.id})`);
             } else {
               console.warn(`[ScrapedImages] Duplicate detected but couldn't find existing asset: ${image.url.substring(0, 50)}...`);
@@ -183,21 +278,25 @@ export async function persistScrapedImages(
             console.warn(`[ScrapedImages] Could not lookup existing asset: ${lookupError}`);
           }
         }
-        continue;
+        continue; // Skip to next image
       }
-      // ✅ FIX: Log quota/storage errors as warnings, not errors
+      
+      // ✅ CRITICAL FIX: Log quota/storage errors as warnings and continue
       // These are non-critical failures that shouldn't block the crawler
-      const isQuotaError = error?.code === 'DATABASE_ERROR' || 
+      // getStorageUsage() should never throw now, but be defensive
+      const isQuotaError = error?.code === ErrorCode.DATABASE_ERROR || 
+                          error?.code === 'DATABASE_ERROR' ||
                           error?.message?.includes('quota') || 
-                          error?.message?.includes('storage');
+                          error?.message?.includes('storage') ||
+                          error?.message?.includes('Failed to fetch storage quota');
       
       if (isQuotaError) {
-        console.warn(`[ScrapedImages] ⚠️ Quota check failed for image (continuing): ${image.url.substring(0, 100)}`, {
-          url: image.url.substring(0, 100),
+        console.warn(`[ScrapedImages] ⚠️ Quota/storage error (non-blocking) for image ${image.url.substring(0, 60)}...:`, {
           error: error?.message || String(error),
           code: error?.code,
-          hint: "Quota system may not be configured - image persistence will continue"
+          hint: "Continuing with next image - quota system may not be fully configured"
         });
+        continue; // Skip this image but continue with the rest
       } else {
         // For other errors (duplicates, validation, etc.), log as warning but continue
         console.warn(`[ScrapedImages] ⚠️ Failed to persist image ${image.url.substring(0, 100)}:`, {
@@ -211,14 +310,22 @@ export async function persistScrapedImages(
   }
 
   // ✅ LOGGING: Summary of persistence
-  console.log(`[ScrapedImages] Persistence complete`, {
+  // Use tracked arrays for accurate counts (handles cases where some images fail to persist)
+  const logosPersisted = persistedLogoIds.length;
+  const brandImagesPersisted = persistedBrandImageIds.length;
+  
+  console.log(`[ScrapedImages] ✅ Persistence complete`, {
     brandId: brandId,
     tenantId: finalTenantId,
     totalImagesAvailable: images.length,
-    imagesAttempted: Math.min(maxAttempts, images.length),
-    persistedCount: persistedIds.length,
-    targetCount: maxImages,
-    success: persistedIds.length >= maxImages ? "✅ Got 15 unique images" : `⚠️ Only got ${persistedIds.length} unique images (tried ${Math.min(maxAttempts, images.length)})`,
+    filteredOut: images.length - validImages.length,
+    logosSelected: selectedLogos.length,
+    logosPersisted: logosPersisted,
+    brandImagesSelected: selectedBrandImages.length,
+    brandImagesPersisted: brandImagesPersisted,
+    totalPersisted: persistedIds.length,
+    targetLogos: 2,
+    targetBrandImages: 15,
   });
 
   return persistedIds;

@@ -4,10 +4,12 @@
  */
 
 import React from "react";
-import { Upload, Sparkles, Plus, FileImage, Instagram, Video, Image as ImageIcon, FileText, Megaphone, Paintbrush, Info, FolderOpen } from "lucide-react";
+import { Upload, Sparkles, Plus, FileImage, Instagram, Video, Image as ImageIcon, FileText, Megaphone, Paintbrush, Info, FolderOpen, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { useSystemHealth } from "@/hooks/useSystemHealth";
 import { cn } from "@/lib/design-system";
 import { DesignFormat } from "@/types/creativeStudio";
 
@@ -62,12 +64,17 @@ export function StudioEntryScreen({
   const [activeMode, setActiveMode] = React.useState<"ai" | "template" | "blank">("ai");
   const [showQuickTemplates, setShowQuickTemplates] = React.useState(false);
 
+  // Check AI availability
+  const { aiConfigured, isLoading: healthLoading } = useSystemHealth();
+
   // Guardrail: Check if AI/template actions are allowed
   // Brands are created during registration, so hasBrand should always be true after loading
   // Allow clicking if brand is selected (even without brand guide - modal will show helpful message)
-  const canUseAI = hasBrand && !isBrandKitLoading;
+  const canUseAI = hasBrand && !isBrandKitLoading && (healthLoading || aiConfigured);
   const aiBlockReason = isBrandKitLoading
     ? "Loading brand kit..."
+    : !healthLoading && !aiConfigured
+    ? "AI generation is currently unavailable"
     : null;
 
   return (
@@ -126,6 +133,15 @@ export function StudioEntryScreen({
           <Tabs value={activeMode} onValueChange={(v) => setActiveMode(v as "ai" | "template" | "blank")} className="w-full">
             {/* AI Tab Content */}
             <TabsContent value="ai" className="mt-6">
+              {!healthLoading && !aiConfigured && (
+                <Alert className="mb-4 border-amber-200 bg-amber-50">
+                  <AlertCircle className="h-4 w-4 text-amber-600" />
+                  <AlertDescription className="text-sm text-amber-800">
+                    AI generation is currently unavailable in this environment.
+                    Please contact support or your admin to enable AI.
+                  </AlertDescription>
+                </Alert>
+              )}
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -171,7 +187,7 @@ export function StudioEntryScreen({
               </TooltipProvider>
 
               {/* Quick Templates - Shown below AI button */}
-              {hasBrand && !isBrandKitLoading && onStartFromAI && (
+              {hasBrand && !isBrandKitLoading && (healthLoading || aiConfigured) && onStartFromAI && (
                 <div className="mt-4">
                   <p className="text-xs font-medium text-slate-600 mb-3">Quick Templates</p>
                   <div className="flex flex-wrap gap-2">

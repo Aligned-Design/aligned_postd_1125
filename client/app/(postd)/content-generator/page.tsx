@@ -7,6 +7,7 @@ import { useCurrentBrand } from "@/hooks/useCurrentBrand";
 import { useBrandGuide } from "@/hooks/useBrandGuide";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { useToast } from "@/hooks/use-toast";
+import { useSystemHealth } from "@/hooks/useSystemHealth";
 import { AlertTriangle } from "lucide-react";
 import { Link } from "react-router-dom";
 import { logTelemetry, logError } from "@/lib/logger";
@@ -26,6 +27,7 @@ import {
   CheckCircle,
   Sparkles,
 } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { GenerationResult } from "@/components/generation/GenerationResult";
 import type { BrandFidelityScore, LinterResult } from "@/types/agent-config";
 
@@ -61,6 +63,7 @@ export default function ContentGenerator() {
   const { currentWorkspace } = useWorkspace();
   const { hasBrandGuide, isLoading: brandGuideLoading } = useBrandGuide();
   const { toast } = useToast();
+  const { aiConfigured, isLoading: healthLoading } = useSystemHealth();
   
   // Auto-detect brand from workspace if no explicit brand exists
   const brandId = contextBrandId || (currentWorkspace?.id ? `workspace-${currentWorkspace.id}` : null);
@@ -414,9 +417,18 @@ export default function ContentGenerator() {
               )}
 
               {/* Generate Button */}
+              {!healthLoading && !aiConfigured && (
+                <Alert className="mb-4 border-amber-200 bg-amber-50">
+                  <AlertCircle className="h-4 w-4 text-amber-600" />
+                  <AlertDescription className="text-sm text-amber-800">
+                    AI generation is currently unavailable in this environment.
+                    Please contact support or your admin to enable AI.
+                  </AlertDescription>
+                </Alert>
+              )}
               <Button
                 onClick={handleGenerate}
-                disabled={loading}
+                disabled={loading || (!healthLoading && !aiConfigured)}
                 className="w-full"
                 size="lg"
               >

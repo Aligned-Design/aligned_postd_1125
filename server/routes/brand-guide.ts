@@ -120,17 +120,55 @@ router.get("/:brandId", authenticateUser, async (req, res, next) => {
       productsServices: [],
     };
 
-    // ✅ CRITICAL: Include scraped images in approvedAssets.uploadedPhotos
-    // This ensures Brand Guide UI shows scraped images
-    const uploadedPhotos = [
-      ...(approvedAssets.uploadedPhotos || []),
-      ...scrapedImages.map(img => ({
+    // ✅ CRITICAL: Separate scraped images into logos and brand images
+    // This ensures Brand Guide exposes two distinct arrays for onboarding Step 5
+    const scrapedLogos = scrapedImages
+      .filter(img => {
+        const role = img.metadata?.role || "";
+        return role === "logo" || role === "Logo";
+      })
+      .slice(0, 2) // Max 2 logos
+      .map(img => ({
         id: img.id,
         url: img.url,
         filename: img.filename,
         source: "scrape" as const,
         metadata: img.metadata,
-      })),
+      }));
+    
+    const scrapedBrandImages = scrapedImages
+      .filter(img => {
+        const role = img.metadata?.role || "";
+        return role !== "logo" && role !== "Logo" && 
+               (role === "hero" || role === "photo" || role === "team" || role === "subject" || role === "other");
+      })
+      .slice(0, 15) // Max 15 brand images
+      .map(img => ({
+        id: img.id,
+        url: img.url,
+        filename: img.filename,
+        source: "scrape" as const,
+        metadata: img.metadata,
+      }));
+    
+    // ✅ FALLBACK: If no logos persisted but logoUrl exists, use that
+    const logoUrl = brand.logo_url || brandKit.logoUrl || visualSummary.logo_urls?.[0] || "";
+    if (scrapedLogos.length === 0 && logoUrl && logoUrl.startsWith("http")) {
+      console.log(`[BrandGuide] Using logoUrl as fallback logo: ${logoUrl}`);
+      scrapedLogos.push({
+        id: "fallback-logo",
+        url: logoUrl,
+        filename: "logo.png",
+        source: "scrape" as const,
+        metadata: { role: "logo", source: "scrape", fallback: true },
+      });
+    }
+    
+    // ✅ CRITICAL: Include scraped images in approvedAssets.uploadedPhotos (for backward compatibility)
+    const uploadedPhotos = [
+      ...(approvedAssets.uploadedPhotos || []),
+      ...scrapedLogos,
+      ...scrapedBrandImages,
     ];
 
     const brandGuide = {
@@ -185,6 +223,13 @@ router.get("/:brandId", authenticateUser, async (req, res, next) => {
         approvedStockImages: approvedAssets.approvedStockImages || [],
         productsServices: approvedAssets.productsServices || [],
       },
+      
+      // ✅ NEW: Separate logos and images arrays for onboarding Step 5
+      // These are the primary fields Step 5 should read from
+      logos: scrapedLogos, // Max 2 logos
+      images: scrapedBrandImages, // Max 15 brand images
+      // Alias for backward compatibility
+      brandImages: scrapedBrandImages,
 
       // Metadata
       createdAt: brand.created_at || new Date().toISOString(),

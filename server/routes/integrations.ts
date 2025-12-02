@@ -103,6 +103,64 @@ router.get(
   }) as RequestHandler;
 
 /**
+ * GET /api/integrations/status
+ * Get platform connection status for a brand (simple boolean flags)
+ * 
+ * **Auth:** Required (authenticateUser)
+ * **Brand Access:** Required (assertBrandAccess)
+ * **Query Params:** brandId (UUID, required)
+ */
+router.get(
+  "/status",
+  validateQuery(GetIntegrationsQuerySchema),
+  async (req, res, next) => {
+    try {
+      const { brandId } = req.query as { brandId: string };
+
+      // Verify user has access to this brand
+      await assertBrandAccess(req, brandId);
+
+      // Fetch connections from database
+      const connections = await integrationsDB.getBrandConnections(brandId);
+      
+      // Map to simple connection status by platform
+      const statusMap: Record<string, { connected: boolean }> = {
+        facebook: { connected: false },
+        instagram: { connected: false },
+        linkedin: { connected: false },
+        twitter: { connected: false },
+        tiktok: { connected: false },
+        meta: { connected: false },
+      };
+
+      // Check which platforms are connected (status = "connected")
+      connections.forEach((conn) => {
+        const provider = conn.provider.toLowerCase();
+        if (provider === "meta" || provider === "facebook") {
+          statusMap.facebook.connected = conn.status === "connected";
+          statusMap.meta.connected = conn.status === "connected";
+        }
+        if (provider === "instagram" || provider === "meta") {
+          statusMap.instagram.connected = conn.status === "connected";
+        }
+        if (provider === "linkedin") {
+          statusMap.linkedin.connected = conn.status === "connected";
+        }
+        if (provider === "twitter") {
+          statusMap.twitter.connected = conn.status === "connected";
+        }
+        if (provider === "tiktok") {
+          statusMap.tiktok.connected = conn.status === "connected";
+        }
+      });
+
+      (res as any).json({ success: true, platforms: statusMap });
+    } catch (error) {
+      next(error);
+    }
+  }) as RequestHandler;
+
+/**
  * GET /api/integrations/templates
  * Get available integration templates
  * 

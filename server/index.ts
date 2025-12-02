@@ -190,6 +190,7 @@ export function createServer() {
 
   // Health check endpoints
   app.use("/health", healthRouter);
+  app.use("/api/health", healthRouter); // Also mount at /api/health for client access
   
   // Agents health endpoint (public, no auth required for monitoring)
   app.use("/api/agents/health", agentsHealthRouter);

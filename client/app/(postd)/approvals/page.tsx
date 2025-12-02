@@ -276,11 +276,14 @@ export default function Approvals() {
         {reviewItems.length === 0 ? (
           <EmptyState
             icon={<Clock className="w-8 h-8 text-slate-400" />}
-            title="No Content to Review"
-            description="All AI-generated content has been automatically approved or there's no pending content."
+            title="No content waiting for approval"
+            description="Nothing's in the queue right now. Tip: Turn ON 'Require approval' when scheduling content to send items here."
             action={{
-              label: "Refresh Queue",
-              onClick: loadReviewQueue,
+              label: "Schedule Content",
+              onClick: () => {
+                // Navigate to calendar or studio
+                window.location.href = "/calendar";
+              },
             }}
           />
         ) : (
