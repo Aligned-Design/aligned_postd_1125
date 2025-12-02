@@ -211,7 +211,7 @@ export default function ClientPortal() {
                   % ready
                 </h3>
                 <p className="text-blue-700">
-                  {dashboardData.aiInsight.description}
+                  {dashboardData.aiInsight?.description || "No insights available at this time."}
                 </p>
               </div>
               <div className="flex gap-3">
@@ -455,7 +455,7 @@ function OverviewSection({ data }: { data: ClientDashboardData }) {
             <h4 className="font-semibold text-blue-900 mb-2">
               {data.aiInsight.title}
             </h4>
-            <p className="text-blue-800">{data.aiInsight.description}</p>
+            <p className="text-blue-800">{data.aiInsight?.description || "No insights available at this time."}</p>
           </div>
         </CardContent>
       </Card>
