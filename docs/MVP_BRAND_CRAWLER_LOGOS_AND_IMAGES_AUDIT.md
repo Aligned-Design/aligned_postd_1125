@@ -38,6 +38,8 @@
 | **Storage Quota** | ✅ Fixed | `getStorageUsage()` never throws, returns unlimited quota on error |
 | **Scraped Image Detection** | ✅ Fixed | `createMediaAsset()` skips quota for `fileSize === 0 && path.startsWith("http")` |
 | **Image Classification** | ✅ Enhanced | Detects `social_icon` and `platform_logo`, filters them out |
+| **Squarespace CDN Handling** | ✅ Fixed | Large Squarespace CDN images are NOT misclassified as platform_logo |
+| **Fallback Selection** | ✅ Added | Automatically selects images when all are filtered out |
 | **Image Limits** | ✅ Implemented | Max 2 logos, max 15 brand images |
 | **Brand Guide Arrays** | ✅ Added | `logos` (≤2) and `images`/`brandImages` (≤15) arrays |
 | **Step 5 UI** | ✅ Fixed | Reads from `brandGuide.logos` and `brandGuide.images` arrays |
@@ -113,7 +115,14 @@ The brand crawler successfully extracts images and logos from websites, but a cr
    - Launches headless Chromium browser
    - Crawls website pages (respects robots.txt, same-domain, depth ≤ 3, max 50 pages)
    - Extracts images, colors, typography, Open Graph metadata
+   - **✅ ENHANCED:** Extracts logos from multiple sources:
+     - HTML `<img>` tags (traditional)
+     - CSS `background-image` and `mask-image` (Squarespace, Webflow, etc.)
+     - Inline SVG logos (modern sites)
+     - Favicon/mask-icon (fallback)
+     - OpenGraph `og:image` (fallback)
    - Classifies images into roles: `logo`, `hero`, `photo`, `team`, `subject`, `social_icon`, `platform_logo`, `other`
+   - **✅ FIXED:** Platform logo detection now uses specific heuristics (vendor + logoish patterns) to avoid over-filtering Squarespace-hosted brand images
 
 2. **Image Persistence** (`server/lib/scraped-images-service.ts`):
    - Filters out non-brand assets (social icons, platform logos)
@@ -329,26 +338,48 @@ const selectedBrandImages = brandImages.sort(/* ... */).slice(0, 15);
   - Added `social_icon` and `platform_logo` roles
   - Added `photo` role
 
-- **`categorizeImage()` function** (line 515-580):
+- **`categorizeImage()` function** (line 516-680):
   - Detects social icons (facebook, instagram, linkedin, twitter, etc.)
-  - Detects platform logos (squarespace, wix, godaddy, canva, etc.)
+  - **✅ FIXED: Platform logo detection** - Now uses specific heuristics to avoid over-filtering
   - Returns `social_icon` or `platform_logo` for non-brand assets
-  - Returns `photo` for larger real photos
+  - Returns `photo` or `hero` for larger real photos
 
 **Key Code:**
 ```typescript
-// Social icons
+// Social icons (unchanged)
 const socialIconPatterns = ["facebook", "instagram", "linkedin", "twitter", ...];
 if (socialIconPatterns.some(pattern => /* matches */)) {
   return "social_icon";
 }
 
-// Platform logos
-const platformLogoPatterns = ["squarespace", "wix", "godaddy", "canva", ...];
-if (platformLogoPatterns.some(pattern => /* matches */)) {
+// ✅ FIXED: Platform logos - require BOTH small size AND explicit platform indicators
+// Problem: Previous logic treated ALL Squarespace CDN images as platform_logo
+// Solution: Only classify as platform_logo if:
+//   1. Image is small (<= 96x96) AND
+//   2. Has explicit platform logo indicators (squarespace-logo, powered-by, etc.)
+// This prevents large Squarespace CDN images (hero banners, photos) from being misclassified
+const isSmallImage = img.width && img.height && (img.width <= 96 && img.height <= 96);
+const hasExplicitPlatformLogoIndicator = platformLogoPatterns.some(pattern => 
+  filenameLower.includes(pattern) || pathname.includes(pattern) || altLower.includes(pattern)
+);
+
+if (hasExplicitPlatformLogoIndicator && isSmallImage) {
   return "platform_logo";
 }
+
+// Large images from platform CDNs are legitimate brand assets
+if (hasGenericPlatformKeyword && !isSmallImage) {
+  // Continue to normal classification (hero/photo/etc)
+}
 ```
+
+**Squarespace CDN Handling:**
+- **Before:** All images from `images.squarespace-cdn.com` were classified as `platform_logo` and filtered out
+- **After:** Platform logo detection requires BOTH:
+  - Vendor name appears (squarespace, wix, godaddy, etc.) AND
+  - Logoish pattern appears (logo, badge, icon, powered-by, etc.)
+  - Large images (> 300x300) are explicitly NOT classified as platform_logo even with vendor+logoish
+- **Result:** Large Squarespace CDN images (hero banners, photos) are correctly classified as `hero`/`photo`/`other` and persisted
 
 #### 4. `server/routes/brand-guide.ts`
 

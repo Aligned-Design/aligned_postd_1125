@@ -128,6 +128,7 @@ import agentsHealthRouter from "./routes/agents-health";
 import contentPlanRouter from "./routes/content-plan";
 import calendarRouter from "./routes/calendar";
 import { validateEnvironment } from "./lib/env-validate";
+import { errorHandler, notFoundHandler } from "./lib/error-middleware";
 
 export function createServer() {
   // ✅ Validate environment variables at startup
@@ -373,6 +374,11 @@ export function createServer() {
   app.use("/api/calendar", authenticateUser, calendarRouter);
 
   // Notifications routes (already registered above, removing duplicate)
+
+  // ✅ CRITICAL: Register error handler middleware LAST (after all routes)
+  // This ensures all errors are caught and formatted consistently
+  app.use(notFoundHandler); // 404 handler for unmatched routes
+  app.use(errorHandler); // Global error handler
 
   return app;
 }

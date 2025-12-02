@@ -17,7 +17,14 @@ The Brand Crawler image persistence pipeline is a **critical production system**
   - `width`, `height`: Dimensions (if available)
   - `alt`: Alt text (if available)
 
-### 2. Image Filtering (Pre-Persistence)
+### 2. Image Classification & Filtering (Pre-Persistence)
+- **Location**: `server/workers/brand-crawler.ts` → `categorizeImage()`
+- **Classification Logic**:
+  - **Social Icons**: Filtered out (Facebook, Instagram, LinkedIn, etc.)
+  - **Platform Logos**: Only classified when BOTH vendor name (squarespace, wix, godaddy, etc.) AND logoish patterns (logo, icon, badge, etc.) are present
+  - **Squarespace CDN**: Large images from `images.squarespace-cdn.com` are treated as normal brand content (hero/photo), NOT platform logos
+  - **Logo Detection**: Images with "logo" in filename/alt/URL path
+  - **Hero/Photo Detection**: Large images (> 300x300) are classified as hero or photo
 - **Location**: `server/lib/scraped-images-service.ts` → `persistScrapedImages()`
 - **Filters Applied**:
   - **Removes**: `social_icon` and `platform_logo` roles (completely ignored)
@@ -135,8 +142,10 @@ These errors indicate systemic issues and should be investigated:
 3. **All Images Filtered Out** (Less Likely):
    ```
    [ScrapedImages] Image selection summary: { filteredOut: 15, totalToPersist: 0 }
+   [ScrapedImages] ⚠️ Fallback selection engaged: totalImages > 0 but no images survived filtering
    ```
    **Fix**: Review filter logic if this is unexpected (shouldn't filter all images).
+   **Note**: Fallback selection will automatically engage and attempt to select conservative candidates from raw images.
 
 ### Scenario 2: "Some images persisted, some didn't"
 
@@ -223,6 +232,41 @@ These errors indicate systemic issues and should be investigated:
 
 **This is fine** - Brand Guide will work with `logoUrl` fallback.
 
+## Squarespace & Platform CDN Handling
+
+### ✅ **Squarespace CDN Images (images.squarespace-cdn.com)**
+
+**Problem**: Previously, ALL Squarespace CDN images were misclassified as `platform_logo` and filtered out, even legitimate brand images like hero banners and lifestyle photos.
+
+**Solution**: Updated `categorizeImage()` to only classify as `platform_logo` when BOTH conditions are met:
+1. **Vendor name** appears in URL/alt/filename (e.g., "squarespace", "wix", "godaddy")
+2. **Logoish pattern** appears in URL/alt/filename (e.g., "logo", "icon", "badge", "powered-by")
+
+**Result**: 
+- ✅ Large Squarespace CDN images (hero banners, photos) are correctly classified as `hero` or `photo`
+- ✅ Small Squarespace badges/icons with logoish patterns are correctly filtered as `platform_logo`
+- ✅ Brand images from Squarespace-hosted sites (like sdirawealth.com) are now persisted correctly
+
+### ✅ **Fallback Selection**
+
+**Problem**: When all images are filtered out (e.g., all classified as `platform_logo`), brands end up with zero images in Brand Guide.
+
+**Solution**: Added fallback selection logic in `persistScrapedImages()` that activates when:
+- `totalImages > 0` (images were found)
+- `selectedLogos.length === 0` AND `selectedBrandImages.length === 0` (all filtered out)
+
+**Fallback Behavior**:
+- Builds conservative candidate list from raw images (excluding obvious junk like favicons, sprites, tracking pixels)
+- Selects up to 2 logos (if they look like logos) and up to 15 brand images (prioritizing larger images)
+- Marks fallback images with `metadata.fallbackSelected: true`
+- Logs warning: `[ScrapedImages] ⚠️ Fallback selection engaged`
+
+**Log Pattern**:
+```
+[ScrapedImages] ⚠️ Fallback selection engaged: totalImages > 0 but no images survived filtering
+[ScrapedImages] Fallback selection completed: { fallbackBrandImagesSelected: 12, fallbackLogosSelected: 1 }
+```
+
 ## Production Hardening Status
 
 ### ✅ **Completed**
@@ -231,6 +275,8 @@ These errors indicate systemic issues and should be investigated:
 - Structured error logging with categories
 - Detailed failure tracking and reporting
 - Clear distinction between "filtered out" vs "failed to persist"
+- **Squarespace CDN handling** (large images not misclassified as platform logos)
+- **Fallback selection** (prevents zero images when all are filtered)
 
 ### ✅ **Defensive Measures**
 - `getStorageUsage()` never throws (returns unlimited quota on error)
@@ -331,4 +377,6 @@ The image persistence pipeline is **hardened for production** with:
 2. Review error categories and codes
 3. Verify `tenantId` is present in crawler request
 4. Check database connectivity and schema
+5. **If all images filtered**: Check `[ScrapedImages] ⚠️ Fallback selection engaged` log - fallback should engage automatically
+6. **For Squarespace sites**: Verify large images from `images.squarespace-cdn.com` are NOT being classified as `platform_logo` (check role breakdown in logs)
 

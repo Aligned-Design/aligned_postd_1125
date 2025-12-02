@@ -155,17 +155,128 @@ export async function persistScrapedImages(
   // ✅ COMBINE: Logos first, then brand images
   const imagesToPersist = [...selectedLogos, ...selectedBrandImages];
   
+  // ✅ ENHANCED: Log classification breakdown for debugging
+  const roleBreakdown = images.reduce((acc, img) => {
+    acc[img.role] = (acc[img.role] || 0) + 1;
+    return acc;
+  }, {} as Record<string, number>);
+  
   console.log(`[ScrapedImages] Image selection summary:`, {
     totalImages: images.length,
     filteredOut: images.length - validImages.length,
+    roleBreakdown, // Show how many images of each role were found
     logosFound: logoImages.length,
     logosSelected: selectedLogos.length,
     brandImagesFound: brandImages.length,
     brandImagesSelected: selectedBrandImages.length,
     totalToPersist: imagesToPersist.length,
   });
+  
+  // ✅ DEBUG: Log if all images were filtered out (indicates classification issue)
+  if (images.length > 0 && imagesToPersist.length === 0) {
+    console.warn(`[ScrapedImages] ⚠️ Found ${images.length} image(s) but NONE were persisted. Role breakdown:`, roleBreakdown);
+    console.warn(`[ScrapedImages] This may indicate over-filtering. Check classification logic for platform_logo/social_icon detection.`);
+  }
+  
+  // ✅ FALLBACK: If all images were filtered out but we have raw images, use conservative fallback selection
+  // This ensures we don't leave brands with zero images when legitimate brand assets exist
+  let finalImagesToPersist = imagesToPersist;
+  let fallbackEngaged = false;
+  
+  if (images.length > 0 && selectedLogos.length === 0 && selectedBrandImages.length === 0) {
+    console.warn(`[ScrapedImages] ⚠️ Fallback selection engaged: totalImages > 0 but no images survived filtering.`, {
+      brandId: brandId,
+      totalImages: images.length,
+      roleBreakdown: roleBreakdown,
+    });
+    
+    // Build fallback candidates from raw images (before platform_logo/social_icon filtering)
+    // Exclude obvious junk but be more lenient than the strict filters
+    const fallbackCandidates = images.filter(img => {
+      // Skip data URIs and placeholders
+      if (img.url.startsWith("data:") || !img.url.startsWith("http")) return false;
+      
+      const urlLower = img.url.toLowerCase();
+      const filenameLower = (img.url.split("/").pop() || "").toLowerCase();
+      
+      // Exclude obvious junk files
+      if (filenameLower.includes("favicon") || 
+          filenameLower.includes("sprite") || 
+          filenameLower.includes("pixel") ||
+          filenameLower.includes("tracking") ||
+          filenameLower.includes("analytics") ||
+          urlLower.includes("pixel") ||
+          urlLower.includes("tracking")) {
+        return false;
+      }
+      
+      // Exclude very small images (confirmed icons)
+      if (img.width && img.height && img.width < 50 && img.height < 50) {
+        return false;
+      }
+      
+      // Accept all other images (even if they were classified as platform_logo/social_icon)
+      // The fallback is conservative - we'd rather have some images than none
+      return true;
+    });
+    
+    // Sort by size (prefer larger images)
+    fallbackCandidates.sort((a, b) => {
+      const aSize = (a.width || 0) * (a.height || 0);
+      const bSize = (b.width || 0) * (b.height || 0);
+      return bSize - aSize; // Descending
+    });
+    
+    // Select up to 2 as logos (if they look like logos) and up to 15 as brand images
+    const fallbackLogos: CrawledImage[] = [];
+    const fallbackBrandImages: CrawledImage[] = [];
+    
+    for (const img of fallbackCandidates) {
+      // Check if it looks like a logo (small/medium size, or has "logo" in URL/filename/alt)
+      const urlLower = img.url.toLowerCase();
+      const filenameLower = (img.url.split("/").pop() || "").toLowerCase();
+      const altLower = (img.alt || "").toLowerCase();
+      const looksLikeLogo = (img.width && img.height && img.width < 400 && img.height < 400) ||
+                            filenameLower.includes("logo") ||
+                            altLower.includes("logo") ||
+                            urlLower.includes("logo");
+      
+      if (looksLikeLogo && fallbackLogos.length < 2) {
+        // Assign role as "logo" and mark as fallback
+        fallbackLogos.push({ ...img, role: "logo" });
+      } else if (fallbackBrandImages.length < 15) {
+        // Assign role as "photo" if it doesn't have a role, mark as fallback
+        fallbackBrandImages.push({ ...img, role: img.role || "photo" });
+      }
+      
+      // Stop if we have enough images
+      if (fallbackLogos.length >= 2 && fallbackBrandImages.length >= 15) {
+        break;
+      }
+    }
+    
+    if (fallbackLogos.length > 0 || fallbackBrandImages.length > 0) {
+      finalImagesToPersist = [...fallbackLogos, ...fallbackBrandImages];
+      fallbackEngaged = true;
+      
+      console.warn(`[ScrapedImages] Fallback selection completed:`, {
+        brandId: brandId,
+        totalImages: images.length,
+        fallbackBrandImagesSelected: fallbackBrandImages.length,
+        fallbackLogosSelected: fallbackLogos.length,
+        reason: "totalImages > 0 but no images survived filtering - using conservative fallback",
+      });
+    } else {
+      console.error(`[ScrapedImages] ❌ CRITICAL: Fallback selection found no valid candidates.`, {
+        brandId: brandId,
+        totalImages: images.length,
+        fallbackCandidatesCount: fallbackCandidates.length,
+        hint: "All images may be invalid (data URIs, placeholders, or too small)",
+      });
+    }
+  }
 
-  // ✅ PERSIST: Try to persist all selected images
+  // ✅ PERSIST: Try to persist all selected images (or fallback images if fallback engaged)
   const persistedIds: string[] = [];
   const persistedLogoIds: string[] = []; // Track logos separately for accurate counting
   const persistedBrandImageIds: string[] = []; // Track brand images separately
@@ -180,12 +291,15 @@ export async function persistScrapedImages(
   }
   const failures: PersistenceFailure[] = [];
 
-  for (let i = 0; i < imagesToPersist.length; i++) {
-    const image = imagesToPersist[i];
+  // Determine logo count for fallback images
+  const fallbackLogoCount = fallbackEngaged ? finalImagesToPersist.filter(img => img.role === "logo").length : selectedLogos.length;
+
+  for (let i = 0; i < finalImagesToPersist.length; i++) {
+    const image = finalImagesToPersist[i];
     if (!image) break;
     
-    // Track if this is a logo (logos come first in imagesToPersist)
-    const isLogo = i < selectedLogos.length;
+    // Track if this is a logo (logos come first in finalImagesToPersist)
+    const isLogo = fallbackEngaged ? (image.role === "logo") : (i < selectedLogos.length);
     
     // Generate hash from URL for duplicate detection (outside try block for error handling)
     const hash = crypto.createHash("sha256").update(image.url).digest("hex");
@@ -223,6 +337,7 @@ export async function persistScrapedImages(
         role: image.role || "other",
         scrapedUrl: image.url,
         scrapedAt: new Date().toISOString(),
+        ...(fallbackEngaged ? { fallbackSelected: true } : {}), // Mark fallback images
       };
 
       // Use media_assets table to persist
@@ -458,7 +573,7 @@ export async function persistScrapedImages(
   // Use tracked arrays for accurate counts (handles cases where some images fail to persist)
   const logosPersisted = persistedLogoIds.length;
   const brandImagesPersisted = persistedBrandImageIds.length;
-  const totalAttempted = imagesToPersist.length;
+  const totalAttempted = finalImagesToPersist.length;
   const totalSucceeded = persistedIds.length;
   const totalFailed = failures.length;
   
@@ -472,6 +587,10 @@ export async function persistScrapedImages(
   const filteredOutByDesign = images.length - validImages.length;
   const selectedButNotPersisted = totalAttempted - totalSucceeded;
   
+  // Determine actual logo/brand image counts (accounting for fallback)
+  const actualLogosSelected = fallbackEngaged ? finalImagesToPersist.filter(img => img.role === "logo").length : selectedLogos.length;
+  const actualBrandImagesSelected = fallbackEngaged ? finalImagesToPersist.filter(img => img.role !== "logo").length : selectedBrandImages.length;
+  
   // ✅ LOGGING: Comprehensive summary with failure breakdown
   if (totalFailed > 0) {
     console.warn(`[ScrapedImages] ⚠️ Persistence complete with ${totalFailed} failure(s)`, {
@@ -484,14 +603,16 @@ export async function persistScrapedImages(
       totalAttempted: totalAttempted,
       totalSucceeded: totalSucceeded,
       totalFailed: totalFailed,
+      // Fallback indicator
+      fallbackEngaged: fallbackEngaged,
       // Logo counts
-      logosSelected: selectedLogos.length,
+      logosSelected: actualLogosSelected,
       logosPersisted: logosPersisted,
-      logosFailed: selectedLogos.length - logosPersisted,
+      logosFailed: actualLogosSelected - logosPersisted,
       // Brand image counts
-      brandImagesSelected: selectedBrandImages.length,
+      brandImagesSelected: actualBrandImagesSelected,
       brandImagesPersisted: brandImagesPersisted,
-      brandImagesFailed: selectedBrandImages.length - brandImagesPersisted,
+      brandImagesFailed: actualBrandImagesSelected - brandImagesPersisted,
       // Failure breakdown
       failuresByCategory: failuresByCategory,
       // Target counts
@@ -522,6 +643,7 @@ export async function persistScrapedImages(
       filteredOutByDesign: filteredOutByDesign,
       totalAttempted: totalAttempted,
       totalPersisted: totalSucceeded,
+      fallbackEngaged: fallbackEngaged,
       logosPersisted: logosPersisted,
       brandImagesPersisted: brandImagesPersisted,
       targetLogos: 2,

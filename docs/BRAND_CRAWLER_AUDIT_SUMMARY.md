@@ -38,9 +38,11 @@ Scraped images were failing to persist due to `AppError: Failed to fetch storage
 1. **Storage quota soft-fail** - `getStorageUsage()` never throws, returns unlimited quota on error
 2. **Scraped image bypass** - `createMediaAsset()` skips quota for external URLs (`fileSize === 0 && path.startsWith("http")`)
 3. **Image filtering** - Filters out social icons and platform logos
-4. **Image limits** - Max 2 logos, max 15 brand images
-5. **Brand Guide arrays** - Exposes `logos` and `images`/`brandImages` arrays
-6. **Fallback logic** - Uses `logoUrl` if persistence fails
+4. **✅ FIXED: Platform logo detection** - Uses specific heuristics (vendor + logoish patterns) to avoid over-filtering Squarespace-hosted brand images
+5. **✅ ENHANCED: Multi-source logo detection** - Extracts logos from CSS, SVG, favicon, and OG metadata (not just `<img>` tags)
+6. **Image limits** - Max 2 logos, max 15 brand images
+7. **Brand Guide arrays** - Exposes `logos` and `images`/`brandImages` arrays
+8. **Fallback logic** - Uses `logoUrl` if persistence fails
 
 ### Changes Made
 
@@ -110,3 +112,48 @@ ORDER BY ordinal_position;
 
 **For detailed implementation and testing information, see:**  
 `docs/MVP_BRAND_CRAWLER_LOGOS_AND_IMAGES_AUDIT.md`
+
+---
+
+## Squarespace CDN Image Classification Fix
+
+**Issue:** All images from Squarespace-hosted sites (e.g., `https://sdirawealth.com`) were being classified as `platform_logo` and filtered out, resulting in `filteredOut: 15`, `totalToPersist: 0`.
+
+**Root Cause:** Previous logic checked if "squarespace" appeared anywhere in the URL, which matched ALL images from `images.squarespace-cdn.com`, even legitimate brand images like hero banners and photos.
+
+**Fix:** Platform logo detection now requires BOTH:
+1. Vendor name appears in URL/alt/filename (squarespace, wix, godaddy, etc.) AND
+2. Logoish pattern appears (logo, badge, icon, powered-by, etc.)
+3. Large images (> 300x300) are explicitly NOT classified as platform_logo even with vendor+logoish
+
+**Result:**
+- **Squarespace-hosted sites:** Large images (hero banners, photos) are correctly classified as `hero`/`photo`/`other` and persisted
+- **Non-Squarespace sites:** Behavior unchanged - still correctly filters out true platform logos
+- **True platform logos:** Small icons/badges with platform branding are still correctly filtered out
+
+**Expected Behavior:**
+- **SDIRA Wealth (Squarespace):** Should see `filteredOut < 15`, `brandImagesFound > 0`, `brandImagesSelected > 0`
+- **806 Marketing (non-Squarespace):** Should continue working as before
+
+---
+
+## Enhanced Logo Detection (CSS, SVG, Favicon, OG)
+
+**Issue:** Modern websites (especially Squarespace, Webflow, Canva, Wix, Shopify) often render logos via CSS `background-image`, inline SVG, or other non-`<img>` methods, causing logos to be missed.
+
+**Solution:** Added comprehensive logo extraction from multiple sources:
+1. **CSS Logos** - Detects logos from `background-image` and `mask-image` in computed styles
+2. **SVG Logos** - Detects inline SVG logos in header/nav elements
+3. **Favicon Fallback** - Uses favicon/mask-icon if no other logos found
+4. **OG Image Fallback** - Uses `og:image` if no other logos found
+
+**Priority Order:** Inline SVG > CSS background-image > HTML `<img>` > OG image > Favicon
+
+**Result:**
+- **Squarespace sites:** Can now detect logos rendered via CSS (common on Squarespace)
+- **Modern sites:** Can detect inline SVG logos in headers
+- **All sites:** Has fallback to favicon/OG image if no explicit logo found
+
+**Expected Behavior:**
+- **SDIRA Wealth:** Should detect at least 1-2 logos via CSS/SVG/header detection
+- **All sites:** Should have better logo detection coverage

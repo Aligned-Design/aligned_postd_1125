@@ -512,6 +512,12 @@ function isLogo(
  * 
  * ✅ ENHANCED: Detects social_icon and platform_logo to filter them out
  * Returns expanded role types including social_icon, platform_logo, and photo
+ * 
+ * ✅ SQUARESPACE CDN HANDLING:
+ * - Large images from platform CDNs (e.g., images.squarespace-cdn.com/content/v1/...)
+ *   are NOT automatically classified as platform_logo
+ * - Only small icons/badges (<= 96x96) with explicit platform branding are filtered
+ * - This ensures legitimate brand images (hero banners, photos) are preserved
  */
 function categorizeImage(
   img: { url: string; alt?: string; width?: number; height?: number; role?: string },
@@ -543,22 +549,72 @@ function categorizeImage(
     return "social_icon";
   }
   
-  // Platform logos: squarespace, wix, godaddy, canva, google-my-business, adobe, etc.
-  const platformLogoPatterns = [
-    "squarespace", "wix", "godaddy", "canva", "google-my-business", "adobe",
-    "shopify", "wordpress", "elementor", "divi", "beaver", "webflow",
-    "platform-logo", "platform_logo", "powered-by", "made-with"
-  ];
+  // ✅ FIXED: Platform logos detection - require BOTH vendor name AND logoish patterns
+  // Problem: Previous logic treated ALL Squarespace CDN images as platform_logo, even legitimate brand images
+  // Solution: Only classify as platform_logo when BOTH conditions are met:
+  //   1. Vendor name appears in URL/alt/filename (e.g., squarespace, wix, godaddy)
+  //   2. Logoish pattern appears in URL/alt/filename (e.g., logo, icon, badge, powered-by)
+  // This ensures large Squarespace CDN images (images.squarespace-cdn.com/content/v1/...) are NOT filtered out
+  // 
+  // Platform vendors (hosting platform names)
+  const platformVendors = ["squarespace", "wix", "godaddy", "canva", "shopify", "wordpress"];
   
-  if (
-    platformLogoPatterns.some(pattern => 
-      filenameLower.includes(pattern) || 
-      urlLower.includes(pattern) || 
-      altLower.includes(pattern) ||
-      pathname.includes(pattern)
-    )
-  ) {
-    return "platform_logo";
+  // Logoish patterns (indicators of a logo/badge/icon)
+  const logoishPatterns = ["logo", "logotype", "brandmark", "mark", "badge", "icon", "favicon", "powered-by", "powered_by", "footer-logo", "header-logo"];
+  
+  // Check if vendor name appears in URL/alt/filename
+  const hasVendor = platformVendors.some(v => 
+    urlLower.includes(v) || 
+    altLower.includes(v) || 
+    filenameLower.includes(v) ||
+    pathname.includes(v)
+  );
+  
+  // Check if logoish pattern appears in URL/alt/filename
+  const isLogoish = logoishPatterns.some(p =>
+    urlLower.includes(p) || 
+    altLower.includes(p) || 
+    filenameLower.includes(p) ||
+    pathname.includes(p)
+  );
+  
+  // ✅ CRITICAL: Only classify as platform_logo if BOTH vendor AND logoish patterns are present
+  // This prevents legitimate brand images from platform CDNs (like images.squarespace-cdn.com) from being filtered
+  if (hasVendor && isLogoish) {
+    // ✅ ENHANCED: Prefer small images (< 200x200) for platform logos, but allow if dimensions unknown
+    // If image is large (> 300x300), it's likely a legitimate brand image, not a platform logo badge
+    const isLargeImage = img.width && img.height && (img.width > 300 || img.height > 300);
+    
+    if (isLargeImage) {
+      // Large images with vendor+logoish patterns are likely false positives
+      // (e.g., a brand's hero image that happens to mention "logo" in the URL)
+      // Log for debugging but don't classify as platform_logo
+      if (process.env.DEBUG_SQUARESPACE_IMAGES === "true") {
+        console.log(`[ImageCategorizer] Large image with vendor+logoish pattern (NOT platform_logo): ${img.url.substring(0, 80)}... (${img.width}x${img.height})`);
+      }
+    } else {
+      // Small images or images without dimensions that match vendor+logoish are likely platform logos
+      if (process.env.DEBUG_SQUARESPACE_IMAGES === "true" || process.env.DEBUG_IMAGE_CLASSIFICATION === "true") {
+        console.log(`[ImageCategorizer] Classified as platform_logo: ${img.url.substring(0, 80)}...`, {
+          vendor: platformVendors.find(v => urlLower.includes(v) || altLower.includes(v) || filenameLower.includes(v)),
+          logoishPattern: logoishPatterns.find(p => urlLower.includes(p) || altLower.includes(p) || filenameLower.includes(p)),
+          dimensions: img.width && img.height ? `${img.width}x${img.height}` : "unknown",
+          alt: img.alt?.substring(0, 40) || "none",
+        });
+      }
+      return "platform_logo";
+    }
+  }
+  
+  // ✅ EXPLICIT: Large images from Squarespace CDN (and other platform CDNs) are NOT platform logos
+  // These are legitimate brand assets (hero banners, lifestyle photos, etc.)
+  // They should be classified as hero/photo/other based on their actual content
+  if (hasVendor && !isLogoish) {
+    // Has vendor but no logoish pattern - this is a legitimate brand image from a platform CDN
+    // Continue to normal classification (hero/photo/etc) - don't return platform_logo
+    if (process.env.DEBUG_SQUARESPACE_IMAGES === "true") {
+      console.log(`[ImageCategorizer] Platform CDN image without logoish pattern (NOT platform_logo): ${img.url.substring(0, 80)}... - will classify as hero/photo/other`);
+    }
   }
   
   // Logo detection (highest priority) - use existing role if already detected
@@ -609,17 +665,30 @@ function categorizeImage(
   
   // ✅ NEW: Photo/content - real photos that depict brand, people, product, or environment
   // Prefer larger images that aren't icons or graphics
+  // ✅ FIXED: This now correctly handles large Squarespace CDN images that were previously misclassified
   if (img.width && img.height) {
     const isLarge = img.width > 300 && img.height > 300;
+    const isMedium = img.width > 200 && img.height > 200;
     const isNotIcon = !filenameLower.includes("icon") && !altLower.includes("icon");
     const isNotGraphic = !filenameLower.includes("graphic") && !altLower.includes("graphic");
     
+    // Large images are likely photos/hero images
     if (isLarge && isNotIcon && isNotGraphic) {
+      // Check if it's a hero image (large and likely above the fold)
+      if (img.width > 800 || img.height > 600) {
+        return "hero";
+      }
+      return "photo";
+    }
+    
+    // Medium images might also be photos if they're not icons
+    if (isMedium && isNotIcon && isNotGraphic) {
       return "photo";
     }
   }
   
   // Default to other - accept all images even if we can't categorize them
+  // ✅ FIXED: This ensures Squarespace CDN images without clear classification still get through
   return "other";
 }
 
@@ -652,6 +721,445 @@ function calculateImagePriority(img: CrawledImage): number {
 }
 
 /**
+ * ✅ NEW: Extract logo candidates from CSS background-image, mask-image, etc.
+ * Detects logos rendered via CSS (common on Squarespace, Webflow, etc.)
+ */
+async function extractCssLogos(page: Page, baseUrl: string): Promise<CrawledImage[]> {
+  try {
+    const base = new URL(baseUrl);
+    
+    const cssLogos = await page.evaluate((baseHref) => {
+      const baseUrlObj = new URL(baseHref);
+      const results: Array<{
+        url: string;
+        width?: number;
+        height?: number;
+        role: "logo";
+        source: "css-computed";
+        confidence: "css";
+        filename?: string;
+      }> = [];
+
+      // Helper to normalize URL
+      const normalizeUrl = (src: string | null): string | null => {
+        if (!src) return null;
+        try {
+          if (src.startsWith("//")) return `${baseUrlObj.protocol}${src}`;
+          if (src.startsWith("/")) return `${baseUrlObj.origin}${src}`;
+          if (src.startsWith("http://") || src.startsWith("https://")) return src;
+          return new URL(src, baseHref).href;
+        } catch {
+          return null;
+        }
+      };
+
+      // Helper to extract filename
+      const getFilename = (url: string): string => {
+        try {
+          return new URL(url).pathname.split("/").pop() || "";
+        } catch {
+          return "";
+        }
+      };
+
+      // Logo selector patterns (common class names for logo elements)
+      const logoSelectors = [
+        ".header-logo", ".site-logo", ".logo-image", ".header__logo",
+        ".branding-logo", ".SiteHeader-branding-logo", ".site-title",
+        "[class*='logo']", "[id*='logo']", "header [class*='logo']",
+        "nav [class*='logo']", ".navbar-brand", ".brand-logo"
+      ];
+
+      // Find elements that might contain logo images
+      const candidateElements: Element[] = [];
+      logoSelectors.forEach(selector => {
+        try {
+          document.querySelectorAll(selector).forEach(el => candidateElements.push(el));
+        } catch {
+          // Invalid selector, skip
+        }
+      });
+
+      // Also check header/nav elements for background images
+      document.querySelectorAll("header, nav, .header, .navbar").forEach(el => {
+        candidateElements.push(el);
+      });
+
+      candidateElements.forEach((el) => {
+        try {
+          const style = window.getComputedStyle(el);
+          const bgImage = style.backgroundImage;
+          const maskImage = style.maskImage || (style as any).webkitMaskImage;
+          
+          // Check background-image
+          if (bgImage && bgImage !== "none") {
+            const match = bgImage.match(/url\(['"]?([^'"]+)['"]?\)/);
+            if (match && match[1]) {
+              const normalizedUrl = normalizeUrl(match[1]);
+              if (normalizedUrl) {
+                const rect = el.getBoundingClientRect();
+                const filename = getFilename(normalizedUrl);
+                const urlLower = normalizedUrl.toLowerCase();
+                const filenameLower = filename.toLowerCase();
+                
+                // Only include if it looks like a logo (has "logo" in URL/filename or is in header/nav)
+                const isInHeader = el.closest("header") !== null || el.closest("nav") !== null;
+                const hasLogoIndicator = urlLower.includes("logo") || filenameLower.includes("logo");
+                
+                if (hasLogoIndicator || isInHeader) {
+                  results.push({
+                    url: normalizedUrl,
+                    width: rect.width > 0 ? Math.round(rect.width) : undefined,
+                    height: rect.height > 0 ? Math.round(rect.height) : undefined,
+                    role: "logo",
+                    source: "css-computed",
+                    confidence: "css",
+                    filename,
+                  });
+                }
+              }
+            }
+          }
+          
+          // Check mask-image (used for SVG logos)
+          if (maskImage && maskImage !== "none") {
+            const match = maskImage.match(/url\(['"]?([^'"]+)['"]?\)/);
+            if (match && match[1]) {
+              const normalizedUrl = normalizeUrl(match[1]);
+              if (normalizedUrl) {
+                const rect = el.getBoundingClientRect();
+                const filename = getFilename(normalizedUrl);
+                const urlLower = normalizedUrl.toLowerCase();
+                
+                if (urlLower.includes("logo") || el.closest("header") !== null) {
+                  results.push({
+                    url: normalizedUrl,
+                    width: rect.width > 0 ? Math.round(rect.width) : undefined,
+                    height: rect.height > 0 ? Math.round(rect.height) : undefined,
+                    role: "logo",
+                    source: "css-computed",
+                    confidence: "css",
+                    filename,
+                  });
+                }
+              }
+            }
+          }
+        } catch (elError) {
+          // Skip this element if there's an error
+        }
+      });
+
+      return results;
+    }, baseUrl);
+
+    if (process.env.DEBUG_LOGO_DETECT === "true") {
+      console.log(`[LogoDetect] Found ${cssLogos.length} CSS background-image logo candidates`);
+    }
+
+    return cssLogos.map(logo => ({
+      url: logo.url,
+      width: logo.width,
+      height: logo.height,
+      role: "logo" as const,
+      filename: logo.filename,
+    }));
+  } catch (error) {
+    console.warn("[Crawler] Error extracting CSS logos:", error);
+    return [];
+  }
+}
+
+/**
+ * ✅ NEW: Extract inline SVG logos
+ * Detects SVG logos embedded directly in HTML (common on modern sites)
+ */
+async function extractSvgLogos(page: Page, baseUrl: string): Promise<CrawledImage[]> {
+  try {
+    const svgLogos = await page.evaluate((baseHref) => {
+      const results: Array<{
+        url: string;
+        width?: number;
+        height?: number;
+        role: "logo";
+        source: "inline-svg";
+        svgContent?: string;
+        filename?: string;
+      }> = [];
+
+      // Helper to convert SVG to data URL
+      const svgToDataUrl = (svg: SVGElement): string => {
+        const serializer = new XMLSerializer();
+        const svgString = serializer.serializeToString(svg);
+        const encoded = encodeURIComponent(svgString);
+        return `data:image/svg+xml;charset=utf-8,${encoded}`;
+      };
+
+      // Find SVG logos in common locations
+      const svgSelectors = [
+        "svg.logo",
+        "svg[role='img']",
+        "header svg",
+        "nav svg",
+        ".site-title svg",
+        ".header-logo svg",
+        ".logo svg",
+        "[class*='logo'] svg"
+      ];
+
+      const candidateSvgs: SVGElement[] = [];
+      svgSelectors.forEach(selector => {
+        try {
+          document.querySelectorAll(selector).forEach(el => {
+            if (el instanceof SVGElement) candidateSvgs.push(el);
+          });
+        } catch {
+          // Invalid selector, skip
+        }
+      });
+
+      // Also check for SVG in header/nav
+      document.querySelectorAll("header svg, nav svg").forEach(el => {
+        if (el instanceof SVGElement && !candidateSvgs.includes(el)) {
+          candidateSvgs.push(el);
+        }
+      });
+
+      // Check for SVG <use> references (SVG sprites)
+      document.querySelectorAll("use[href*='logo'], use[xlink\\:href*='logo']").forEach(useEl => {
+        const svg = useEl.closest("svg");
+        if (svg && !candidateSvgs.includes(svg)) {
+          candidateSvgs.push(svg);
+        }
+      });
+
+      candidateSvgs.forEach((svg) => {
+        try {
+          const rect = svg.getBoundingClientRect();
+          const isInHeader = svg.closest("header") !== null || svg.closest("nav") !== null;
+          const parentClasses = svg.parentElement?.className?.toLowerCase() || "";
+          const parentId = svg.parentElement?.id?.toLowerCase() || "";
+          const svgId = svg.id?.toLowerCase() || "";
+          const svgClass = svg.className?.baseVal?.toLowerCase() || "";
+          
+          // Check if this looks like a logo
+          const hasLogoIndicator = 
+            svgId.includes("logo") ||
+            svgClass.includes("logo") ||
+            parentClasses.includes("logo") ||
+            parentId.includes("logo") ||
+            isInHeader;
+
+          if (hasLogoIndicator && rect.width > 0 && rect.height > 0) {
+            const svgContent = svgToDataUrl(svg);
+            results.push({
+              url: svgContent,
+              width: Math.round(rect.width),
+              height: Math.round(rect.height),
+              role: "logo",
+              source: "inline-svg",
+              svgContent: svg.outerHTML,
+              filename: "logo.svg",
+            });
+          }
+        } catch (svgError) {
+          // Skip this SVG if there's an error
+        }
+      });
+
+      return results;
+    }, baseUrl);
+
+    if (process.env.DEBUG_LOGO_DETECT === "true") {
+      console.log(`[LogoDetect] Found ${svgLogos.length} inline SVG logo(s)`);
+    }
+
+    return svgLogos.map(logo => ({
+      url: logo.url,
+      width: logo.width,
+      height: logo.height,
+      role: "logo" as const,
+      filename: logo.filename,
+    }));
+  } catch (error) {
+    console.warn("[Crawler] Error extracting SVG logos:", error);
+    return [];
+  }
+}
+
+/**
+ * ✅ NEW: Extract favicon and mask-icon as fallback logo candidates
+ */
+async function extractFaviconLogos(page: Page, baseUrl: string): Promise<CrawledImage[]> {
+  try {
+    const base = new URL(baseUrl);
+    
+    const faviconLogos = await page.evaluate((baseHref) => {
+      const baseUrlObj = new URL(baseHref);
+      const results: Array<{
+        url: string;
+        role: "logo";
+        source: "favicon";
+        fallback: true;
+        filename?: string;
+      }> = [];
+
+      // Helper to normalize URL
+      const normalizeUrl = (src: string | null): string | null => {
+        if (!src) return null;
+        try {
+          if (src.startsWith("//")) return `${baseUrlObj.protocol}${src}`;
+          if (src.startsWith("/")) return `${baseUrlObj.origin}${src}`;
+          if (src.startsWith("http://") || src.startsWith("https://")) return src;
+          return new URL(src, baseHref).href;
+        } catch {
+          return null;
+        }
+      };
+
+      // Check for favicon links
+      const faviconSelectors = [
+        'link[rel="icon"]',
+        'link[rel="shortcut icon"]',
+        'link[rel="mask-icon"]',
+        'link[rel="apple-touch-icon"]'
+      ];
+
+      faviconSelectors.forEach(selector => {
+        try {
+          document.querySelectorAll(selector).forEach(link => {
+            const href = link.getAttribute("href");
+            if (href) {
+              const normalizedUrl = normalizeUrl(href);
+              if (normalizedUrl) {
+                const filename = normalizedUrl.split("/").pop() || "favicon.ico";
+                results.push({
+                  url: normalizedUrl,
+                  role: "logo",
+                  source: "favicon",
+                  fallback: true,
+                  filename,
+                });
+              }
+            }
+          });
+        } catch {
+          // Invalid selector, skip
+        }
+      });
+
+      return results;
+    }, baseUrl);
+
+    if (process.env.DEBUG_LOGO_DETECT === "true" && faviconLogos.length > 0) {
+      console.log(`[LogoDetect] Favicon used as fallback logo: ${faviconLogos[0].url}`);
+    }
+
+    return faviconLogos.map(logo => ({
+      url: logo.url,
+      role: "logo" as const,
+      filename: logo.filename,
+    }));
+  } catch (error) {
+    console.warn("[Crawler] Error extracting favicon logos:", error);
+    return [];
+  }
+}
+
+/**
+ * ✅ NEW: Extract logo from OpenGraph metadata as fallback
+ */
+async function extractOgLogo(page: Page, baseUrl: string): Promise<CrawledImage | null> {
+  try {
+    const ogMetadata = await extractOpenGraphMetadata(page, baseUrl);
+    
+    // Prefer og:image, fallback to twitter:image
+    const ogImage = ogMetadata?.image || ogMetadata?.twitterImage;
+    
+    if (ogImage) {
+      if (process.env.DEBUG_LOGO_DETECT === "true") {
+        console.log(`[LogoDetect] OG image used as fallback logo: ${ogImage}`);
+      }
+      
+      return {
+        url: ogImage,
+        role: "logo" as const,
+        filename: ogImage.split("/").pop() || "og-image.jpg",
+      };
+    }
+    
+    return null;
+  } catch (error) {
+    console.warn("[Crawler] Error extracting OG logo:", error);
+    return null;
+  }
+}
+
+/**
+ * ✅ NEW: Merge logo candidates from all sources with priority ordering
+ * Priority: Inline SVG > CSS background-image > <img> tags > OG image > Favicon
+ */
+function mergeLogoCandidates(
+  htmlLogos: CrawledImage[],
+  cssLogos: CrawledImage[],
+  svgLogos: CrawledImage[],
+  faviconLogo: CrawledImage | null,
+  ogLogo: CrawledImage | null
+): CrawledImage[] {
+  const merged: CrawledImage[] = [];
+  const seen = new Set<string>();
+
+  // Priority 1: Inline SVG logos (strongest signal)
+  svgLogos.forEach(logo => {
+    if (!seen.has(logo.url)) {
+      merged.push(logo);
+      seen.add(logo.url);
+    }
+  });
+
+  // Priority 2: CSS background-image logos
+  cssLogos.forEach(logo => {
+    if (!seen.has(logo.url)) {
+      merged.push(logo);
+      seen.add(logo.url);
+    }
+  });
+
+  // Priority 3: HTML <img> logos
+  htmlLogos.forEach(logo => {
+    if (!seen.has(logo.url)) {
+      merged.push(logo);
+      seen.add(logo.url);
+    }
+  });
+
+  // Priority 4: OG image (only if no other logos found)
+  if (merged.length === 0 && ogLogo && !seen.has(ogLogo.url)) {
+    merged.push(ogLogo);
+    seen.add(ogLogo.url);
+  }
+
+  // Priority 5: Favicon (only if no other logos found)
+  if (merged.length === 0 && faviconLogo && !seen.has(faviconLogo.url)) {
+    merged.push(faviconLogo);
+    seen.add(faviconLogo.url);
+  }
+
+  if (process.env.DEBUG_LOGO_DETECT === "true") {
+    console.log(`[LogoDetect] Merged logo candidates:`, {
+      svgLogos: svgLogos.length,
+      cssLogos: cssLogos.length,
+      htmlLogos: htmlLogos.length,
+      ogLogo: ogLogo ? 1 : 0,
+      faviconLogo: faviconLogo ? 1 : 0,
+      totalMerged: merged.length,
+    });
+  }
+
+  return merged;
+}
+
+/**
  * Extract images from a page with smart prioritization
  * 
  * SIMPLIFIED & ROBUST: 
@@ -659,6 +1167,7 @@ function calculateImagePriority(img: CrawledImage): number {
  * - More lenient filtering (accepts images without dimensions)
  * - Better error handling
  * - Logs extraction progress
+ * - ✅ ENHANCED: Now extracts logos from CSS, SVG, favicon, and OG metadata
  */
 async function extractImages(page: Page, baseUrl: string, brandName?: string): Promise<CrawledImage[]> {
   try {
@@ -825,19 +1334,47 @@ async function extractImages(page: Page, baseUrl: string, brandName?: string): P
       return results;
     }, { url: baseUrl, brandName: brandName || undefined });
     
-    console.log(`[Crawler] Extracted ${images.length} images from page ${baseUrl}`);
+    console.log(`[Crawler] Extracted ${images.length} HTML images from page ${baseUrl}`);
 
-    // Deduplicate by URL
+    // ✅ ENHANCED: Extract logos from CSS, SVG, favicon, and OG metadata
+    const cssLogos = await extractCssLogos(page, baseUrl).catch(() => []);
+    const svgLogos = await extractSvgLogos(page, baseUrl).catch(() => []);
+    const faviconLogos = await extractFaviconLogos(page, baseUrl).catch(() => []);
+    const faviconLogo = faviconLogos.length > 0 ? faviconLogos[0] : null;
+    const ogLogo = await extractOgLogo(page, baseUrl).catch(() => null);
+
+    // Separate HTML logos from other images
+    // Ensure logos have role: "logo" explicitly set
+    const htmlLogos: CrawledImage[] = images
+      .filter(img => img.role === "logo")
+      .map(img => ({
+        url: img.url,
+        alt: img.alt,
+        width: img.width,
+        height: img.height,
+        role: "logo" as const,
+        filename: img.filename,
+      }));
+    const htmlNonLogos = images.filter(img => img.role !== "logo");
+
+    // ✅ MERGE: Combine all logo sources with priority ordering
+    const mergedLogos = mergeLogoCandidates(htmlLogos, cssLogos, svgLogos, faviconLogo, ogLogo);
+
+    // Deduplicate non-logo images by URL
     const seen = new Set<string>();
-    const uniqueImages = images.filter((img) => {
+    const uniqueNonLogos = htmlNonLogos.filter((img) => {
       if (seen.has(img.url)) return false;
       seen.add(img.url);
       return true;
     });
 
+    // Combine merged logos with other images
+    const allImages = [...mergedLogos, ...uniqueNonLogos];
+
     // Categorize and enrich images with page type and priority
-    const categorizedImages: CrawledImage[] = uniqueImages.map((img) => {
-      const categorized = categorizeImage(img, baseUrl, pageType, brandName);
+    const categorizedImages: CrawledImage[] = allImages.map((img) => {
+      // If already classified as logo, keep it; otherwise categorize
+      const categorized = img.role === "logo" ? "logo" : categorizeImage(img, baseUrl, pageType, brandName);
       return {
         url: img.url,
         alt: img.alt,
@@ -886,6 +1423,21 @@ async function extractImages(page: Page, baseUrl: string, brandName?: string): P
 
     // Limit to 15 images max (10-15 range as specified)
     const finalImages = filteredImages.slice(0, 15);
+    
+    // ✅ ENHANCED: Log logo detection summary
+    const logoCount = finalImages.filter(img => img.role === "logo").length;
+    if (logoCount > 0 || process.env.DEBUG_LOGO_DETECT === "true") {
+      console.log(`[Crawler] Logo detection summary for ${baseUrl}:`, {
+        totalImages: finalImages.length,
+        logosFound: logoCount,
+        logosFromSvg: svgLogos.length,
+        logosFromCss: cssLogos.length,
+        logosFromHtml: htmlLogos.length,
+        logosFromOg: ogLogo ? 1 : 0,
+        logosFromFavicon: faviconLogo ? 1 : 0,
+      });
+    }
+    
     console.log(`[Crawler] Returning ${finalImages.length} images for page ${baseUrl}`);
     
     return finalImages;
