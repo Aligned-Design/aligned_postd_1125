@@ -169,6 +169,16 @@ export async function persistScrapedImages(
   const persistedIds: string[] = [];
   const persistedLogoIds: string[] = []; // Track logos separately for accurate counting
   const persistedBrandImageIds: string[] = []; // Track brand images separately
+  
+  // ✅ ERROR TRACKING: Track failures by category for better observability
+  interface PersistenceFailure {
+    url: string;
+    reason: string;
+    errorCode?: string;
+    errorMessage?: string;
+    category: 'duplicate' | 'quota' | 'database' | 'validation' | 'network' | 'unknown';
+  }
+  const failures: PersistenceFailure[] = [];
 
   for (let i = 0; i < imagesToPersist.length; i++) {
     const image = imagesToPersist[i];
@@ -244,9 +254,16 @@ export async function persistScrapedImages(
       console.log(`[ScrapedImages] ✅ Persisted image: ${filename} (${image.url.substring(0, 50)}...)`);
     } catch (error: any) {
       // ✅ CRITICAL FIX: Handle errors gracefully - one failure shouldn't cancel entire batch
+      // ✅ ENHANCED: Categorize error for structured logging
+      const errorMessage = error?.message || String(error);
+      const errorCode = error?.code || 'UNKNOWN_ERROR';
+      let failureCategory: PersistenceFailure['category'] = 'unknown';
+      let failureReason = errorMessage;
       
       // If duplicate, get the existing asset ID and add it to persistedIds
       if (error?.code === ErrorCode.DUPLICATE_RESOURCE || error?.message?.includes("duplicate") || error?.message?.includes("already exists")) {
+        failureCategory = 'duplicate';
+        failureReason = 'Image already exists (duplicate hash)';
         // Extract existing asset ID from error details
         const existingAssetId = error?.details?.existingAssetId;
         if (existingAssetId) {
@@ -272,61 +289,263 @@ export async function persistScrapedImages(
               }
               console.log(`[ScrapedImages] Image already exists (found by hash): ${image.url.substring(0, 50)}... (ID: ${existingAsset.id})`);
             } else {
-              console.warn(`[ScrapedImages] Duplicate detected but couldn't find existing asset: ${image.url.substring(0, 50)}...`);
+              console.warn(`[ScrapedImages] ❌ Duplicate detected but couldn't find existing asset: ${image.url.substring(0, 50)}...`);
+              failures.push({
+                url: image.url,
+                reason: 'Duplicate detected but existing asset lookup failed',
+                errorCode: errorCode,
+                errorMessage: errorMessage,
+                category: 'duplicate',
+              });
             }
           } catch (lookupError) {
-            console.warn(`[ScrapedImages] Could not lookup existing asset: ${lookupError}`);
+            console.warn(`[ScrapedImages] ❌ Could not lookup existing asset:`, {
+              url: image.url.substring(0, 60),
+              lookupError: lookupError instanceof Error ? lookupError.message : String(lookupError),
+            });
+            failures.push({
+              url: image.url,
+              reason: 'Duplicate lookup failed',
+              errorCode: 'DUPLICATE_LOOKUP_ERROR',
+              errorMessage: lookupError instanceof Error ? lookupError.message : String(lookupError),
+              category: 'duplicate',
+            });
           }
         }
         continue; // Skip to next image
       }
       
-      // ✅ CRITICAL FIX: Log quota/storage errors as warnings and continue
+      // ✅ CRITICAL FIX: Categorize and log quota/storage errors
       // These are non-critical failures that shouldn't block the crawler
       // getStorageUsage() should never throw now, but be defensive
-      const isQuotaError = error?.code === ErrorCode.DATABASE_ERROR || 
-                          error?.code === 'DATABASE_ERROR' ||
-                          error?.message?.includes('quota') || 
-                          error?.message?.includes('storage') ||
+      const isQuotaError = error?.code === ErrorCode.QUOTA_EXCEEDED ||
+                          error?.code === 'QUOTA_EXCEEDED' ||
+                          error?.message?.toLowerCase().includes('quota') || 
+                          error?.message?.toLowerCase().includes('storage') ||
                           error?.message?.includes('Failed to fetch storage quota');
       
       if (isQuotaError) {
-        console.warn(`[ScrapedImages] ⚠️ Quota/storage error (non-blocking) for image ${image.url.substring(0, 60)}...:`, {
-          error: error?.message || String(error),
-          code: error?.code,
-          hint: "Continuing with next image - quota system may not be fully configured"
+        failureCategory = 'quota';
+        failureReason = 'Storage quota check failed (non-critical)';
+        console.warn(`[ScrapedImages] ⚠️ Quota/storage error (non-blocking) for image:`, {
+          url: image.url.substring(0, 80),
+          role: image.role,
+          errorCode: errorCode,
+          errorMessage: errorMessage,
+          hint: "Continuing with next image - quota system may not be fully configured",
+        });
+        failures.push({
+          url: image.url,
+          reason: failureReason,
+          errorCode: errorCode,
+          errorMessage: errorMessage,
+          category: failureCategory,
         });
         continue; // Skip this image but continue with the rest
-      } else {
-        // For other errors (duplicates, validation, etc.), log as warning but continue
-        console.warn(`[ScrapedImages] ⚠️ Failed to persist image ${image.url.substring(0, 100)}:`, {
-          url: image.url.substring(0, 100),
-          error: error?.message || String(error),
-          code: error?.code,
-        });
       }
+      
+      // ✅ ENHANCED: Categorize database errors
+      const isDatabaseError = error?.code === ErrorCode.DATABASE_ERROR ||
+                             error?.code === 'DATABASE_ERROR' ||
+                             error?.code === '23505' || // PostgreSQL unique violation
+                             error?.code === '23503' || // PostgreSQL foreign key violation
+                             error?.code === '42P01' || // PostgreSQL relation does not exist
+                             error?.code === 'PGRST204' || // PostgREST no rows
+                             error?.code === 'PGRST116' || // PostgREST not found
+                             errorMessage?.toLowerCase().includes('database') ||
+                             errorMessage?.toLowerCase().includes('connection') ||
+                             errorMessage?.toLowerCase().includes('supabase');
+      
+      if (isDatabaseError) {
+        failureCategory = 'database';
+        failureReason = 'Database operation failed';
+        console.error(`[ScrapedImages] ❌ Database error persisting image:`, {
+          url: image.url.substring(0, 80),
+          role: image.role,
+          errorCode: errorCode,
+          errorMessage: errorMessage,
+          brandId: brandId,
+          tenantId: finalTenantId,
+          hint: "This may indicate a database connectivity or schema issue",
+        });
+        failures.push({
+          url: image.url,
+          reason: failureReason,
+          errorCode: errorCode,
+          errorMessage: errorMessage,
+          category: failureCategory,
+        });
+        continue; // Skip this image but continue with the rest
+      }
+      
+      // ✅ ENHANCED: Categorize validation errors
+      const isValidationError = error?.code === ErrorCode.INVALID_FORMAT ||
+                               error?.code === 'INVALID_FORMAT' ||
+                               errorMessage?.toLowerCase().includes('invalid') ||
+                               errorMessage?.toLowerCase().includes('validation') ||
+                               errorMessage?.toLowerCase().includes('format');
+      
+      if (isValidationError) {
+        failureCategory = 'validation';
+        failureReason = 'Image validation failed';
+        console.warn(`[ScrapedImages] ⚠️ Validation error persisting image:`, {
+          url: image.url.substring(0, 80),
+          role: image.role,
+          errorCode: errorCode,
+          errorMessage: errorMessage,
+          hint: "Image may have invalid URL or metadata format",
+        });
+        failures.push({
+          url: image.url,
+          reason: failureReason,
+          errorCode: errorCode,
+          errorMessage: errorMessage,
+          category: failureCategory,
+        });
+        continue;
+      }
+      
+      // ✅ ENHANCED: Categorize network errors
+      const isNetworkError = errorMessage?.toLowerCase().includes('network') ||
+                            errorMessage?.toLowerCase().includes('timeout') ||
+                            errorMessage?.toLowerCase().includes('econnrefused') ||
+                            errorMessage?.toLowerCase().includes('fetch');
+      
+      if (isNetworkError) {
+        failureCategory = 'network';
+        failureReason = 'Network error during persistence';
+        console.warn(`[ScrapedImages] ⚠️ Network error persisting image:`, {
+          url: image.url.substring(0, 80),
+          role: image.role,
+          errorCode: errorCode,
+          errorMessage: errorMessage,
+          hint: "Network connectivity issue - may be transient",
+        });
+        failures.push({
+          url: image.url,
+          reason: failureReason,
+          errorCode: errorCode,
+          errorMessage: errorMessage,
+          category: failureCategory,
+        });
+        continue;
+      }
+      
+      // ✅ DEFAULT: Unknown error category
+      failureCategory = 'unknown';
+      failureReason = 'Unknown error during persistence';
+      console.error(`[ScrapedImages] ❌ Unknown error persisting image:`, {
+        url: image.url.substring(0, 100),
+        role: image.role,
+        errorCode: errorCode,
+        errorMessage: errorMessage,
+        errorType: error?.constructor?.name || typeof error,
+        stack: error?.stack?.substring(0, 200),
+        hint: "Unexpected error - review error details above",
+      });
+      failures.push({
+        url: image.url,
+        reason: failureReason,
+        errorCode: errorCode,
+        errorMessage: errorMessage,
+        category: failureCategory,
+      });
       // Continue with other images
     }
   }
 
-  // ✅ LOGGING: Summary of persistence
+  // ✅ LOGGING: Summary of persistence with failure breakdown
   // Use tracked arrays for accurate counts (handles cases where some images fail to persist)
   const logosPersisted = persistedLogoIds.length;
   const brandImagesPersisted = persistedBrandImageIds.length;
+  const totalAttempted = imagesToPersist.length;
+  const totalSucceeded = persistedIds.length;
+  const totalFailed = failures.length;
   
-  console.log(`[ScrapedImages] ✅ Persistence complete`, {
-    brandId: brandId,
-    tenantId: finalTenantId,
-    totalImagesAvailable: images.length,
-    filteredOut: images.length - validImages.length,
-    logosSelected: selectedLogos.length,
-    logosPersisted: logosPersisted,
-    brandImagesSelected: selectedBrandImages.length,
-    brandImagesPersisted: brandImagesPersisted,
-    totalPersisted: persistedIds.length,
-    targetLogos: 2,
-    targetBrandImages: 15,
-  });
+  // ✅ ENHANCED: Count failures by category
+  const failuresByCategory = failures.reduce((acc, failure) => {
+    acc[failure.category] = (acc[failure.category] || 0) + 1;
+    return acc;
+  }, {} as Record<string, number>);
+  
+  // ✅ CRITICAL: Distinguish between "filtered out by design" vs "failed to persist"
+  const filteredOutByDesign = images.length - validImages.length;
+  const selectedButNotPersisted = totalAttempted - totalSucceeded;
+  
+  // ✅ LOGGING: Comprehensive summary with failure breakdown
+  if (totalFailed > 0) {
+    console.warn(`[ScrapedImages] ⚠️ Persistence complete with ${totalFailed} failure(s)`, {
+      brandId: brandId,
+      tenantId: finalTenantId,
+      // Image counts
+      totalImagesAvailable: images.length,
+      filteredOutByDesign: filteredOutByDesign,
+      validImagesAfterFilter: validImages.length,
+      totalAttempted: totalAttempted,
+      totalSucceeded: totalSucceeded,
+      totalFailed: totalFailed,
+      // Logo counts
+      logosSelected: selectedLogos.length,
+      logosPersisted: logosPersisted,
+      logosFailed: selectedLogos.length - logosPersisted,
+      // Brand image counts
+      brandImagesSelected: selectedBrandImages.length,
+      brandImagesPersisted: brandImagesPersisted,
+      brandImagesFailed: selectedBrandImages.length - brandImagesPersisted,
+      // Failure breakdown
+      failuresByCategory: failuresByCategory,
+      // Target counts
+      targetLogos: 2,
+      targetBrandImages: 15,
+    });
+    
+    // ✅ ENHANCED: Log first 3 failures in detail for debugging
+    const sampleFailures = failures.slice(0, 3);
+    sampleFailures.forEach((failure, idx) => {
+      console.error(`[ScrapedImages] Failure ${idx + 1}/${totalFailed}:`, {
+        category: failure.category,
+        reason: failure.reason,
+        errorCode: failure.errorCode,
+        errorMessage: failure.errorMessage?.substring(0, 200),
+        url: failure.url.substring(0, 100),
+      });
+    });
+    
+    if (failures.length > 3) {
+      console.warn(`[ScrapedImages] ... and ${failures.length - 3} more failure(s) (check logs above for details)`);
+    }
+  } else {
+    console.log(`[ScrapedImages] ✅ Persistence complete (all images persisted)`, {
+      brandId: brandId,
+      tenantId: finalTenantId,
+      totalImagesAvailable: images.length,
+      filteredOutByDesign: filteredOutByDesign,
+      totalAttempted: totalAttempted,
+      totalPersisted: totalSucceeded,
+      logosPersisted: logosPersisted,
+      brandImagesPersisted: brandImagesPersisted,
+      targetLogos: 2,
+      targetBrandImages: 15,
+    });
+  }
+  
+  // ✅ CRITICAL: Log warning if zero images persisted despite having images to persist
+  // This is the key indicator for "Found X images but none were persisted"
+  if (totalAttempted > 0 && totalSucceeded === 0) {
+    console.error(`[ScrapedImages] ❌ CRITICAL: Attempted to persist ${totalAttempted} image(s) but NONE succeeded.`, {
+      brandId: brandId,
+      tenantId: finalTenantId,
+      totalAttempted: totalAttempted,
+      totalFailed: totalFailed,
+      failuresByCategory: failuresByCategory,
+      sampleFailures: failures.slice(0, 2).map(f => ({
+        category: f.category,
+        reason: f.reason,
+        errorCode: f.errorCode,
+      })),
+      hint: "Check failure details above. This indicates a systemic issue (DB connectivity, schema mismatch, or quota system error).",
+    });
+  }
 
   return persistedIds;
 }

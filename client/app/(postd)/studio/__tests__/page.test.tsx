@@ -5,8 +5,9 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { screen, fireEvent, waitFor } from "@testing-library/react";
 import { BrowserRouter } from "react-router-dom";
+import { renderWithProviders } from "@/__tests__/utils/renderWithProviders";
 import CreativeStudio from "../page";
 
 // Mock dependencies
@@ -52,7 +53,7 @@ describe("CreativeStudio", () => {
   });
 
   it("renders the entry screen when no design is active", () => {
-    render(
+    renderWithProviders(
       <BrowserRouter>
         <CreativeStudio />
       </BrowserRouter>
@@ -64,7 +65,7 @@ describe("CreativeStudio", () => {
   });
 
   it("opens AI modal when 'Start from AI' is clicked", async () => {
-    render(
+    renderWithProviders(
       <BrowserRouter>
         <CreativeStudio />
       </BrowserRouter>
@@ -83,7 +84,7 @@ describe("CreativeStudio", () => {
   });
 
   it("opens template grid when 'Blank Canvas' is clicked", async () => {
-    render(
+    renderWithProviders(
       <BrowserRouter>
         <CreativeStudio />
       </BrowserRouter>

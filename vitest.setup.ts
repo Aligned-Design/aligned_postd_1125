@@ -6,10 +6,17 @@ import { afterEach, beforeAll, afterAll, vi, beforeEach } from 'vitest';
 if (!process.env.VITE_SUPABASE_URL) {
   process.env.VITE_SUPABASE_URL = process.env.TEST_SUPABASE_URL || 'http://localhost:54321';
 }
+if (!process.env.SUPABASE_URL) {
+  process.env.SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'http://localhost:54321';
+}
 if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
-  // Note: This should be set via environment variable in production
-  // This is only a test fallback
-  process.env.SUPABASE_SERVICE_ROLE_KEY = process.env.TEST_SUPABASE_SERVICE_ROLE_KEY || '';
+  // Create a dummy JWT token that will pass validation in tests
+  // Format: header.payload.signature (base64 encoded JSON)
+  // The payload needs to have role: "service_role"
+  const header = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64');
+  const payload = Buffer.from(JSON.stringify({ role: 'service_role', exp: Math.floor(Date.now() / 1000) + 3600 })).toString('base64');
+  const signature = 'test-signature';
+  process.env.SUPABASE_SERVICE_ROLE_KEY = process.env.TEST_SUPABASE_SERVICE_ROLE_KEY || `${header}.${payload}.${signature}`;
 }
 if (!process.env.VITE_SUPABASE_ANON_KEY) {
   process.env.VITE_SUPABASE_ANON_KEY = process.env.TEST_SUPABASE_ANON_KEY || 'test-anon-key';

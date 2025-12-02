@@ -5,8 +5,9 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
 import { BrowserRouter } from "react-router-dom";
+import { renderWithProviders } from "@/__tests__/utils/renderWithProviders";
 import ClientPortal from "../page";
 
 // Mock fetch
@@ -66,7 +67,7 @@ describe("ClientPortal", () => {
   });
 
   it("renders client portal and loads dashboard data", async () => {
-    render(
+    renderWithProviders(
       <BrowserRouter>
         <ClientPortal />
       </BrowserRouter>
@@ -90,7 +91,7 @@ describe("ClientPortal", () => {
       json: async () => ({ message: "Failed to load" }),
     });
 
-    render(
+    renderWithProviders(
       <BrowserRouter>
         <ClientPortal />
       </BrowserRouter>

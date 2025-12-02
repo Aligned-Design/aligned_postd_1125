@@ -736,9 +736,28 @@ async function runCrawlJobSync(url: string, brandId: string, tenantId: string | 
                   logoUrl: logoUrl || null,
                 });
                 
-                // ✅ LOGGING: If no images persisted, log warning
+                // ✅ ENHANCED: More detailed warning if no images persisted
                 if (persistedImageCount === 0 && allImages.length > 0) {
-                  console.warn(`[Crawler] WARNING: Found ${allImages.length} images but none were persisted. Check persistScrapedImages() for errors.`);
+                  console.error(`[Crawler] ❌ CRITICAL: Found ${allImages.length} image(s) but NONE were persisted.`, {
+                    brandId: brandId,
+                    tenantId: finalTenantId,
+                    url: url,
+                    imagesFound: allImages.length,
+                    imagesPersisted: persistedImageCount,
+                    hint: "Check [ScrapedImages] logs above for detailed failure reasons. Possible causes: DB connectivity issues, schema mismatch, or tenantId validation failure.",
+                  });
+                  console.error(`[Crawler] Detailed error logs should appear above with [ScrapedImages] prefix showing per-image failure reasons.`);
+                } else if (persistedImageCount > 0 && persistedImageCount < allImages.length) {
+                  // Partial success - log as warning (not error)
+                  const failedCount = allImages.length - persistedImageCount;
+                  console.warn(`[Crawler] ⚠️ Partial persistence: ${persistedImageCount}/${allImages.length} images persisted (${failedCount} failed)`, {
+                    brandId: brandId,
+                    tenantId: finalTenantId,
+                    imagesFound: allImages.length,
+                    imagesPersisted: persistedImageCount,
+                    imagesFailed: failedCount,
+                    hint: "Check [ScrapedImages] logs above for failure details. Some images may have been filtered or failed validation.",
+                  });
                 }
               }
             } else {

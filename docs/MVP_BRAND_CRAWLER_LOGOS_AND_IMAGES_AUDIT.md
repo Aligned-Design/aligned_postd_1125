@@ -9,10 +9,25 @@
 > - Environment variables (SUPABASE_SERVICE_ROLE_KEY, etc.) differ
 > - Database migrations have not been applied
 > 
+> **🚨 CRITICAL: `media_assets` Table Verification Required**
+> 
+> **Before testing, verify the `media_assets` table exists with correct structure:**
+> ```sql
+> SELECT column_name, data_type
+> FROM information_schema.columns
+> WHERE table_name = 'media_assets';
+> ```
+> 
+> **This table is 100x more critical than `storage_quotas` because:**
+> - If `media_assets` is missing, wrong, or not deployed: You'll get "Found 15 images but none persisted"
+> - Brand Guide will use fallback `logoUrl`
+> - Step 5 will appear empty
+> 
 > **If real logs still show `AppError: Failed to fetch storage quota` or `persistedCount: 0`, verify:**
-> - The deployed commit includes these fixes
-> - Environment variables are correctly configured
-> - Database schema matches expectations
+> 1. **First:** `media_assets` table exists and has correct structure (see Schema Verification section)
+> 2. **Second:** The deployed commit includes these fixes
+> 3. **Third:** Environment variables are correctly configured
+> 4. **Fourth:** Database migrations are applied
 
 ---
 
@@ -411,23 +426,67 @@ if (logoImages.length === 0 && brandGuide?.logoUrl) {
 
 ## Schema Verification
 
-### Media Assets Table
+### ⚠️ CRITICAL: Media Assets Table
 
 **Table:** `media_assets`  
-**Location:** `supabase/migrations/001_bootstrap_schema.sql` (line 552)
+**Location:** `supabase/migrations/001_bootstrap_schema.sql` (line 552)  
+**Additional Migration:** `supabase/migrations/007_add_media_assets_status_and_rls.sql` (adds `status` column)
 
-**Key Columns:**
+> **🚨 CRITICAL WARNING:** This table matters **100x more than `storage_quotas`** because:
+> - If `media_assets` is missing, wrong, or not deployed in production:
+>   - You'll get "Found 15 images but none persisted"
+>   - Brand Guide will use fallback `logoUrl`
+>   - Step 5 will appear empty
+> - The crawler **cannot function** without this table
+
+**Required Columns (from migrations):**
 - `id` (UUID, primary key)
 - `brand_id` (UUID, FK to brands)
 - `tenant_id` (UUID, FK to tenants, nullable)
-- `path` (TEXT) - For scraped images, contains the external URL
-- `size_bytes` (BIGINT) - For scraped images, always 0
-- `metadata` (JSONB) - Contains `{ source: "scrape", role: "logo"|"hero"|..., ... }`
 - `category` (TEXT) - "logos" or "images"
+- `filename` (TEXT, NOT NULL)
+- `path` (TEXT, NOT NULL) - For scraped images, contains the external URL
+- `hash` (TEXT, nullable)
+- `mime_type` (TEXT, nullable)
+- `size_bytes` (BIGINT, nullable) - For scraped images, always 0
+- `metadata` (JSONB, default '{}') - Contains `{ source: "scrape", role: "logo"|"hero"|..., ... }`
+- `status` (TEXT, default 'active') - Added in migration 007
+- `used_in` (TEXT[], default empty array)
+- `usage_count` (INTEGER, default 0)
+- `created_at` (TIMESTAMPTZ, default NOW())
+- `updated_at` (TIMESTAMPTZ, default NOW())
 
-**Status:** ✅ Table exists and has required columns
+**Verification Query:**
+```sql
+SELECT column_name, data_type, is_nullable, column_default
+FROM information_schema.columns
+WHERE table_name = 'media_assets'
+ORDER BY ordinal_position;
+```
 
-### Storage Quotas Table
+**Expected Output:**
+| column_name | data_type | is_nullable | column_default |
+|-------------|-----------|-------------|----------------|
+| id | uuid | NO | gen_random_uuid() |
+| brand_id | uuid | NO | NULL |
+| tenant_id | uuid | YES | NULL |
+| category | text | YES | NULL |
+| filename | text | NO | NULL |
+| path | text | NO | NULL |
+| hash | text | YES | NULL |
+| mime_type | text | YES | NULL |
+| size_bytes | bigint | YES | NULL |
+| used_in | ARRAY | YES | ARRAY[]::TEXT[] |
+| usage_count | integer | NO | 0 |
+| metadata | jsonb | YES | '{}'::jsonb |
+| status | text | NO | 'active' |
+| created_at | timestamptz | NO | NOW() |
+| updated_at | timestamptz | NO | NOW() |
+
+**Status:** ✅ Table definition exists in migrations  
+**⚠️ Production Verification Required:** Run verification query in production database
+
+### Storage Quotas Table (Less Critical)
 
 **Table:** `storage_quotas`  
 **Location:** `supabase/migrations/001_bootstrap_schema.sql` (line 608)
@@ -440,7 +499,7 @@ if (logoImages.length === 0 && brandGuide?.logoUrl) {
 - `used_bytes` (BIGINT, default 0)
 
 **Status:** ✅ Table exists in migration  
-**Note:** Code handles missing table gracefully (unlimited quota)
+**Note:** Code handles missing table gracefully (unlimited quota fallback). This table is **less critical** than `media_assets` - if it's missing, scraped images will still persist.
 
 ### RLS Policies
 
@@ -463,16 +522,44 @@ if (logoImages.length === 0 && brandGuide?.logoUrl) {
    pnpm dev
    ```
 
-2. **Database Verification:**
-   ```sql
-   -- Check media_assets table exists
-   SELECT column_name, data_type 
-   FROM information_schema.columns 
-   WHERE table_name = 'media_assets';
+2. **⚠️ CRITICAL: Database Verification - Media Assets Table**
    
-   -- Check storage_quotas table exists (optional)
+   **This is the MOST IMPORTANT verification step. If this table is missing or wrong, nothing will work.**
+   
+   ```sql
+   -- Verify media_assets table exists with all required columns
+   SELECT column_name, data_type, is_nullable, column_default
+   FROM information_schema.columns
+   WHERE table_name = 'media_assets'
+   ORDER BY ordinal_position;
+   ```
+   
+   **Required columns check:**
+   ```sql
+   -- Verify critical columns exist
+   SELECT column_name
+   FROM information_schema.columns
+   WHERE table_name = 'media_assets'
+     AND column_name IN ('id', 'brand_id', 'tenant_id', 'path', 'filename', 
+                         'category', 'size_bytes', 'metadata', 'status');
+   ```
+   
+   **Expected:** Should return 9 rows (one for each column)
+   
+   **If any columns are missing:**
+   - Check that migration `001_bootstrap_schema.sql` was applied
+   - Check that migration `007_add_media_assets_status_and_rls.sql` was applied (for `status` column)
+   - **DO NOT PROCEED** until table structure matches expected schema
+   
+   **See:** `docs/MEDIA_ASSETS_TABLE_VERIFICATION.sql` for complete verification script
+
+3. **Storage Quotas Table (Optional - less critical):**
+   ```sql
+   -- Check storage_quotas table exists (optional - code handles missing table gracefully)
    SELECT * FROM storage_quotas LIMIT 1;
    ```
+   
+   **Note:** If this table doesn't exist, code will use unlimited quota fallback. This is acceptable.
 
 ### Test Case: https://806marketing.com
 
@@ -531,6 +618,21 @@ curl -X POST "http://localhost:8080/api/crawl/start?sync=true" \
 
 #### Step 4: Verify Database
 
+**⚠️ CRITICAL: First verify table structure:**
+```sql
+-- Verify media_assets table exists and has correct structure
+SELECT column_name, data_type
+FROM information_schema.columns
+WHERE table_name = 'media_assets'
+ORDER BY ordinal_position;
+```
+
+**If table is missing or columns are wrong:**
+- **STOP HERE** - Do not proceed with testing
+- Apply migrations: `001_bootstrap_schema.sql` and `007_add_media_assets_status_and_rls.sql`
+- Re-run verification query above
+- **This table is required for scraped image persistence to work**
+
 **Query Scraped Images:**
 ```sql
 SELECT 
@@ -545,6 +647,7 @@ FROM media_assets
 WHERE brand_id = '<BRAND_ID>'
   AND path LIKE 'http%'
   AND metadata->>'source' = 'scrape'
+  AND status = 'active'
 ORDER BY 
   CASE category 
     WHEN 'logos' THEN 1 
@@ -553,12 +656,20 @@ ORDER BY
   created_at DESC;
 ```
 
-**Expected Results:**
+**Expected Results (after deployment):**
 - ✅ 2 rows with `category = 'logos'`
 - ✅ 10-15 rows with `category = 'images'`
 - ✅ All rows have `path` starting with `http://` or `https://`
 - ✅ All rows have `metadata->>'source' = 'scrape'`
 - ✅ Logo rows have `metadata->>'role' = 'logo'`
+- ✅ All rows have `status = 'active'`
+
+**If query returns 0 rows:**
+1. **First check:** Is `media_assets` table missing or wrong? (Run table structure query above)
+2. **Second check:** Was crawler run after code deployment?
+3. **Third check:** Verify `brand_id` matches the brand used in crawler
+4. **Fourth check:** Check server logs for persistence errors
+5. **Fifth check:** Verify `SUPABASE_SERVICE_ROLE_KEY` is set correctly (required for server-side inserts)
 
 #### Step 5: Verify Brand Guide API
 
@@ -910,5 +1021,6 @@ curl "http://localhost:8080/api/brand-guide/<BRAND_ID>" \
 - [x] Step 5 shows "No logos/images found" only when arrays empty
 - [x] Step 5 fallback to `logoUrl` if no logos found
 - [x] All TypeScript/lint checks pass
-- [x] No SQL/migration files modified
+- [x] **No SQL/migration files modified** (as required)
+- [x] Only TypeScript/JavaScript files modified
 
