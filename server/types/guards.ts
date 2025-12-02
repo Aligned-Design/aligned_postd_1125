@@ -9,10 +9,15 @@ export const PlatformConnectionRecordSchema = z.object({
   access_token: z.string(),
   refresh_token: z.string().nullable().optional(),
   expires_at: z.string().nullable().optional(),
+  token_expires_at: z.string().nullable().optional(), // Alternative name for expires_at
   is_active: z.boolean(),
   status: z.string(),
   last_sync_at: z.string().nullable().optional(),
+  last_verified_at: z.string().nullable().optional(), // Last time token was verified
   next_sync_at: z.string().nullable().optional(),
+  tenant_id: z.string().nullable().optional(), // Tenant ID for multi-tenant support
+  permissions: z.array(z.string()).nullable().optional(), // Platform permissions/scopes
+  metadata: z.record(z.unknown()).nullable().optional(), // Additional metadata
   created_at: z.string(),
   updated_at: z.string(),
   disconnected_at: z.string().nullable().optional(),

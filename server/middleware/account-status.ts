@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import { AppError } from "../lib/error-middleware";
+import { ErrorCode, HTTP_STATUS } from "../lib/error-responses";
 import {
   canPerformAction,
   getAccountPermissions,
@@ -28,7 +29,7 @@ export async function checkCanPublish(
     const user = req.user as AccountUser | undefined;
 
     if (!user) {
-      return next(new AppError("Unauthorized", 401, "UNAUTHORIZED"));
+      return next(new AppError(ErrorCode.UNAUTHORIZED, "Unauthorized", HTTP_STATUS.UNAUTHORIZED, "warning"));
     }
 
     const daysPastDue = calculateDaysPastDue(user.past_due_since);
@@ -68,7 +69,7 @@ export async function checkCanApprove(
     const user = req.user as AccountUser | undefined;
 
     if (!user) {
-      return next(new AppError("Unauthorized", 401, "UNAUTHORIZED"));
+      return next(new AppError(ErrorCode.UNAUTHORIZED, "Unauthorized", HTTP_STATUS.UNAUTHORIZED, "warning"));
     }
 
     const daysPastDue = calculateDaysPastDue(user.past_due_since);
@@ -107,7 +108,7 @@ export async function checkCanGenerateContent(
     const user = req.user as AccountUser | undefined;
 
     if (!user) {
-      return next(new AppError("Unauthorized", 401, "UNAUTHORIZED"));
+      return next(new AppError(ErrorCode.UNAUTHORIZED, "Unauthorized", HTTP_STATUS.UNAUTHORIZED, "warning"));
     }
 
     const daysPastDue = calculateDaysPastDue(user.past_due_since);
@@ -161,7 +162,7 @@ export async function checkCanManageBrands(
     const user = req.user as AccountUser | undefined;
 
     if (!user) {
-      return next(new AppError("Unauthorized", 401, "UNAUTHORIZED"));
+      return next(new AppError(ErrorCode.UNAUTHORIZED, "Unauthorized", HTTP_STATUS.UNAUTHORIZED, "warning"));
     }
 
     const daysPastDue = calculateDaysPastDue(user.past_due_since);

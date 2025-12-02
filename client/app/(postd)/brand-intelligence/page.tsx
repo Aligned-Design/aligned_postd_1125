@@ -55,7 +55,7 @@ export default function BrandIntelligencePage() {
   if (loading) {
     return (
       <PageShell>
-        <LoadingState label="Loading brand intelligence" />
+        <LoadingState />
       </PageShell>
     );
   }
@@ -67,8 +67,10 @@ export default function BrandIntelligencePage() {
         <PageHeader title="Brand Intelligence" subtitle="AI-powered insights and recommendations" />
         <ErrorState
           title="Unable to Load Brand Intelligence"
-          description={error}
-          onRetry={refresh}
+          message={error}
+          onRetry={() => {
+            void refresh();
+          }}
         />
       </PageShell>
     );

@@ -803,15 +803,16 @@ export const updateScheduledTime: RequestHandler = async (req, res) => {
       );
     }
 
-    // Check if content requires approval (only allow rescheduling approved/scheduled content)
-    if (job.status === "reviewing" || job.status === "draft") {
+    // Only allow rescheduling jobs that are scheduled or pending
+    // Jobs in "processing", "published", or "failed" states cannot be rescheduled
+    if (job.status !== "scheduled" && job.status !== "pending") {
       throw new AppError(
         ErrorCode.FORBIDDEN,
-        "Cannot reschedule content that is not approved",
+        "Cannot reschedule content that is not in scheduled or pending state",
         HTTP_STATUS.FORBIDDEN,
         "warning",
         undefined,
-        "Please approve the content before rescheduling."
+        "Only scheduled or pending jobs can be rescheduled."
       );
     }
 
@@ -834,7 +835,7 @@ export const updateScheduledTime: RequestHandler = async (req, res) => {
         {
           jobId,
           brandId,
-          platform: job.platform,
+          platforms: job.platforms,
           scheduledAt,
           error: error instanceof Error ? error.message : String(error),
         }

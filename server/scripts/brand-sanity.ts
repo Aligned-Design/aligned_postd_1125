@@ -100,9 +100,11 @@ async function listBrandSanity() {
     console.log("\n📋 Brand Guides:");
     if (brands && brands.length > 0) {
       for (const brand of brands.slice(0, 10)) {
-        const brandKit = (brand.brand_kit as any) || {};
-        const voiceSummary = (brand.voice_summary as any) || {};
-        const visualSummary = (brand.visual_summary as any) || {};
+        // Type assertion for DB query result - these fields exist at runtime
+        const brandRecord = brand as any;
+        const brandKit = brandRecord.brand_kit || {};
+        const voiceSummary = brandRecord.voice_summary || {};
+        const visualSummary = brandRecord.visual_summary || {};
 
         const hasBrandGuide = !!(
           brandKit.purpose ||

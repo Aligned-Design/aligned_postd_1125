@@ -359,8 +359,8 @@ describe('Phase 2: Core Routes Integration Tests', () => {
     });
 
     it('should enforce brand isolation on preferences', () => {
-      const prefBrandId = 'brand_1';
-      const requestBrandId = 'brand_2';
+      const prefBrandId: string = 'brand_1';
+      const requestBrandId: string = 'brand_2';
 
       // Preferences should only return for matching brand
       expect(prefBrandId === requestBrandId).toBe(false);

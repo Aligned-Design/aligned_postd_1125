@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -44,11 +44,7 @@ export default function Brands() {
   });
   const [searchQuery, setSearchQuery] = useState("");
 
-  useEffect(() => {
-    loadBrands();
-  }, []);
-
-  const loadBrands = async () => {
+  const loadBrands = useCallback(async () => {
     try {
       // Brands are loaded from context via useBrand hook
       // This component just displays them
@@ -56,7 +52,11 @@ export default function Brands() {
     } catch (error) {
       logError("Failed to load brands", error instanceof Error ? error : new Error(String(error)));
     }
-  };
+  }, [refreshBrands]);
+
+  useEffect(() => {
+    loadBrands();
+  }, [loadBrands]);
 
   const handleCreate = async () => {
     if (!user) return;

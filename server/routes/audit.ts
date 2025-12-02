@@ -13,6 +13,7 @@ import {
   exportAuditLogs,
   getPostAuditTrail,
 } from '../lib/audit-logger';
+import { AuditAction } from '@shared/approvals';
 import type { AuditLogQuery } from '@shared/approvals';
 
 // ==================== TYPES & VALIDATION ====================
@@ -75,7 +76,7 @@ export const getAuditLogs: RequestHandler = async (req, res) => {
       brandId,
       postId: validData.postId,
       actorId: validData.actorId,
-      action: validData.action as unknown,
+      action: validData.action as AuditAction,
       startDate: validData.startDate,
       endDate: validData.endDate,
       limit: validData.limit,

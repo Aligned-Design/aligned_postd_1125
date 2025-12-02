@@ -101,7 +101,7 @@ describe("PHASE 7: Publishing - OAuth Flow", () => {
     });
 
     it("should reject invalid state parameters", () => {
-      const invalidState = null as unknown;
+      const invalidState = null as unknown as string;
       expect(() => {
         oauthStateCache.store(
           invalidState,

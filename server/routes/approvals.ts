@@ -492,7 +492,7 @@ const SEND_TO_DRAFT_ALLOWED = new Set([
 ]);
 const READY_FOR_SCHEDULE_ALLOWED = new Set(["client_review", "approved"]);
 
-const getPendingApprovals: RequestHandler = async (req, res, next) => {
+export const getPendingApprovals: RequestHandler = async (req, res, next) => {
   try {
     const user = getRequestUser(req);
     const { brandId, limit, offset, status, search } =

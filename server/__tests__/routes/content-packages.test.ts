@@ -44,13 +44,8 @@ describe("ContentPackage Routes", () => {
 
   afterEach(async () => {
     // Cleanup test data
-    if (testContentPackage?.id) {
-      try {
-        await ContentPackageStorage.delete(testContentPackage.id);
-      } catch (error) {
-        // Ignore cleanup errors
-      }
-    }
+    // Note: ContentPackageStorage doesn't have a delete method
+    // Test data will be cleaned up by test isolation
   });
 
   describe("POST /api/content-packages", () => {

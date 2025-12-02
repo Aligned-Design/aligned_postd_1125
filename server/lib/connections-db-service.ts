@@ -17,10 +17,15 @@ export interface PlatformConnectionRecord {
   access_token: string;
   refresh_token?: string;
   expires_at?: string;
+  token_expires_at?: string; // Alternative name for expires_at
   is_active: boolean;
   status: string;
   last_sync_at?: string;
+  last_verified_at?: string; // Last time token was verified
   next_sync_at?: string;
+  tenant_id?: string; // Tenant ID for multi-tenant support
+  permissions?: string[]; // Platform permissions/scopes
+  metadata?: Record<string, unknown>; // Additional metadata
   created_at: string;
   updated_at: string;
   disconnected_at?: string;

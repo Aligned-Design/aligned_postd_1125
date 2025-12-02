@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useMemo } from "react";
 import { Calendar, Clock, X, AlertCircle } from "lucide-react";
 import { useRescheduleContent } from "@/hooks/useRescheduleContent";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -15,7 +15,6 @@ export function ScheduleModal({ currentSchedule, onConfirm, onClose }: ScheduleM
   const [autoPublish, setAutoPublish] = useState(currentSchedule?.autoPublish || false);
   const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>(["Instagram", "Facebook"]);
   const { checkSchedule } = useRescheduleContent();
-  const [scheduleSuggestion, setScheduleSuggestion] = useState<string | null>(null);
 
   const platforms = ["Instagram", "Facebook", "Twitter", "LinkedIn", "TikTok"];
 
@@ -26,14 +25,14 @@ export function ScheduleModal({ currentSchedule, onConfirm, onClose }: ScheduleM
   };
 
   // Check schedule preference when date/time changes
-  useEffect(() => {
+  // Use useMemo instead of useEffect + setState to avoid setState in effect
+  const scheduleSuggestion = useMemo(() => {
     if (date && time) {
       const scheduledAt = new Date(`${date}T${time}`);
       const result = checkSchedule(scheduledAt);
-      setScheduleSuggestion(result.isPreferred ? null : result.suggestion || null);
-    } else {
-      setScheduleSuggestion(null);
+      return result.isPreferred ? null : result.suggestion || null;
     }
+    return null;
   }, [date, time, checkSchedule]);
 
   const handleConfirm = () => {

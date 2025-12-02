@@ -1,6 +1,6 @@
 import { Event, EventQuickStats, EVENT_TYPE_CONFIGS } from "@/types/event";
 import { Lightbulb, AlertTriangle, TrendingUp, Zap, Sparkles } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useMemo } from "react";
 
 interface EventInsightsPanelProps {
   events: Event[];
@@ -23,9 +23,8 @@ export function EventInsightsPanel({
   stats,
   onPromoteClick,
 }: EventInsightsPanelProps) {
-  const [insights, setInsights] = useState<Insight[]>([]);
-
-  useEffect(() => {
+  // Use useMemo instead of useEffect + setState to avoid setState in effect
+  const insights = useMemo<Insight[]>(() => {
     const generatedInsights: Insight[] = [];
 
     // Group events by type
@@ -90,10 +89,13 @@ export function EventInsightsPanel({
     }
 
     // Upcoming event within 7 days
+    // Calculate threshold date outside the find callback to avoid impure function call
+    const sevenDaysFromNow = new Date();
+    sevenDaysFromNow.setDate(sevenDaysFromNow.getDate() + 7);
     const imminentEvent = events.find(
       (e) =>
         e.status === "published" ||
-        (e.status === "scheduled" && new Date(e.startDate) <= new Date(Date.now() + 7 * 24 * 60 * 60 * 1000))
+        (e.status === "scheduled" && new Date(e.startDate) <= sevenDaysFromNow)
     );
 
     if (imminentEvent) {
@@ -137,7 +139,7 @@ export function EventInsightsPanel({
       });
     }
 
-    setInsights(generatedInsights.slice(0, 4));
+    return generatedInsights.slice(0, 4);
   }, [events, stats, onPromoteClick]);
 
   const getInsightColors = (type: string) => {

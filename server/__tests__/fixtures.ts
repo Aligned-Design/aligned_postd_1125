@@ -65,9 +65,9 @@ export const mockContentItem: ContentItem = {
   brandId: 'brand-123',
   title: 'Test Post',
   description: 'A test post',
-  content: 'This is test content',
+  content: { body: 'This is test content' }, // JSONB column - must be Record<string, unknown>
   status: 'draft',
-  contentType: 'post',
+  type: 'post', // Matches schema: type TEXT NOT NULL (not contentType)
   createdAt: '2024-01-01T00:00:00Z',
   updatedAt: '2024-01-01T00:00:00Z',
   createdBy: 'user-123',

@@ -139,8 +139,13 @@ export class WebhookHandler {
    */
   private async deliverEvent(eventId: string, event: unknown): Promise<boolean> {
     try {
+      // Type guard for webhook event
+      const webhookEvent = event && typeof event === 'object' && 'attempt_count' in event 
+        ? event as { attempt_count?: number }
+        : { attempt_count: 0 };
+      
       // Log the attempt
-      const attemptNumber = (event?.attempt_count || 0) + 1;
+      const attemptNumber = (webhookEvent.attempt_count || 0) + 1;
       const backoffMs =
         attemptNumber > 1
           ? calculateBackoffDelay(attemptNumber - 1, this.retryConfig)
@@ -189,14 +194,19 @@ export class WebhookHandler {
         `[Webhook] Delivery error for event ${eventId}: ${errorMessage}`,
       );
 
+      // Type guard for webhook event
+      const webhookEvent = event && typeof event === 'object' && 'attempt_count' in event 
+        ? event as { attempt_count?: number }
+        : { attempt_count: 0 };
+      
       // Log the failed attempt
       await webhookAttempts.create({
         event_id: eventId,
-        attempt_number: event.attempt_count + 1,
+        attempt_number: (webhookEvent.attempt_count || 0) + 1,
         status: "failed",
         error: errorMessage,
         backoff_ms: calculateBackoffDelay(
-          event.attempt_count,
+          webhookEvent.attempt_count || 0,
           this.retryConfig,
         ),
       });

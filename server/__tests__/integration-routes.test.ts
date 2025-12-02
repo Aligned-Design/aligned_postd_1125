@@ -91,7 +91,7 @@ describe("Integration Tests - Key Routes", () => {
     it("should return 200 with intelligence data", async () => {
       (mockReq as any).params = { brandId: "test-brand-id" };
 
-      await getBrandIntelligence(mockReq as Request, mockRes as Response);
+      await getBrandIntelligence(mockReq as Request, mockRes as Response, mockNext);
 
       expect(mockRes.status).toHaveBeenCalledWith(200);
       expect(mockRes.json).toHaveBeenCalled();
@@ -109,7 +109,7 @@ describe("Integration Tests - Key Routes", () => {
         "x-brand-id": "test-brand-id",
       };
 
-      await getClientSettings(mockReq as Request, mockRes as Response);
+      await getClientSettings(mockReq as Request, mockRes as Response, mockNext);
 
       expect(mockRes.json).toHaveBeenCalled();
       const jsonCall = (mockRes.json as any).mock.calls[0][0];

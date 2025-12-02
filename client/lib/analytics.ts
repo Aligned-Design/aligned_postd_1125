@@ -1,4 +1,5 @@
 import { logTelemetry } from "./logger";
+import type { LogContext } from "./logger";
 
 /**
  * Analytics wrapper - centralized event tracking
@@ -27,7 +28,8 @@ class Analytics {
     // Example: segment.track(eventName, properties);
     
     // Development-only logging
-    logTelemetry(`[Analytics] ${eventName}`, properties);
+    // Cast to LogContext since all event properties are compatible with index signature
+    logTelemetry(`[Analytics] ${eventName}`, properties as LogContext);
   }
 }
 

@@ -1,7 +1,5 @@
 import "dotenv/config";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-
-// ✅ FIX: Use proper types instead of any
 import type { Express } from "express";
 
 // Create the Express app once and cache it
@@ -31,10 +29,11 @@ async function getApp() {
         const importPath = importPaths[i];
         try {
           console.log(`[Vercel] Attempting import strategy ${i + 1}/${importPaths.length}`);
+          // @ts-expect-error: Dynamic import paths may not resolve at type-check time
           const serverModule = await importPath();
-          // ✅ FIX: Type assertion for server module
-          const moduleWithCreateServer = serverModule as { createServer?: () => Express };
-          createServerFn = moduleWithCreateServer.createServer || undefined;
+          // Type assertion for server module - runtime will have createServer
+          const moduleWithCreateServer = serverModule as { createServer?: () => Express; default?: { createServer?: () => Express } };
+          createServerFn = moduleWithCreateServer.createServer || moduleWithCreateServer.default?.createServer || undefined;
           if (createServerFn && typeof createServerFn === 'function') {
             console.log(`[Vercel] Successfully loaded server module using strategy ${i + 1}`);
             break;
@@ -42,9 +41,10 @@ async function getApp() {
             console.warn(`[Vercel] Strategy ${i + 1} loaded module but createServer is not a function`);
           }
         } catch (error) {
-          const errorMsg = error instanceof Error ? error.message : String(error);
+          const err = error as unknown;
+          const errorMsg = err instanceof Error ? err.message : String(err);
           console.warn(`[Vercel] Import strategy ${i + 1} failed:`, errorMsg);
-          lastError = error instanceof Error ? error : new Error(String(error));
+          lastError = err instanceof Error ? err : new Error(String(err));
           // Continue to next import strategy
         }
       }
@@ -75,7 +75,7 @@ export default async (req: VercelRequest, res: VercelResponse) => {
 
     // Handle the request through the Express app
     // Express expects the app to be called as a middleware function
-    return new Promise((resolve, reject) => {
+    return new Promise<void>((resolve) => {
       // Set timeout to prevent hanging (Vercel has 60s maxDuration)
       const timeout = setTimeout(() => {
         if (!res.headersSent) {
@@ -85,36 +85,41 @@ export default async (req: VercelRequest, res: VercelResponse) => {
             message: "The request took too long to process"
           });
         }
-        resolve(null);
+        resolve();
       }, 55000); // 55 seconds (5s buffer before Vercel's 60s limit)
 
-      // ✅ FIX: VercelRequest/VercelResponse are compatible with Express types
-      // TypeScript will accept these as they share the same shape
-      application(req, res, (err?: unknown) => {
+      // Cast Express app to handle VercelRequest/VercelResponse compatibility
+      // Runtime behavior is correct, types just need to be relaxed
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Express/Vercel type compatibility
+      (application as any)(req as any, res as any, (err?: unknown) => {
         clearTimeout(timeout);
         if (err) {
-          console.error("[Vercel] Error in request handler:", err);
-          console.error("[Vercel] Error stack:", err?.stack);
+          const error = err as unknown;
+          const errorObj = error instanceof Error ? error : { message: String(error), stack: undefined };
+          console.error("[Vercel] Error in request handler:", errorObj);
+          console.error("[Vercel] Error stack:", errorObj.stack);
           if (!res.headersSent) {
             res.status(500).json({ 
               error: "Internal server error",
-              message: err?.message || "An unexpected error occurred",
-              ...(process.env.NODE_ENV === "development" && { stack: err?.stack })
+              message: errorObj.message || "An unexpected error occurred",
+              ...(process.env.NODE_ENV === "development" && { stack: errorObj.stack })
             });
           }
         }
-        resolve(null);
+        resolve();
       });
     });
   } catch (error) {
-    console.error("[Vercel] Fatal error in serverless handler:", error);
-    console.error("[Vercel] Error stack:", error instanceof Error ? error.stack : "No stack");
+    const err = error as unknown;
+    const errorObj = err instanceof Error ? err : { message: String(err), stack: undefined };
+    console.error("[Vercel] Fatal error in serverless handler:", errorObj);
+    console.error("[Vercel] Error stack:", errorObj.stack || "No stack");
     if (!res.headersSent) {
       res.status(500).json({ 
         error: "FUNCTION_INVOCATION_FAILED",
-        message: error instanceof Error ? error.message : "Function invocation failed",
+        message: errorObj.message || "Function invocation failed",
         ...(process.env.NODE_ENV === "development" && { 
-          stack: error instanceof Error ? error.stack : undefined 
+          stack: errorObj.stack 
         })
       });
     }

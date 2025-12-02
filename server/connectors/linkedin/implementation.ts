@@ -127,13 +127,13 @@ export class LinkedInConnector extends BaseConnector {
         );
 
         logger.info(
-          '[LinkedIn] Authentication successful',
           {
             cycleId: this.connectionId,
             tenantId: this.tenantId,
             platform: 'linkedin',
             userId: userInfo.id,
-          }
+          },
+          '[LinkedIn] Authentication successful'
         );
 
         return {
@@ -145,13 +145,13 @@ export class LinkedInConnector extends BaseConnector {
         };
       } catch (error) {
         logger.error(
-          '[LinkedIn] Authentication failed',
-          error instanceof Error ? error : new Error(String(error)),
           {
             tenantId: this.tenantId,
             connectionId: this.connectionId,
             platform: 'linkedin',
-          }
+            error: error instanceof Error ? error.message : String(error),
+          },
+          '[LinkedIn] Authentication failed'
         );
         throw error;
       }
@@ -202,13 +202,13 @@ export class LinkedInConnector extends BaseConnector {
         );
 
         logger.info(
-          '[LinkedIn] Token refreshed',
           {
             cycleId: this.connectionId,
             tenantId: this.tenantId,
             platform: 'linkedin',
             latencyMs: measureLatency,
-          }
+          },
+          '[LinkedIn] Token refreshed'
         );
 
         return {
@@ -220,13 +220,13 @@ export class LinkedInConnector extends BaseConnector {
         };
       } catch (error) {
         logger.error(
-          '[LinkedIn] Token refresh failed',
-          error instanceof Error ? error : new Error(String(error)),
           {
             tenantId: this.tenantId,
             connectionId: this.connectionId,
             platform: 'linkedin',
-          }
+            error: error instanceof Error ? error.message : String(error),
+          },
+          '[LinkedIn] Token refresh failed'
         );
         throw error;
       }

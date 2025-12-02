@@ -341,9 +341,11 @@ export const searchStockImages: RequestHandler = async (req, res, next) => {
       page: queryParams.page,
       hasMore,
       provider: queryParams.provider,
-      // Pixabay requires showing source when displaying search results
-      attributionNotice: queryParams.provider === "pixabay" 
-        ? "Images from Pixabay - Please show where images are from when displaying search results."
+      // Provide attribution notices based on provider
+      attributionNotice: queryParams.provider === "pexels"
+        ? "Images from Pexels"
+        : queryParams.provider === "pixabay"
+        ? "Images from Pixabay"
         : undefined,
     });
   } catch (error) {

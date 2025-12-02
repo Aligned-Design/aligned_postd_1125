@@ -106,12 +106,12 @@ export class MetaConnector extends BaseConnector {
         );
 
         logger.info(
-          'Meta authentication successful',
           {
             tenantId: this.tenantId,
             platform: 'meta',
             userId: userInfo.id,
-          }
+          },
+          'Meta authentication successful'
         );
 
         return {
@@ -123,12 +123,12 @@ export class MetaConnector extends BaseConnector {
         };
       } catch (error) {
         logger.error(
-          'Meta authentication failed',
-          error instanceof Error ? error : new Error(String(error)),
           {
             platform: 'meta',
             tenantId: this.tenantId,
-          }
+            error: error instanceof Error ? error.message : String(error),
+          },
+          'Meta authentication failed'
         );
         throw error;
       }
@@ -156,12 +156,12 @@ export class MetaConnector extends BaseConnector {
         );
 
         logger.info(
-          'Meta token refresh successful',
           {
             tenantId: this.tenantId,
             platform: 'meta',
             expiresIn: tokenResponse.expiresIn,
-          }
+          },
+          'Meta token refresh successful'
         );
 
         return {
@@ -173,13 +173,13 @@ export class MetaConnector extends BaseConnector {
         };
       } catch (error) {
         logger.error(
-          'Meta token refresh failed',
-          error instanceof Error ? error : new Error(String(error)),
           {
             platform: 'meta',
             tenantId: this.tenantId,
             connectionId: this.connectionId,
-          }
+            error: error instanceof Error ? error.message : String(error),
+          },
+          'Meta token refresh failed'
         );
         throw error;
       }

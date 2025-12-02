@@ -243,7 +243,9 @@ export class PreferencesDBService {
       );
     }
 
-    return (data || []).map((item: unknown) => ({
+    // Type guard for database row
+    type BrandPreferencesRow = { brand_id: string; preferences: Record<string, unknown> };
+    return ((data || []) as BrandPreferencesRow[]).map((item) => ({
       brandId: item.brand_id,
       preferences: {
         ...DEFAULT_PREFERENCES,
@@ -260,7 +262,9 @@ export class PreferencesDBService {
     brandId: string
   ): Promise<Record<string, unknown>> {
     const prefs = await this.getPreferences(userId, brandId);
-    return (prefs as unknown).notifications || DEFAULT_PREFERENCES.notifications;
+    return (prefs && typeof prefs === 'object' && 'notifications' in prefs && prefs.notifications && typeof prefs.notifications === 'object') 
+      ? prefs.notifications as Record<string, unknown>
+      : DEFAULT_PREFERENCES.notifications;
   }
 
   /**
@@ -274,7 +278,9 @@ export class PreferencesDBService {
     const updated = await this.updatePreferences(userId, brandId, {
       notifications: notificationPrefs,
     });
-    return (updated as unknown).notifications || {};
+    return (updated && typeof updated === 'object' && 'notifications' in updated && updated.notifications && typeof updated.notifications === 'object')
+      ? updated.notifications as Record<string, unknown>
+      : {};
   }
 
   /**

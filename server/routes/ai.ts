@@ -29,21 +29,23 @@ export const generateContent: RequestHandler = asyncHandler(async (req, res) => 
     );
   }
 
-  const content = await generateWithAI(prompt, agentType, provider);
+  const result = await generateWithAI(prompt, agentType, provider);
 
   const response: AIGenerationResponse = {
-    content,
+    content: result.content,
     provider: provider || getDefaultProvider(),
     agentType
   };
 
-  (res as any).json(response);
+  res.json(response);
 });
 
 export const getProviderStatus: RequestHandler = (req, res) => {
+  const availableProviders = getAvailableProviders();
   const response: AIProviderStatus = {
-    available: getAvailableProviders(),
-    default: getDefaultProvider()
+    provider: getDefaultProvider() === "openai" ? "openai" : "anthropic",
+    available: availableProviders.length > 0,
+    modelName: getDefaultProvider() === "openai" ? "gpt-4" : "claude-3-opus"
   };
-  (res as any).json(response);
+  res.json(response);
 };

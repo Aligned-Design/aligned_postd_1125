@@ -41,6 +41,21 @@ export interface PublishingLogRecord {
   created_at: string;
 }
 
+// Minimal interface for platform stats query results
+interface PlatformStatsRow {
+  platform: string;
+  status: string;
+}
+
+// Typed stats structure
+interface PlatformStat {
+  total: number;
+  published: number;
+  failed: number;
+  pending: number;
+  successRate: number;
+}
+
 export class PublishingDBService {
   /**
    * Create a new publishing job in the database
@@ -356,7 +371,7 @@ export class PublishingDBService {
   async getPlatformStats(
     brandId: string,
     days: number = 30,
-  ): Promise<Record<string, unknown>> {
+  ): Promise<Record<string, PlatformStat>> {
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - days);
 
@@ -369,11 +384,15 @@ export class PublishingDBService {
     if (error)
       throw new Error(`Failed to fetch platform stats: ${error.message}`);
 
+    // Type the data properly
+    const logs = (data || []) as PlatformStatsRow[];
+
     // Aggregate stats by platform and status
-    const stats: Record<string, unknown> = {};
-    (data as unknown[]).forEach((log) => {
-      if (!stats[log.platform]) {
-        stats[log.platform] = {
+    const stats: Record<string, PlatformStat> = {};
+    logs.forEach((log) => {
+      const platform = log.platform;
+      if (!stats[platform]) {
+        stats[platform] = {
           total: 0,
           published: 0,
           failed: 0,
@@ -382,12 +401,22 @@ export class PublishingDBService {
         };
       }
 
-      stats[log.platform].total++;
-      stats[log.platform][log.status]++;
+      const stat = stats[platform];
+      stat.total++;
+      
+      // Increment status counter
+      const status = log.status;
+      if (status === "published") {
+        stat.published++;
+      } else if (status === "failed") {
+        stat.failed++;
+      } else if (status === "pending" || status === "processing") {
+        stat.pending++;
+      }
 
-      if (stats[log.platform].total > 0) {
-        stats[log.platform].successRate =
-          (stats[log.platform].published / stats[log.platform].total) * 100;
+      // Calculate success rate
+      if (stat.total > 0) {
+        stat.successRate = (stat.published / stat.total) * 100;
       }
     });
 

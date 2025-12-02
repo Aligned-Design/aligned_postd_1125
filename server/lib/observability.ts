@@ -25,7 +25,7 @@ import { v4 as uuidv4 } from 'uuid';
 
 const isProduction = process.env.NODE_ENV === 'production';
 
-export const logger = pino({
+const _pinoLogger = pino({
   level: process.env.LOG_LEVEL || (isProduction ? 'info' : 'debug'),
   transport: isProduction
     ? undefined // In production, pino sends to stdout for ECS/Lambda log aggregation
@@ -47,9 +47,27 @@ export const logger = pino({
     res: (res: any) => ({
       statusCode: res.statusCode,
     }),
-    error: pino.stdSerializers.err,
+    error: (err: any) => ({
+      name: err?.name || 'Error',
+      message: err?.message || String(err),
+      stack: err?.stack,
+      code: err?.code,
+    }),
   },
 });
+
+// Export logger with proper types that support structured logging
+// Pino supports both logger.info(obj, msg) and logger.info(msg) formats
+export const logger = _pinoLogger as any as {
+  debug(obj: Record<string, any>, msg?: string): void;
+  debug(msg: string): void;
+  info(obj: Record<string, any>, msg?: string): void;
+  info(msg: string): void;
+  warn(obj: Record<string, any>, msg?: string): void;
+  warn(msg: string): void;
+  error(obj: Record<string, any>, msg?: string): void;
+  error(msg: string): void;
+};
 
 // ============================================================================
 // STRUCTURED LOGGING CONTEXT
@@ -80,7 +98,21 @@ export function log(context: LogContext, level: 'debug' | 'info' | 'warn' | 'err
     timestamp: new Date().toISOString(),
   };
 
-  logger[level](logData, message);
+  // Call logger method directly to preserve overload types
+  switch (level) {
+    case 'debug':
+      logger.debug(logData, message);
+      break;
+    case 'info':
+      logger.info(logData, message);
+      break;
+    case 'warn':
+      logger.warn(logData, message);
+      break;
+    case 'error':
+      logger.error(logData, message);
+      break;
+  }
 }
 
 // ============================================================================

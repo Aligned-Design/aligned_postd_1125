@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -28,16 +28,7 @@ export default function BrandSnapshot() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!brandId) {
-      navigate("/brands");
-      return;
-    }
-
-    fetchBrand();
-  }, [brandId]);
-
-  const fetchBrand = async () => {
+  const fetchBrand = useCallback(async () => {
     if (!brandId) return;
 
     try {
@@ -60,12 +51,21 @@ export default function BrandSnapshot() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [brandId, toast]);
+
+  useEffect(() => {
+    if (!brandId) {
+      navigate("/brands");
+      return;
+    }
+
+    fetchBrand();
+  }, [brandId, navigate, fetchBrand]);
 
   if (loading) {
     return (
       <PageShell>
-        <LoadingState label="Loading your brand snapshot" />
+        <LoadingState />
       </PageShell>
     );
   }

@@ -25,8 +25,8 @@ import {
 
 const studioRouter = Router();
 
-// Extended request interface
-interface AuthenticatedRequest extends Request {
+// Extended request interface - using type instead of interface to avoid TS2430
+type AuthenticatedRequest = Request & {
   user?: {
     id?: string;
     brandId?: string;
@@ -38,7 +38,7 @@ interface AuthenticatedRequest extends Request {
     userId?: string;
     brandIds?: string[];
   };
-}
+};
 
 // Validation schemas - match shared types
 const saveDesignSchema = z.object({

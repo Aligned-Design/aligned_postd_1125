@@ -7,7 +7,7 @@
 
 import { createClient } from '@supabase/supabase-js';
 import { logger, recordMetric } from '../observability';
-import { ErrorCode } from './error-taxonomy';
+import { ErrorCode } from '../errors/error-taxonomy';
 
 /**
  * Connection status values

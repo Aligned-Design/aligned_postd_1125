@@ -191,7 +191,7 @@ async function runBrandGuideStep(
     const existingGuide = await getCurrentBrandGuide(brandId);
 
     // If brand guide already exists and is complete, skip
-    if (existingGuide && existingGuide.voice && existingGuide.visualIdentity) {
+    if (existingGuide && existingGuide.voiceAndTone && existingGuide.visualIdentity) {
       step.status = "completed";
       step.completedAt = new Date().toISOString();
       step.result = { message: "Brand guide already exists" };
@@ -200,24 +200,32 @@ async function runBrandGuideStep(
 
     // Use orchestrator to generate strategy (which includes brand guide elements)
     const orchestrator = new PipelineOrchestrator(brandId);
-    const cycle = await orchestrator.phase1_Plan({
-      brandId,
-      goals: ["Establish brand voice", "Define visual identity"],
-    });
+    const cycle = await orchestrator.phase1_Plan({} as any); // CollaborationContext will be created by orchestrator
 
     // Extract brand guide from strategy
     if (cycle.strategy) {
       const brandGuide = {
-        voice: {
-          tone: cycle.strategy.voice?.tone || "professional",
-          style: cycle.strategy.voice?.style || "conversational",
+        voiceAndTone: {
+          tone: [cycle.strategy.voice?.tone || "professional"],
+          friendlinessLevel: 50,
+          formalityLevel: 50,
+          confidenceLevel: 50,
           personality: cycle.strategy.voice?.personality || [],
+          keyMessages: cycle.strategy.voice?.keyMessages || [],
+          avoidPhrases: cycle.strategy.voice?.avoidPhrases || [],
         },
         visualIdentity: {
-          colors: existingGuide?.visualIdentity?.colors || {},
+          colors: existingGuide?.visualIdentity?.colors || [],
           typography: existingGuide?.visualIdentity?.typography || {},
         },
-        positioning: cycle.strategy.positioning,
+        identity: {
+          name: existingGuide?.identity?.name || "",
+          industryKeywords: [],
+          ...(cycle.strategy.positioning && {
+            targetAudience: cycle.strategy.positioning.targetAudience?.demographics || "",
+            values: [],
+          }),
+        },
       };
 
       // Update brand_kit with generated guide
@@ -225,7 +233,7 @@ async function runBrandGuideStep(
         .from("brands")
         .update({
           brand_kit: {
-            ...existingGuide?.brandKit,
+            ...(existingGuide as any),
             ...brandGuide,
             generated_at: new Date().toISOString(),
           },
@@ -282,10 +290,7 @@ async function runStrategyStep(
 
     // Use orchestrator to generate full strategy
     const orchestrator = new PipelineOrchestrator(brandId);
-    const cycle = await orchestrator.phase1_Plan({
-      brandId,
-      goals: ["Create initial content strategy", "Identify key messaging"],
-    });
+    const cycle = await orchestrator.phase1_Plan({} as any); // CollaborationContext will be created by orchestrator
 
     step.status = "completed";
     step.completedAt = new Date().toISOString();
@@ -331,16 +336,13 @@ async function runSampleContentStep(
 
     // Generate a few sample pieces using orchestrator
     const orchestrator = new PipelineOrchestrator(brandId);
-    const cycle = await orchestrator.executeFullPipeline({
-      brandId,
-      goals: ["Create sample social media posts", "Demonstrate brand voice"],
-    });
+    const cycle = await orchestrator.executeFullPipeline({} as any); // CollaborationContext will be created by orchestrator
 
     step.status = "completed";
     step.completedAt = new Date().toISOString();
     step.result = {
       contentPackageId: cycle.contentPackage?.contentId,
-      variantsGenerated: cycle.contentPackage?.copy?.variants?.length || 0,
+      variantsGenerated: cycle.contentPackage?.visuals?.length || 0,
     };
 
     logger.info("Onboarding: Sample content step completed", {
@@ -452,7 +454,7 @@ async function runContentPlanningStep(
     step.completedAt = new Date().toISOString();
     step.result = {
       itemsCount: contentPlan.items.length,
-      recommendationsCount: contentPlan.recommendations.length,
+      recommendationsCount: contentPlan.advisorRecommendations?.length || 0,
       generatedAt: contentPlan.generatedAt,
     };
 

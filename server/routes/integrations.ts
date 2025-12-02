@@ -414,11 +414,11 @@ router.get("/:integrationId/sync-events", validateParams(IntegrationIdParamSchem
     const syncEvents: SyncEvent[] = syncEventsData.map((event) => ({
       id: event.id,
       integrationId,
-      type: event.event_type,
-      action: 'sync',
+      type: event.event_type as 'content' | 'analytics' | 'tasks' | 'contacts' | 'campaigns',
+      action: 'sync' as const,
       sourceId: integrationId,
-      data: {},
-      status: event.status as 'pending' | 'completed' | 'failed',
+      data: {} as unknown,
+      status: event.status as 'pending' | 'processing' | 'completed' | 'failed',
       attempts: 0,
       scheduledAt: event.created_at,
     }));

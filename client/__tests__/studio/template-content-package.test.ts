@@ -18,6 +18,8 @@ describe("template-content-package", () => {
     width: 1080,
     height: 1080,
     backgroundColor: "#ffffff",
+    brandId: mockBrandId,
+    savedToLibrary: false,
     items: [
       {
         id: "text-1",
@@ -187,6 +189,8 @@ describe("template-content-package", () => {
     const designWithoutText: Design = {
       ...mockTemplateDesign,
       items: [],
+      brandId: mockBrandId,
+      savedToLibrary: false,
     };
 
     const contentPackage = createContentPackageFromTemplate(

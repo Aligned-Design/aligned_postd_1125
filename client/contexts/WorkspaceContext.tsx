@@ -72,29 +72,28 @@ const INITIAL_WORKSPACES: Workspace[] = [
 ];
 
 export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
-  const [workspaces, setWorkspaces] = useState<Workspace[]>(INITIAL_WORKSPACES);
-  const [currentWorkspaceId, setCurrentWorkspaceIdState] = useState<string>("ws-abd");
-  const [isHydrated, setIsHydrated] = useState(false);
-
-  // Load from localStorage on mount
-  useEffect(() => {
-    const saved = localStorage.getItem("Aligned:lastWorkspaceId");
+  // Load from localStorage using initial state function to avoid setState in effect
+  const [workspaces, setWorkspaces] = useState<Workspace[]>(() => {
     const savedWorkspaces = localStorage.getItem("Aligned:workspaces");
-
     if (savedWorkspaces) {
       try {
-        setWorkspaces(JSON.parse(savedWorkspaces));
+        return JSON.parse(savedWorkspaces);
       } catch (e) {
         console.error("Failed to parse saved workspaces", e);
       }
     }
-
-    if (saved && workspaces.some((w) => w.id === saved)) {
-      setCurrentWorkspaceIdState(saved);
+    return INITIAL_WORKSPACES;
+  });
+  
+  const [currentWorkspaceId, setCurrentWorkspaceIdState] = useState<string>(() => {
+    const saved = localStorage.getItem("Aligned:lastWorkspaceId");
+    if (saved && INITIAL_WORKSPACES.some((w) => w.id === saved)) {
+      return saved;
     }
-
-    setIsHydrated(true);
-  }, []);
+    return "ws-abd";
+  });
+  
+  const [isHydrated] = useState(true); // Always hydrated when using initial state
 
   // Persist to localStorage
   useEffect(() => {
@@ -190,15 +189,16 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   const effectiveWorkspaceId = effectiveWorkspace?.id || currentWorkspaceId;
 
   // Auto-select first workspace if current is missing (silent, no error)
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- Need to sync workspace selection when workspaces array changes
   useEffect(() => {
-    if (isHydrated && !currentWorkspace && workspaces.length > 0) {
+    if (!currentWorkspace && workspaces.length > 0) {
       const firstWorkspace = workspaces[0];
       if (firstWorkspace && firstWorkspace.id !== currentWorkspaceId) {
         console.log("[WorkspaceContext] Auto-selecting first workspace:", firstWorkspace.name);
         setCurrentWorkspaceIdState(firstWorkspace.id);
       }
     }
-  }, [isHydrated, currentWorkspace, workspaces, currentWorkspaceId]);
+  }, [currentWorkspace, workspaces, currentWorkspaceId]);
 
   // Always provide the WorkspaceContext to children. While hydration is pending,
   // the context will still be available with initial values. This prevents children

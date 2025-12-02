@@ -115,7 +115,7 @@ function dbJobToQueueJob(dbJob: unknown): PublishingJob {
     postId: parsed.id, // Use same ID as job ID
     platform: (platforms[0] as Platform) || ("instagram" as Platform),
     connectionId: `${platforms[0] || "unknown"}-${parsed.brand_id}`,
-    status: parsed.status as unknown,
+    status: parsed.status as "published" | "pending" | "processing" | "failed" | "cancelled",
     scheduledAt: parsed.scheduled_at,
     publishedAt: parsed.published_at,
     platformPostId: undefined,

@@ -34,14 +34,21 @@ export function AIGenerationProgress({
   generatedCount = 0,
   targetCount = 3,
 }: AIGenerationProgressProps) {
-  const [elapsedTime, setElapsedTime] = useState(0);
-  const [progressPercent, setProgressPercent] = useState(0);
+  // Reset when generation starts - use initial state function
+  const [elapsedTime, setElapsedTime] = useState(() => {
+    return status === "generating" ? 0 : 0;
+  });
+  const [progressPercent, setProgressPercent] = useState(() => {
+    return status === "generating" ? 0 : status === "success" ? 100 : 0;
+  });
 
   // Reset when generation starts
   useEffect(() => {
     if (status === "generating") {
       setElapsedTime(0);
       setProgressPercent(0);
+    } else if (status === "success") {
+      setProgressPercent(100);
     }
   }, [status]);
 
@@ -49,18 +56,16 @@ export function AIGenerationProgress({
   useEffect(() => {
     if (status === "generating") {
       const interval = setInterval(() => {
-        setElapsedTime((prev) => prev + 0.1);
-        setProgressPercent((prev) => {
-          const newProgress = Math.min(90, (elapsedTime / estimatedTime) * 100);
-          return newProgress;
+        setElapsedTime((prev) => {
+          const newElapsed = prev + 0.1;
+          setProgressPercent(Math.min(90, (newElapsed / estimatedTime) * 100));
+          return newElapsed;
         });
       }, 100);
 
       return () => clearInterval(interval);
-    } else if (status === "success") {
-      setProgressPercent(100);
     }
-  }, [status, elapsedTime, estimatedTime]);
+  }, [status, estimatedTime]);
 
   const getStatusMessage = () => {
     switch (type) {

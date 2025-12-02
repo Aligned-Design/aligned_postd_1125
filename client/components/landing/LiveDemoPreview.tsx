@@ -2,18 +2,13 @@ import { Calendar, TrendingUp, CheckCircle, Zap } from "lucide-react";
 import { useEffect, useState } from "react";
 
 export function LiveDemoPreview() {
-  const [isAnimating, setIsAnimating] = useState(false);
+  // Use initial state instead of setState in effect
+  const [isAnimating] = useState(true);
   const [displayedStats, setDisplayedStats] = useState({
     posts: 0,
     engagement: 0,
     approvals: 0,
   });
-
-  useEffect(() => {
-    setIsAnimating(true);
-    const timer = setTimeout(() => setIsAnimating(true), 100);
-    return () => clearTimeout(timer);
-  }, []);
 
   // Animate stats counting up
   useEffect(() => {

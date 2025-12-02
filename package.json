@@ -27,7 +27,7 @@
     "test:ci": "vitest --run",
     "format.fix": "prettier --write .",
     "format": "prettier --check .",
-    "lint": "eslint . --ext .ts,.tsx,.js,.jsx",
+    "lint": "eslint . --ext .ts,.tsx,.js,.jsx --max-warnings 500",
     "lint:fix": "eslint . --ext .ts,.tsx,.js,.jsx --fix",
     "typecheck": "tsc",
     "validate:env": "tsx server/utils/validate-env.ts",
@@ -36,6 +36,7 @@
     "security:check": "npm audit && npm run validate:security",
     "test:agents:latency": "tsx scripts/smoke-agents.ts",
     "audit:customer": "tsx scripts/customer-facing-audit.ts",
+    "validate:customer-experience": "tsx scripts/validate-customer-experience.ts",
     "test:launch": "tsx server/scripts/launch-readiness.ts",
     "test:schema-align": "tsx server/scripts/schema-alignment-smoke-test.ts",
     "predeploy": "npm run security:check && npm run typecheck && npm run lint && npm run test"

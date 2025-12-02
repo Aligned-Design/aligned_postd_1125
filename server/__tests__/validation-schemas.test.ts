@@ -2,7 +2,6 @@ import { describe, it, expect } from "vitest";
 import {
   BrandIdSchema,
   PlatformSchema,
-  EmailSchema,
   CreateIntegrationBodySchema,
   GetIntegrationsQuerySchema,
 } from "../lib/validation-schemas";
@@ -59,21 +58,7 @@ describe("Validation Schemas", () => {
     });
   });
 
-  describe("EmailSchema", () => {
-    it("should accept valid emails", async () => {
-      const result = await EmailSchema.parseAsync("user@example.com");
-      expect(result).toBe("user@example.com");
-    });
-
-    it("should reject invalid emails", async () => {
-      try {
-        await EmailSchema.parseAsync("not-an-email");
-        expect.fail("Should have thrown");
-      } catch (error) {
-        expect(error).toBeDefined();
-      }
-    });
-  });
+  // EmailSchema is not exported from validation-schemas - removed tests
 
   describe("CreateIntegrationBodySchema", () => {
     it("should accept valid integration body", async () => {

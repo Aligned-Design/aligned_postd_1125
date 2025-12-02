@@ -4,8 +4,8 @@ import { whiteLabelDB } from '../lib/white-label-db-service';
 import { AppError } from '../lib/error-middleware';
 import { ErrorCode, HTTP_STATUS } from '../lib/error-responses';
 
-// Extended request interface with user context
-interface AuthenticatedRequest extends Request {
+// Extended request interface with user context - using type instead of interface to avoid TS2430
+type AuthenticatedRequest = Request & {
   user?: {
     id?: string;
     agencyId?: string;
@@ -14,7 +14,7 @@ interface AuthenticatedRequest extends Request {
   };
   agencyId?: string;
   userId?: string;
-}
+};
 
 // Helper function to map database record to API response
 function mapWhiteLabelRecord(record: unknown): WhiteLabelConfig {

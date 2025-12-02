@@ -46,7 +46,7 @@ export class InstagramAPI {
       );
 
       if (!containerResponse.ok) {
-        const error = (await containerResponse.json()) as unknown;
+        const error = (await containerResponse.json()) as { error?: { message?: string; code?: string } };
         return {
           success: false,
           error: error.error?.message || "Failed to create media container",
@@ -55,7 +55,7 @@ export class InstagramAPI {
         };
       }
 
-      const container = (await containerResponse.json()) as unknown;
+      const container = (await containerResponse.json()) as { id?: string };
 
       // Step 2: Publish container
       const publishResponse = await fetch(
@@ -71,7 +71,7 @@ export class InstagramAPI {
       );
 
       if (!publishResponse.ok) {
-        const error = (await publishResponse.json()) as unknown;
+        const error = (await publishResponse.json()) as { error?: { message?: string; code?: string } };
         return {
           success: false,
           error: error.error?.message || "Failed to publish media",
@@ -80,7 +80,7 @@ export class InstagramAPI {
         };
       }
 
-      const result = (await publishResponse.json()) as unknown;
+      const result = (await publishResponse.json()) as { id?: string };
 
       return {
         success: true,
@@ -120,7 +120,7 @@ export class FacebookAPI {
 
       // Add media if provided
       if (content.images?.[0]) {
-        body.link = content.images[0];
+        (body as { link?: string }).link = content.images[0];
       }
 
       const response = await fetch(`${this.baseUrl}/${this.pageId}/feed`, {
@@ -130,21 +130,23 @@ export class FacebookAPI {
       });
 
       if (!response.ok) {
-        const error = (await response.json()) as unknown;
+        const error = (await response.json()) as { error?: { message?: string; code?: string } } | unknown;
+        const errorObj = error && typeof error === 'object' && 'error' in error && error.error && typeof error.error === 'object' ? error.error : null;
         return {
           success: false,
-          error: error.error?.message || "Failed to publish post",
-          errorCode: error.error?.code,
+          error: (errorObj && 'message' in errorObj && typeof errorObj.message === 'string' ? errorObj.message : null) || "Failed to publish post",
+          errorCode: errorObj && 'code' in errorObj && typeof errorObj.code === 'string' ? errorObj.code : undefined,
           errorDetails: error,
         };
       }
 
-      const result = (await response.json()) as unknown;
+      const result = (await response.json()) as { id?: string } | unknown;
+      const resultId = result && typeof result === 'object' && 'id' in result && typeof result.id === 'string' ? result.id : undefined;
 
       return {
         success: true,
-        platformPostId: result.id,
-        platformUrl: `https://facebook.com/${result.id}`,
+        platformPostId: resultId,
+        platformUrl: resultId ? `https://facebook.com/${resultId}` : undefined,
       };
     } catch (error) {
       return {
@@ -185,7 +187,7 @@ export class LinkedInAPI {
 
       // Add media if provided
       if (content.images?.[0]) {
-        body.content = {
+        (body as { content?: { media?: { id: string } } }).content = {
           media: {
             id: content.images[0],
           },
@@ -203,11 +205,11 @@ export class LinkedInAPI {
       });
 
       if (!response.ok) {
-        const error = (await response.json()) as unknown;
+        const error = (await response.json()) as { message?: string; status?: number };
         return {
           success: false,
           error: error.message || "Failed to publish post",
-          errorCode: error.status,
+          errorCode: error.status?.toString(),
           errorDetails: error,
         };
       }
@@ -250,7 +252,7 @@ export class TwitterAPI {
       // Twitter media handling
       if (content.images?.[0]) {
         // Note: In production, would need to upload media first to get media_ids
-        body.media = {
+        (body as { media?: { media_ids: string[] } }).media = {
           media_ids: [content.images[0]],
         };
       }
@@ -265,7 +267,7 @@ export class TwitterAPI {
       });
 
       if (!response.ok) {
-        const error = (await response.json()) as unknown;
+        const error = (await response.json()) as { detail?: string; type?: string };
         return {
           success: false,
           error: error.detail || "Failed to publish tweet",
@@ -274,7 +276,7 @@ export class TwitterAPI {
         };
       }
 
-      const result = (await response.json()) as unknown;
+      const result = (await response.json()) as { data?: { id?: string } };
 
       return {
         success: true,
@@ -316,7 +318,7 @@ export class GoogleBusinessAPI {
 
       // Add media if provided
       if (content.images?.[0]) {
-        postData.media = [
+        (postData as { media?: Array<{ mediaFormat: string; sourceUrl: string }> }).media = [
           {
             mediaFormat: "IMAGE",
             sourceUrl: content.images[0],
@@ -337,7 +339,7 @@ export class GoogleBusinessAPI {
       );
 
       if (!response.ok) {
-        const error = (await response.json()) as unknown;
+        const error = (await response.json()) as { error?: { message?: string; code?: string } };
         return {
           success: false,
           error: error.error?.message || "Failed to publish post",
@@ -346,7 +348,7 @@ export class GoogleBusinessAPI {
         };
       }
 
-      const result = (await response.json()) as unknown;
+      const result = (await response.json()) as { name?: string };
 
       return {
         success: true,

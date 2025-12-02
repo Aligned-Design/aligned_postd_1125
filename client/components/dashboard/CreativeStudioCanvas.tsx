@@ -1,4 +1,4 @@
-import { useRef, useState, useCallback, useEffect } from "react";
+import { useRef, useState, useCallback, useEffect, useMemo } from "react";
 import { Trash2, RotateCw, Image as ImageIcon } from "lucide-react";
 import { Design, CanvasItem } from "@/types/creativeStudio";
 import { logError } from "@/lib/logger";
@@ -67,66 +67,77 @@ export function CreativeStudioCanvas({
   const textInputRef = useRef<HTMLTextAreaElement>(null);
 
   const canvasScale = zoom / 100;
+  const previousCroppingItemIdRef = useRef<string | null | undefined>(croppingItemId);
+  const previousCropAspectRatioRef = useRef<string | undefined>(cropAspectRatio);
 
-  // Initialize crop state when entering crop mode
+  // Compute initial crop state when entering crop mode
   // Crop coordinates are normalized (0-1) relative to image dimensions for scalability
-  useEffect(() => {
-    if (croppingItemId && !cropState) {
+  const initialCropState = useMemo<CropState | null>(() => {
+    if (croppingItemId) {
       const item = design.items.find((i) => i.id === croppingItemId);
       if (item && item.type === "image") {
         // Initialize crop to full image or use existing crop
         // Ensure crop values are valid (0-1 range, width/height > 0)
         const existingCrop = item.crop;
-        setCropState({
+        return {
           itemId: croppingItemId,
           x: Math.max(0, Math.min(1, existingCrop?.x ?? 0)),
           y: Math.max(0, Math.min(1, existingCrop?.y ?? 0)),
           width: Math.max(0.1, Math.min(1, existingCrop?.width ?? 1)),
           height: Math.max(0.1, Math.min(1, existingCrop?.height ?? 1)),
           aspectRatio: cropAspectRatio,
-        });
+        };
       }
-    } else if (!croppingItemId && cropState) {
-      // Clean up crop state when exiting crop mode
+    }
+    return null;
+  }, [croppingItemId, design.items, cropAspectRatio]);
+
+  // Initialize crop state when entering crop mode or update when aspect ratio changes
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- cropState is also updated by user interactions, so we need to sync computed state
+  useEffect(() => {
+    // Initialize when entering crop mode
+    if (croppingItemId && !cropState && initialCropState) {
+      setCropState(initialCropState);
+      setCropResizing(null);
+      previousCroppingItemIdRef.current = croppingItemId;
+    } 
+    // Clean up when exiting crop mode
+    else if (!croppingItemId && cropState) {
       setCropState(null);
       setCropResizing(null);
+      previousCroppingItemIdRef.current = null;
     }
-  }, [croppingItemId, cropState, design.items, cropAspectRatio]);
+    // Update aspect ratio when it changes
+    else if (cropState && cropAspectRatio !== previousCropAspectRatioRef.current && cropAspectRatio !== cropState.aspectRatio) {
+      // Adjust crop to maintain aspect ratio
+      const [w, h] = cropAspectRatio === "free" ? [1, 1] : cropAspectRatio.split(":").map(Number);
+      const targetRatio = w / h;
+      const currentRatio = cropState.width / cropState.height;
 
-  // Update crop aspect ratio when it changes
-  useEffect(() => {
-    if (cropState && cropAspectRatio !== cropState.aspectRatio) {
-      setCropState((prev) => {
-        if (!prev) return prev;
-        // Adjust crop to maintain aspect ratio
-        const [w, h] = cropAspectRatio === "free" ? [1, 1] : cropAspectRatio.split(":").map(Number);
-        const targetRatio = w / h;
-        const currentRatio = prev.width / prev.height;
+      const newCrop = { ...cropState, aspectRatio: cropAspectRatio };
 
-        const newCrop = { ...prev, aspectRatio: cropAspectRatio };
-
-        if (cropAspectRatio !== "free") {
-          if (currentRatio > targetRatio) {
-            // Too wide - adjust height
-            newCrop.height = newCrop.width / targetRatio;
-            if (newCrop.y + newCrop.height > 1) {
-              newCrop.height = 1 - newCrop.y;
-              newCrop.width = newCrop.height * targetRatio;
-            }
-          } else {
-            // Too tall - adjust width
+      if (cropAspectRatio !== "free") {
+        if (currentRatio > targetRatio) {
+          // Too wide - adjust height
+          newCrop.height = newCrop.width / targetRatio;
+          if (newCrop.y + newCrop.height > 1) {
+            newCrop.height = 1 - newCrop.y;
             newCrop.width = newCrop.height * targetRatio;
-            if (newCrop.x + newCrop.width > 1) {
-              newCrop.width = 1 - newCrop.x;
-              newCrop.height = newCrop.width / targetRatio;
-            }
+          }
+        } else {
+          // Too tall - adjust width
+          newCrop.width = newCrop.height * targetRatio;
+          if (newCrop.x + newCrop.width > 1) {
+            newCrop.width = 1 - newCrop.x;
+            newCrop.height = newCrop.width / targetRatio;
           }
         }
+      }
 
-        return newCrop;
-      });
+      setCropState(newCrop);
+      previousCropAspectRatioRef.current = cropAspectRatio;
     }
-  }, [cropAspectRatio, cropState]);
+  }, [croppingItemId, cropState, initialCropState, cropAspectRatio]);
 
   // Focus text input when editing starts (only when itemId changes, not on every text change)
   useEffect(() => {

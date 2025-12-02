@@ -42,6 +42,10 @@ jobs:
         env:
           NODE_ENV: production
 
+      - name: Validate Customer Experience Flow
+        run: pnpm tsx scripts/validate-customer-experience.ts
+        continue-on-error: false
+
       - name: Generate Customer Experience Report
         run: pnpm tsx scripts/customer-facing-audit.ts
         continue-on-error: true

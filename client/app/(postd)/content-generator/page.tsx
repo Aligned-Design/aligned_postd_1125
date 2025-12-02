@@ -112,10 +112,38 @@ export default function ContentGenerator() {
       if (data.variants && Array.isArray(data.variants) && data.variants.length > 0) {
         // Use first variant for backward compatibility
         const firstVariant = data.variants[0];
+        // Construct proper BrandFidelityScore if we have a score number
+        const bfsScore: BrandFidelityScore | undefined = firstVariant.brandFidelityScore !== undefined ? {
+          overall: firstVariant.brandFidelityScore,
+          tone_alignment: 0,
+          terminology_match: 0,
+          compliance: 0,
+          cta_fit: 0,
+          platform_fit: 0,
+          passed: firstVariant.brandFidelityScore >= 0.8,
+          issues: [],
+          regeneration_count: 0,
+        } : undefined;
+        // Construct proper LinterResult from complianceTags
+        const linterResult: LinterResult | undefined = firstVariant.complianceTags ? {
+          passed: firstVariant.complianceTags.length === 0,
+          profanity_detected: false,
+          toxicity_score: 0,
+          banned_phrases_found: firstVariant.complianceTags,
+          banned_claims_found: [],
+          missing_disclaimers: [],
+          missing_hashtags: [],
+          platform_violations: [],
+          pii_detected: [],
+          competitor_mentions: [],
+          fixes_applied: [],
+          blocked: false,
+          needs_human_review: firstVariant.complianceTags.length > 0,
+        } : undefined;
         setResult({
           content: firstVariant.content,
-          bfsScore: firstVariant.brandFidelityScore ? { overall: firstVariant.brandFidelityScore } : undefined,
-          linterResult: firstVariant.complianceTags ? { passed: firstVariant.complianceTags.length === 0, issues: firstVariant.complianceTags } : undefined,
+          bfsScore,
+          linterResult,
           timestamp: new Date().toISOString(),
         });
       } else if (data.content) {

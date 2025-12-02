@@ -16,7 +16,6 @@
  */
 
 import { createClient } from '@supabase/supabase-js';
-// @ts-expect-error - pino types may not be installed, but pino is used at runtime
 import pino from 'pino';
 import MetaConnector from './meta';
 import LinkedInConnector from './linkedin';
@@ -140,7 +139,9 @@ export class ConnectorManager {
       const key = idempotencyKey || `publish_${Date.now()}_${Math.random().toString(36)}`;
 
       // Add job to queue
-      const job = await publishJobQueue.add(
+      // Type assertion for queue.add - Bull runtime supports this 3-arg signature
+      const queueAdd = publishJobQueue.add as any;
+      const job = await queueAdd(
         'publish',
         {
           jobId: key,
@@ -216,7 +217,9 @@ export class ConnectorManager {
 
         if (!platform) continue;
 
-        await publishJobQueue.add(
+        // Type assertion for queue.add - Bull runtime supports this 3-arg signature
+        const queueAdd = publishJobQueue.add as any;
+        await queueAdd(
           'token_refresh',
           {
             tenantId: this.tenantId,

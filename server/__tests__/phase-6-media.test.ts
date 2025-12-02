@@ -6,11 +6,12 @@
 import { describe, it, expect} from 'vitest';
 import { mediaService } from '../lib/media-service';
 import sharp from 'sharp';
+import type { MediaAsset, MediaCategory } from '@shared/media';
 
 describe.skip('PHASE 6: Media Management System', () => {
   const testBrandId = 'test-brand-' + Date.now();
   const testTenantId = 'test-tenant-' + Date.now();
-  const testAssets: unknown[] = [];
+  const testAssets: MediaAsset[] = [];
 
   /**
    * Test 1: Basic image upload with processing
@@ -437,7 +438,7 @@ describe.skip('PHASE 6: Media Management System', () => {
           'image/jpeg',
           testBrandId,
           testTenantId,
-          '' as unknown
+          'graphics' as MediaCategory
         );
       } catch (error) {
         expect(error).toBeDefined();

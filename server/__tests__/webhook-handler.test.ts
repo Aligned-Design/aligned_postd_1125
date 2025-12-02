@@ -10,6 +10,7 @@ import {
   calculateBackoffDelay,
   shouldRetryWebhook,
   DEFAULT_WEBHOOK_RETRY_CONFIG,
+  type WebhookProvider,
 } from "@shared/webhooks";
 
 describe("Webhook Handler", () => {
@@ -57,7 +58,7 @@ describe("Webhook Handler", () => {
       const signature = "test-sig";
 
       const isValid = handler.verifySignature(
-        "unknown" as unknown,
+        "unknown" as WebhookProvider,
         body,
         signature,
         "secret",

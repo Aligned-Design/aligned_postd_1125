@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useBrand } from "@/contexts/BrandContext";
 import { useAuth } from "@/lib/auth/useAuth";
@@ -86,13 +86,7 @@ export default function ClientPortal() {
   // VIEWER role has no approve permissions; also check for undefined/null roles
   const isViewOnly = role === "VIEWER" || !role;
 
-  useEffect(() => {
-    loadDashboardData();
-    // Apply client branding on load
-    applyClientBranding();
-  }, []);
-
-  const loadDashboardData = async () => {
+  const loadDashboardData = useCallback(async () => {
     try {
       setLoading(true);
       const response = await fetch("/api/client-portal/dashboard");
@@ -108,9 +102,9 @@ export default function ClientPortal() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const applyClientBranding = () => {
+  const applyClientBranding = useCallback(() => {
     // Apply client brand colors and favicon
     if (dashboardData?.brandInfo?.colors?.primary) {
       document.documentElement.style.setProperty(
@@ -124,7 +118,13 @@ export default function ClientPortal() {
       ) as HTMLLinkElement;
       if (link) link.href = dashboardData.brandInfo.favicon;
     }
-  };
+  }, [dashboardData]);
+
+  useEffect(() => {
+    loadDashboardData();
+    // Apply client branding on load
+    applyClientBranding();
+  }, [loadDashboardData, applyClientBranding]);
 
   const handleWorkflowAction = async (action: WorkflowAction) => {
     try {
@@ -148,7 +148,7 @@ export default function ClientPortal() {
   if (loading) {
     return (
       <PageShell>
-        <LoadingState label="Loading your portal" />
+        <LoadingState />
       </PageShell>
     );
   }

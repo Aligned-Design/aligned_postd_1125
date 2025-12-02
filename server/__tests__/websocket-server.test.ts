@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { createServer as createHTTPServer } from "http";
+import { createServer as createHTTPServer, Server as HTTPServer } from "http";
 import {
   initializeWebSocketServer,
   getWebSocketInstance,
@@ -12,7 +12,7 @@ import { Server as SocketIOServer } from "socket.io";
 import { io as ioClient } from "socket.io-client";
 
 describe("WebSocket Server", () => {
-  let httpServer: unknown;
+  let httpServer: HTTPServer;
   let io: SocketIOServer;
 
   beforeEach(() => {

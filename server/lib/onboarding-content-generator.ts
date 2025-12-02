@@ -10,6 +10,8 @@ import { buildDocSystemPrompt, buildDocUserPrompt } from "./ai/docPrompt";
 import { calculateBrandFidelityScore } from "./ai/brandFidelity";
 import { getBrandProfile } from "./brand-profile";
 import { getPrioritizedImage } from "./image-sourcing";
+import { getCurrentBrandGuide } from "./brand-guide-service";
+import { buildFullBrandGuidePrompt } from "./prompts/brand-guide-prompts";
 import type { BrandProfile } from "@shared/advisor";
 
 // BrandSnapshot type (from onboarding context)

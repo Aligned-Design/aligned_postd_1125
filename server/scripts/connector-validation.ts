@@ -21,7 +21,18 @@ import pino from 'pino';
 import ConnectorManager from '../connectors/manager';
 import { publishJobQueue } from '../queue';
 
-const logger = pino();
+// Logger with structured logging support (matches observability.ts pattern)
+const _pinoLogger = pino();
+const logger = _pinoLogger as {
+  debug(obj: Record<string, any>, msg?: string): void;
+  debug(msg: string): void;
+  info(obj: Record<string, any>, msg?: string): void;
+  info(msg: string): void;
+  warn(obj: Record<string, any>, msg?: string): void;
+  warn(msg: string): void;
+  error(obj: Record<string, any>, msg?: string): void;
+  error(msg: string): void;
+};
 
 interface TestResult {
   platform: string;
@@ -187,7 +198,9 @@ async function testMetaConnector(): Promise<TestResult> {
       // Test 5: Queue management
       const startQueue = Date.now();
       try {
-        const counts = await publishJobQueue.getJobCounts();
+        // Type assertion for queue.getJobCounts - exists at runtime
+        const extendedQueue = publishJobQueue as any;
+        const counts = await extendedQueue.getJobCounts();
         result.tests.push({
           name: 'Queue health',
           status: counts.waiting + counts.active > 1000 ? 'fail' : 'pass',
@@ -246,7 +259,10 @@ async function testMetaConnector(): Promise<TestResult> {
       });
     }
   } catch (error) {
-    logger.error({ error }, 'Meta connector test error');
+    logger.error(
+      { error: error instanceof Error ? error.message : String(error) },
+      'Meta connector test error'
+    );
   }
 
   // Summarize
@@ -398,7 +414,9 @@ async function testLinkedInConnector(): Promise<TestResult> {
       // Test 5: Queue management
       const startQueue = Date.now();
       try {
-        const counts = await publishJobQueue.getJobCounts();
+        // Type assertion for queue.getJobCounts - exists at runtime
+        const extendedQueue = publishJobQueue as any;
+        const counts = await extendedQueue.getJobCounts();
         result.tests.push({
           name: 'Queue health',
           status: counts.waiting + counts.active > 1000 ? 'fail' : 'pass',
@@ -457,7 +475,10 @@ async function testLinkedInConnector(): Promise<TestResult> {
       });
     }
   } catch (error) {
-    logger.error({ error }, 'LinkedIn connector test error');
+    logger.error(
+      { error: error instanceof Error ? error.message : String(error) },
+      'LinkedIn connector test error'
+    );
   }
 
   // Summarize
@@ -611,7 +632,10 @@ async function main(): Promise<void> {
     const exitCode = report.overallStatus === 'failed' ? 2 : report.overallStatus === 'partial' ? 1 : 0;
     process.exit(exitCode);
   } catch (error) {
-    logger.error('Fatal error:', error);
+    logger.error(
+      { error: error instanceof Error ? error.message : String(error) },
+      'Fatal error'
+    );
     process.exit(2);
   }
 }

@@ -174,14 +174,14 @@ function determineStatus(
   warnings: AiAgentWarning[],
 ): AiAgentResponseStatus {
   if (variantCount === 0) {
-    return "error";
+    return "failure";
   }
 
   const hasBlockingWarning = warnings.some(
     (warning) => warning.severity === "warning" || warning.severity === "critical",
   );
 
-  return hasBlockingWarning ? "partial" : "ok";
+  return hasBlockingWarning ? "partial_success" : "success";
 }
 
 function buildDesignAgentResponse(
@@ -212,7 +212,7 @@ function buildDesignAgentResponse(
       provider,
       latencyMs,
       retryAttempted,
-      status,
+      status: status === "ok" ? "success" : status === "partial" ? "partial_success" : status === "error" ? "failure" : (status as "success" | "partial_success" | "failure"),
       averageBrandFidelityScore: avgBFS,
       complianceTagCounts,
     },
@@ -307,7 +307,7 @@ export const generateDesignContent: RequestHandler = async (req, res) => {
     const userPrompt = buildDesignUserPrompt({
       brand,
       brandGuide, // Pass BrandGuide to prompt builder (source of truth)
-      request: requestBody,
+      request: requestBody as AiDesignGenerationRequest,
       strategyBrief,
       contentPackage,
       brandHistory,
@@ -350,7 +350,7 @@ export const generateDesignContent: RequestHandler = async (req, res) => {
         if (avgBFS < LOW_BFS_THRESHOLD && attempt < maxAttempts) {
           retryAttempted = true;
           const retryPrompt = buildDesignRetryPrompt(
-            { brand, request: requestBody },
+            { brand, request: requestBody as AiDesignGenerationRequest },
             rawResponse
           );
           const retryFullPrompt = `${systemPrompt}\n\n${retryPrompt}`;
@@ -377,7 +377,7 @@ export const generateDesignContent: RequestHandler = async (req, res) => {
           const response = buildDesignAgentResponse(
             brandId,
             brand,
-            requestBody,
+            requestBody as AiDesignGenerationRequest,
             variants,
             provider,
             latencyMs,
@@ -435,7 +435,7 @@ export const generateDesignContent: RequestHandler = async (req, res) => {
             agent: "design",
             brandId,
             userId,
-            status: response.status,
+            status: response.status === "ok" ? "success" : response.status === "partial" ? "partial_success" : response.status === "error" ? "failure" : (response.status as "success" | "partial_success" | "failure"),
             variantCount: variants.length,
             avgBFS: retryAvgBFS,
             warnings: response.warnings,
@@ -451,7 +451,7 @@ export const generateDesignContent: RequestHandler = async (req, res) => {
         const response = buildDesignAgentResponse(
           brandId,
           brand,
-          requestBody,
+          requestBody as AiDesignGenerationRequest,
           variants,
           provider,
           latencyMs,
@@ -510,7 +510,7 @@ export const generateDesignContent: RequestHandler = async (req, res) => {
           agent: "design",
           brandId,
           userId,
-          status: response.status,
+          status: response.status === "ok" ? "success" : response.status === "partial" ? "partial_success" : response.status === "error" ? "failure" : (response.status as "success" | "partial_success" | "failure"),
           variantCount: variants.length,
           avgBFS,
           warnings: response.warnings,

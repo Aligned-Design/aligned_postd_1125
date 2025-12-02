@@ -10,23 +10,19 @@ import { PageShell } from "@/components/postd/ui/layout/PageShell";
 import { SectionCard } from "@/components/postd/ui/cards/SectionCard";
 import { Calendar, Clock, User, ArrowLeft, Twitter, Linkedin, Share2 } from "lucide-react";
 import { cn } from "@/lib/design-system";
-import { useEffect, useState } from "react";
+import { useMemo } from "react";
 import { renderMarkdown } from "@/lib/blog/renderMarkdown";
 
 export default function BlogPost() {
   const { slug } = useParams<{ slug: string }>();
-  const [post, setPost] = useState(getPostBySlug(slug || ""));
-  const [relatedPosts, setRelatedPosts] = useState(getRelatedPosts(slug || "", 3));
-
-  useEffect(() => {
-    if (slug) {
-      const foundPost = getPostBySlug(slug);
-      setPost(foundPost);
-      if (foundPost) {
-        setRelatedPosts(getRelatedPosts(slug, 3));
-      }
-    }
+  // Use useMemo instead of useState + useEffect to avoid setState in effect
+  const post = useMemo(() => {
+    return slug ? getPostBySlug(slug) : null;
   }, [slug]);
+  
+  const relatedPosts = useMemo(() => {
+    return post && slug ? getRelatedPosts(slug, 3) : [];
+  }, [post, slug]);
 
   if (!post) {
     return (

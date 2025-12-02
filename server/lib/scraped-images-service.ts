@@ -356,7 +356,7 @@ export async function getScrapedImages(
     // ✅ RESILIENT QUERY: Try to select metadata (may not exist in all schemas)
     // For scraped images, URL is stored in path column (external URLs)
     // We'll filter for HTTP URLs in JavaScript to identify scraped images
-    let query = supabase
+    const query = supabase
       .from("media_assets")
       .select("id, path, filename, metadata")
       .eq("brand_id", brandId)

@@ -83,23 +83,26 @@ export class WixClient {
   async getBlogPosts(limit: number = 20): Promise<WixBlogPost[]> {
     const response = await this.request(
       `/blogs/posts?limit=${limit}&sort=PUBLISHED_DATE_DESC`,
-    );
+    ) as { posts?: WixBlogPost[] };
     return (response && response.posts) || [];
   }
 
   async getBlogPost(postId: string): Promise<WixBlogPost> {
-    return this.request(`/blogs/posts/${postId}`);
+    const result = await this.request(`/blogs/posts/${postId}`);
+    return result as unknown as WixBlogPost;
   }
 
   async createBlogPost(post: WixBlogPost): Promise<WixBlogPost> {
-    return this.request("/blogs/posts", "POST", post);
+    const result = await this.request("/blogs/posts", "POST", post);
+    return result as unknown as WixBlogPost;
   }
 
   async updateBlogPost(
     postId: string,
     updates: Partial<WixBlogPost>,
   ): Promise<WixBlogPost> {
-    return this.request(`/blogs/posts/${postId}`, "PATCH", updates);
+    const result = await this.request(`/blogs/posts/${postId}`, "PATCH", updates);
+    return result as unknown as WixBlogPost;
   }
 
   async deleteBlogPost(postId: string): Promise<void> {
@@ -107,43 +110,47 @@ export class WixClient {
   }
 
   async publishBlogPost(postId: string): Promise<WixBlogPost> {
-    return this.request(`/blogs/posts/${postId}`, "PATCH", {
+    const result = await this.request(`/blogs/posts/${postId}`, "PATCH", {
       published: true,
       publishedDate: new Date().toISOString(),
     });
+    return result as unknown as WixBlogPost;
   }
 
   async scheduleBlogPost(
     postId: string,
     publishDate: string,
   ): Promise<WixBlogPost> {
-    return this.request(`/blogs/posts/${postId}`, "PATCH", {
+    const result = await this.request(`/blogs/posts/${postId}`, "PATCH", {
       published: true,
       publishedDate: publishDate,
     });
+    return result as unknown as WixBlogPost;
   }
 
   async getContactLists(): Promise<unknown[]> {
-    const response = await this.request("/contacts/lists");
+    const response = await this.request("/contacts/lists") as { lists?: unknown[] };
     return (response && response.lists) || [];
   }
 
   async getContacts(limit: number = 20): Promise<unknown[]> {
-    const response = await this.request(`/contacts/contacts?limit=${limit}`);
+    const response = await this.request(`/contacts/contacts?limit=${limit}`) as { contacts?: unknown[] };
     return (response && response.contacts) || [];
   }
 
   async createEmailCampaign(
     campaign: WixEmailCampaign,
   ): Promise<WixEmailCampaign> {
-    return this.request("/email/campaigns", "POST", campaign);
+    const result = await this.request("/email/campaigns", "POST", campaign);
+    return result as unknown as WixEmailCampaign;
   }
 
   async updateEmailCampaign(
     campaignId: string,
     updates: Partial<WixEmailCampaign>,
   ): Promise<WixEmailCampaign> {
-    return this.request(`/email/campaigns/${campaignId}`, "PATCH", updates);
+    const result = await this.request(`/email/campaigns/${campaignId}`, "PATCH", updates);
+    return result as unknown as WixEmailCampaign;
   }
 
   async sendEmailCampaign(campaignId: string): Promise<unknown> {
@@ -163,14 +170,14 @@ export class WixClient {
   async getEmailCampaigns(limit: number = 20): Promise<WixEmailCampaign[]> {
     const response = await this.request(
       `/email/campaigns?limit=${limit}&sort=CREATED_DATE_DESC`,
-    );
+    ) as { campaigns?: WixEmailCampaign[] };
     return (response && response.campaigns) || [];
   }
 
   async getMediaItems(limit: number = 20): Promise<unknown[]> {
     const response = await this.request(
       `/media/items?limit=${limit}&sort=CREATED_DATE_DESC`,
-    );
+    ) as { items?: unknown[] };
     return (response && response.items) || [];
   }
 
@@ -193,7 +200,7 @@ export class WixClient {
         Authorization: this.accessToken,
         "wix-api-version": "1.0",
       },
-      body: formData as unknown,
+      body: formData,
     });
 
     if (!response.ok) {

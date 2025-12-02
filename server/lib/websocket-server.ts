@@ -219,7 +219,7 @@ export function broadcastJobStatusUpdate(jobId: string, data: unknown): void {
 
   io.of("/jobs").to(room).emit("job:status-changed", {
     jobId,
-    ...data,
+    ...(data as Record<string, unknown>),
     timestamp: new Date().toISOString(),
   });
 }
@@ -233,7 +233,7 @@ export function broadcastAnalyticsSyncProgress(brandId: string, data: unknown): 
 
   io.of("/analytics").to(room).emit("analytics:sync-progress", {
     brandId,
-    ...data,
+    ...(data as Record<string, unknown>),
     timestamp: new Date().toISOString(),
   });
 }
@@ -247,7 +247,7 @@ export function broadcastNotificationToUser(userId: string, data: unknown): void
 
   io.of("/notifications").to(room).emit("notification:received", {
     userId,
-    ...data,
+    ...(data as Record<string, unknown>),
     timestamp: new Date().toISOString(),
   });
 }

@@ -1,5 +1,6 @@
 import { Router, Request, Response } from "express";
 import { AppError } from "../../lib/error-middleware";
+import { ErrorCode, HTTP_STATUS } from "../../lib/error-responses";
 
 const router = Router();
 
@@ -25,7 +26,7 @@ router.post("/", async (req: Request, res: Response) => {
     const signature = req.headers["stripe-signature"] as string;
 
     if (!signature) {
-      throw new AppError("Missing Stripe signature", 400, "INVALID_SIGNATURE");
+      throw new AppError(ErrorCode.VALIDATION_ERROR, "Missing Stripe signature", HTTP_STATUS.BAD_REQUEST, "warning");
     }
 
     // Verify webhook signature (replace with actual Stripe verification)

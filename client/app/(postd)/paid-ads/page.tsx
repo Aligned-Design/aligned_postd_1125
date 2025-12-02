@@ -1,7 +1,7 @@
 import { ActionableAdvisor, AdvisorInsight } from "@/components/dashboard/ActionableAdvisor";
 import { Zap, AlertCircle, TrendingUp, DollarSign, Plus, RefreshCw, Clock } from "lucide-react";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
-import { useState, useEffect } from "react";
+import { useMemo } from "react";
 import { usePaidAds } from "@/hooks/use-paid-ads";
 import { useToast } from "@/hooks/use-toast";
 import { PageShell } from "@/components/postd/ui/layout/PageShell";
@@ -16,10 +16,9 @@ export default function PaidAds() {
     autoFetch: true,
   });
 
-  const [advisorInsights, setAdvisorInsights] = useState<AdvisorInsight[]>([]);
-
   // Generate advisor insights based on campaign data
-  useEffect(() => {
+  // Use useMemo instead of useEffect + setState to avoid setState in effect
+  const advisorInsights = useMemo<AdvisorInsight[]>(() => {
     const newInsights: AdvisorInsight[] = [];
 
     if (campaigns.length === 0 && accounts.length > 0) {
@@ -110,7 +109,7 @@ export default function PaidAds() {
       });
     }
 
-    setAdvisorInsights(newInsights);
+    return newInsights;
   }, [campaigns, accounts, toast]);
 
   const totalSpend = campaigns.reduce((sum, c) => sum + c.performance.spend, 0);
@@ -120,7 +119,7 @@ export default function PaidAds() {
   if (loading) {
     return (
       <PageShell>
-        <LoadingState label="Loading paid ads data" />
+        <LoadingState />
       </PageShell>
     );
   }

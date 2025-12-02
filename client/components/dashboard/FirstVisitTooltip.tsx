@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useMemo } from "react";
 import { X } from "lucide-react";
 import { PAGE_TIPS } from "@/types/help";
 import { useHelpState } from "@/hooks/useHelpState";
@@ -10,21 +10,18 @@ interface FirstVisitTooltipProps {
 }
 
 export function FirstVisitTooltip({ page, children }: FirstVisitTooltipProps) {
-  const [isVisible, setIsVisible] = useState(false);
   const { isTipDismissed, dismissTip } = useHelpState();
 
-  useEffect(() => {
+  // Use useMemo instead of useState + useEffect to avoid setState in effect
+  const isVisible = useMemo(() => {
     // Check if tooltip has been dismissed for this page in this workspace
-    if (!isTipDismissed(page)) {
-      setIsVisible(true);
-    }
+    return !isTipDismissed(page);
   }, [page, isTipDismissed]);
 
   const tip = PAGE_TIPS[page];
 
   const handleDismiss = () => {
     dismissTip(page);
-    setIsVisible(false);
   };
 
   const placementClasses = {

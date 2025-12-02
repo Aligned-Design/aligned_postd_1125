@@ -83,11 +83,11 @@ export class TikTokConnector extends BaseConnector {
    */
   async refreshToken(refreshToken: string): Promise<OAuthResult> {
     logger.warn(
-      '[TikTok] Token refresh requested but not implemented - tokens expire in 24h',
       {
         connectionId: this.connectionId,
         platform: 'tiktok',
-      }
+      },
+      '[TikTok] Token refresh requested but not implemented - tokens expire in 24h'
     );
     
     throw new Error(

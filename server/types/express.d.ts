@@ -19,6 +19,8 @@ declare global {
         scopes?: string[];
         workspaceId?: string;
         tenantId?: string;
+        plan_status?: "active" | "trial" | "past_due" | "archived" | "deleted"; // Account status for billing checks
+        past_due_since?: string | null; // Date when account went past due
       };
       auth?: {
         userId: string;
@@ -39,6 +41,12 @@ declare global {
       ip?: string;
       socket?: {
         remoteAddress?: string;
+      };
+      // OAuth CSRF validation state
+      validatedState?: {
+        fullState: string;
+        rawToken: string;
+        parts: string[];
       };
     }
 

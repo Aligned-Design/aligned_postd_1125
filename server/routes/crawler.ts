@@ -385,7 +385,7 @@ router.post("/start", authenticateUser, async (req, res, next) => {
         
         // ✅ USER-FRIENDLY ERROR: Provide actionable error message
         let userMessage = "Website scraping failed. ";
-        let statusCode = HTTP_STATUS.INTERNAL_SERVER_ERROR;
+        let statusCode: number = HTTP_STATUS.INTERNAL_SERVER_ERROR;
         let errorCode = ErrorCode.SERVICE_UNAVAILABLE;
         
         if (errorMessage.includes("timeout") || errorMessage.includes("Crawl timeout")) {
