@@ -216,6 +216,13 @@ grep -n "/api/content-plan" client/pages/onboarding/*.tsx
 
 - **Content plan routes**: The routes were already implemented correctly in `server/routes/content-plan.ts` - they just needed to be registered. The routes use `authenticateUser` middleware but don't require scopes (commented out) to allow onboarding flow.
 
+- **thumbnail_url column**: The `media_assets` table does not have a `thumbnail_url` column in the current production schema. Code has been updated to:
+  - Not include `thumbnail_url` in insert operations
+  - Not select `thumbnail_url` in queries (explicitly list columns instead of using `select()` or `select("*")`)
+  - Use `path` column as fallback for thumbnail/preview URLs (path contains the URL for scraped images)
+  - Treat `thumbnailUrl` parameter as optional in function signatures
+  - If `thumbnail_url` is added to the schema in the future, these restrictions can be removed
+
 ---
 
 **Status**: ✅ Completed & Verified (2025-12-02)

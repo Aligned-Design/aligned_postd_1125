@@ -144,9 +144,8 @@ export class MediaDBService {
       }
     }
 
-    // ✅ FIX: media_assets table may not have 'url' column (depends on migration)
+    // ✅ FIX: media_assets table does not have 'url' or 'thumbnail_url' columns in current schema
     // For scraped images, URL is stored in path column
-    // Only include url/thumbnail_url if they exist in schema (Supabase will ignore unknown columns)
     // ✅ FIX: Column is size_bytes not file_size in production schema
     // ✅ CRITICAL: Include status field explicitly (migration 007 adds it with default, but safer to be explicit)
     const insertData: any = {
@@ -162,14 +161,8 @@ export class MediaDBService {
       status: 'active', // ✅ CRITICAL: Explicitly set status (migration 007 adds this column with default 'active')
     };
     
-    // Only add url/thumbnail_url if they might exist (won't error if column doesn't exist)
-    // For scraped images, we store URL in path, so url is redundant
-    if (url && url.startsWith("http")) {
-      insertData.url = url;
-    }
-    if (thumbnailUrl) {
-      insertData.thumbnail_url = thumbnailUrl;
-    }
+    // ✅ FIX: Do NOT include url or thumbnail_url in insertData - these columns don't exist in the schema
+    // PostgREST will error (PGRST204) if we try to insert/select columns that don't exist
 
     // ✅ ENHANCED: Log insert payload for debugging (excluding sensitive data)
     if (process.env.DEBUG_MEDIA_DB === "true") {
@@ -186,10 +179,12 @@ export class MediaDBService {
       });
     }
 
+    // ✅ FIX: Explicitly select only columns that exist in the schema
+    // Do NOT select thumbnail_url or url - these columns don't exist
     const { data, error } = await supabase
       .from("media_assets")
       .insert(insertData)
-      .select()
+      .select("id, brand_id, tenant_id, category, filename, path, hash, mime_type, size_bytes, used_in, usage_count, metadata, created_at, updated_at, status")
       .single();
 
     if (error) {
@@ -347,11 +342,12 @@ export class MediaDBService {
     assetId: string,
     metadata: Record<string, unknown>
   ): Promise<MediaAssetRecord> {
+    // ✅ FIX: Explicitly select only columns that exist (exclude thumbnail_url and url)
     const { data, error } = await supabase
       .from("media_assets")
       .update({ metadata })
       .eq("id", assetId)
-      .select()
+      .select("id, brand_id, tenant_id, category, filename, path, hash, mime_type, size_bytes, used_in, usage_count, metadata, created_at, updated_at, status")
       .single();
 
     if (error) {
@@ -412,11 +408,12 @@ export class MediaDBService {
       };
     }
 
+    // ✅ FIX: Explicitly select only columns that exist (exclude thumbnail_url and url)
     const { data, error } = await supabase
       .from("media_assets")
       .update(updatePayload)
       .eq("id", assetId)
-      .select()
+      .select("id, brand_id, tenant_id, category, filename, path, hash, mime_type, size_bytes, used_in, usage_count, metadata, created_at, updated_at, status")
       .single();
 
     if (error) {
@@ -688,9 +685,10 @@ export class MediaDBService {
     brandId: string,
     limit: number = 20
   ): Promise<MediaAssetRecord[]> {
+    // ✅ FIX: Explicitly select only columns that exist (exclude thumbnail_url and url)
     const { data, error } = await supabase
       .from("media_assets")
-      .select("*")
+      .select("id, brand_id, tenant_id, category, filename, path, hash, mime_type, size_bytes, used_in, usage_count, metadata, created_at, updated_at, status")
       .eq("brand_id", brandId)
       .eq("status", "active")
       .order("usage_count", { ascending: false })
@@ -712,11 +710,12 @@ export class MediaDBService {
    * Archive an asset (soft delete alternative)
    */
   async archiveMediaAsset(assetId: string): Promise<MediaAssetRecord> {
+    // ✅ FIX: Explicitly select only columns that exist (exclude thumbnail_url and url)
     const { data, error } = await supabase
       .from("media_assets")
       .update({ status: "archived" })
       .eq("id", assetId)
-      .select()
+      .select("id, brand_id, tenant_id, category, filename, path, hash, mime_type, size_bytes, used_in, usage_count, metadata, created_at, updated_at, status")
       .single();
 
     if (error) {

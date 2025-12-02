@@ -285,9 +285,10 @@ router.get('/:assetId', async (req: Request, res: Response) => {
       );
     }
 
+    // ✅ FIX: Explicitly select only columns that exist (exclude thumbnail_url and url)
     const { data, error } = await supabase
       .from('media_assets')
-      .select('*')
+      .select('id, brand_id, tenant_id, category, filename, path, hash, mime_type, size_bytes, used_in, usage_count, metadata, created_at, updated_at, status')
       .eq('id', assetId)
       .eq('brand_id', brandId)
       .limit(1);

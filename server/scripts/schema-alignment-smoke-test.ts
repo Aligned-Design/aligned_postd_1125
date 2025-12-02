@@ -276,10 +276,11 @@ async function testMediaAssetsTable(ctx: TestContext): Promise<void> {
     mediaData.tenant_id = ctx.tenantId;
   }
 
+  // ✅ FIX: Explicitly select only columns that exist (exclude thumbnail_url and url)
   const { data: media, error: insertError } = await supabase
     .from("media_assets")
     .insert(mediaData)
-    .select()
+    .select("id, brand_id, tenant_id, category, filename, path, hash, mime_type, size_bytes, used_in, usage_count, metadata, created_at, updated_at, status")
     .single();
 
   if (insertError) {

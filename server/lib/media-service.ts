@@ -540,9 +540,10 @@ class MediaService {
     }
 
     // Check database
+    // ✅ FIX: Explicitly select only columns that exist (exclude thumbnail_url and url)
     const { data, error } = await supabase
       .from("media_assets")
-      .select("*")
+      .select("id, brand_id, tenant_id, category, filename, path, hash, mime_type, size_bytes, used_in, usage_count, metadata, created_at, updated_at, status")
       .eq("brandId", brandId)
       .eq("hash", hash)
       .limit(1);
@@ -567,6 +568,8 @@ class MediaService {
    * Store asset record in database
    */
   private async storeAssetRecord(asset: MediaAsset): Promise<void> {
+    // ✅ FIX: Do NOT include url or thumbnail_url - these columns don't exist in media_assets schema
+    // Use path column instead (contains the storage path)
     const { error } = await supabase.from("media_assets").insert([
       {
         id: asset.id,
@@ -575,14 +578,13 @@ class MediaService {
         category: asset.category,
         filename: asset.filename,
         mime_type: asset.mimeType,
-        path: asset.bucketPath,
+        path: asset.bucketPath, // Path contains the storage path
         size_bytes: asset.size, // ✅ FIX: Use size_bytes to match schema (was file_size)
         hash: asset.hash,
-        url: `${process.env.SUPABASE_URL}/storage/v1/object/public/tenant-${asset.tenantId}/${asset.bucketPath}`,
-        thumbnail_url: asset.thumbnailPath,
+        // url and thumbnail_url columns don't exist - removed
         status: "active",
         metadata: asset.metadata,
-        variants: asset.variants,
+        // variants column doesn't exist in current schema - removed
         used_in: asset.metadata.usedIn || [],
         usage_count: asset.metadata.usageCount || 0,
         created_at: asset.createdAt,
@@ -599,9 +601,10 @@ class MediaService {
    * Get asset by ID (public for testing and internal use)
    */
   async getAssetById(assetId: string): Promise<MediaAsset | null> {
+    // ✅ FIX: Explicitly select only columns that exist (exclude thumbnail_url and url)
     const { data, error } = await supabase
       .from("media_assets")
-      .select("*")
+      .select("id, brand_id, tenant_id, category, filename, path, hash, mime_type, size_bytes, used_in, usage_count, metadata, created_at, updated_at, status")
       .eq("id", assetId)
       .limit(1);
 
@@ -627,9 +630,10 @@ class MediaService {
       sortOrder?: "asc" | "desc";
     },
   ): Promise<{ assets: MediaAsset[]; total: number }> {
+    // ✅ FIX: Explicitly select only columns that exist (exclude thumbnail_url and url)
     let query = supabase
       .from("media_assets")
-      .select("*", { count: "exact" })
+      .select("id, brand_id, tenant_id, category, filename, path, hash, mime_type, size_bytes, used_in, usage_count, metadata, created_at, updated_at, status", { count: "exact" })
       .eq("brand_id", brandId)
       .eq("status", "active");
 
@@ -686,9 +690,10 @@ class MediaService {
     tags: string[],
     limit: number = 50,
   ): Promise<MediaAsset[]> {
+    // ✅ FIX: Explicitly select only columns that exist (exclude thumbnail_url and url)
     const { data, error } = await supabase
       .from("media_assets")
-      .select("*")
+      .select("id, brand_id, tenant_id, category, filename, path, hash, mime_type, size_bytes, used_in, usage_count, metadata, created_at, updated_at, status")
       .eq("brand_id", brandId)
       .eq("status", "active")
       .limit(limit);
@@ -833,7 +838,7 @@ class MediaService {
       bucketPath: row.path,
       size: row.size_bytes || 0, // ✅ FIX: Use size_bytes to match schema (was file_size)
       hash: row.hash,
-      thumbnailPath: row.thumbnail_url,
+      thumbnailPath: row.path || "", // ✅ FIX: Use path as fallback (thumbnail_url column doesn't exist)
       tags: meta.aiTags || [],
       metadata: {
         width: meta.width || 0,
