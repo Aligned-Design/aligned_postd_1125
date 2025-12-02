@@ -133,10 +133,45 @@ export async function persistScrapedImages(
   
   // ✅ SEPARATE: Split into logos and brand images
   const logoImages = validImages.filter(img => img.role === "logo");
-  const brandImages = validImages.filter(img => 
-    img.role !== "logo" && 
-    (img.role === "hero" || img.role === "photo" || img.role === "team" || img.role === "subject" || img.role === "other")
-  );
+  
+  // ✅ IMPROVED: Filter brand images, excluding logo-style images
+  const brandImages = validImages.filter(img => {
+    // Exclude logos
+    if (img.role === "logo") return false;
+    
+    // Only include valid brand image roles
+    if (!["hero", "photo", "team", "subject", "other"].includes(img.role || "")) return false;
+    
+    // ✅ FILTER: Exclude logo-style images from brand images
+    // These might be misclassified or logo variants we don't want in brand images
+    const urlLower = img.url.toLowerCase();
+    const filenameLower = (img.url.split("/").pop() || "").toLowerCase();
+    const altLower = (img.alt || "").toLowerCase();
+    
+    // Check for logo indicators in filename/alt
+    const hasLogoIndicator = filenameLower.includes("logo") || 
+                             altLower.includes("logo") ||
+                             urlLower.includes("/logo/") ||
+                             urlLower.includes("logo-") ||
+                             urlLower.includes("-logo");
+    
+    // Check if image is logo-style (small square image)
+    const isSmallSquare = img.width && img.height && 
+      img.width < 400 && img.height < 400 && 
+      Math.abs((img.width / img.height) - 1) < 0.3; // Square-ish (aspect ratio ~1:1)
+    
+    // Exclude if it looks like a logo variant (has logo indicator AND is small/square)
+    if (hasLogoIndicator && (isSmallSquare || !img.width || !img.height || img.width < 500 || img.height < 500)) {
+      return false;
+    }
+    
+    // Exclude very small square images (likely icons/logos even if not classified as such)
+    if (isSmallSquare && img.width && img.height && (img.width * img.height < 50000)) {
+      return false;
+    }
+    
+    return true;
+  });
   
   // ✅ SORT LOGOS: Prioritize larger resolution, PNG, brand name in filename
   logoImages.sort((a, b) => {
@@ -184,6 +219,24 @@ export async function persistScrapedImages(
     return acc;
   }, {} as Record<string, number>);
   
+  // Count logo-style images filtered from brand images
+  const logoStyleFiltered = validImages.filter(img => {
+    if (img.role === "logo") return false;
+    if (!["hero", "photo", "team", "subject", "other"].includes(img.role || "")) return false;
+    const urlLower = img.url.toLowerCase();
+    const filenameLower = (img.url.split("/").pop() || "").toLowerCase();
+    const altLower = (img.alt || "").toLowerCase();
+    const hasLogoIndicator = filenameLower.includes("logo") || 
+                             altLower.includes("logo") ||
+                             urlLower.includes("/logo/") ||
+                             urlLower.includes("logo-") ||
+                             urlLower.includes("-logo");
+    const isSmallSquare = img.width && img.height && 
+      img.width < 400 && img.height < 400 && 
+      Math.abs((img.width / img.height) - 1) < 0.3;
+    return hasLogoIndicator && (isSmallSquare || !img.width || !img.height || img.width < 500 || img.height < 500);
+  }).length;
+  
   console.log(`[ScrapedImages] Image selection summary:`, {
     totalImages: images.length,
     filteredOut: images.length - validImages.length,
@@ -191,6 +244,7 @@ export async function persistScrapedImages(
     logosFound: logoImages.length,
     logosSelected: selectedLogos.length,
     brandImagesFound: brandImages.length,
+    logoStyleFiltered: logoStyleFiltered, // Logo-style images filtered from brand images
     brandImagesSelected: selectedBrandImages.length,
     totalToPersist: imagesToPersist.length,
   });
