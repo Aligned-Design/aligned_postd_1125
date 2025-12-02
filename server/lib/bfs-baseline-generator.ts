@@ -8,18 +8,12 @@
 import type { BrandGuide } from "@shared/brand-guide";
 import { buildBFSBaselinePrompt } from "./prompts/brand-guide-prompts";
 import { calculateBFS, normalizeBrandKitForBFS } from "../agents/brand-fidelity-scorer";
-import OpenAI from "openai";
-
-let openaiClient: OpenAI | null = null;
-
-function getOpenAI(): OpenAI {
-  if (!openaiClient) {
-    openaiClient = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY || "sk-placeholder",
-    });
-  }
-  return openaiClient;
-}
+import {
+  openai,
+  DEFAULT_OPENAI_MODEL,
+  generateWithChatCompletions,
+  isOpenAIConfigured,
+} from "./openai-client";
 
 /**
  * Generate BFS baseline for a Brand Guide
@@ -35,28 +29,27 @@ export async function generateBFSBaseline(
   calculatedAt: string;
 }> {
   try {
+    if (!isOpenAIConfigured()) {
+      throw new Error("OpenAI API key not configured");
+    }
+
     // Build baseline prompt
     const prompt = buildBFSBaselinePrompt(brandGuide);
 
     // Generate baseline content using OpenAI
-    const openai = getOpenAI();
-    const response = await openai.chat.completions.create({
-      model: process.env.OPENAI_MODEL || "gpt-4o-mini",
-      messages: [
-        {
-          role: "system",
-          content: "You are a content generator that creates perfect brand-aligned content. Generate a single social media post that perfectly matches the Brand Guide.",
-        },
-        {
-          role: "user",
-          content: prompt,
-        },
+    const systemPrompt = "You are a content generator that creates perfect brand-aligned content. Generate a single social media post that perfectly matches the Brand Guide.";
+    
+    const sampleContent = await generateWithChatCompletions(
+      [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: prompt },
       ],
-      temperature: 0.7,
-      max_tokens: 500,
-    });
-
-    const sampleContent = response.choices[0]?.message?.content || "";
+      {
+        model: DEFAULT_OPENAI_MODEL,
+        temperature: 0.7,
+        maxTokens: 500,
+      }
+    );
 
     if (!sampleContent) {
       throw new Error("Failed to generate baseline content");

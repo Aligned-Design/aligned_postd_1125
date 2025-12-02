@@ -13,8 +13,12 @@ import vercelChromium from "@sparticuz/chromium";
 import playwrightCore from "playwright-core";
 import { Vibrant } from "node-vibrant/node";
 import robotsParser from "robots-parser";
-import OpenAI from "openai";
 import { generateWithAI } from "./ai-generation";
+import {
+  DEFAULT_EMBEDDING_MODEL,
+  generateEmbedding,
+  isOpenAIConfigured,
+} from "../lib/openai-client";
 import crypto from "crypto";
 
 // Detect if running on Vercel
@@ -58,10 +62,10 @@ async function launchBrowser(): Promise<Browser> {
 }
 
 // Environment configuration
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+// OpenAI API key check - use isOpenAIConfigured() from shared client instead
 const CRAWL_MAX_PAGES = parseInt(process.env.CRAWL_MAX_PAGES || "50", 10);
 const CRAWL_TIMEOUT_MS = parseInt(process.env.CRAWL_TIMEOUT_MS || "60000", 10); // 60 seconds default
-const CRAWL_USER_AGENT = process.env.CRAWL_USER_AGENT || "AlignedAIBot/1.0";
+const CRAWL_USER_AGENT = process.env.CRAWL_USER_AGENT || "POSTDBot/1.0";
 const MAX_DEPTH = 3;
 const CRAWL_DELAY_MS = 1000;
 const MAX_RETRIES = 3;
@@ -218,7 +222,7 @@ export async function processBrandIntake(
     console.log(`[Brand Crawler] Generated brand kit`);
 
     // Step 4: Create embeddings (if OpenAI available)
-    if (OPENAI_API_KEY) {
+    if (isOpenAIConfigured()) {
       try {
         await createEmbeddings(brandId, brandKit, crawlResults, supabase);
         console.log(`[Brand Crawler] Created embeddings`);
@@ -231,7 +235,7 @@ export async function processBrandIntake(
       }
     } else {
       console.warn(
-        "[Brand Crawler] OPENAI_API_KEY not set, skipping embeddings",
+        "[Brand Crawler] OpenAI not configured, skipping embeddings",
       );
     }
 
@@ -2627,7 +2631,7 @@ export async function generateBrandKit(
   
   // ✅ Try AI generation (will automatically fallback to Claude if OpenAI is down)
   // Only use fallback if both API keys are missing
-  if (OPENAI_API_KEY || process.env.ANTHROPIC_API_KEY) {
+  if (isOpenAIConfigured() || process.env.ANTHROPIC_API_KEY) {
     try {
       brandKit = await generateBrandKitWithAI(combinedText, colors, sourceUrl);
     } catch (error) {
@@ -2799,12 +2803,10 @@ async function createEmbeddings(
   crawlResults: CrawlResult[],
   supabase: unknown,
 ): Promise<void> {
-  if (!OPENAI_API_KEY) {
+  if (!isOpenAIConfigured()) {
     console.warn("[Embeddings] OPENAI_API_KEY not set, skipping");
     return;
   }
-
-  const openai = new OpenAI({ apiKey: OPENAI_API_KEY });
 
   // Combine brand context for embedding
   const contextText = `
@@ -2820,12 +2822,9 @@ async function createEmbeddings(
   `.trim();
 
   try {
-    const response = await openai.embeddings.create({
-      model: "text-embedding-ada-002",
-      input: contextText,
+    const embedding = await generateEmbedding(contextText, {
+      model: DEFAULT_EMBEDDING_MODEL,
     });
-
-    const embedding = response.data[0].embedding;
 
     // Store in Supabase with pgvector
     // Type assertion for supabase parameter

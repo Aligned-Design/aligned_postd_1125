@@ -8,7 +8,8 @@
 
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import request from "supertest";
-import { createServer } from "../../index";
+// Updated to use current server implementation (index-v2.ts)
+import { createServer } from "../../index-v2";
 import { ContentPackageStorage } from "../../lib/collaboration-storage";
 import type { ContentPackage } from "@shared/collaboration-artifacts";
 import { createContentPackage } from "@shared/collaboration-artifacts";

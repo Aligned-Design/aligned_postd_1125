@@ -1,3 +1,22 @@
+/**
+ * @deprecated This is the legacy server entry point.
+ * 
+ * ⚠️ DO NOT USE THIS FILE FOR NEW DEVELOPMENT
+ * 
+ * Use `server/index-v2.ts` instead, which includes:
+ * - Supabase environment validation on startup
+ * - Better error handling
+ * - Cleaner architecture
+ * 
+ * This file is kept for backward compatibility only.
+ * All new code should use `index-v2.ts`.
+ * 
+ * Migration guide: See MIGRATION_GUIDE.md
+ * 
+ * @see server/index-v2.ts - Current server implementation
+ * @see server/node-build-v2.ts - Production build entry
+ */
+
 import "dotenv/config";
 import express from "express";
 import cors from "cors";

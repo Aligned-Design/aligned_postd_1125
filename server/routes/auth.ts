@@ -88,6 +88,7 @@ router.post("/signup", (async (req, res, next) => {
     }
 
     // ✅ STEP 3: Log environment check
+    // Note: VITE_SUPABASE_URL checked for backward compatibility and diagnostics only
     const hasSupabaseUrl = !!(process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL);
     const hasServiceKey = !!process.env.SUPABASE_SERVICE_ROLE_KEY;
     
@@ -139,35 +140,83 @@ router.post("/signup", (async (req, res, next) => {
       authError = err as any;
     }
 
-    // ✅ CRITICAL: Log full error details for debugging
+    // ✅ PRIORITY 1 FIX: Handle auth errors gracefully, especially "user already registered"
     if (authError) {
-      console.error("[Auth] ❌ Signup error details:", {
-        message: authError.message,
-        status: authError.status,
-        name: authError.name,
-        code: (authError as any).code,
-        error: JSON.stringify(authError, null, 2),
-        fullError: authError,
-      });
+      const errorCode = (authError as any).code;
+      const errorMessage = authError?.message || "Failed to create user account";
       
-      // ✅ Return detailed error to help debug
+      // ✅ Check for "user already registered" - this is an expected condition, not an error
+      const isUserAlreadyRegistered = 
+        errorCode === "user_already_registered" ||
+        errorCode === "signup_disabled" ||
+        errorMessage.toLowerCase().includes("user already registered") ||
+        errorMessage.toLowerCase().includes("already registered") ||
+        errorMessage.toLowerCase().includes("email address is already registered");
+      
+      if (isUserAlreadyRegistered) {
+        // ✅ Log at info level - this is expected, not an error
+        console.log("[Auth] ℹ️ User already registered (expected condition)", {
+          email: email,
+          code: errorCode,
+          message: errorMessage,
+        });
+        
+        // ✅ Return clear, structured response that frontend can use
+        throw new AppError(
+          ErrorCode.VALIDATION_ERROR,
+          "An account with this email already exists. Please sign in instead.",
+          HTTP_STATUS.BAD_REQUEST,
+          "info", // Info severity - not an error condition
+          {
+            code: "USER_ALREADY_REGISTERED",
+            message: "An account with this email already exists. Please sign in instead.",
+            action: "Try signing in with this email address, or use a different email to create a new account.",
+          }
+        );
+      }
+      
+      // ✅ Other auth errors - log at appropriate level based on severity
+      const isConfigError = 
+        // Note: VITE_SUPABASE_URL checked for backward compatibility only
+        !process.env.SUPABASE_URL && !process.env.VITE_SUPABASE_URL ||
+        !process.env.SUPABASE_SERVICE_ROLE_KEY ||
+        errorCode === "invalid_api_key" ||
+        errorCode === "invalid_request";
+      
+      if (isConfigError) {
+        console.error("[Auth] ❌ Configuration error during signup:", {
+          message: errorMessage,
+          status: authError.status,
+          code: errorCode,
+          email: email,
+        });
+      } else {
+        console.warn("[Auth] ⚠️ Signup error (non-critical):", {
+          message: errorMessage,
+          status: authError.status,
+          code: errorCode,
+          email: email,
+        });
+      }
+      
+      // ✅ Return detailed error for debugging other issues
       throw new AppError(
         ErrorCode.INVALID_CREDENTIALS,
-        authError?.message || "Failed to create user account",
+        errorMessage,
         HTTP_STATUS.BAD_REQUEST,
-        "warning",
+        isConfigError ? "critical" : "warning",
         { 
-          details: authError?.message,
+          details: errorMessage,
           status: authError?.status,
-          code: (authError as any).code,
+          code: errorCode,
           // ✅ Helpful error message for common issues
           hint: !process.env.SUPABASE_URL && !process.env.VITE_SUPABASE_URL 
             ? "SUPABASE_URL environment variable is missing"
             : !process.env.SUPABASE_SERVICE_ROLE_KEY
             ? "SUPABASE_SERVICE_ROLE_KEY environment variable is missing"
-            : (authError as any).code === "invalid_api_key"
+            : errorCode === "invalid_api_key"
             ? "SUPABASE_SERVICE_ROLE_KEY is invalid or expired"
-            : (authError as any).code === "invalid_request"
+            : errorCode === "invalid_request"
             ? "Check Supabase project settings and API keys"
             : undefined
         }
@@ -420,6 +469,7 @@ router.post("/login", (async (req, res, next) => {
 
     console.log("[Auth] Attempting login", {
       email: email,
+      // Note: VITE_SUPABASE_URL checked for backward compatibility only
       hasSupabaseUrl: !!process.env.SUPABASE_URL || !!process.env.VITE_SUPABASE_URL,
       hasServiceKey: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
     });

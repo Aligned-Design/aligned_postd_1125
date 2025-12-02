@@ -47,7 +47,8 @@ export default function Screen4BrandSnapshot() {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            brandId: localStorage.getItem("aligned_brand_id") || "",
+            // TODO: Migrate from "aligned_brand_id" to "postd_brand_id" (keeping backward compatibility)
+            brandId: localStorage.getItem("postd_brand_id") || localStorage.getItem("aligned_brand_id") || "",
             websiteUrl: user.website,
           }),
         }

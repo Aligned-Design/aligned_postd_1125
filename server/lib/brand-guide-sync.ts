@@ -11,6 +11,7 @@ import { generateBFSBaseline, shouldRegenerateBaseline } from "./bfs-baseline-ge
 import { createVersionHistory } from "./brand-guide-version-history";
 import { normalizeBrandGuide } from "@shared/brand-guide";
 import { validateBrandGuide, applyBrandGuideDefaults } from "./brand-guide-validation";
+import { logger } from "./logger";
 
 /**
  * Extract pain points from personas array
@@ -160,7 +161,12 @@ export async function saveBrandGuideFromOnboarding(
     const validation = validateBrandGuide(brandGuide as any);
     if (!validation.isValid && validation.errors.length > 0) {
       // Log errors but don't block onboarding (non-critical)
-      console.warn("[BrandGuideSync] Validation errors during onboarding:", validation.errors);
+      logger.warn("Brand Guide validation errors during onboarding", {
+        brandId,
+        brandName,
+        errorCount: validation.errors.length,
+        errors: validation.errors,
+      });
     }
     // Apply defaults for missing fields
     const validatedGuide = applyBrandGuideDefaults(brandGuide);
@@ -277,9 +283,34 @@ export async function saveBrandGuideFromOnboarding(
         .eq("id", brandId);
 
       if (error) {
-        console.error("[BrandGuideSync] Error updating brand:", error);
+        logger.error("Error updating brand from onboarding", new Error(error.message), {
+          brandId,
+          brandName,
+          errorCode: error.code,
+        });
         throw error;
       }
+      
+      // Log brand guide completeness metrics
+      const hasColors = (validatedGuide.visualIdentity?.colors?.length || 0) > 0;
+      const hasLogo = !!validatedGuide.visualIdentity?.logoUrl;
+      const hasTone = (validatedGuide.voiceAndTone?.tone?.length || 0) > 0;
+      const hasAudience = !!validatedGuide.identity?.targetAudience;
+      const hasContentPillars = (validatedGuide.contentRules?.contentPillars?.length || 0) > 0;
+      
+      logger.info("Brand Guide saved from onboarding", {
+        brandId,
+        brandName,
+        completeness: {
+          hasColors,
+          hasLogo,
+          hasTone,
+          hasAudience,
+          hasContentPillars,
+        },
+        colorCount: validatedGuide.visualIdentity?.colors?.length || 0,
+        toneCount: validatedGuide.voiceAndTone?.tone?.length || 0,
+      });
 
       // Generate BFS baseline for new/updated Brand Guide
       try {
@@ -312,7 +343,11 @@ export async function saveBrandGuideFromOnboarding(
         // Create version history entry
         await createVersionHistory(brandId, normalizedGuide, null, undefined, "Onboarding sync");
       } catch (baselineError) {
-        console.error("[BrandGuideSync] Error generating BFS baseline or version history:", baselineError);
+        logger.error(
+          "Error generating BFS baseline or version history",
+          baselineError instanceof Error ? baselineError : new Error(String(baselineError)),
+          { brandId, brandName }
+        );
         // Non-critical, continue
       }
     } else {
@@ -329,7 +364,11 @@ export async function saveBrandGuideFromOnboarding(
         });
 
       if (error) {
-        console.error("[BrandGuideSync] Error creating brand:", error);
+        logger.error("Error creating brand from onboarding", new Error(error.message), {
+          brandId,
+          brandName,
+          errorCode: error.code,
+        });
         throw error;
       }
 
@@ -361,12 +400,20 @@ export async function saveBrandGuideFromOnboarding(
         // Create version history entry
         await createVersionHistory(brandId, normalizedGuide, null, undefined, "Initial creation");
       } catch (baselineError) {
-        console.error("[BrandGuideSync] Error generating BFS baseline or version history:", baselineError);
+        logger.error(
+          "Error generating BFS baseline or version history",
+          baselineError instanceof Error ? baselineError : new Error(String(baselineError)),
+          { brandId, brandName }
+        );
         // Non-critical, continue
       }
     }
   } catch (error) {
-    console.error("[BrandGuideSync] Failed to save Brand Guide from onboarding:", error);
+    logger.error(
+      "Failed to save Brand Guide from onboarding",
+      error instanceof Error ? error : new Error(String(error)),
+      { brandId, brandName }
+    );
     throw error;
   }
 }

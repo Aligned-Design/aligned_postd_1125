@@ -566,6 +566,9 @@ When working through integration tasks, reference these documents:
 - `API_INTEGRATION_STRATEGY.md` - Integration strategy
 - `POSTD_API_CONTRACT.md` - Complete API contract (generated)
 
+### Onboarding & Brand Guide Verification
+- `POSTD_ONBOARDING_ALIGNMENT_VERIFICATION.md` - Canonical verification of onboarding flow, Brand Guide integration, and content generation behavior
+
 ---
 
 ## 🔒 SECTION 6 — CRITICAL RULES

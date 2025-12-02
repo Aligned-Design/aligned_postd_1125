@@ -55,9 +55,9 @@ jobs:
           cache: 'pnpm'
       - run: pnpm install --frozen-lockfile
       - run: pnpm run test:ci
-        continue-on-error: true
+        continue-on-error: false
       - name: Test Results
-        run: echo "⚠️ Test check completed (non-blocking). See above for details."
+        run: echo "✅ Test check passed"
 
   e2e:
     name: E2E Tests (Responsive UI)
@@ -137,5 +137,5 @@ jobs:
           echo "Build: ${{ needs.build.result }}"
           echo "Lint: ${{ needs.lint.result }}"
           echo "Typecheck: ${{ needs.typecheck.result }}"
-          echo "Tests: ${{ needs.test.result }} (non-blocking)"
+          echo "Tests: ${{ needs.test.result }}"
           echo "E2E: ${{ needs.e2e.result }} (non-blocking)"

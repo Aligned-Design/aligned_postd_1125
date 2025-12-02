@@ -8,7 +8,9 @@
 
 import { describe, it, expect, beforeEach } from "vitest";
 import request from "supertest";
-import { createServer } from "../index";
+// TODO: Update to use index-v2.ts once test dependencies are fixed
+// See docs/TEST_DEBT.md for details
+import { createServer } from "../index-v2";
 
 // TODO: Re-enable after fixing integration test dependencies
 // See docs/TEST_DEBT.md for details

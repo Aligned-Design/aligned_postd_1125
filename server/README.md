@@ -172,8 +172,10 @@ Consistent error response format across all endpoints:
 // server/lib/dbClient.ts
 import { createClient } from '@supabase/supabase-js';
 
+// Note: Server-side code should use SUPABASE_URL (not VITE_SUPABASE_URL)
+// VITE_* prefixed vars are for client-side use only
 const supabase = createClient(
-  process.env.VITE_SUPABASE_URL!,
+  process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL!, // Fallback for backward compatibility
   process.env.SUPABASE_SERVICE_ROLE_KEY!,
 );
 ```
@@ -349,7 +351,9 @@ pnpm test:coverage
 ```typescript
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import request from 'supertest';
-import app from '../index';
+// Updated: Use index-v2.ts for current server implementation
+import { createServer } from '../index-v2';
+const app = createServer();
 
 describe('GET /api/brands', () => {
   it('should return user brands', async () => {

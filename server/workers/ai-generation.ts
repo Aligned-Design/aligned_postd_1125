@@ -6,11 +6,17 @@
  * Loads and processes prompt templates
  */
 
-import OpenAI from "openai";
 import Anthropic from "@anthropic-ai/sdk";
 import { readFile } from "fs/promises";
 import { join } from "path";
 import type { AIGenerationRequest, AIGenerationResponse } from "@shared/api";
+import {
+  openai,
+  DEFAULT_OPENAI_MODEL,
+  ADVANCED_OPENAI_MODEL,
+  generateWithChatCompletions,
+  isOpenAIConfigured,
+} from "../lib/openai-client";
 
 export type AIProvider = "openai" | "claude";
 
@@ -23,23 +29,14 @@ export interface AIGenerationOutput {
   model: string;
 }
 
-// Initialize clients only when needed and API keys are available
-let openaiClient: OpenAI | null = null;
+// Initialize Anthropic client only when needed
 let anthropicClient: Anthropic | null = null;
 
-function getOpenAI(): OpenAI | null {
-  if (openaiClient === null && process.env.OPENAI_API_KEY) {
-    try {
-      openaiClient = new OpenAI({ 
-        apiKey: process.env.OPENAI_API_KEY,
-        timeout: 30000,
-      });
-    } catch (error) {
-      console.warn("Failed to initialize OpenAI client:", error);
-      return null;
-    }
+function getOpenAI() {
+  if (!isOpenAIConfigured()) {
+    return null;
   }
-  return openaiClient;
+  return openai;
 }
 
 function getAnthropic(): Anthropic | null {
@@ -59,7 +56,7 @@ function getAnthropic(): Anthropic | null {
 
 // Default to OpenAI, fallback to Claude
 function getDefaultProvider(): AIProvider {
-  if (process.env.OPENAI_API_KEY) return "openai";
+  if (isOpenAIConfigured()) return "openai";
   if (process.env.ANTHROPIC_API_KEY) return "claude";
   return "openai"; // fallback
 }
@@ -76,11 +73,7 @@ export async function generateWithAI(
 
   try {
     if (selectedProvider === "openai") {
-      const client = getOpenAI();
-      if (!client) {
-        throw new Error("OpenAI client not available - check OPENAI_API_KEY");
-      }
-      return await generateWithOpenAI(prompt, agentType, client);
+      return await generateWithOpenAI(prompt, agentType);
     } else if (selectedProvider === "claude") {
       const client = getAnthropic();
       if (!client) {
@@ -160,9 +153,16 @@ export async function generateWithAI(
 
 /**
  * Generate content using OpenAI with token tracking
+ * 
+ * Uses the shared OpenAI client from server/lib/openai-client.ts
  */
-async function generateWithOpenAI(prompt: string, agentType: string, client: OpenAI): Promise<AIGenerationOutput> {
+async function generateWithOpenAI(prompt: string, agentType: string, _client?: unknown): Promise<AIGenerationOutput> {
   const model = getOpenAIModel(agentType);
+  const client = getOpenAI();
+  
+  if (!client) {
+    throw new Error("OpenAI client not available - check OPENAI_API_KEY");
+  }
 
   try {
     const response = await client.chat.completions.create({
@@ -193,10 +193,13 @@ async function generateWithOpenAI(prompt: string, agentType: string, client: Ope
       model
     };
   } catch (error) {
-    if (error instanceof Error) {
-      throw new Error(`OpenAI API error: ${error.message}`);
-    }
-    throw error;
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error(`[OpenAI] Generation error:`, {
+      error: errorMessage,
+      model,
+      agentType,
+    });
+    throw new Error(`OpenAI API error: ${errorMessage}`);
   }
 }
 
@@ -334,17 +337,19 @@ Return as valid JSON with this structure:
 
 /**
  * Get OpenAI model based on agent type
+ * 
+ * Uses shared model constants from server/lib/openai-client.ts
  */
 function getOpenAIModel(agentType: string): string {
   switch (agentType) {
     case "doc":
-      return "gpt-4o-mini"; // Good for text generation
+      return DEFAULT_OPENAI_MODEL; // Good for text generation
     case "design":
-      return "gpt-4o-mini"; // Good for structured output
+      return DEFAULT_OPENAI_MODEL; // Good for structured output
     case "advisor":
-      return "gpt-4o"; // Best for analysis and reasoning
+      return ADVANCED_OPENAI_MODEL; // Best for analysis and reasoning
     default:
-      return "gpt-4o-mini";
+      return DEFAULT_OPENAI_MODEL;
   }
 }
 

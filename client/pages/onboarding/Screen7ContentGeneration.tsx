@@ -98,7 +98,8 @@ export default function Screen7ContentGeneration() {
   const startGeneration = async () => {
     try {
       // Get brandId from context or localStorage
-      const brandId = localStorage.getItem("aligned_brand_id") || (brandSnapshot as any)?.brandId;
+      // TODO: Migrate from "aligned_brand_id" to "postd_brand_id" (keeping backward compatibility for now)
+      const brandId = localStorage.getItem("postd_brand_id") || localStorage.getItem("aligned_brand_id") || (brandSnapshot as any)?.brandId;
       
       if (!brandId) {
         setError("Brand ID not found. Please restart onboarding.");
@@ -115,10 +116,14 @@ export default function Screen7ContentGeneration() {
         if (data.success && data.contentPlan) {
           contentPlanData = data.contentPlan;
           // Store content plan for Screen8CalendarPreview
-          localStorage.setItem("aligned:onboarding:content_package", JSON.stringify({
+          // TODO: Migrate from "aligned:onboarding:content_package" to "postd:onboarding:content_package"
+          const contentPackage = {
             items: data.contentPlan.items,
             generatedAt: data.contentPlan.generatedAt,
-          }));
+          };
+          localStorage.setItem("postd:onboarding:content_package", JSON.stringify(contentPackage));
+          // Backward compatibility
+          localStorage.setItem("aligned:onboarding:content_package", JSON.stringify(contentPackage));
         }
       } catch (apiError) {
         // ✅ ENHANCED ERROR HANDLING: Log full error and show user-friendly message
@@ -128,7 +133,7 @@ export default function Screen7ContentGeneration() {
         });
         
         // Set error state so user knows generation failed
-        setError(`Content generation failed: ${errorMessage}. Please try again or contact support.`);
+        setError(`We're having trouble generating content right now. Please try again, and if this keeps happening, contact support.`);
         // Continue with UI simulation even if API fails (don't block onboarding)
       }
 

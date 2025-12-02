@@ -51,18 +51,27 @@ SUPABASE_SERVICE_ROLE_KEY=[service-role-key]
 
 **Environment Variables**:
 ```
+# Required
 OPENAI_API_KEY=sk-[your-api-key]
+
+# Optional: Override default models (see docs/AI_MODEL_CONFIG.md for details)
+OPENAI_MODEL_TEXT=gpt-4o-mini          # Default text generation
+OPENAI_MODEL_ADVANCED=gpt-4o           # Advanced reasoning
+OPENAI_MODEL_CHEAP=gpt-4o-mini         # Background jobs
+OPENAI_MODEL_EMBEDDING=text-embedding-3-small  # Embeddings
+OPENAI_EMBEDDING_DIMENSIONS=512       # Embedding dimensions
 ```
 
-**Recommended Models**:
-- `gpt-4-turbo-preview`: Advanced content generation
-- `gpt-3.5-turbo`: Fast, cost-effective
-- `text-embedding-3-large`: Content embeddings
+**Default Models** (can be overridden via env vars):
+- `gpt-4o-mini`: Default text generation (cost-effective, fast)
+- `gpt-4o`: Advanced reasoning tasks (higher capability)
+- `text-embedding-3-small`: Embeddings (modern, cost-effective)
 
 **Cost Optimization**:
-- Use `gpt-3.5-turbo` for most tasks
-- Use `gpt-4` only for complex analysis
-- Set rate limits to prevent runaway costs
+- Default models are optimized for cost/performance balance
+- Use `OPENAI_MODEL_CHEAP` for background jobs
+- Reduce `OPENAI_EMBEDDING_DIMENSIONS` for lower embedding costs
+- See [AI Model Configuration](./AI_MODEL_CONFIG.md) for details
 
 ---
 

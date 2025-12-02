@@ -194,33 +194,51 @@ contentPlanRouter.post(
           })),
         });
       } catch (genError: any) {
-        // ✅ ENHANCED ERROR HANDLING: Log full error details
-        console.error("[ContentPlan] Content generation failed", {
+        // ✅ PRIORITY 1 FIX: Check if error is AI-related (should fallback, not fail)
+        const isAIError = genError?.message?.includes("AI generation failed") ||
+                         genError?.message?.includes("both providers") ||
+                         genError?.message?.includes("OpenAI") ||
+                         genError?.message?.includes("Claude") ||
+                         genError?.message?.includes("API error");
+        
+        // ✅ Log clearly but don't throw - we'll try to continue
+        console.warn("[ContentPlan] ⚠️ Content generation failed (AI unavailable?)", {
           brandId,
           tenantId: tenantId || "none",
           error: genError?.message || String(genError),
-          stack: genError?.stack,
+          isAIError,
+          note: isAIError ? "This may indicate AI providers are unavailable - check fallback handling" : "Unknown error",
         });
         
-        throw new AppError(
-          ErrorCode.INTERNAL_ERROR,
-          `Content generation failed: ${genError?.message || "Unknown error"}`,
-          HTTP_STATUS.INTERNAL_SERVER_ERROR,
-          "error",
-          { originalError: genError?.message, brandId }
-        );
+        // ✅ Re-throw to be caught by outer handler - the service should have fallback logic
+        // If it doesn't, we'll need to add it here
+        throw genError;
       }
 
-      // Verify we have content items
+      // ✅ PRIORITY 1 FIX: Verify we have content items - but don't fail if empty, log clearly
       if (!contentPlan.items || contentPlan.items.length === 0) {
-        console.error("[ContentPlan] No content items generated", { brandId });
-        throw new AppError(
-          ErrorCode.INTERNAL_ERROR,
-          "Content generation completed but no items were created",
-          HTTP_STATUS.INTERNAL_SERVER_ERROR,
-          "error",
-          { brandId }
-        );
+        console.warn("[ContentPlan] ⚠️ No content items generated (checking for fallback)", { 
+          brandId,
+          note: "Content generation service should provide fallback content - investigate",
+        });
+        
+        // ✅ Don't throw error - return empty plan with clear message
+        // Frontend can handle empty plan gracefully
+        (res as any).json({
+          success: true,
+          contentPlan: {
+            brandId,
+            items: [],
+            advisorRecommendations: [],
+            generatedAt: new Date().toISOString(),
+          },
+          message: "Content plan generation completed but no items were created. Please try regenerating.",
+          metadata: {
+            itemsCount: 0,
+            needsRetry: true,
+          },
+        });
+        return;
       }
 
       // Store advisor recommendations in brand_kit

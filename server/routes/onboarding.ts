@@ -9,7 +9,8 @@ import { Router, RequestHandler } from "express";
 import { supabase } from "../lib/supabase";
 import { AppError } from "../lib/error-middleware";
 import { ErrorCode, HTTP_STATUS } from "../lib/error-responses";
-import { generateWeeklyContentPackage } from "../lib/onboarding-content-generator";
+import { generateWeeklyContentPackage, generateDefaultContentPackage } from "../lib/onboarding-content-generator";
+import { logger } from "../lib/logger";
 
 const router = Router();
 
@@ -30,61 +31,167 @@ router.post("/generate-week", async (req, res, next) => {
       );
     }
 
-    // Generate 7-day content package using AI
-    const contentPackage = await generateWeeklyContentPackage(
-      brandId,
-      weeklyFocus,
-      brandSnapshot
-    );
-
-    // Save to Supabase content_packages table
-    // Use brand_id_uuid (UUID) instead of brand_id (TEXT) - migration 005
-    const { error: dbError } = await supabase
-      .from("content_packages")
-      .insert({
-        brand_id_uuid: brandId, // UUID - primary identifier (migration 005)
-        content_id: contentPackage.id,
-        request_id: `onboarding-${Date.now()}`,
-        cycle_id: `onboarding-cycle-${Date.now()}`,
-        copy: {
-          items: contentPackage.items.map(item => ({
-            id: item.id,
-            title: item.title,
-            platform: item.platform,
-            type: item.type,
-            content: item.content,
-            scheduledDate: item.scheduledDate,
-            scheduledTime: item.scheduledTime,
-            imageUrl: item.imageUrl, // ✅ Include imageUrl from scraped/prioritized images
-            brandFidelityScore: item.brandFidelityScore,
-          })),
-          weeklyFocus,
-          generatedAt: contentPackage.generatedAt,
-        },
-        design_context: brandSnapshot?.images ? { images: brandSnapshot.images } : null,
-        collaboration_log: {
-          generated: true,
-          source: "onboarding",
-          brandSnapshot: brandSnapshot ? {
-            colors: brandSnapshot.colors,
-            tone: brandSnapshot.tone,
-            keywords: brandSnapshot.keywords,
-            brandIdentity: brandSnapshot.brandIdentity,
-          } : null,
-        },
-        status: "draft",
-        requires_approval: true,
+    // ✅ PRIORITY 1 FIX: Generate 7-day content package using AI with graceful fallback
+    let contentPackage;
+    let usedFallback = false;
+    
+    try {
+      contentPackage = await generateWeeklyContentPackage(
+        brandId,
+        weeklyFocus,
+        brandSnapshot
+      );
+      
+      // ✅ Check if default/fallback content was used (deterministic defaults have lower BFS)
+      const allItemsLowBFS = contentPackage.items.every(item => 
+        (item.brandFidelityScore || 0) <= 0.5 &&
+        (item.id.includes("default-") || item.id.includes("fallback"))
+      );
+      
+      if (allItemsLowBFS && contentPackage.id.includes("default-")) {
+        usedFallback = true;
+        logger.info("Default content plan used (AI unavailable)", {
+          brandId,
+          packageId: contentPackage.id,
+          aiFallbackUsed: true,
+        });
+      }
+    } catch (error) {
+      // ✅ PRIORITY 1 FIX: If generation completely fails, use default plan instead of crashing
+      logger.warn("Content generation failed, using default plan", {
+        brandId,
+        weeklyFocus,
+        error: error instanceof Error ? error.message : String(error),
+        aiFallbackUsed: true,
       });
+      
+      // ✅ Use exported default generator as last resort
+      const { getBrandProfile } = await import("../lib/brand-profile");
+      const brand = await getBrandProfile(brandId);
+      
+      usedFallback = true;
+      contentPackage = generateDefaultContentPackage(brandId, weeklyFocus, brandSnapshot, brand);
+      
+      logger.info("Default content plan generated successfully", {
+        brandId,
+        itemsCount: contentPackage.items.length,
+        weeklyFocus,
+      });
+    }
 
-    if (dbError) {
-      console.error("[Onboarding] Error saving content package to database:", dbError);
-      // Continue anyway - we'll return the package even if DB save fails
+    // ✅ PRIORITY 1 FIX: Save to Supabase with retry logic for transient failures
+    let persistenceSuccess = false;
+    let persistenceError: any = null;
+    const maxRetries = 3;
+    
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      const { error: dbError } = await supabase
+        .from("content_packages")
+        .insert({
+          brand_id_uuid: brandId, // UUID - primary identifier (migration 005)
+          content_id: contentPackage.id,
+          request_id: `onboarding-${Date.now()}`,
+          cycle_id: `onboarding-cycle-${Date.now()}`,
+          copy: {
+            items: contentPackage.items.map(item => ({
+              id: item.id,
+              title: item.title,
+              platform: item.platform,
+              type: item.type,
+              content: item.content,
+              scheduledDate: item.scheduledDate,
+              scheduledTime: item.scheduledTime,
+              imageUrl: item.imageUrl, // ✅ Include imageUrl from scraped/prioritized images
+              brandFidelityScore: item.brandFidelityScore,
+            })),
+            weeklyFocus,
+            generatedAt: contentPackage.generatedAt,
+            usedFallback: usedFallback, // ✅ Flag indicating fallback was used
+          },
+          design_context: brandSnapshot?.images ? { images: brandSnapshot.images } : null,
+          collaboration_log: {
+            generated: true,
+            source: "onboarding",
+            usedFallback: usedFallback,
+            brandSnapshot: brandSnapshot ? {
+              colors: brandSnapshot.colors,
+              tone: brandSnapshot.tone,
+              keywords: brandSnapshot.keywords,
+              brandIdentity: brandSnapshot.brandIdentity,
+            } : null,
+          },
+          status: "draft",
+          requires_approval: true,
+        });
+
+      if (dbError) {
+        persistenceError = dbError;
+        
+        // ✅ Check if it's a transient error worth retrying
+        const isTransientError = dbError.code === "PGRST301" || // Connection error
+                                 dbError.code === "57014" || // Query timeout
+                                 dbError.message?.includes("timeout") ||
+                                 dbError.message?.includes("connection");
+        
+        if (isTransientError && attempt < maxRetries) {
+          const retryDelay = attempt * 500; // Exponential backoff
+          logger.warn(`Transient DB error, retrying`, {
+            code: dbError.code,
+            message: dbError.message,
+            brandId,
+            attempt,
+            maxRetries,
+            retryDelay,
+          });
+          await new Promise(resolve => setTimeout(resolve, retryDelay));
+          continue; // Retry
+        } else {
+          // Non-transient error or max retries reached
+          logger.error("Error saving content package to database", new Error(dbError.message), {
+            code: dbError.code,
+            hint: dbError.hint,
+            brandId,
+            attempt,
+            maxRetries,
+          });
+          break; // Stop retrying
+        }
+      } else {
+        persistenceSuccess = true;
+        break; // Success!
+      }
+    }
+
+    // ✅ PRIORITY 1 FIX: Always return content package even if persistence fails
+    // Log clearly but don't block the user experience
+    if (!persistenceSuccess) {
+      logger.warn("Content package NOT persisted to database (returning anyway)", {
+        brandId,
+        packageId: contentPackage.id,
+        error: persistenceError?.message || "Unknown error",
+        itemsCount: contentPackage.items.length,
+      });
+    } else {
+      logger.info("Content package persisted successfully", {
+        brandId,
+        packageId: contentPackage.id,
+        usedFallback,
+        itemsCount: contentPackage.items.length,
+        weeklyFocus,
+      });
     }
 
     (res as any).json({
       success: true,
       contentPackage,
-      message: "7-day content plan generated successfully",
+      message: usedFallback 
+        ? "7-day content plan generated successfully (using default template - AI was unavailable)"
+        : "7-day content plan generated successfully",
+      metadata: {
+        usedFallback: usedFallback,
+        persisted: persistenceSuccess,
+        itemsCount: contentPackage.items.length,
+      },
     });
   } catch (error) {
     next(error);
@@ -222,7 +329,11 @@ router.post("/regenerate-week", async (req, res, next) => {
       });
 
     if (dbError) {
-      console.error("[Onboarding] Error saving regenerated content package:", dbError);
+      logger.error("Error saving regenerated content package", new Error(dbError.message), {
+        brandId,
+        packageId: contentPackage.id,
+        errorCode: dbError.code,
+      });
     }
 
     (res as any).json({

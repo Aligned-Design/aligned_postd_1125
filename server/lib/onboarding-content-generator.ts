@@ -12,6 +12,7 @@ import { getBrandProfile } from "./brand-profile";
 import { getPrioritizedImage } from "./image-sourcing";
 import { getCurrentBrandGuide } from "./brand-guide-service";
 import { buildFullBrandGuidePrompt } from "./prompts/brand-guide-prompts";
+import { logger } from "./logger";
 import type { BrandProfile } from "@shared/advisor";
 
 // BrandSnapshot type (from onboarding context)
@@ -182,6 +183,16 @@ async function generateContentItem(
     const imageSource = await getPrioritizedImage(brandId, "image");
     const imageUrl = imageSource?.url || brandSnapshot?.images?.[0] || undefined;
     
+    // Log image sourcing metrics
+    if (imageSource) {
+      logger.info("Image sourced for content item", {
+        brandId,
+        platform: itemSpec.platform,
+        imageSource: imageSource.source,
+        hasImage: !!imageUrl,
+      });
+    }
+    
     return {
       id: `${itemSpec.type}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       title: parsed.title || itemSpec.topic,
@@ -194,7 +205,16 @@ async function generateContentItem(
       brandFidelityScore: bfsResult.brandFidelityScore,
     };
   } catch (error) {
-    console.error(`[OnboardingContentGenerator] Error generating ${itemSpec.type} for ${itemSpec.platform}:`, error);
+    logger.error(
+      `Error generating ${itemSpec.type} for ${itemSpec.platform}`,
+      error instanceof Error ? error : new Error(String(error)),
+      {
+        brandId,
+        platform: itemSpec.platform,
+        type: itemSpec.type,
+        topic: itemSpec.topic,
+      }
+    );
     
     // Return fallback content
     return {
@@ -208,6 +228,108 @@ async function generateContentItem(
       brandFidelityScore: 0,
     };
   }
+}
+
+/**
+ * ✅ PRIORITY 1 FIX: Generate deterministic default content plan when AI is unavailable
+ * Creates a sensible 7-day content plan based on brand info and weekly focus
+ */
+export function generateDefaultContentPackage(
+  brandId: string,
+  weeklyFocus: string,
+  brandSnapshot: BrandSnapshot | null,
+  brand: BrandProfile
+): WeeklyContentPackage {
+  const today = new Date();
+  const dates: string[] = [];
+  const times = ["09:00", "14:00", "10:00", "16:00", "11:00", "08:00", "12:00"];
+  
+  for (let i = 1; i <= 7; i++) {
+    const date = new Date(today);
+    date.setDate(date.getDate() + i);
+    dates.push(date.toISOString().split("T")[0]);
+  }
+
+  const brandName = brand.name || "your brand";
+  const topicMap: Record<string, string> = {
+    "Social engagement": "Engaging with your community and building relationships",
+    "Lead generation": "Attracting new customers with valuable content",
+    "Brand consistency": "Reinforcing brand identity and values",
+    "Awareness": "Increasing brand visibility and recognition",
+    "Sales": "Promoting products/services and driving conversions",
+  };
+  const baseTopic = topicMap[weeklyFocus] || "Sharing valuable updates and insights";
+
+  const defaultItems: ContentItem[] = [
+    {
+      id: `default-instagram-${Date.now()}-1`,
+      title: `Share Your Story - ${brandName}`,
+      platform: "instagram",
+      type: "social",
+      content: `🎯 ${baseTopic}\n\nShare what makes ${brandName} unique and connect with your community. Use this space to showcase your brand's personality and values.\n\n#${brandName.replace(/\s+/g, "")} #BrandStory`,
+      scheduledDate: dates[0],
+      scheduledTime: times[0],
+      brandFidelityScore: 0.5,
+    },
+    {
+      id: `default-facebook-${Date.now()}`,
+      title: `Engage Your Audience - ${brandName}`,
+      platform: "facebook",
+      type: "social",
+      content: `${baseTopic}\n\nWhat questions can we answer for you today? Drop a comment below and let's start a conversation!\n\nAt ${brandName}, we're committed to delivering value and building lasting relationships with our community.`,
+      scheduledDate: dates[1],
+      scheduledTime: times[1],
+      brandFidelityScore: 0.5,
+    },
+    {
+      id: `default-linkedin-${Date.now()}`,
+      title: `Professional Insight - ${brandName}`,
+      platform: "linkedin",
+      type: "social",
+      content: `${baseTopic}\n\nWe're sharing insights and updates from ${brandName}. Follow along for industry news, tips, and behind-the-scenes content.\n\nWhat topics would you like to see us cover?`,
+      scheduledDate: dates[2],
+      scheduledTime: times[2],
+      brandFidelityScore: 0.5,
+    },
+    {
+      id: `default-twitter-${Date.now()}`,
+      title: `Quick Update - ${brandName}`,
+      platform: "twitter",
+      type: "social",
+      content: `${baseTopic}\n\nWhat's on your mind today? Let's connect! 👋`,
+      scheduledDate: dates[3],
+      scheduledTime: times[3],
+      brandFidelityScore: 0.5,
+    },
+    {
+      id: `default-instagram-${Date.now()}-2`,
+      title: `Behind the Scenes - ${brandName}`,
+      platform: "instagram",
+      type: "social",
+      content: `🌟 Take a look behind the scenes at ${brandName}!\n\n${baseTopic}\n\nWhat would you like to know about us? Drop your questions below! 👇`,
+      scheduledDate: dates[4],
+      scheduledTime: times[4],
+      brandFidelityScore: 0.5,
+    },
+    {
+      id: `default-email-${Date.now()}`,
+      title: `Weekly Update from ${brandName}`,
+      platform: "email",
+      type: "email",
+      content: `Subject: Weekly Update from ${brandName}\n\nHi there,\n\n${baseTopic}\n\nWe wanted to share some updates and insights with you this week.\n\nStay tuned for more valuable content coming your way!\n\nBest regards,\nThe ${brandName} Team`,
+      scheduledDate: dates[5],
+      scheduledTime: times[5],
+      brandFidelityScore: 0.5,
+    },
+  ];
+
+  return {
+    id: `default-content-package-${Date.now()}`,
+    brandId,
+    weeklyFocus,
+    generatedAt: new Date().toISOString(),
+    items: defaultItems,
+  };
 }
 
 /**
@@ -356,20 +478,117 @@ export async function generateWeeklyContentPackage(
     },
   ];
   
-  // Generate all items (in parallel for speed, but with rate limiting consideration)
-  const items = await Promise.all(
-    itemSpecs.map((spec, index) => {
-          // Stagger requests slightly to avoid rate limits
-          return new Promise<ContentItem>((resolve) => {
-            setTimeout(async () => {
+  // ✅ PRIORITY 1 FIX: Generate content with AI, but fallback to defaults if all AI fails
+  let items: ContentItem[] = [];
+  let aiFailedCompletely = false;
+  let aiErrorCount = 0;
+  
+  try {
+    // Generate all items (in parallel for speed, but with rate limiting consideration)
+    const generationResults = await Promise.allSettled(
+      itemSpecs.map((spec, index) => {
+        // Stagger requests slightly to avoid rate limits
+        return new Promise<ContentItem>((resolve, reject) => {
+          setTimeout(async () => {
+            try {
               const item = await generateContentItem(brand, brandSnapshot, weeklyFocus, brandId, spec);
               resolve(item);
-            }, index * 500); // 500ms delay between requests
-          });
-    })
-  );
+            } catch (error) {
+              reject(error);
+            }
+          }, index * 500); // 500ms delay between requests
+        });
+      })
+    );
+
+    // Process results - check if AI completely failed
+    items = generationResults.map((result, index) => {
+      if (result.status === "fulfilled") {
+        // Check if item is a fallback placeholder (from individual item error)
+        const item = result.value;
+        const isPlaceholder = item.content.includes("placeholder") || 
+                              item.content.includes("Please regenerate") ||
+                              item.brandFidelityScore === 0;
+        
+        if (isPlaceholder) {
+          aiErrorCount++;
+        }
+        
+        return item;
+      } else {
+        // Generation failed for this item
+        aiErrorCount++;
+        logger.warn("AI generation failed for content item", {
+          brandId,
+          itemIndex: index,
+          platform: itemSpecs[index].platform,
+          type: itemSpecs[index].type,
+          error: result.reason instanceof Error ? result.reason.message : String(result.reason),
+        });
+        
+        // Return individual fallback
+        const spec = itemSpecs[index];
+        return {
+          id: `${spec.type}-fallback-${Date.now()}-${index}`,
+          title: `${spec.topic} - ${spec.platform}`,
+          platform: spec.platform,
+          type: spec.type,
+          content: `This is placeholder content for ${spec.topic} on ${spec.platform}. Please regenerate to get AI-generated content.`,
+          scheduledDate: spec.scheduledDate,
+          scheduledTime: spec.scheduledTime,
+          brandFidelityScore: 0,
+        };
+      }
+    });
+
+    // ✅ Check if AI failed completely (all items are placeholders or failed)
+    aiFailedCompletely = aiErrorCount === itemSpecs.length || 
+                         items.every(item => item.brandFidelityScore === 0 && 
+                                           (item.content.includes("placeholder") || 
+                                            item.content.includes("Please regenerate")));
+
+    if (aiFailedCompletely) {
+      logger.warn("AI generation failed completely, using deterministic default plan", {
+        brandId,
+        weeklyFocus,
+        failedItems: aiErrorCount,
+        totalItems: itemSpecs.length,
+        aiFallbackUsed: true,
+      });
+      
+      // ✅ Use deterministic default content plan
+      const defaultPackage = generateDefaultContentPackage(brandId, weeklyFocus, brandSnapshot, brand);
+      return defaultPackage;
+    }
+    
+    // ✅ If some items failed but not all, log warning but return partial results
+    if (aiErrorCount > 0) {
+      logger.warn("Some content items generated with fallbacks", {
+        brandId,
+        failedCount: aiErrorCount,
+        successCount: items.length - aiErrorCount,
+        totalItems: itemSpecs.length,
+        partialFallback: true,
+      });
+    }
+  } catch (error) {
+    // ✅ Catch-all: if entire generation process fails, use defaults
+    logger.error(
+      "Content generation process failed, using default plan",
+      error instanceof Error ? error : new Error(String(error)),
+      {
+        brandId,
+        weeklyFocus,
+        completeFallback: true,
+      }
+    );
+    
+    aiFailedCompletely = true;
+    const defaultPackage = generateDefaultContentPackage(brandId, weeklyFocus, brandSnapshot, brand);
+    return defaultPackage;
+  }
   
-  // Create package
+  // Create package with generated (or default) items
   const packageId = `content-package-${Date.now()}`;
   const packageData: WeeklyContentPackage = {
     id: packageId,
@@ -378,6 +597,20 @@ export async function generateWeeklyContentPackage(
     generatedAt: new Date().toISOString(),
     items,
   };
+  
+  // Log content plan generation success metrics
+  const itemsWithImages = items.filter(item => item.imageUrl).length;
+  const avgBFS = items.reduce((sum, item) => sum + (item.brandFidelityScore || 0), 0) / items.length;
+  
+  logger.info("Content plan generated successfully", {
+    brandId,
+    packageId,
+    weeklyFocus,
+    totalItems: items.length,
+    itemsWithImages,
+    avgBrandFidelityScore: avgBFS,
+    platforms: [...new Set(items.map(item => item.platform))],
+  });
   
   return packageData;
 }

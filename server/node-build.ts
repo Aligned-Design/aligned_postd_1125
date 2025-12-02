@@ -1,5 +1,19 @@
+/**
+ * @deprecated Legacy production server build entry point.
+ * 
+ * ⚠️ DO NOT USE THIS FILE FOR NEW DEVELOPMENT
+ * 
+ * Use `server/node-build-v2.ts` instead, which uses the current server implementation.
+ * 
+ * This file is kept for backward compatibility only.
+ * 
+ * @see server/node-build-v2.ts - Current production build entry
+ * @see server/index-v2.ts - Current server implementation
+ */
+
 import "dotenv/config";
 import path from "path";
+// TODO: Update to use index-v2.ts or remove this file if no longer needed
 import { createServer } from "./index";
 import * as express from "express";
 

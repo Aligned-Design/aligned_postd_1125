@@ -168,7 +168,8 @@ export default function Screen3AiScrape() {
     try {
       // ✅ CRITICAL: Use REAL brandId from database (created in step 2)
       // Do NOT create temporary IDs - brand should already exist
-      const brandId = localStorage.getItem("aligned_brand_id");
+      // TODO: Migrate from "aligned_brand_id" to "postd_brand_id" (keeping backward compatibility)
+      const brandId = localStorage.getItem("postd_brand_id") || localStorage.getItem("aligned_brand_id");
       if (!brandId) {
         const errorMsg = "Brand ID not found. Please go back to step 2 and complete brand creation.";
         logError("Brand ID not found", new Error(errorMsg), { step: "scrape_validation" });

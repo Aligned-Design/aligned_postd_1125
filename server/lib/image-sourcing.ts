@@ -78,6 +78,8 @@ export async function getPrioritizedImage(
     // Priority 3: Generic fallback (return null, caller should handle)
     return null;
   } catch (error) {
+    // Note: Using console.error here as logger may not be available in this context
+    // Consider importing logger if this module is used in server context
     console.error("[ImageSourcing] Error getting prioritized image:", error);
     return null;
   }

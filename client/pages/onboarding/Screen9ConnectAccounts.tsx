@@ -46,7 +46,9 @@ export default function Screen9ConnectAccounts() {
 
   const handleSkip = () => {
     // Mark as skipped, continue to dashboard
-    localStorage.setItem("aligned:onboarding:connect_skipped", "true");
+    // TODO: Migrate from "aligned:onboarding:connect_skipped" to "postd:onboarding:connect_skipped"
+    localStorage.setItem("postd:onboarding:connect_skipped", "true");
+    localStorage.setItem("aligned:onboarding:connect_skipped", "true"); // Backward compatibility
     setOnboardingStep(10);
   };
 

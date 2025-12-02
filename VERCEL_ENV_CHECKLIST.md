@@ -175,7 +175,7 @@ Add these only if you want to sync analytics from social platforms.
 |-----|-------|-------|
 | `CRAWL_MAX_PAGES` | `50` | Max pages to crawl per request |
 | `CRAWL_TIMEOUT_MS` | `30000` | Timeout in milliseconds for crawl operations |
-| `CRAWL_USER_AGENT` | `AlignedAIBot/1.0 (+contact: hello@aligned-by-design.com)` | User agent for crawler requests |
+| `CRAWL_USER_AGENT` | `POSTDBot/1.0 (+contact: hello@aligned-by-design.com)` | User agent for crawler requests |
 
 ---
 

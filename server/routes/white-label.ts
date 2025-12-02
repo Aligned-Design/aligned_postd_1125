@@ -140,6 +140,8 @@ export const updateWhiteLabelConfig: RequestHandler = async (req, res, next) => 
       const response: WhiteLabelResponse = {
         success: true,
         config: previewConfig,
+        // TODO: Update to POSTD domain if preview.alignedai.com is no longer in use
+        // Verify this is the correct preview domain before changing
         previewUrl: `https://preview.alignedai.com/${agencyId}`
       };
       (res as any).json(response);

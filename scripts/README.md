@@ -1,9 +1,27 @@
-# POSTD Platform - Testing Scripts
+# POSTD Platform - Scripts Directory
 
-> **Status:** ✅ Active – These testing scripts are active and in use.  
+> **Status:** ✅ Active – Scripts are actively maintained and in use.  
 > **Last Updated:** 2025-01-20
 
-Comprehensive test suite for validating Supabase configuration, database setup, and system functionality.
+This directory contains all utility scripts for testing, validation, deployment, and development tasks.
+
+## Script Categories
+
+### 🧪 Testing Scripts
+Test suite for validating Supabase configuration, database setup, and system functionality.
+
+### 🔧 Development Scripts
+Scripts for development workflows, debugging, and local setup.
+
+### 🚀 Deployment Scripts
+Scripts for deployment, migration, and production tasks.
+
+### 📊 Validation & Audit Scripts
+Scripts for validating customer experience, running audits, and health checks.
+
+---
+
+## Testing Scripts
 
 ## Available Tests
 
@@ -425,4 +443,113 @@ For issues with tests:
 
 ---
 
-**Last Updated:** November 4, 2025
+## Other Scripts in This Directory
+
+### Development & Validation Scripts
+
+#### `validate:env`
+Validates all environment variables against `server/utils/validate-env.ts`.
+
+```bash
+pnpm run validate:env
+```
+
+#### `validate:customer-experience`
+Validates customer-facing experience flows.
+
+```bash
+pnpm run validate:customer-experience
+```
+
+#### `audit:customer`
+Runs customer-facing audit and generates report.
+
+```bash
+pnpm run audit:customer
+```
+
+#### `test:e2e`
+Runs end-to-end flow tests using Playwright.
+
+```bash
+pnpm run test:e2e
+```
+
+#### `test:agents:latency`
+Smoke test for AI agents latency.
+
+```bash
+pnpm run test:agents:latency
+```
+
+### Deployment Scripts
+
+#### `deploy.sh` / `deploy.mjs`
+Deployment scripts for production.
+
+#### `deploy-migration.ts` / `deploy-migration.js`
+Database migration deployment scripts.
+
+### Utility Scripts
+
+#### `smoke-agents.ts`
+Smoke test for AI agents.
+
+#### `smoke-endpoints.ts`
+Smoke test for API endpoints.
+
+#### `crawler-qa.ts`
+QA testing for brand crawler.
+
+#### `postd-supabase-smoke-test.ts`
+Supabase connection smoke test.
+
+#### `postd-supabase-runtime-test.ts`
+Supabase runtime validation.
+
+#### `postd-rls-access-check.ts`
+RLS access validation.
+
+#### `seed-minimal-postd.ts`
+Minimal seed data for POSTD.
+
+#### `verify-postd-seed.ts`
+Verify seed data.
+
+#### `verify-scraped-images.ts`
+Verify scraped images persistence.
+
+#### `test-brand-guide-versions-table.ts`
+Test brand guide versions table.
+
+#### `test-crawl-dedup.ts`
+Test crawler deduplication.
+
+#### `test-crawl-endpoint.ts`
+Test crawler endpoint.
+
+#### `test-scraped-image-persistence.ts`
+Test scraped image persistence.
+
+### Legacy Scripts (`.js` files)
+
+The following scripts are in JavaScript (legacy format):
+- `test-*.js` - Various test scripts (see Testing Scripts section above)
+- `validate-metas.js` - Meta tag validation
+- `deploy-migration.js` - Legacy migration script
+
+**Note**: These are still functional but may be migrated to TypeScript in the future.
+
+---
+
+## Script File Types
+
+- **`.ts`** - TypeScript scripts (preferred, actively maintained)
+- **`.tsx`** - TypeScript React scripts (for UI testing)
+- **`.js`** - JavaScript scripts (legacy, still functional)
+- **`.sh`** - Shell scripts (deployment utilities)
+- **`.md`** - Documentation files
+
+---
+
+**Last Updated:** 2025-01-20

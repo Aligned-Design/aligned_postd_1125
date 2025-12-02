@@ -12,19 +12,12 @@
  * - Platform fit: 15%
  */
 
-import OpenAI from "openai";
 import { BrandFidelityScore } from "../../client/types/agent-config";
-
-let openaiClient: OpenAI | null = null;
-
-function getOpenAI(): OpenAI {
-  if (!openaiClient) {
-    openaiClient = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY || "sk-placeholder",
-    });
-  }
-  return openaiClient;
-}
+import {
+  DEFAULT_EMBEDDING_MODEL,
+  generateEmbedding,
+  isOpenAIConfigured,
+} from "../lib/openai-client";
 
 import type { BrandGuide } from "@shared/brand-guide";
 
@@ -177,21 +170,20 @@ async function scoreToneAlignment(
   const combinedText = `${content.headline || ""} ${content.body} ${content.cta || ""}`;
 
   // If we have brand embedding, use semantic similarity
-  if (brandEmbedding && process.env.OPENAI_API_KEY) {
+  if (brandEmbedding && isOpenAIConfigured()) {
     try {
-      const response = await getOpenAI().embeddings.create({
-        model: "text-embedding-ada-002",
-        input: combinedText,
+      const contentEmbedding = await generateEmbedding(combinedText, {
+        model: DEFAULT_EMBEDDING_MODEL,
       });
 
-      const contentEmbedding = response.data[0].embedding;
       const similarity = cosineSimilarity(brandEmbedding, contentEmbedding);
 
       // Map similarity (0-1) to score
       return similarity;
-    } catch (_error) {
+    } catch (error) {
       console.error(
-        "Embedding similarity failed, falling back to keyword matching",
+        "Embedding similarity failed, falling back to keyword matching:",
+        error instanceof Error ? error.message : String(error)
       );
     }
   }

@@ -42,8 +42,9 @@ export class ConnectorManager {
     vault?: TokenVault
   ) {
     this.tenantId = tenantId;
-    const url = supabaseUrl || process.env.VITE_SUPABASE_URL || '';
-    const key = supabaseKey || process.env.VITE_SUPABASE_ANON_KEY || '';
+    // Use server-side env vars (not VITE_* which are client-side)
+    const url = supabaseUrl || process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
+    const key = supabaseKey || process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY || '';
 
     this.supabase = createClient(url, key);
     this.vault = vault || new TokenVault({ supabaseUrl: url, supabaseKey: key });
@@ -67,24 +68,24 @@ export class ConnectorManager {
       case 'meta':
         connector = new MetaConnector(this.tenantId, connectionId, {
           vault: this.vault,
-          supabaseUrl: process.env.VITE_SUPABASE_URL,
-          supabaseKey: process.env.VITE_SUPABASE_ANON_KEY,
+          supabaseUrl: process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '',
+          supabaseKey: process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY || '',
         });
         break;
 
       case 'linkedin':
         connector = new LinkedInConnector(this.tenantId, connectionId, {
           vault: this.vault,
-          supabaseUrl: process.env.VITE_SUPABASE_URL,
-          supabaseKey: process.env.VITE_SUPABASE_ANON_KEY,
+          supabaseUrl: process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '',
+          supabaseKey: process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY || '',
         });
         break;
 
       case 'tiktok':
         connector = new TikTokConnector(this.tenantId, connectionId, {
           vault: this.vault,
-          supabaseUrl: process.env.VITE_SUPABASE_URL,
-          supabaseKey: process.env.VITE_SUPABASE_ANON_KEY,
+          supabaseUrl: process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '',
+          supabaseKey: process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY || '',
         });
         break;
 
@@ -92,26 +93,32 @@ export class ConnectorManager {
       case 'x':
         connector = new TwitterConnector(this.tenantId, connectionId, {
           vault: this.vault,
-          supabaseUrl: process.env.VITE_SUPABASE_URL,
-          supabaseKey: process.env.VITE_SUPABASE_ANON_KEY,
+          supabaseUrl: process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '',
+          supabaseKey: process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY || '',
         });
         break;
 
       case 'canva':
         connector = new CanvaConnector(this.tenantId, connectionId, {
           vault: this.vault,
-          supabaseUrl: process.env.VITE_SUPABASE_URL,
-          supabaseKey: process.env.VITE_SUPABASE_ANON_KEY,
+          supabaseUrl: process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '',
+          supabaseKey: process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY || '',
         });
         break;
 
       case 'gbp':
-        // Future work: Import GBPConnector
-        throw new Error('GBP connector not yet implemented');
+        // TODO: Implement GBP connector
+        // Scaffold exists at server/connectors/gbp/index.ts but is not implemented
+        // All methods throw "Future work" errors
+        // See CONNECTOR_SPECS_GBP.md for implementation requirements
+        throw new Error('GBP connector not yet implemented. See server/connectors/gbp/index.ts for scaffold.');
 
       case 'mailchimp':
-        // Future work: Import MailchimpConnector
-        throw new Error('Mailchimp connector not yet implemented');
+        // TODO: Implement Mailchimp connector
+        // Scaffold exists at server/connectors/mailchimp/index.ts but is not implemented
+        // All methods throw "Future work" errors
+        // See CONNECTOR_SPECS_MAILCHIMP.md for implementation requirements
+        throw new Error('Mailchimp connector not yet implemented. See server/connectors/mailchimp/index.ts for scaffold.');
 
       default:
         throw new Error(`Unknown platform: ${platform}`);

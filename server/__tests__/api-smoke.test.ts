@@ -12,7 +12,8 @@
 
 import { describe, it, expect, beforeAll } from "vitest";
 import request from "supertest";
-import { createServer } from "../index";
+// Updated to use current server implementation (index-v2.ts)
+import { createServer } from "../index-v2";
 
 describe("API Smoke Tests", () => {
   let app: ReturnType<typeof createServer>;

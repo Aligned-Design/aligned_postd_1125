@@ -46,7 +46,8 @@ export default function Screen5BrandSummaryReview() {
   // ✅ FIX: Fetch images from brand guide (where scraped images are stored)
   useEffect(() => {
     const fetchBrandGuideImages = async () => {
-      const brandId = localStorage.getItem("aligned_brand_id");
+      // TODO: Migrate from "aligned_brand_id" to "postd_brand_id" (keeping backward compatibility)
+      const brandId = localStorage.getItem("postd_brand_id") || localStorage.getItem("aligned_brand_id");
       if (!brandId) {
         if (import.meta.env.DEV) {
           logWarning("No brandId found in localStorage", { step: "fetch_images" });
@@ -228,7 +229,8 @@ export default function Screen5BrandSummaryReview() {
   const handleContinue = async () => {
     // Save Brand Guide to Supabase before continuing
     if (brandSnapshot) {
-      const brandId = localStorage.getItem("aligned_brand_id");
+      // TODO: Migrate from "aligned_brand_id" to "postd_brand_id" (keeping backward compatibility)
+      const brandId = localStorage.getItem("postd_brand_id") || localStorage.getItem("aligned_brand_id");
       if (!brandId) {
         logError("No brandId found - cannot save brand guide", new Error("Brand ID missing"), {
           step: "save_brand_guide",
@@ -297,7 +299,8 @@ export default function Screen5BrandSummaryReview() {
     setBrandSnapshot(updatedSnapshot);
     
     // Save to Supabase via Brand Guide API
-    const brandId = localStorage.getItem("aligned_brand_id");
+    // TODO: Migrate from "aligned_brand_id" to "postd_brand_id" (keeping backward compatibility)
+    const brandId = localStorage.getItem("postd_brand_id") || localStorage.getItem("aligned_brand_id");
     if (!brandId) {
       if (import.meta.env.DEV) {
         logWarning("No brandId found for save", { step: "save_edit" });
@@ -567,8 +570,8 @@ export default function Screen5BrandSummaryReview() {
             </div>
           ) : (
             <div className="text-center py-8 text-slate-500 text-sm">
-              <p>No brand images were extracted from your website.</p>
-              <p className="mt-2 text-xs">Brand images will appear here once they're scraped and saved.</p>
+              <p>We automatically detected your brand assets for you.</p>
+              <p className="mt-2 text-xs">Feel free to add or remove any images.</p>
             </div>
           )}
         </div>

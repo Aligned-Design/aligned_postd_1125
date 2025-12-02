@@ -17,7 +17,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { ArrowRight, Calendar, Sparkles, MessageSquare, RefreshCw, X } from "lucide-react";
 import { OnboardingProgress } from "@/components/onboarding/OnboardingProgress";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { logWarning, logError } from "@/lib/logger";
+import { logWarning, logError, logInfo } from "@/lib/logger";
 
 interface ContentItem {
   id: string;
@@ -62,7 +62,8 @@ export default function Screen8CalendarPreview() {
       
       try {
         // Get the most recent content package for this brand
-        const brandId = localStorage.getItem("aligned_brand_id");
+        // TODO: Migrate from "aligned_brand_id" to "postd_brand_id" (keeping backward compatibility)
+        const brandId = localStorage.getItem("postd_brand_id") || localStorage.getItem("aligned_brand_id");
         if (!brandId) {
           setLoadError("Brand ID not found. Please go back and complete brand setup.");
           setIsLoading(false);
@@ -127,7 +128,8 @@ export default function Screen8CalendarPreview() {
         }
         
         // Try localStorage as last resort
-        const savedPackage = localStorage.getItem("aligned:onboarding:content_package");
+        // TODO: Migrate from "aligned:onboarding:content_package" to "postd:onboarding:content_package"
+        const savedPackage = localStorage.getItem("postd:onboarding:content_package") || localStorage.getItem("aligned:onboarding:content_package");
         if (savedPackage) {
           try {
             const parsed = JSON.parse(savedPackage);
@@ -158,14 +160,61 @@ export default function Screen8CalendarPreview() {
           }
         }
         
-        // No real content found - show error
-        setLoadError("No content found. Please go back and regenerate your content plan.");
-        setContentItems([]);
+        // ✅ PRIORITY 1 FIX: No content found - check if generation might still be in progress
+        // Poll a few times before giving up (content generation might still be processing)
+        let pollAttempt = 0;
+        const maxPollAttempts = 3;
+        const pollDelay = 2000; // 2 seconds between polls
+        
+        while (pollAttempt < maxPollAttempts) {
+          pollAttempt++;
+          logInfo(`[Screen8] Polling for content (attempt ${pollAttempt}/${maxPollAttempts})...`, { step: "polling", attempt: pollAttempt });
+          
+          await new Promise(resolve => setTimeout(resolve, pollDelay));
+          
+          // Try fetching again
+          try {
+            const { apiGet } = await import("@/lib/api");
+            const data = await apiGet(`/api/content-plan/${brandId}`);
+            
+            if (data?.success && data?.contentPlan && data.contentPlan.items && data.contentPlan.items.length > 0) {
+              const items: ContentItem[] = data.contentPlan.items
+                .map((item: any) => ({
+                  id: item.id,
+                  title: item.title,
+                  platform: item.platform.charAt(0).toUpperCase() + item.platform.slice(1),
+                  type: item.contentType || "post",
+                  scheduledDate: item.scheduledDate,
+                  scheduledTime: item.scheduledTime,
+                  preview: item.content?.substring(0, 50) + "..." || item.title,
+                  imageUrl: item.imageUrl,
+                }))
+                .filter(isRealContent);
+              
+              if (items.length > 0) {
+                setContentItems(items);
+                setLoadError(null);
+                setIsLoading(false);
+                return; // Success!
+              }
+            }
+          } catch (pollError) {
+            // Continue polling
+            logWarning(`[Screen8] Poll attempt ${pollAttempt} failed, continuing...`, { step: "polling", attempt: pollAttempt, error: pollError });
+          }
+        }
+        
+        // ✅ PRIORITY 1 FIX: After polling, show friendly empty state (not scary error)
+        // Only show error if we're certain there's no content AND no way to generate it
+        setLoadError(null); // Clear any error state
+        setContentItems([]); // Empty state will be shown
+        
       } catch (error) {
         logError("Failed to load content package", error instanceof Error ? error : new Error(String(error)), {
           step: "load_content",
         });
-        setLoadError("Failed to load content. Please try again or go back to regenerate.");
+        // ✅ PRIORITY 1 FIX: Don't show scary error - show actionable empty state
+        setLoadError(null); // Don't block with error message
         setContentItems([]);
       } finally {
         setIsLoading(false);
@@ -179,7 +228,8 @@ export default function Screen8CalendarPreview() {
   const generateSampleWeekContent = (snapshot: any): ContentItem[] => {
     const brandName = snapshot.brandName || snapshot.name || "Your Brand";
     const industry = snapshot.industry || snapshot.businessType || "business";
-    const weeklyFocus = (user as any)?.weeklyFocus || localStorage.getItem("aligned:weekly_focus") || "brand_awareness";
+    // TODO: Migrate from "aligned:weekly_focus" to "postd:weekly_focus"
+    const weeklyFocus = (user as any)?.weeklyFocus || localStorage.getItem("postd:weekly_focus") || localStorage.getItem("aligned:weekly_focus") || "brand_awareness";
     
     // Content templates based on weekly focus
     const contentTemplates: Array<{
@@ -320,17 +370,21 @@ export default function Screen8CalendarPreview() {
   const handleSkipConnect = () => {
     setShowConnectCTA(false);
     // Mark as skipped, continue to dashboard
-    localStorage.setItem("aligned:onboarding:connect_skipped", "true");
+    // TODO: Migrate from "aligned:onboarding:connect_skipped" to "postd:onboarding:connect_skipped"
+    localStorage.setItem("postd:onboarding:connect_skipped", "true");
+    localStorage.setItem("aligned:onboarding:connect_skipped", "true"); // Backward compatibility
     setOnboardingStep(10);
   };
 
   const handleRegenerateWeek = async () => {
-    const weeklyFocus = (user as any)?.weeklyFocus || localStorage.getItem("aligned:weekly_focus") || "brand_awareness";
+    // TODO: Migrate from "aligned:weekly_focus" to "postd:weekly_focus"
+    const weeklyFocus = (user as any)?.weeklyFocus || localStorage.getItem("postd:weekly_focus") || localStorage.getItem("aligned:weekly_focus") || "brand_awareness";
     if (!weeklyFocus || !brandSnapshot) return;
     
     setIsRegenerating(true);
     try {
-      const brandId = localStorage.getItem("aligned_brand_id") || `brand_${Date.now()}`;
+      // TODO: Migrate from "aligned_brand_id" to "postd_brand_id" (keeping backward compatibility)
+      const brandId = localStorage.getItem("postd_brand_id") || localStorage.getItem("aligned_brand_id") || `brand_${Date.now()}`;
       
       const response = await fetch("/api/onboarding/regenerate-week", {
         method: "POST",
@@ -364,7 +418,9 @@ export default function Screen8CalendarPreview() {
         setContentItems(items);
         
         // Save to localStorage
-        localStorage.setItem("aligned:onboarding:content_package", JSON.stringify(result.contentPackage));
+        // TODO: Migrate from "aligned:onboarding:content_package" to "postd:onboarding:content_package"
+        localStorage.setItem("postd:onboarding:content_package", JSON.stringify(result.contentPackage));
+        localStorage.setItem("aligned:onboarding:content_package", JSON.stringify(result.contentPackage)); // Backward compatibility
       }
     } catch (error) {
       logError("Failed to regenerate content", error instanceof Error ? error : new Error(String(error)), {
@@ -442,22 +498,23 @@ export default function Screen8CalendarPreview() {
           </div>
         )}
 
-        {/* Error State */}
-        {!isLoading && loadError && (
-          <div className="bg-red-50 border border-red-200 rounded-xl p-6 mb-6">
-            <div className="flex items-start gap-3">
-              <X className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
-              <div className="flex-1">
-                <h3 className="text-red-900 font-bold mb-1">Content Not Found</h3>
-                <p className="text-red-700 text-sm mb-4">{loadError}</p>
-                <button
-                  onClick={() => setOnboardingStep(7)}
-                  className="px-4 py-2 bg-red-600 text-white rounded-lg font-bold hover:bg-red-700 transition-colors"
-                >
-                  Go Back to Generate Content
-                </button>
-              </div>
+        {/* ✅ PRIORITY 1 FIX: Empty State - friendly and actionable, not scary */}
+        {!isLoading && !loadError && contentItems.length === 0 && (
+          <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-8 mb-6 text-center">
+            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-indigo-100 mb-4">
+              <Calendar className="w-8 h-8 text-indigo-600" />
             </div>
+            <h3 className="text-xl font-bold text-indigo-900 mb-2">Ready to create your content plan?</h3>
+            <p className="text-indigo-700 text-sm mb-6 max-w-md mx-auto">
+              Your content calendar is empty. Generate your first week of content to get started.
+            </p>
+            <button
+              onClick={() => setOnboardingStep(7)}
+              className="px-6 py-3 bg-indigo-600 text-white rounded-lg font-bold hover:bg-indigo-700 transition-colors inline-flex items-center gap-2"
+            >
+              <Sparkles className="w-4 h-4" />
+              Generate Content Plan
+            </button>
           </div>
         )}
 

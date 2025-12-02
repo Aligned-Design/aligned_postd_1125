@@ -222,6 +222,30 @@ const validators: Record<string, EnvValidator> = {
   },
 
   // Social Media - TikTok
+  TIKTOK_CLIENT_KEY: {
+    name: "TikTok OAuth Client Key",
+    required: false,
+    validate: (val) => ({
+      valid: val.length > 10,
+      message: "Should be a valid client key",
+    }),
+  },
+  TIKTOK_CLIENT_SECRET: {
+    name: "TikTok OAuth Client Secret",
+    required: false,
+    validate: (val) => ({
+      valid: val.length > 20,
+      message: "Should be a valid secret string (>20 chars)",
+    }),
+  },
+  TIKTOK_REDIRECT_URI: {
+    name: "TikTok OAuth Redirect URI",
+    required: false,
+    validate: (val) => ({
+      valid: val.startsWith("http://") || val.startsWith("https://"),
+      message: "Should be a valid HTTP(S) URL",
+    }),
+  },
   TIKTOK_BUSINESS_ACCOUNT_ID: {
     name: "TikTok Business Account ID",
     required: false,

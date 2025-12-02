@@ -4,9 +4,12 @@
  * Enhances Brand Fidelity Score tone detection with deeper linguistic analysis
  */
 
-import OpenAI from 'openai';
-
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+import {
+  DEFAULT_EMBEDDING_MODEL,
+  EMBEDDING_DIMENSIONS,
+  generateEmbedding,
+  isOpenAIConfigured,
+} from './openai-client';
 
 // ==================== TONE DEFINITIONS ====================
 
@@ -199,13 +202,14 @@ export class ToneClassifier {
 
     // Get fresh embedding from OpenAI
     try {
-      const response = await openai.embeddings.create({
-        model: 'text-embedding-3-small',
-        input: text,
-        dimensions: 512,
-      });
+      if (!isOpenAIConfigured()) {
+        throw new Error("OpenAI API key not configured");
+      }
 
-      const embedding = response.data[0].embedding;
+      const embedding = await generateEmbedding(text, {
+        model: DEFAULT_EMBEDDING_MODEL,
+        dimensions: EMBEDDING_DIMENSIONS,
+      });
 
       // Cache the embedding
       embeddingCache[cacheKey] = embedding;
