@@ -94,6 +94,7 @@ import brandsRouter from "./routes/brands";
 import crawlerRouter from "./routes/crawler";
 import brandGuideRouter from "./routes/brand-guide";
 import onboardingRouter from "./routes/onboarding";
+import contentPlanRouter from "./routes/content-plan";
 import { getAdvisorInsights } from "./routes/advisor";
 import { generateDocContent } from "./routes/doc-agent";
 import { generateDesignContent } from "./routes/design-agent";
@@ -183,6 +184,7 @@ export function createServer() {
   app.use("/api/crawl", crawlerRouter);
   app.use("/api/brand-guide", brandGuideRouter);
   app.use("/api/onboarding", onboardingRouter);
+  app.use("/api/content-plan", contentPlanRouter);
   
   // ✅ DEBUG: Health check endpoint (comprehensive system verification)
   app.use("/api/debug", debugHealthRouter);

@@ -76,7 +76,7 @@ export class MediaDBService {
    */
   async createMediaAsset(
     brandId: string,
-    tenantId: string,
+    tenantId: string | null,
     filename: string,
     mimeType: string,
     path: string,
@@ -148,16 +148,18 @@ export class MediaDBService {
     // For scraped images, URL is stored in path column
     // Only include url/thumbnail_url if they exist in schema (Supabase will ignore unknown columns)
     // ✅ FIX: Column is size_bytes not file_size in production schema
+    // ✅ CRITICAL: Include status field explicitly (migration 007 adds it with default, but safer to be explicit)
     const insertData: any = {
-      tenant_id: tenantId,
+      tenant_id: tenantId || null, // ✅ FIX: Explicitly set to null if missing (schema allows nullable)
       brand_id: brandId,
       filename,
       mime_type: mimeType,
       path, // For scraped images, path contains the actual URL
       size_bytes: fileSize,
-      hash,
-      category,
-      metadata,
+      hash: hash || null, // Hash is optional in schema
+      category: category || null, // Category is optional in schema
+      metadata: metadata || null, // Metadata is optional in schema
+      status: 'active', // ✅ CRITICAL: Explicitly set status (migration 007 adds this column with default 'active')
     };
     
     // Only add url/thumbnail_url if they might exist (won't error if column doesn't exist)
@@ -169,6 +171,21 @@ export class MediaDBService {
       insertData.thumbnail_url = thumbnailUrl;
     }
 
+    // ✅ ENHANCED: Log insert payload for debugging (excluding sensitive data)
+    if (process.env.DEBUG_MEDIA_DB === "true") {
+      console.log(`[MediaDB] Inserting media asset:`, {
+        brand_id: brandId,
+        tenant_id: tenantId || "null",
+        filename,
+        category,
+        path: path.substring(0, 80),
+        size_bytes: fileSize,
+        has_hash: !!hash,
+        has_metadata: !!metadata,
+        status: insertData.status,
+      });
+    }
+
     const { data, error } = await supabase
       .from("media_assets")
       .insert(insertData)
@@ -176,12 +193,34 @@ export class MediaDBService {
       .single();
 
     if (error) {
+      // ✅ ENHANCED: Log detailed Postgres error information
+      const errorDetails = {
+        message: error.message,
+        code: error.code, // Postgres error code (e.g., '23505' for unique violation, '23503' for FK violation)
+        details: (error as any).details, // Postgres error details
+        hint: (error as any).hint, // Postgres error hint
+        // Include subset of insert data for debugging (excluding secrets)
+        insertData: {
+          brand_id: brandId,
+          tenant_id: tenantId || "null",
+          filename,
+          category,
+          path: path.substring(0, 80),
+          size_bytes: fileSize,
+          status: insertData.status,
+          has_hash: !!hash,
+          has_metadata: !!metadata,
+        },
+      };
+      
+      console.error(`[MediaDB] ❌ Database error creating media asset:`, errorDetails);
+      
       throw new AppError(
         ErrorCode.DATABASE_ERROR,
         "Failed to create media asset",
         HTTP_STATUS.INTERNAL_SERVER_ERROR,
         "critical",
-        { details: error.message }
+        errorDetails // ✅ ENHANCED: Include full error details in AppError
       );
     }
 

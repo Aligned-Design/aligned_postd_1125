@@ -24,6 +24,29 @@ import crypto from "crypto";
 
 const mediaDB = new MediaDBService();
 
+/**
+ * Derive filename from image URL
+ * Extracts the last path segment and strips query parameters
+ * Falls back to "scraped-image" if extraction fails
+ */
+function deriveFilenameFromUrl(imageUrl: string): string {
+  try {
+    const url = new URL(imageUrl);
+    const pathname = url.pathname; // e.g. "/content/v1/.../Aligned-by-design-main-logo.png"
+    const lastSegment = pathname.split("/").filter(Boolean).pop() ?? "";
+    const base = lastSegment.split("?")[0] || "scraped-image";
+    
+    // Ensure we have a valid filename (non-empty, reasonable length)
+    if (base && base.length > 0 && base.length < 255) {
+      return base;
+    }
+    
+    return "scraped-image";
+  } catch {
+    return "scraped-image";
+  }
+}
+
 export interface CrawledImage {
   url: string;
   alt?: string;
@@ -314,19 +337,8 @@ export async function persistScrapedImages(
         category = "images";
       }
 
-      // Extract filename from URL (with better error handling)
-      let filename = `scraped-${Date.now()}-${Math.random().toString(36).substring(7)}.jpg`;
-      try {
-        const urlObj = new URL(image.url);
-        const pathname = urlObj.pathname;
-        const extractedFilename = pathname.split("/").pop();
-        if (extractedFilename && extractedFilename.length > 0 && extractedFilename.length < 255) {
-          filename = extractedFilename;
-        }
-      } catch (urlError) {
-        // Use default filename if URL parsing fails
-        console.warn(`[ScrapedImages] Could not extract filename from URL ${image.url}, using default`);
-      }
+      // ✅ FIX: Use robust filename derivation helper
+      const filename = deriveFilenameFromUrl(image.url);
 
       // Create metadata with source='scrape'
       const metadata = {

@@ -15,6 +15,7 @@
   },
   "scripts": {
     "test:e2e": "tsx scripts/test-e2e-flow.ts",
+    "e2e": "playwright test",
     "dev": "concurrently \"npm:dev:client\" \"npm:dev:server\"",
     "dev:client": "vite",
     "dev:server": "PORT=3000 tsx server/index-v2.ts",
