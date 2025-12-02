@@ -5,14 +5,15 @@
  * Creates/retrieves tenant/workspace and ensures stable tenantId
  */
 
-import { Router, RequestHandler } from "express";
+import type { Router, RequestHandler } from "express";
+import { Router as ExpressRouter } from "express";
 import { supabase } from "../lib/supabase";
 import { AppError } from "../lib/error-middleware";
 import { ErrorCode, HTTP_STATUS } from "../lib/error-responses";
 import { generateTokenPair, verifyToken } from "../lib/jwt-auth";
 import { Role } from "../middleware/rbac";
 
-const router = Router();
+const router = ExpressRouter();
 
 /**
  * POST /api/auth/signup

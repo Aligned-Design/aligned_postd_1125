@@ -3,7 +3,7 @@
  * Enforces permission checks based on canonical RBAC system
  */
 
-import { Request, Response, NextFunction } from "express";
+import type { Request, Response, NextFunction } from "express";
 import { AppError } from "../lib/error-middleware";
 import { ErrorCode, HTTP_STATUS } from "../lib/error-responses";
 import permissionsMap from "../../config/permissions.json";
@@ -27,7 +27,7 @@ export function requireScope(scopes: Scope | Scope[]) {
   return (req: Request, res: Response, next: NextFunction) => {
     try {
       // Get user from request (set by authenticateUser middleware)
-      const user = (req as any).user || (req as any).auth;
+      const user = req.user || req.auth;
 
       if (!user) {
         throw new AppError(
@@ -107,7 +107,7 @@ export function requireScope(scopes: Scope | Scope[]) {
 export function requireAllScopes(scopes: Scope[]) {
   return (req: Request, res: Response, next: NextFunction) => {
     try {
-      const user = (req as any).user || (req as any).auth;
+      const user = req.user || req.auth;
 
       if (!user) {
         throw new AppError(

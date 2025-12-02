@@ -1,5 +1,5 @@
 import crypto from "crypto";
-import { Request, Response, NextFunction } from "express";
+import type { Request, Response, NextFunction } from "express";
 import { AppError } from "./error-middleware";
 import { ErrorCode, HTTP_STATUS } from "./error-responses";
 import { Role } from "../middleware/rbac";
@@ -236,10 +236,10 @@ export function jwtAuth(req: Request, res: Response, next: NextFunction) {
     }
 
     // Attach user info to request
-    (req as any).auth = {
+    req.auth = {
       userId: payload.userId,
       email: payload.email,
-      role: payload.role,
+      role: payload.role as Role,
       brandIds: payload.brandIds,
       tenantId: payload.tenantId,
     };
@@ -299,5 +299,14 @@ export function getUserFromRequest(req: Request): {
   brandIds: string[];
   tenantId: string;
 } | null {
-  return (req as any).auth || null;
+  const auth = req.auth;
+  if (!auth) return null;
+  
+  return {
+    userId: auth.userId,
+    email: auth.email,
+    role: auth.role as Role,
+    brandIds: auth.brandIds || [],
+    tenantId: auth.tenantId || "",
+  };
 }

@@ -4,7 +4,7 @@
  * Integrates with error-responses.ts for OWASP-compliant error handling
  */
 
-import { Request, Response, NextFunction } from "express";
+import type { Request, Response, NextFunction } from "express";
 import { v4 as uuidv4 } from "uuid";
 import { ZodError } from "zod";
 import {
@@ -23,7 +23,7 @@ import {
  */
 export function addRequestId(req: Request, _res: Response, next: NextFunction): void {
   const requestId = req.get("X-Request-ID") || uuidv4();
-  (req as any).id = requestId;
+  req.id = requestId;
   next();
 }
 
@@ -68,7 +68,7 @@ export function errorHandler(
   res: Response,
   _next: NextFunction
 ): void {
-  const requestId = (req as any).id;
+  const requestId = req.id;
 
   // Ensure we only respond once
   if (res.headersSent) {
@@ -89,7 +89,7 @@ export function errorHandler(
       },
     };
 
-    (res as any).status(err.statusCode).json(errorResponse);
+    res.status(err.statusCode).json(errorResponse);
     return;
   }
 
@@ -113,7 +113,7 @@ export function errorHandler(
       },
     };
 
-    (res as any).status(HTTP_STATUS.UNPROCESSABLE_ENTITY).json(response);
+    res.status(HTTP_STATUS.UNPROCESSABLE_ENTITY).json(response);
     return;
   }
 
@@ -149,7 +149,7 @@ export function errorHandler(
     },
   };
 
-  (res as any).status(statusCode).json(errorResponse);
+    res.status(statusCode).json(errorResponse);
 }
 
 /**

@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
 // ✅ CRITICAL: Check environment variables
 const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
@@ -44,7 +44,7 @@ console.log("[Supabase] ✅ Initialized", {
   keyLength: supabaseServiceKey?.length || 0,
 });
 
-export const supabase = createClient(supabaseUrl, supabaseServiceKey, {
+export const supabase: SupabaseClient = createClient(supabaseUrl, supabaseServiceKey, {
   auth: {
     autoRefreshToken: false,
     persistSession: false

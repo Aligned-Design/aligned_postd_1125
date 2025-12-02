@@ -288,6 +288,13 @@ export async function crawlWebsite(startUrl: string): Promise<CrawlResult[]> {
           userAgent: CRAWL_USER_AGENT,
         });
 
+        // Prevent bundler-generated helpers from breaking in the browser context
+        await page.addInitScript(() => {
+          // Some bundlers emit calls like __name(fn, "fnName") for stack traces.
+          // Define a no-op helper so these calls do not throw ReferenceError.
+          (window as any).__name ??= (fn: unknown, _name?: string) => fn;
+        });
+
         // ✅ ENHANCED: Fetch page with retry logic and better error handling
         try {
           await retryWithBackoff(
@@ -2132,6 +2139,14 @@ export async function extractColors(url: string): Promise<ColorPalette> {
   try {
     browser = await launchBrowser();
     const page = await browser.newPage({ userAgent: CRAWL_USER_AGENT });
+    
+    // Prevent bundler-generated helpers from breaking in the browser context
+    await page.addInitScript(() => {
+      // Some bundlers emit calls like __name(fn, "fnName") for stack traces.
+      // Define a no-op helper so these calls do not throw ReferenceError.
+      (window as any).__name ??= (fn: unknown, _name?: string) => fn;
+    });
+    
     await page.goto(url, {
       timeout: CRAWL_TIMEOUT_MS,
       waitUntil: "networkidle",
