@@ -72,10 +72,18 @@ interface CrawledImage {
   alt?: string;
   width?: number;
   height?: number;
-  role: "logo" | "team" | "subject" | "hero" | "photo" | "social_icon" | "platform_logo" | "other";
+  role: "logo" | "team" | "subject" | "hero" | "photo" | "social_icon" | "platform_logo" | "partner_logo" | "other";
   pageType?: "main" | "team" | "about" | "other";
   filename?: string;
   priority?: number; // Calculated priority score
+  // ✅ NEW: Context metadata for logo selection
+  inHeaderOrNav?: boolean;
+  inFooter?: boolean;
+  inAffiliateOrPartnerSection?: boolean;
+  inHeroOrAboveFold?: boolean;
+  brandMatchScore?: number;
+  sourceType?: "html-img" | "css-bg" | "svg" | "og" | "favicon";
+  fallbackSelected?: boolean; // True if selected as fallback when no ideal candidates
 }
 
 interface TypographyData {
@@ -468,6 +476,51 @@ function extractFilename(url: string): string {
 }
 
 /**
+ * ✅ NEW: Calculate brand match score for a logo candidate
+ * Uses brand name from title, og:site_name, or main H1
+ */
+function calculateBrandMatchScore(
+  img: { url: string; alt?: string; filename?: string },
+  brandName?: string,
+  pageTitle?: string,
+  ogSiteName?: string,
+  mainH1?: string
+): number {
+  if (!brandName) return 0;
+  
+  let score = 0;
+  const brandNameLower = brandName.toLowerCase();
+  const brandNameNoSpaces = brandNameLower.replace(/\s+/g, "");
+  const brandNameHyphenated = brandNameLower.replace(/\s+/g, "-");
+  
+  const altLower = img.alt?.toLowerCase() || "";
+  const filenameLower = img.filename?.toLowerCase() || "";
+  const urlLower = img.url.toLowerCase();
+  
+  // Infer brand name from page context if not provided
+  const inferredBrand = brandName || 
+    ogSiteName?.toLowerCase() || 
+    pageTitle?.toLowerCase().split("|")[0]?.trim() || 
+    mainH1?.toLowerCase() || 
+    "";
+  
+  if (!inferredBrand) return 0;
+  
+  // +1 if alt/title text contains brand name
+  if (altLower.includes(brandNameLower) || altLower.includes(brandNameNoSpaces) || altLower.includes(brandNameHyphenated)) {
+    score += 1;
+  }
+  
+  // +1 if filename/path contains brand name
+  if (filenameLower.includes(brandNameLower) || filenameLower.includes(brandNameNoSpaces) || filenameLower.includes(brandNameHyphenated) ||
+      urlLower.includes(brandNameLower) || urlLower.includes(brandNameNoSpaces) || urlLower.includes(brandNameHyphenated)) {
+    score += 1;
+  }
+  
+  return score;
+}
+
+/**
  * Enhanced logo detection - checks filename, URL path, alt text, and brand name
  */
 function isLogo(
@@ -510,21 +563,34 @@ function isLogo(
 /**
  * Categorize image based on context
  * 
- * ✅ ENHANCED: Detects social_icon and platform_logo to filter them out
- * Returns expanded role types including social_icon, platform_logo, and photo
+ * ✅ ENHANCED: Detects social_icon, platform_logo, and partner_logo to filter them out
+ * Returns expanded role types including social_icon, platform_logo, partner_logo, and photo
  * 
  * ✅ SQUARESPACE CDN HANDLING:
  * - Large images from platform CDNs (e.g., images.squarespace-cdn.com/content/v1/...)
  *   are NOT automatically classified as platform_logo
  * - Only small icons/badges (<= 96x96) with explicit platform branding are filtered
  * - This ensures legitimate brand images (hero banners, photos) are preserved
+ * 
+ * ✅ NEW: Uses context fields (inHeaderOrNav, inAffiliateOrPartnerSection, etc.) for better classification
  */
 function categorizeImage(
-  img: { url: string; alt?: string; width?: number; height?: number; role?: string },
+  img: { 
+    url: string; 
+    alt?: string; 
+    width?: number; 
+    height?: number; 
+    role?: string;
+    inHeaderOrNav?: boolean;
+    inFooter?: boolean;
+    inAffiliateOrPartnerSection?: boolean;
+    inHeroOrAboveFold?: boolean;
+    brandMatchScore?: number;
+  },
   pageUrl: string,
   pageType: "main" | "team" | "about" | "other",
   brandName?: string
-): "logo" | "team" | "subject" | "hero" | "photo" | "social_icon" | "platform_logo" | "other" {
+): "logo" | "team" | "subject" | "hero" | "photo" | "social_icon" | "platform_logo" | "partner_logo" | "other" {
   const altLower = img.alt?.toLowerCase() || "";
   const urlLower = img.url.toLowerCase();
   const filenameLower = img.url.split("/").pop()?.toLowerCase() || "";
@@ -617,8 +683,39 @@ function categorizeImage(
     }
   }
   
+  // ✅ NEW: Partner/Vendor/Badge logo detection (before primary logo detection)
+  // Check if image is in affiliate/partner section OR has partner indicators
+  const partnerPatterns = [
+    "partner", "association", "member", "vendor", "powered-by", "powered_by",
+    "badge", "sponsor", "brokers", "advisors", "custodian", "certified"
+  ];
+  
+  const hasPartnerIndicator = partnerPatterns.some(pattern =>
+    urlLower.includes(pattern) ||
+    altLower.includes(pattern) ||
+    filenameLower.includes(pattern) ||
+    pathname.includes(pattern)
+  );
+  
+  // Classify as partner_logo if:
+  // 1. In affiliate/partner section, OR
+  // 2. Small image (< 120px) with partner indicators
+  if (img.inAffiliateOrPartnerSection || (hasPartnerIndicator && img.width && img.height && Math.max(img.width, img.height) < 120)) {
+    return "partner_logo";
+  }
+
   // Logo detection (highest priority) - use existing role if already detected
+  // ✅ ENHANCED: Primary logo should be in header/nav OR (in hero AND has brand match)
   if (img.role === "logo" || isLogo(img, pageUrl, brandName)) {
+    // Primary logo criteria: inHeaderOrNav OR (inHeroOrAboveFold AND brandMatchScore >= 1)
+    const isPrimaryLogo = img.inHeaderOrNav === true || 
+      (img.inHeroOrAboveFold === true && (img.brandMatchScore || 0) >= 1);
+    
+    // If it's a logo but not a primary logo candidate, it might be a partner logo
+    if (!isPrimaryLogo && img.inAffiliateOrPartnerSection) {
+      return "partner_logo";
+    }
+    
     return "logo";
   }
   
@@ -718,6 +815,117 @@ function calculateImagePriority(img: CrawledImage): number {
   }
   
   return priority;
+}
+
+/**
+ * ✅ NEW: Calculate logo selection score for Brand Guide
+ * Higher score = better candidate for primary brand logo
+ */
+function calculateLogoScore(img: CrawledImage): number {
+  let score = 0;
+  
+  // Header/nav location (strongest signal)
+  if (img.inHeaderOrNav === true) score += 4;
+  
+  // Hero/above fold location
+  if (img.inHeroOrAboveFold === true) score += 2;
+  
+  // Brand match score (multiplied for importance)
+  score += (img.brandMatchScore || 0) * 2;
+  
+  // Role is logo
+  if (img.role === "logo") score += 2;
+  
+  // Penalty for affiliate/partner sections
+  if (img.inAffiliateOrPartnerSection === true) score -= 5;
+  
+  // Size bonus (logos should be reasonable size, not tiny)
+  if (img.width && img.height) {
+    const maxDim = Math.max(img.width, img.height);
+    if (maxDim >= 40 && maxDim < 500) score += 1; // Good logo size range
+    if (maxDim < 40) score -= 2; // Too small
+  }
+  
+  // Source type bonus (SVG and CSS are often better quality)
+  if (img.sourceType === "svg") score += 1;
+  if (img.sourceType === "css-bg") score += 0.5;
+  
+  return score;
+}
+
+/**
+ * ✅ NEW: Select best logos for Brand Guide from crawl results
+ * Filters out partner/platform logos and selects top 1-2 primary logos
+ */
+export function selectBrandLogos(crawlResults: CrawlResult[]): CrawledImage[] {
+  // Collect all logo candidates from all pages
+  const allLogos: CrawledImage[] = [];
+  for (const result of crawlResults) {
+    if (result.images) {
+      const logos = result.images.filter((img): img is CrawledImage => 
+        img.role === "logo"
+      );
+      allLogos.push(...logos);
+    }
+  }
+  
+  // Filter out partner/platform logos explicitly
+  const primaryCandidates = allLogos.filter(img => {
+    // Exclude if explicitly marked as partner/platform (shouldn't happen if role is "logo", but check anyway)
+    if (img.role === "platform_logo" || img.role === "partner_logo" || img.role === "social_icon") {
+      return false;
+    }
+    
+    // Exclude if in affiliate/partner section
+    if (img.inAffiliateOrPartnerSection === true) {
+      return false;
+    }
+    
+    // Exclude if too small (likely a favicon or icon)
+    if (img.width && img.height && Math.max(img.width, img.height) < 40) {
+      return false;
+    }
+    
+    return true;
+  });
+  
+  // Calculate scores and sort
+  const scoredLogos = primaryCandidates.map(img => ({
+    img,
+    score: calculateLogoScore(img),
+  }));
+  
+  scoredLogos.sort((a, b) => b.score - a.score);
+  
+  // Select top 1-2 logos
+  const selected = scoredLogos.slice(0, 2).map(item => item.img);
+  
+  // ✅ GUARDRAIL: If no logos selected but candidates exist, use fallback
+  if (selected.length === 0 && primaryCandidates.length > 0) {
+    const fallback = primaryCandidates[0];
+    fallback.fallbackSelected = true;
+    if (process.env.DEBUG_LOGO_DETECT === "true") {
+      console.log(`[LogoSelect] No ideal logos found, using fallback: ${fallback.url.substring(0, 80)}...`);
+    }
+    return [fallback];
+  }
+  
+  // ✅ DEBUG LOGGING
+  if (process.env.DEBUG_LOGO_DETECT === "true") {
+    console.log(`[LogoSelect] Selected ${selected.length} logo(s) from ${allLogos.length} candidates:`, {
+      selected: selected.map(img => ({
+        url: img.url.substring(0, 80),
+        score: calculateLogoScore(img),
+        inHeaderOrNav: img.inHeaderOrNav,
+        brandMatchScore: img.brandMatchScore,
+        sourceType: img.sourceType,
+        dimensions: img.width && img.height ? `${img.width}x${img.height}` : "unknown",
+      })),
+      filtered: allLogos.length - primaryCandidates.length,
+    });
+  }
+  
+  return selected;
 }
 
 /**
@@ -1183,6 +1391,14 @@ async function extractImages(page: Page, baseUrl: string, brandName?: string): P
     // Wait a bit more for lazy-loaded images
     await page.waitForTimeout(1000);
     
+    // ✅ NEW: Get page context for brand matching
+    const pageContext = await page.evaluate(() => {
+      const title = document.title || "";
+      const ogSiteName = document.querySelector('meta[property="og:site_name"]')?.getAttribute("content") || "";
+      const mainH1 = document.querySelector("h1")?.textContent?.trim() || "";
+      return { title, ogSiteName, mainH1 };
+    });
+
     const images = await page.evaluate((args) => {
       const { url, brandName } = args;
       const base = new URL(url);
@@ -1193,6 +1409,11 @@ async function extractImages(page: Page, baseUrl: string, brandName?: string): P
         height?: number;
         role?: "logo" | "hero" | "other";
         filename?: string;
+        // ✅ NEW: Context metadata
+        inHeaderOrNav?: boolean;
+        inFooter?: boolean;
+        inAffiliateOrPartnerSection?: boolean;
+        inHeroOrAboveFold?: boolean;
       }> = [];
 
       // Helper to normalize URL
@@ -1227,6 +1448,40 @@ async function extractImages(page: Page, baseUrl: string, brandName?: string): P
         }
       };
 
+      // ✅ NEW: Helper to detect if element is in affiliate/partner section
+      const isInAffiliateSection = (el: Element): boolean => {
+        let current: Element | null = el;
+        const maxDepth = 10; // Prevent infinite loops
+        let depth = 0;
+        
+        while (current && depth < maxDepth) {
+          const text = current.textContent?.toLowerCase() || "";
+          const heading = current.querySelector("h1, h2, h3, h4, h5, h6")?.textContent?.toLowerCase() || "";
+          const ariaLabel = current.getAttribute("aria-label")?.toLowerCase() || "";
+          const className = current.className?.toString().toLowerCase() || "";
+          const id = current.id?.toLowerCase() || "";
+          
+          const combinedText = `${text} ${heading} ${ariaLabel} ${className} ${id}`;
+          
+          const affiliateKeywords = [
+            "partner", "partners", "association", "associations",
+            "affiliation", "affiliations", "member", "membership",
+            "vendor", "vendors", "technology partners", "sponsor", "sponsored",
+            "powered by", "as seen on", "featured in", "cause", "we support",
+            "community partners", "brokers", "advisors", "custodian"
+          ];
+          
+          if (affiliateKeywords.some(keyword => combinedText.includes(keyword))) {
+            return true;
+          }
+          
+          current = current.parentElement;
+          depth++;
+        }
+        
+        return false;
+      };
+
       // Extract <img> tags
       const imgElements = document.querySelectorAll("img");
       console.log(`[Browser] Found ${imgElements.length} img elements`);
@@ -1258,6 +1513,34 @@ async function extractImages(page: Page, baseUrl: string, brandName?: string): P
           const alt = img.getAttribute("alt") || undefined;
           const filename = getFilename(normalizedUrl);
 
+          // ✅ NEW: Detect context
+          const isInHeader = img.closest("header") !== null || img.closest("nav") !== null;
+          const headerNavClasses = ["header", "site-header", "navbar", "top-nav", "logo-bar", "main-header", "site-header"];
+          const isInHeaderByClass = headerNavClasses.some(cls => {
+            const ancestor = img.closest(`.${cls}, #${cls}, [class*="${cls}"], [id*="${cls}"]`);
+            return ancestor !== null;
+          });
+          const inHeaderOrNav = isInHeader || isInHeaderByClass;
+          
+          const isInFooter = img.closest("footer") !== null;
+          const footerClasses = ["footer", "site-footer", "page-footer"];
+          const isInFooterByClass = footerClasses.some(cls => {
+            const ancestor = img.closest(`.${cls}, #${cls}, [class*="${cls}"], [id*="${cls}"]`);
+            return ancestor !== null;
+          });
+          const inFooter = isInFooter || isInFooterByClass;
+          
+          const inAffiliateOrPartnerSection = isInAffiliateSection(img);
+          
+          const rect = img.getBoundingClientRect();
+          const isAboveFold = rect.top < window.innerHeight * 1.5; // Within 1.5 viewport heights
+          const heroClasses = ["hero", "banner", "masthead", "jumbotron", "hero-section"];
+          const isInHeroByClass = heroClasses.some(cls => {
+            const ancestor = img.closest(`.${cls}, [class*="${cls}"]`);
+            return ancestor !== null;
+          });
+          const inHeroOrAboveFold = isAboveFold || isInHeroByClass;
+
           // Determine initial role (will be refined later)
           let role: "logo" | "hero" | "other" = "other";
 
@@ -1266,7 +1549,6 @@ async function extractImages(page: Page, baseUrl: string, brandName?: string): P
           const filenameLower = filename.toLowerCase();
           const parentClasses = img.parentElement?.className?.toLowerCase() || "";
           const parentId = img.parentElement?.id?.toLowerCase() || "";
-          const isInHeader = img.closest("header") !== null || img.closest("nav") !== null;
           const isSmall = width ? (width < 400 && height ? height < 400 : false) : false;
           const brandNameLower = brandName?.toLowerCase().replace(/\s+/g, "-") || "";
 
@@ -1276,7 +1558,7 @@ async function extractImages(page: Page, baseUrl: string, brandName?: string): P
             (brandNameLower && (filenameLower.includes(brandNameLower) || altLower.includes(brandName?.toLowerCase() || ""))) ||
             parentClasses.includes("logo") ||
             parentId.includes("logo") ||
-            (isInHeader && isSmall)
+            (inHeaderOrNav && isSmall)
           ) {
             role = "logo";
           } else if (
@@ -1294,6 +1576,10 @@ async function extractImages(page: Page, baseUrl: string, brandName?: string): P
             height,
             role,
             filename,
+            inHeaderOrNav,
+            inFooter,
+            inAffiliateOrPartnerSection,
+            inHeroOrAboveFold,
           });
         } catch (imgError) {
           // Skip this image if there's an error, but continue with others
@@ -1343,22 +1629,67 @@ async function extractImages(page: Page, baseUrl: string, brandName?: string): P
     const faviconLogo = faviconLogos.length > 0 ? faviconLogos[0] : null;
     const ogLogo = await extractOgLogo(page, baseUrl).catch(() => null);
 
-    // Separate HTML logos from other images
-    // Ensure logos have role: "logo" explicitly set
+    // ✅ NEW: Enrich HTML logos with context and brand match scores
     const htmlLogos: CrawledImage[] = images
       .filter(img => img.role === "logo")
-      .map(img => ({
-        url: img.url,
-        alt: img.alt,
-        width: img.width,
-        height: img.height,
-        role: "logo" as const,
-        filename: img.filename,
-      }));
+      .map(img => {
+        const brandMatchScore = calculateBrandMatchScore(
+          img,
+          brandName,
+          pageContext.title,
+          pageContext.ogSiteName,
+          pageContext.mainH1
+        );
+        return {
+          url: img.url,
+          alt: img.alt,
+          width: img.width,
+          height: img.height,
+          role: "logo" as const,
+          filename: img.filename,
+          inHeaderOrNav: img.inHeaderOrNav,
+          inFooter: img.inFooter,
+          inAffiliateOrPartnerSection: img.inAffiliateOrPartnerSection,
+          inHeroOrAboveFold: img.inHeroOrAboveFold,
+          brandMatchScore,
+          sourceType: "html-img" as const,
+        };
+      });
     const htmlNonLogos = images.filter(img => img.role !== "logo");
 
+    // ✅ NEW: Enrich CSS/SVG/favicon/OG logos with context
+    const enrichedCssLogos: CrawledImage[] = cssLogos.map(logo => ({
+      ...logo,
+      role: "logo" as const,
+      inHeaderOrNav: true, // CSS logos are typically in header/nav
+      sourceType: "css-bg" as const,
+      brandMatchScore: calculateBrandMatchScore(logo, brandName, pageContext.title, pageContext.ogSiteName, pageContext.mainH1),
+    }));
+    
+    const enrichedSvgLogos: CrawledImage[] = svgLogos.map(logo => ({
+      ...logo,
+      role: "logo" as const,
+      inHeaderOrNav: true, // SVG logos are typically in header/nav
+      sourceType: "svg" as const,
+      brandMatchScore: calculateBrandMatchScore(logo, brandName, pageContext.title, pageContext.ogSiteName, pageContext.mainH1),
+    }));
+    
+    const enrichedFaviconLogo: CrawledImage | null = faviconLogo ? {
+      ...faviconLogo,
+      role: "logo" as const,
+      sourceType: "favicon" as const,
+      brandMatchScore: 0, // Favicon is fallback, low brand match
+    } : null;
+    
+    const enrichedOgLogo: CrawledImage | null = ogLogo ? {
+      ...ogLogo,
+      role: "logo" as const,
+      sourceType: "og" as const,
+      brandMatchScore: calculateBrandMatchScore(ogLogo, brandName, pageContext.title, pageContext.ogSiteName, pageContext.mainH1),
+    } : null;
+
     // ✅ MERGE: Combine all logo sources with priority ordering
-    const mergedLogos = mergeLogoCandidates(htmlLogos, cssLogos, svgLogos, faviconLogo, ogLogo);
+    const mergedLogos = mergeLogoCandidates(htmlLogos, enrichedCssLogos, enrichedSvgLogos, enrichedFaviconLogo, enrichedOgLogo);
 
     // Deduplicate non-logo images by URL
     const seen = new Set<string>();
@@ -1383,6 +1714,13 @@ async function extractImages(page: Page, baseUrl: string, brandName?: string): P
         role: categorized,
         pageType,
         filename: img.filename,
+        // ✅ PRESERVE: Keep context fields from extraction (with type safety)
+        inHeaderOrNav: "inHeaderOrNav" in img ? img.inHeaderOrNav : undefined,
+        inFooter: "inFooter" in img ? img.inFooter : undefined,
+        inAffiliateOrPartnerSection: "inAffiliateOrPartnerSection" in img ? img.inAffiliateOrPartnerSection : undefined,
+        inHeroOrAboveFold: "inHeroOrAboveFold" in img ? img.inHeroOrAboveFold : undefined,
+        brandMatchScore: "brandMatchScore" in img ? img.brandMatchScore : undefined,
+        sourceType: "sourceType" in img ? img.sourceType : undefined,
       };
     });
 
@@ -1785,7 +2123,8 @@ async function extractTypography(page: Page): Promise<TypographyData | undefined
 }
 
 /**
- * Extract color palette using node-vibrant
+ * ✅ ENHANCED: Extract color palette focusing on UI/brand colors
+ * Prioritizes colors from UI elements (header, nav, buttons, CSS variables) over photo colors
  */
 export async function extractColors(url: string): Promise<ColorPalette> {
   let browser: Browser | null = null;
@@ -1798,47 +2137,188 @@ export async function extractColors(url: string): Promise<ColorPalette> {
       waitUntil: "networkidle",
     });
 
-    // Take screenshot
-    const screenshot = await page.screenshot({ fullPage: false });
+    // ✅ NEW: Extract UI colors from CSS and computed styles
+    const uiColors = await page.evaluate(() => {
+      const colorCandidates: Map<string, { count: number; source: "ui" | "image" }> = new Map();
+      
+      // Helper to normalize hex color
+      const normalizeHex = (color: string): string | null => {
+        // Handle rgb/rgba
+        if (color.startsWith("rgb")) {
+          const match = color.match(/\d+/g);
+          if (match && match.length >= 3) {
+            const r = parseInt(match[0]);
+            const g = parseInt(match[1]);
+            const b = parseInt(match[2]);
+            return `#${[r, g, b].map(x => x.toString(16).padStart(2, "0")).join("")}`;
+          }
+        }
+        // Handle hex
+        if (color.startsWith("#")) {
+          if (color.length === 4) {
+            // #RGB -> #RRGGBB
+            return `#${color[1]}${color[1]}${color[2]}${color[2]}${color[3]}${color[3]}`;
+          }
+          return color.length === 7 ? color : null;
+        }
+        return null;
+      };
+      
+      // Helper to add color with weight
+      const addColor = (color: string, source: "ui" | "image", weight: number = 1) => {
+        const normalized = normalizeHex(color);
+        if (!normalized) return;
+        const existing = colorCandidates.get(normalized);
+        if (existing) {
+          existing.count += weight;
+          // Prefer UI source over image source
+          if (source === "ui" && existing.source === "image") {
+            existing.source = "ui";
+          }
+        } else {
+          colorCandidates.set(normalized, { count: weight, source });
+        }
+      };
+      
+      // ✅ PRIORITY 1: CSS Variables (--primary, --secondary, --accent, --brand-*)
+      const rootStyle = getComputedStyle(document.documentElement);
+      const cssVars = [
+        "--primary", "--secondary", "--accent", "--brand-primary", "--brand-secondary",
+        "--color-primary", "--color-secondary", "--main-color", "--accent-color"
+      ];
+      cssVars.forEach(varName => {
+        const value = rootStyle.getPropertyValue(varName).trim();
+        if (value) {
+          addColor(value, "ui", 5); // High weight for CSS variables
+        }
+      });
+      
+      // ✅ PRIORITY 2: Header/Nav background and text colors
+      const headerNav = document.querySelectorAll("header, nav, .header, .navbar, .site-header");
+      headerNav.forEach(el => {
+        const style = getComputedStyle(el);
+        // Background color
+        if (style.backgroundColor && style.backgroundColor !== "transparent" && style.backgroundColor !== "rgba(0, 0, 0, 0)") {
+          addColor(style.backgroundColor, "ui", 4);
+        }
+        // Text color
+        if (style.color) {
+          addColor(style.color, "ui", 2);
+        }
+        // Border color
+        if (style.borderColor && style.borderColor !== "transparent") {
+          addColor(style.borderColor, "ui", 1);
+        }
+      });
+      
+      // ✅ PRIORITY 3: Button and CTA colors
+      const buttons = document.querySelectorAll("button, .btn, .button, [class*='cta'], [class*='button'], a[class*='btn']");
+      buttons.forEach(btn => {
+        const style = getComputedStyle(btn);
+        // Background color
+        if (style.backgroundColor && style.backgroundColor !== "transparent" && style.backgroundColor !== "rgba(0, 0, 0, 0)") {
+          addColor(style.backgroundColor, "ui", 3);
+        }
+        // Text color
+        if (style.color) {
+          addColor(style.color, "ui", 2);
+        }
+      });
+      
+      // ✅ PRIORITY 4: Accent elements (badges, tags, chips)
+      const accentElements = document.querySelectorAll(".badge, .tag, .chip, [class*='badge'], [class*='tag'], [class*='pill']");
+      accentElements.forEach(el => {
+        const style = getComputedStyle(el);
+        if (style.backgroundColor && style.backgroundColor !== "transparent" && style.backgroundColor !== "rgba(0, 0, 0, 0)") {
+          addColor(style.backgroundColor, "ui", 2);
+        }
+      });
+      
+      // ✅ PRIORITY 5: Hero section overlays and text
+      const heroSections = document.querySelectorAll(".hero, .banner, .masthead, [class*='hero'], [class*='banner']");
+      heroSections.forEach(hero => {
+        const style = getComputedStyle(hero);
+        // Text color in hero (often brand color)
+        if (style.color) {
+          addColor(style.color, "ui", 2);
+        }
+        // Background gradient colors (extract first color)
+        if (style.backgroundImage && style.backgroundImage.includes("gradient")) {
+          const gradientMatch = style.backgroundImage.match(/rgb\([^)]+\)/);
+          if (gradientMatch) {
+            addColor(gradientMatch[0], "ui", 1);
+          }
+        }
+      });
+      
+      // ✅ DE-PRIORITIZE: Colors from images (lower weight)
+      // We'll still extract from screenshot but with lower priority
+      const images = document.querySelectorAll("img");
+      images.forEach(img => {
+        // Skip large hero images (likely photos)
+        if (img.naturalWidth > 800 || img.naturalHeight > 600) {
+          // These are likely photos, skip
+          return;
+        }
+        // Small images might be logos/brand elements, but still lower priority
+        const style = getComputedStyle(img);
+        if (style.borderColor && style.borderColor !== "transparent") {
+          addColor(style.borderColor, "image", 0.5);
+        }
+      });
+      
+      // Sort by count (frequency) and source (UI preferred)
+      const sorted = Array.from(colorCandidates.entries())
+        .sort((a, b) => {
+          // Prefer UI colors
+          if (a[1].source === "ui" && b[1].source === "image") return -1;
+          if (a[1].source === "image" && b[1].source === "ui") return 1;
+          // Then by count
+          return b[1].count - a[1].count;
+        })
+        .slice(0, 12); // Get top 12 candidates
+      
+      return sorted.map(([color]) => color);
+    });
 
-    // Extract colors with vibrant
+    // ✅ FALLBACK: Extract from screenshot if UI colors are insufficient
+    const screenshot = await page.screenshot({ fullPage: false });
     const palette = await Vibrant.from(screenshot).getPalette();
 
-    // Extract up to 6 colors: 3 primary (most dominant) + 3 secondary/accent
-    const primaryColors: string[] = [];
-    const secondaryColors: string[] = [];
+    // Combine UI colors with screenshot colors
+    const allColorCandidates: string[] = [...uiColors];
+    
+    // Add screenshot colors (but with lower priority if they're not in UI colors)
+    const screenshotColors = [
+      palette.Vibrant?.hex,
+      palette.Muted?.hex,
+      palette.DarkVibrant?.hex,
+      palette.LightVibrant?.hex,
+      palette.LightMuted?.hex,
+      palette.DarkMuted?.hex,
+    ].filter((c): c is string => !!c);
+    
+    // Only add screenshot colors that aren't already in UI colors
+    screenshotColors.forEach(color => {
+      const normalized = color.startsWith("#") ? color : `#${color}`;
+      if (!allColorCandidates.includes(normalized)) {
+        allColorCandidates.push(normalized);
+      }
+    });
 
-    // Primary colors (most dominant)
-    if (palette.Vibrant?.hex) primaryColors.push(palette.Vibrant.hex);
-    if (palette.Muted?.hex && !primaryColors.includes(palette.Muted.hex)) {
-      primaryColors.push(palette.Muted.hex);
-    }
-    if (palette.DarkVibrant?.hex && !primaryColors.includes(palette.DarkVibrant.hex)) {
-      primaryColors.push(palette.DarkVibrant.hex);
-    }
-
-    // Secondary/accent colors
-    if (palette.LightVibrant?.hex && !primaryColors.includes(palette.LightVibrant.hex)) {
-      secondaryColors.push(palette.LightVibrant.hex);
-    }
-    if (palette.LightMuted?.hex && !primaryColors.includes(palette.LightMuted.hex) && !secondaryColors.includes(palette.LightMuted.hex)) {
-      secondaryColors.push(palette.LightMuted.hex);
-    }
-    if (palette.DarkMuted?.hex && !primaryColors.includes(palette.DarkMuted.hex) && !secondaryColors.includes(palette.DarkMuted.hex)) {
-      secondaryColors.push(palette.DarkMuted.hex);
-    }
-
+    // ✅ FILTER: Remove near-duplicates and skin tones/photo colors
+    const filteredColors = filterBrandColors(allColorCandidates);
+    
     // Normalize to hex (ensure # prefix)
     const normalizeHex = (color: string | undefined): string | undefined => {
       if (!color) return undefined;
       return color.startsWith("#") ? color : `#${color}`;
     };
 
-    // Build 6-color palette structure
-    const allColors = [
-      ...primaryColors.map(normalizeHex).filter((c): c is string => !!c),
-      ...secondaryColors.map(normalizeHex).filter((c): c is string => !!c),
-    ].slice(0, 6); // Max 6 colors
+    // Build 6-color palette structure (prioritize UI colors)
+    const primaryColors = filteredColors.slice(0, 3).map(normalizeHex).filter((c): c is string => !!c);
+    const secondaryColors = filteredColors.slice(3, 6).map(normalizeHex).filter((c): c is string => !!c);
+    const allColors = [...primaryColors, ...secondaryColors].slice(0, 6);
 
     // If we have fewer than 6, that's fine - return what we have
     const primary = allColors[0] || undefined;
@@ -1856,15 +2336,117 @@ export async function extractColors(url: string): Promise<ColorPalette> {
       allColors, // All 6 colors
     };
 
+    // ✅ DEBUG LOGGING
+    if (process.env.DEBUG_COLOR_EXTRACT === "true") {
+      console.log(`[ColorExtract] Extracted palette for ${url}:`, {
+        uiColors: uiColors.length,
+        screenshotColors: screenshotColors.length,
+        filtered: filteredColors.length,
+        finalPalette: allColors,
+        primary,
+        secondary,
+        accent,
+      });
+    }
+
     await browser.close();
     return colors;
   } catch (error) {
     console.error("[Crawler] Error extracting colors:", error);
-    // ❌ NO FALLBACK - throw error instead of returning mock data
-    throw new Error(`Color extraction failed: ${error instanceof Error ? error.message : "Unknown error"}`);
+    // ✅ GUARDRAIL: Fallback to minimal palette if extraction fails
+    if (process.env.DEBUG_COLOR_EXTRACT === "true") {
+      console.warn("[ColorExtract] Color extraction failed, using fallback palette");
+    }
+    // Return minimal fallback palette
+    return {
+      primary: "#312E81",
+      secondary: "#6366F1",
+      accent: "#8B5CF6",
+      confidence: 0,
+      primaryColors: ["#312E81", "#6366F1", "#8B5CF6"],
+      secondaryColors: [],
+      allColors: ["#312E81", "#6366F1", "#8B5CF6"],
+    };
   } finally {
     if (browser) await browser.close();
   }
+}
+
+/**
+ * ✅ NEW: Filter brand colors - remove near-duplicates and photo colors
+ */
+function filterBrandColors(colors: string[]): string[] {
+  const filtered: string[] = [];
+  const seen = new Set<string>();
+  
+  // Helper to calculate color distance
+  const colorDistance = (hex1: string, hex2: string): number => {
+    const rgb1 = hexToRgb(hex1);
+    const rgb2 = hexToRgb(hex2);
+    if (!rgb1 || !rgb2) return Infinity;
+    return Math.sqrt(
+      Math.pow(rgb1.r - rgb2.r, 2) +
+      Math.pow(rgb1.g - rgb2.g, 2) +
+      Math.pow(rgb1.b - rgb2.b, 2)
+    );
+  };
+  
+  // Helper to check if color is likely a skin tone or photo color
+  const isPhotoColor = (hex: string): boolean => {
+    const rgb = hexToRgb(hex);
+    if (!rgb) return false;
+    
+    // Skin tone range (beige, tan, peach)
+    const isSkinTone = rgb.r > 200 && rgb.g > 150 && rgb.b > 100 && rgb.r - rgb.g < 50;
+    
+    // Sky/sea blue
+    const isSkyBlue = rgb.b > rgb.r + 30 && rgb.b > rgb.g + 30 && rgb.b > 150;
+    
+    // Random clothing colors (very saturated, not brand-like)
+    const saturation = Math.max(rgb.r, rgb.g, rgb.b) - Math.min(rgb.r, rgb.g, rgb.b);
+    const isRandomClothing = saturation > 100 && (rgb.r > 200 || rgb.g > 200 || rgb.b > 200);
+    
+    return isSkinTone || isSkyBlue || isRandomClothing;
+  };
+  
+  for (const color of colors) {
+    const normalized = color.startsWith("#") ? color : `#${color}`;
+    
+    // Skip if too similar to existing color (within 30 units)
+    const tooSimilar = filtered.some(existing => colorDistance(normalized, existing) < 30);
+    if (tooSimilar) continue;
+    
+    // Skip photo colors (unless we have very few colors)
+    if (filtered.length >= 3 && isPhotoColor(normalized)) {
+      if (process.env.DEBUG_COLOR_EXTRACT === "true") {
+        console.log(`[ColorExtract] Filtered photo color: ${normalized}`);
+      }
+      continue;
+    }
+    
+    // Skip if already seen
+    if (seen.has(normalized)) continue;
+    
+    filtered.push(normalized);
+    seen.add(normalized);
+    
+    // Limit to 6 colors
+    if (filtered.length >= 6) break;
+  }
+  
+  return filtered;
+}
+
+/**
+ * ✅ NEW: Helper to convert hex to RGB
+ */
+function hexToRgb(hex: string): { r: number; g: number; b: number } | null {
+  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+  return result ? {
+    r: parseInt(result[1], 16),
+    g: parseInt(result[2], 16),
+    b: parseInt(result[3], 16),
+  } : null;
 }
 
 /**

@@ -38,23 +38,19 @@ export function initializeWebSocketServer(
     ? (process.env.ALLOWED_ORIGINS || process.env.FRONTEND_URL || "*")
     : "*");
   
-  const corsConfigTyped: {
-    origin: string | string[] | boolean;
-    credentials: boolean;
-    methods: string[];
-  } = {
-    origin: corsOrigin,
-    credentials: true,
-    methods: ["GET", "POST"],
-  };
-
+  // Socket.io CORS configuration
+  // Socket.io accepts cors in runtime even if types don't fully reflect it
   const io = new SocketIOServer(httpServer, {
-    cors: corsConfigTyped,
+    cors: {
+      origin: corsOrigin,
+      credentials: true,
+      methods: ["GET", "POST"],
+    },
     transports: ["websocket", "polling"],
     pingInterval: 25000,
     pingTimeout: 20000,
     maxHttpBufferSize: 1e6, // 1MB
-  });
+  } as any);
 
   // Namespaces
   setupJobsNamespace(io);

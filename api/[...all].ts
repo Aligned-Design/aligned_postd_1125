@@ -2,6 +2,13 @@ import "dotenv/config";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import type { Express } from "express";
 
+// Type for dynamically imported server module
+// Supports both direct export and default export patterns
+type ServerModule = {
+  createServer?: () => Express;
+  default?: { createServer?: () => Express };
+};
+
 // Create the Express app once and cache it
 let app: Express | null = null;
 let createServerFn: (() => Express) | null = null;
@@ -12,15 +19,11 @@ async function getApp() {
     if (!createServerFn) {
       // Try multiple import strategies for Vercel deployment
       // In Vercel, api/ is at root, so we need to go up one level to reach dist/
-      const importPaths = [
+      const importPaths: Array<() => Promise<unknown>> = [
         // Strategy 1: Built file in dist (production) - relative from api/
         () => import("../dist/server/vercel-server.mjs"),
-        // Strategy 2: Built file with .js extension (some builds)
-        () => import("../dist/server/vercel-server.js"),
-        // Strategy 3: Source file (development or if dist not available)
+        // Strategy 2: Source file (development or if dist not available)
         () => import("../server/vercel-server"),
-        // Strategy 4: Alternative relative path
-        () => import("./dist/server/vercel-server.mjs"),
       ];
 
       let lastError: Error | null = null;
@@ -29,11 +32,10 @@ async function getApp() {
         const importPath = importPaths[i];
         try {
           console.log(`[Vercel] Attempting import strategy ${i + 1}/${importPaths.length}`);
-          // @ts-expect-error: Dynamic import paths may not resolve at type-check time
-          const serverModule = await importPath();
-          // Type assertion for server module - runtime will have createServer
-          const moduleWithCreateServer = serverModule as { createServer?: () => Express; default?: { createServer?: () => Express } };
-          createServerFn = moduleWithCreateServer.createServer || moduleWithCreateServer.default?.createServer || undefined;
+          // Dynamic import - types may not resolve at compile time
+          // Type assertion: runtime module will have createServer export
+          const serverModule = await importPath() as ServerModule;
+          createServerFn = serverModule.createServer || serverModule.default?.createServer || undefined;
           if (createServerFn && typeof createServerFn === 'function') {
             console.log(`[Vercel] Successfully loaded server module using strategy ${i + 1}`);
             break;
@@ -41,10 +43,9 @@ async function getApp() {
             console.warn(`[Vercel] Strategy ${i + 1} loaded module but createServer is not a function`);
           }
         } catch (error) {
-          const err = error as unknown;
-          const errorMsg = err instanceof Error ? err.message : String(err);
+          const errorMsg = error instanceof Error ? error.message : String(error);
           console.warn(`[Vercel] Import strategy ${i + 1} failed:`, errorMsg);
-          lastError = err instanceof Error ? err : new Error(String(err));
+          lastError = error instanceof Error ? error : new Error(String(error));
           // Continue to next import strategy
         }
       }
@@ -69,7 +70,7 @@ async function getApp() {
 }
 
 // Export as a serverless handler
-export default async (req: VercelRequest, res: VercelResponse) => {
+const handler = async (req: VercelRequest, res: VercelResponse): Promise<void> => {
   try {
     const application = await getApp();
 
@@ -94,8 +95,7 @@ export default async (req: VercelRequest, res: VercelResponse) => {
       (application as any)(req as any, res as any, (err?: unknown) => {
         clearTimeout(timeout);
         if (err) {
-          const error = err as unknown;
-          const errorObj = error instanceof Error ? error : { message: String(error), stack: undefined };
+          const errorObj = err instanceof Error ? err : { message: String(err), stack: undefined };
           console.error("[Vercel] Error in request handler:", errorObj);
           console.error("[Vercel] Error stack:", errorObj.stack);
           if (!res.headersSent) {
@@ -110,8 +110,7 @@ export default async (req: VercelRequest, res: VercelResponse) => {
       });
     });
   } catch (error) {
-    const err = error as unknown;
-    const errorObj = err instanceof Error ? err : { message: String(err), stack: undefined };
+    const errorObj = error instanceof Error ? error : { message: String(error), stack: undefined };
     console.error("[Vercel] Fatal error in serverless handler:", errorObj);
     console.error("[Vercel] Error stack:", errorObj.stack || "No stack");
     if (!res.headersSent) {
@@ -125,3 +124,5 @@ export default async (req: VercelRequest, res: VercelResponse) => {
     }
   }
 };
+
+export default handler;

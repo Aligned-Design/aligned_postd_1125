@@ -39,8 +39,10 @@
     "client/**/*",
     "server/**/*",
     "shared/**/*",
+    "api/**/*",
     "vite.config.ts",
     "vite.config.server.ts",
+    "vite.config.vercel-server.ts",
     "server/types/**/*"
   ],
   "exclude": ["node_modules", "dist", "**/*.stories.tsx", "**/*.stories.ts", "client/pages/**/*"]
