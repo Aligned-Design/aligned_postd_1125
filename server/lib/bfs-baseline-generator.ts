@@ -41,7 +41,7 @@ export async function generateBFSBaseline(
     // Generate baseline content using OpenAI
     const openai = getOpenAI();
     const response = await openai.chat.completions.create({
-      model: process.env.OPENAI_MODEL || "gpt-4",
+      model: process.env.OPENAI_MODEL || "gpt-4o-mini",
       messages: [
         {
           role: "system",

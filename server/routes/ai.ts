@@ -45,7 +45,7 @@ export const getProviderStatus: RequestHandler = (req, res) => {
   const response: AIProviderStatus = {
     provider: getDefaultProvider() === "openai" ? "openai" : "anthropic",
     available: availableProviders.length > 0,
-    modelName: getDefaultProvider() === "openai" ? "gpt-4" : "claude-3-opus"
+    modelName: getDefaultProvider() === "openai" ? "gpt-4o-mini" : "claude-3-opus"
   };
   res.json(response);
 };
