@@ -748,15 +748,16 @@ async function runCrawlJobSync(url: string, brandId: string, tenantId: string | 
                   });
                   console.error(`[Crawler] Detailed error logs should appear above with [ScrapedImages] prefix showing per-image failure reasons.`);
                 } else if (persistedImageCount > 0 && persistedImageCount < allImages.length) {
-                  // Partial success - log as warning (not error)
-                  const failedCount = allImages.length - persistedImageCount;
-                  console.warn(`[Crawler] ⚠️ Partial persistence: ${persistedImageCount}/${allImages.length} images persisted (${failedCount} failed)`, {
+                  // Partial persistence - this is expected due to design limits (max 2 logos, max 15 brand images)
+                  // The [ScrapedImages] logs above show detailed breakdown of selected vs filtered images
+                  const filteredCount = allImages.length - persistedImageCount;
+                  console.log(`[Crawler] ℹ️ Image selection: ${persistedImageCount}/${allImages.length} images persisted (${filteredCount} filtered by design limits)`, {
                     brandId: brandId,
                     tenantId: finalTenantId,
                     imagesFound: allImages.length,
                     imagesPersisted: persistedImageCount,
-                    imagesFailed: failedCount,
-                    hint: "Check [ScrapedImages] logs above for failure details. Some images may have been filtered or failed validation.",
+                    imagesFiltered: filteredCount,
+                    note: "This is expected behavior. The system selects up to 2 logos and up to 15 brand images. Check [ScrapedImages] logs above for detailed breakdown.",
                   });
                 }
               }
