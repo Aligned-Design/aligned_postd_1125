@@ -3,6 +3,7 @@ import { generateWithAI, getAvailableProviders, getDefaultProvider, validateAIPr
 import { AIGenerationRequest, AIGenerationResponse, AIProviderStatus } from "@shared/api";
 import { AppError, asyncHandler } from "../lib/error-middleware";
 import { ErrorCode, HTTP_STATUS } from "../lib/error-responses";
+import { DEFAULT_OPENAI_MODEL } from "../lib/openai-client";
 
 export const generateContent: RequestHandler = asyncHandler(async (req, res) => {
   if (!validateAIProviders()) {
@@ -42,10 +43,23 @@ export const generateContent: RequestHandler = asyncHandler(async (req, res) => 
 
 export const getProviderStatus: RequestHandler = (req, res) => {
   const availableProviders = getAvailableProviders();
+  const defaultProvider = getDefaultProvider();
+  
+  // Get actual model name from provider (not hard-coded)
+  let modelName = "unknown";
+  if (defaultProvider === "openai") {
+    modelName = DEFAULT_OPENAI_MODEL;
+  } else if (defaultProvider === "claude") {
+    // Use ANTHROPIC_MODEL if set, otherwise use a sensible default
+    // Note: This is a status endpoint, so we use a representative default
+    // Actual generation uses agent-specific models via getClaudeModel()
+    modelName = process.env.ANTHROPIC_MODEL || "claude-3-5-sonnet-20241022";
+  }
+  
   const response: AIProviderStatus = {
-    provider: getDefaultProvider() === "openai" ? "openai" : "anthropic",
+    provider: defaultProvider === "openai" ? "openai" : "anthropic",
     available: availableProviders.length > 0,
-    modelName: getDefaultProvider() === "openai" ? "gpt-4o-mini" : "claude-3-opus"
+    modelName
   };
   res.json(response);
 };

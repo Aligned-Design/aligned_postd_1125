@@ -39,14 +39,22 @@ export function PostCarousel({ posts, onPostClick, title }: PostCarouselProps) {
     );
   }
 
-  const placeholderImage = (id: string) => {
-    const imageMap: Record<string, string> = {
-      "1": "1552664730-d307ca884978?w=400&h=300&fit=crop",
-      "3": "1611532736579-6b16e2b50449?w=400&h=300&fit=crop",
-      "4": "1552664730-d307ca884978?w=400&h=300&fit=crop",
-      "5": "1460661419201-fd4cecdf8a8b?w=400&h=300&fit=crop",
-    };
-    return `https://images.unsplash.com/photo-${imageMap[id] || "1460661419201-fd4cecdf8a8b?w=400&h=300&fit=crop"}`;
+  // ✅ FIX: Get real post media or use SVG placeholder (no Unsplash)
+  const getPostImage = (post: Post) => {
+    // Check for real media fields from post data
+    const postMedia = (post as any).thumbnailUrl || (post as any).mediaUrl || (post as any).imageUrl;
+    
+    if (postMedia) {
+      return postMedia;
+    }
+    
+    // Default SVG placeholder instead of Unsplash
+    return `data:image/svg+xml,${encodeURIComponent(`
+      <svg width="400" height="300" xmlns="http://www.w3.org/2000/svg">
+        <rect width="400" height="300" fill="#e0e7ff"/>
+        <text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" fill="#9ca3af">No Image</text>
+      </svg>
+    `)}`;
   };
 
   const currentPost = posts[currentIndex];
@@ -62,7 +70,7 @@ export function PostCarousel({ posts, onPostClick, title }: PostCarouselProps) {
         <div className="bg-white/50 backdrop-blur-xl rounded-2xl p-4 border border-white/60">
           <div className="relative h-96 bg-gradient-to-br from-indigo-100 to-blue-100 rounded-lg overflow-hidden mb-4">
             <img
-              src={placeholderImage(currentPost.id)}
+              src={getPostImage(currentPost)}
               alt={currentPost.title}
               className="w-full h-full object-cover"
             />

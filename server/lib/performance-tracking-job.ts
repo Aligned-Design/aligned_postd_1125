@@ -171,77 +171,34 @@ export class PerformanceTrackingJob {
   private async fetchContentMetrics(
     content: PublishedContent
   ): Promise<ContentPerformance | null> {
-    try {
-      // Mock API call - in production, would call Instagram/Twitter/LinkedIn APIs
-      const mockMetrics = this.generateMockMetrics(content);
+    // TODO: Implement real platform API calls (Instagram Graph API, LinkedIn API, Twitter/X API)
+    // When APIs are ready, call the appropriate platform API based on content.platform
+    // Example:
+    //   if (content.platform === "instagram") {
+    //     const metrics = await this.fetchInstagramMetrics(content.contentId);
+    //     return this.buildContentPerformance(content, metrics);
+    //   }
+    //   etc.
 
-      const contentPerformance: ContentPerformance = {
+    // ✅ FIX: No mock data - return null if APIs not yet implemented
+    // The job will silently skip this content if metrics are not available
+    console.warn(
+      `[PerformanceTracking] Performance tracking not yet implemented for platform: ${content.platform}`,
+      {
         contentId: content.contentId,
         platform: content.platform,
-        publishedAt: content.publishedAt,
-        metrics: {
-          reach: {
-            metric: "Reach",
-            value: mockMetrics.reach,
-            unit: "users",
-            target: 5000,
-            status: this.getMetricStatus(mockMetrics.reach, 5000),
-          },
-          engagement: {
-            metric: "Engagement Rate",
-            value: mockMetrics.engagement,
-            unit: "percent",
-            target: 3.0,
-            status: this.getMetricStatus(mockMetrics.engagement, 3.0),
-          },
-          clicks: {
-            metric: "Click-Through Rate",
-            value: mockMetrics.clickThroughRate || 2.0,
-            unit: "percent",
-            target: 2.5,
-            status: this.getMetricStatus(
-              mockMetrics.clickThroughRate || 2.0,
-              2.5
-            ),
-          },
-          conversions: {
-            metric: "Conversions",
-            value: mockMetrics.conversions || 0,
-            unit: "count",
-            status: "good",
-          },
-          saveRate: {
-            metric: "Save Rate",
-            value: (mockMetrics.saves || 0) / mockMetrics.reach,
-            unit: "percent",
-            status: "good",
-          },
-        },
-        visualAttributes: {
-          layout: content.layout,
-          colorScheme: content.colorScheme,
-          motionType: content.motionType,
-          imageType: content.imageType,
-        },
-        copyAttributes: {
-          tone: content.tone,
-          length: content.body.length,
-          hasEmoji: content.hasEmoji,
-          hasCallToAction: !!content.callToAction,
-        },
-      };
+        message: "Real platform API integration pending - skipping metrics fetch",
+      }
+    );
 
-      return contentPerformance;
-    } catch (error) {
-      console.error(
-        `[PerformanceTracking] Failed to fetch metrics for ${content.contentId}:`,
-        error
-      );
-      return null;
-    }
+    return null;
   }
 
   /**
+   * @deprecated DO NOT USE IN PRODUCTION - Test/demo only
+   * This method is kept for testing purposes but must never be called in production code paths.
+   * Production code should return null if APIs are not available instead of using mock data.
+   * 
    * Generate mock metrics for testing/demo
    * Replace with actual API calls in production
    */

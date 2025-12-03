@@ -17,6 +17,7 @@ import {
   generateWithChatCompletions,
   isOpenAIConfigured,
 } from "../lib/openai-client";
+import { logger } from "../lib/logger";
 
 export type AIProvider = "openai" | "claude";
 
@@ -47,7 +48,9 @@ function getAnthropic(): Anthropic | null {
         timeout: 30000,
       });
     } catch (error) {
-      console.warn("Failed to initialize Anthropic client:", error);
+      logger.warn("Failed to initialize Anthropic client", {
+        error: error instanceof Error ? error.message : String(error),
+      });
       return null;
     }
   }
@@ -85,9 +88,10 @@ export async function generateWithAI(
     }
   } catch (error) {
     // ✅ FIX: Log as warning since we have fallback providers - API failures are non-critical
-    console.warn(`[AI] ⚠️ AI generation failed with ${selectedProvider} (will attempt fallback):`, {
+    logger.warn("AI generation failed, attempting fallback", {
+      provider: selectedProvider,
+      agentType,
       error: error instanceof Error ? error.message : String(error),
-      provider: selectedProvider
     });
 
     // ✅ ENHANCED FALLBACK: Try fallback provider if OpenAI is down or any API error occurs
@@ -117,31 +121,38 @@ export async function generateWithAI(
       const fallbackProvider = selectedProvider === "openai" ? "claude" : "openai";
 
       try {
-        console.log(`⚠️ ${selectedProvider} failed, attempting fallback to ${fallbackProvider}...`);
+        logger.info("Attempting fallback provider", {
+          originalProvider: selectedProvider,
+          fallbackProvider,
+          agentType,
+        });
         
         if (fallbackProvider === "openai") {
           const client = getOpenAI();
           if (client) {
-            console.log("✅ Retrying with OpenAI...");
+            logger.info("Retrying with OpenAI", { agentType });
             return await generateWithOpenAI(prompt, agentType, client);
           } else {
-            console.warn("⚠️ OpenAI fallback not available (no API key)");
+            logger.warn("OpenAI fallback not available (no API key)", { agentType });
           }
         } else {
           const client = getAnthropic();
           if (client) {
-            console.log("✅ Retrying with Claude...");
+            logger.info("Retrying with Claude", { agentType });
             return await generateWithClaude(prompt, agentType, client);
           } else {
-            console.warn("⚠️ Claude fallback not available (no API key)");
+            logger.warn("Claude fallback not available (no API key)", { agentType });
           }
         }
       } catch (fallbackError) {
         // ✅ FIX: Log as warning - both providers failed, but caller should handle gracefully
-        console.warn(`[AI] ⚠️ Fallback to ${fallbackProvider} also failed:`, {
+        logger.warn("Fallback provider also failed", {
+          originalProvider: selectedProvider,
+          fallbackProvider,
+          agentType,
           originalError: error instanceof Error ? error.message : String(error),
           fallbackError: fallbackError instanceof Error ? fallbackError.message : String(fallbackError),
-          hint: "Both AI providers unavailable - caller should use fallback generation"
+          aiFallbackUsed: false, // Both providers failed
         });
         throw new Error(`AI generation failed with both providers. Original: ${error instanceof Error ? error.message : 'Unknown error'}. Fallback: ${fallbackError instanceof Error ? fallbackError.message : 'Unknown error'}`);
       }
@@ -194,10 +205,10 @@ async function generateWithOpenAI(prompt: string, agentType: string, _client?: u
     };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    console.error(`[OpenAI] Generation error:`, {
-      error: errorMessage,
+    logger.error("OpenAI generation error", error instanceof Error ? error : new Error(errorMessage), {
       model,
       agentType,
+      provider: "openai",
     });
     throw new Error(`OpenAI API error: ${errorMessage}`);
   }
@@ -236,10 +247,13 @@ async function generateWithClaude(prompt: string, agentType: string, client: Ant
       model
     };
   } catch (error) {
-    if (error instanceof Error) {
-      throw new Error(`Anthropic API error: ${error.message}`);
-    }
-    throw error;
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    logger.error("Anthropic generation error", error instanceof Error ? error : new Error(errorMessage), {
+      model,
+      agentType,
+      provider: "claude",
+    });
+    throw new Error(`Anthropic API error: ${errorMessage}`);
   }
 }
 
@@ -265,7 +279,11 @@ export async function loadPromptTemplate(
     
     return lines.slice(startIndex).join('\n');
   } catch (error) {
-    console.error(`Failed to load template for ${agent} ${version}:`, error);
+    logger.error("Failed to load prompt template", error instanceof Error ? error : new Error(String(error)), {
+      agent,
+      version,
+      locale,
+    });
     
     // Fallback templates
     return getFallbackTemplate(agent);
@@ -355,8 +373,17 @@ function getOpenAIModel(agentType: string): string {
 
 /**
  * Get Claude model based on agent type
+ * 
+ * Uses ANTHROPIC_MODEL env var if set, otherwise defaults to model-specific choices.
+ * Falls back to claude-3-5-sonnet-latest if specific model not found.
  */
 function getClaudeModel(agentType: string): string {
+  // If ANTHROPIC_MODEL is set, use it for all agent types
+  if (process.env.ANTHROPIC_MODEL) {
+    return process.env.ANTHROPIC_MODEL;
+  }
+
+  // Otherwise, use agent-specific defaults
   switch (agentType) {
     case "doc":
       return "claude-3-5-haiku-20241022"; // Fast for text generation
@@ -623,10 +650,14 @@ export function getAvailableProviders(): AIProvider[] {
 export function validateAIProviders(): boolean {
   const providers = getAvailableProviders();
   if (providers.length === 0) {
-    console.error("No AI providers configured. Please set OPENAI_API_KEY or ANTHROPIC_API_KEY");
+    logger.error("No AI providers configured", undefined, {
+      hint: "Please set OPENAI_API_KEY or ANTHROPIC_API_KEY",
+    });
     return false;
   }
-  console.log(`AI providers available: ${providers.join(", ")}`);
+  logger.info("AI providers available", {
+    providers: providers.join(", "),
+  });
   return true;
 }
 

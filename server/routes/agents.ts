@@ -596,40 +596,8 @@ router.post("/bfs/calculate", async (req, res) => {
   }
 });
 
-// Mock review queue data for development
-const MOCK_REVIEW_QUEUE = [
-  {
-    id: "review_1",
-    brand_id: "brand_abd",
-    agent: "doc",
-    input: { platform: "linkedin", topic: "AI trends" },
-    output: {
-      headline: "The Future of AI in Marketing",
-      body: "Discover how AI is transforming the marketing landscape...",
-      cta: "Learn More",
-      hashtags: ["AI", "Marketing", "Innovation"],
-    },
-    bfs: {
-      overall: 0.89,
-      tone_alignment: 0.92,
-      terminology_match: 0.87,
-      compliance: 1.0,
-      cta_fit: 0.85,
-      platform_fit: 0.88,
-      passed: true,
-      issues: [],
-      regeneration_count: 0,
-    },
-    linter_results: {
-      passed: true,
-      blocked: false,
-      needs_human_review: false,
-      toxicity_score: 0.02,
-      fixes_applied: [],
-    },
-    timestamp: new Date(Date.now() - 3600000).toISOString(),
-  },
-];
+// ✅ REMOVED: MOCK_REVIEW_QUEUE - always use real database
+// Mock data moved to test fixtures if needed for testing
 
 /**
  * GET /api/agents/review/queue/:brandId
@@ -639,15 +607,7 @@ router.get("/review/queue/:brandId", async (req, res) => {
   try {
     const { brandId } = req.params;
 
-    // Check if we should use mocks
-    const useMocks =
-      process.env.USE_MOCKS === "true" ||
-      process.env.NODE_ENV === "development";
-
-    if (useMocks) {
-      return (res as any).json({ items: MOCK_REVIEW_QUEUE, totalCount: MOCK_REVIEW_QUEUE.length, pendingCount: MOCK_REVIEW_QUEUE.length });
-    }
-
+    // ✅ REMOVED: USE_MOCKS check - always use real database in production
     const { data: reviewQueue, error } = await supabase
       .from("generation_logs")
       .select("*")

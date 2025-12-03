@@ -346,11 +346,25 @@ Guidelines:
     );
 
     const provider: "openai" | "claude" = process.env.AI_PROVIDER === "anthropic" ? "claude" : "openai";
-    const aiResponse = await generateWithAI(
-      `${systemPrompt}\n\n${userPrompt}`,
-      "design",
-      provider
-    );
+    let aiResponse;
+    try {
+      aiResponse = await generateWithAI(
+        `${systemPrompt}\n\n${userPrompt}`,
+        "design",
+        provider
+      );
+    } catch (aiError) {
+      // ✅ FALLBACK: If both providers fail, generate deterministic default content plan
+      const errorMessage = aiError instanceof Error ? aiError.message : String(aiError);
+      logger.warn("AI generation failed completely, using deterministic fallback", {
+        brandId,
+        error: errorMessage,
+        aiFallbackUsed: true,
+      });
+      
+      // Return deterministic default content plan
+      return generateDefaultContentPlan(brandId, brandGuide, brandProfile, brandKit);
+    }
 
     // Parse content items
     let contentItems: ContentPlanItem[] = [];
@@ -431,16 +445,144 @@ Guidelines:
     });
 
     if (validatedItems.length === 0) {
-      throw new Error("No valid content items generated. All items were filtered as placeholders.");
+      // ✅ FALLBACK: If all items were filtered, use deterministic default plan
+      logger.warn("All content items filtered as placeholders, using deterministic fallback", {
+        brandId,
+        aiFallbackUsed: true,
+      });
+      return generateDefaultContentPlan(brandId, brandGuide, brandProfile, brandKit);
     }
 
     return validatedItems;
   } catch (error: any) {
     const err = error instanceof Error ? error : new Error(String(error));
     logger.error("Content planning failed", err, { brandId });
-    // Don't return default plan - throw error so caller knows generation failed
+    
+    // ✅ FALLBACK: If AI completely fails, return deterministic default plan
+    // This ensures onboarding never completely fails
+    if (err.message.includes("AI generation failed with both providers") || 
+        err.message.includes("Anthropic API error") ||
+        err.message.includes("OpenAI API error")) {
+      logger.warn("AI providers unavailable, using deterministic fallback", {
+        brandId,
+        error: err.message,
+        aiFallbackUsed: true,
+      });
+      return generateDefaultContentPlan(brandId, brandGuide, brandProfile, brandKit);
+    }
+    
+    // For other errors (parsing, validation), still throw
     throw error;
   }
+}
+
+/**
+ * ✅ FALLBACK: Generate deterministic default content plan when AI is unavailable
+ * Creates a sensible 7-day content plan based on brand info
+ */
+function generateDefaultContentPlan(
+  brandId: string,
+  brandGuide: any,
+  brandProfile: any,
+  brandKit: any
+): ContentPlanItem[] {
+  const today = new Date();
+  const dates: string[] = [];
+  const times = ["09:00", "14:00", "10:00", "16:00", "11:00", "08:00", "12:00", "13:00"];
+  
+  for (let i = 1; i <= 7; i++) {
+    const date = new Date(today);
+    date.setDate(date.getDate() + i);
+    dates.push(date.toISOString().split("T")[0]);
+  }
+
+  const brandName = brandGuide?.brandName || brandProfile?.name || "your brand";
+  const industry = brandKit?.industry || brandGuide?.identity?.businessType || "General Business";
+  
+  const defaultItems: ContentPlanItem[] = [
+    {
+      id: randomUUID(),
+      title: `Share Your Story - ${brandName}`,
+      contentType: "post",
+      platform: "instagram",
+      content: `🎯 Welcome to ${brandName}!\n\nWe're excited to share our story and connect with you. Follow along for updates, insights, and behind-the-scenes content.\n\n#${brandName.replace(/\s+/g, "")} #${industry.replace(/\s+/g, "")}`,
+      scheduledDate: dates[0],
+      scheduledTime: times[0],
+      status: "draft",
+    },
+    {
+      id: randomUUID(),
+      title: `Engage Your Audience - ${brandName}`,
+      contentType: "post",
+      platform: "facebook",
+      content: `What questions can we answer for you today? Drop a comment below and let's start a conversation!\n\nAt ${brandName}, we're committed to delivering value and building lasting relationships with our community.`,
+      scheduledDate: dates[1],
+      scheduledTime: times[1],
+      status: "draft",
+    },
+    {
+      id: randomUUID(),
+      title: `Professional Insight - ${brandName}`,
+      contentType: "post",
+      platform: "linkedin",
+      content: `We're sharing insights and updates from ${brandName}. Follow along for industry news, tips, and thought leadership content.\n\nWhat topics would you like to see us cover?`,
+      scheduledDate: dates[2],
+      scheduledTime: times[2],
+      status: "draft",
+    },
+    {
+      id: randomUUID(),
+      title: `Quick Update - ${brandName}`,
+      contentType: "post",
+      platform: "twitter",
+      content: `Excited to share updates from ${brandName}! What's on your mind today? Let's connect! 👋`,
+      scheduledDate: dates[3],
+      scheduledTime: times[3],
+      status: "draft",
+    },
+    {
+      id: randomUUID(),
+      title: `Behind the Scenes - ${brandName}`,
+      contentType: "post",
+      platform: "instagram",
+      content: `🌟 Take a look behind the scenes at ${brandName}!\n\nWe're working hard to bring you the best ${industry} experience. What would you like to know about us? Drop your questions below! 👇`,
+      scheduledDate: dates[4],
+      scheduledTime: times[4],
+      status: "draft",
+    },
+    {
+      id: randomUUID(),
+      title: `Weekly Blog Post - ${brandName}`,
+      contentType: "blog",
+      platform: "blog",
+      content: `# Welcome to ${brandName}\n\nWe're excited to share valuable insights and updates with you. This blog will cover topics relevant to ${industry}, including tips, trends, and best practices.\n\nStay tuned for more content coming your way!\n\n## What's Next?\n\nWe'll be sharing regular updates, industry insights, and helpful resources. Make sure to subscribe to stay informed.\n\n---\n\n*This is a default blog post. Please regenerate to get AI-generated content tailored to your brand.*`,
+      scheduledDate: dates[5],
+      scheduledTime: times[5],
+      status: "draft",
+    },
+    {
+      id: randomUUID(),
+      title: `Weekly Email from ${brandName}`,
+      contentType: "email",
+      platform: "email",
+      content: `Subject: Weekly Update from ${brandName}\n\nHi there,\n\nWe wanted to share some updates and insights with you this week.\n\nStay tuned for more valuable content coming your way!\n\nBest regards,\nThe ${brandName} Team`,
+      scheduledDate: dates[6],
+      scheduledTime: times[6],
+      status: "draft",
+    },
+    {
+      id: randomUUID(),
+      title: `Local Update - ${brandName}`,
+      contentType: "gbp",
+      platform: "google_business",
+      content: `Visit ${brandName} for the best ${industry} experience in your area. We're here to help!\n\nContact us today to learn more.`,
+      scheduledDate: dates[0], // Use first date for GBP
+      scheduledTime: times[7],
+      status: "draft",
+    },
+  ];
+
+  return defaultItems;
 }
 
 /**

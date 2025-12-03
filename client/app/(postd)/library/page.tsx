@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
   Upload,
   Grid3X3,
@@ -11,8 +11,9 @@ import {
   AlertCircle,
   FileQuestion,
   Filter,
+  Loader2,
 } from "lucide-react";
-import { Asset, LibraryFilter, LibraryViewPreferences, generateMockAssets, AssetFileType } from "@/types/library";
+import { Asset, LibraryFilter, LibraryViewPreferences, AssetFileType } from "@/types/library";
 import { StockImage } from "@/types/stock";
 import { LibraryUploadZone } from "@/components/dashboard/LibraryUploadZone";
 import { LibraryAssetDrawer } from "@/components/dashboard/LibraryAssetDrawer";
@@ -27,16 +28,96 @@ import { CanvaIntegrationModal } from "@/components/postd/integrations/CanvaInte
 import { NewPostButton } from "@/components/postd/shared/NewPostButton";
 import { useToast } from "@/hooks/use-toast";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
+import { useCurrentBrand } from "@/hooks/useCurrentBrand";
 import { PageShell } from "@/components/postd/ui/layout/PageShell";
 import { PageHeader } from "@/components/postd/ui/layout/PageHeader";
+import { logError } from "@/lib/logger";
 
 export default function Library() {
   const { toast } = useToast();
   const { currentWorkspace } = useWorkspace();
+  const { brandId } = useCurrentBrand();
 
-  // Data state
-  const [assets, setAssets] = useState<Asset[]>(generateMockAssets(16));
+  // Data state - ✅ REMOVED: generateMockAssets - now using real API
+  const [assets, setAssets] = useState<Asset[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [selectedAssets, setSelectedAssets] = useState<string[]>([]);
+
+  // ✅ REAL IMPLEMENTATION: Fetch assets from API on mount
+  useEffect(() => {
+    const fetchAssets = async () => {
+      if (!brandId) {
+        setLoading(false);
+        return;
+      }
+
+      try {
+        setLoading(true);
+        setError(null);
+        
+        // Fetch assets from /api/media/list endpoint
+        const params = new URLSearchParams({
+          brandId,
+          limit: "100", // Fetch first 100 assets
+          offset: "0",
+        });
+
+        const response = await fetch(`/api/media/list?${params.toString()}`);
+        
+        if (!response.ok) {
+          throw new Error(`Failed to load assets: ${response.statusText}`);
+        }
+
+        const data = await response.json();
+        
+        if (data.success && data.assets) {
+          // Map API response to Asset format
+          const mappedAssets: Asset[] = data.assets.map((asset: any) => ({
+            id: asset.id,
+            filename: asset.filename || asset.path?.split("/").pop() || "unknown",
+            fileType: asset.mime_type?.startsWith("video/") ? "video" : "image",
+            fileSize: asset.size_bytes || 0,
+            width: asset.metadata?.width || 0,
+            height: asset.metadata?.height || 0,
+            thumbnailUrl: asset.metadata?.thumbnailUrl || asset.path || "",
+            storagePath: asset.path || "",
+            tags: asset.metadata?.aiTags || [],
+            category: asset.category || "images",
+            people: asset.metadata?.people || [],
+            colors: asset.metadata?.colors || [],
+            platformFits: asset.metadata?.platformFits || [],
+            graphicsSize: asset.metadata?.graphicsSize || "medium",
+            orientation: asset.metadata?.orientation || "landscape",
+            aspectRatio: asset.width && asset.height ? asset.width / asset.height : 1,
+            campaignIds: asset.metadata?.campaignIds || [],
+            eventIds: asset.metadata?.eventIds || [],
+            usageCount: asset.usage_count || 0,
+            favorite: asset.metadata?.favorite || false,
+            source: asset.metadata?.source || "upload",
+            uploadedAt: asset.created_at || new Date().toISOString(),
+            uploadedBy: asset.metadata?.uploadedBy || "unknown",
+            brandId: asset.brand_id || brandId,
+            aiTagsPending: asset.metadata?.aiTagsPending || false,
+            archived: asset.status === "archived" || asset.metadata?.archived || false,
+          }));
+          
+          setAssets(mappedAssets);
+        } else {
+          setAssets([]);
+        }
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : "Failed to load library assets";
+        logError("[Library] Failed to fetch assets", err instanceof Error ? err : new Error(String(err)), { brandId });
+        setError(errorMessage);
+        setAssets([]); // Show empty state instead of mock data
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchAssets();
+  }, [brandId]);
 
   // UI state
   const [viewMode, setViewMode] = useState<"grid" | "table" | "masonry">("grid");
@@ -426,6 +507,95 @@ export default function Library() {
         <div className="p-4 sm:p-6 md:p-8">
           {activeTab === "uploads" && (
             <>
+              {/* Loading State */}
+              {loading && (
+                <div className="flex flex-col items-center justify-center py-16">
+                  <Loader2 className="w-8 h-8 text-indigo-600 animate-spin mb-4" />
+                  <p className="text-slate-600 font-medium">Loading your library assets...</p>
+                </div>
+              )}
+
+              {/* Error State */}
+              {!loading && error && (
+                <div className="text-center py-16">
+                  <AlertCircle className="w-16 h-16 text-red-300 mx-auto mb-4" />
+                  <h3 className="text-lg font-bold text-slate-900 mb-1">Failed to load assets</h3>
+                  <p className="text-slate-600 mb-4">{error}</p>
+                  <button
+                    onClick={() => {
+                      setError(null);
+                      setLoading(true);
+                      // Trigger refetch by updating brandId dependency
+                      const fetchAssets = async () => {
+                        if (!brandId) return;
+                        try {
+                          const params = new URLSearchParams({ brandId, limit: "100", offset: "0" });
+                          const response = await fetch(`/api/media/list?${params.toString()}`);
+                          if (response.ok) {
+                            const data = await response.json();
+                            if (data.success && data.assets) {
+                              const mappedAssets: Asset[] = data.assets.map((asset: any) => ({
+                                id: asset.id,
+                                filename: asset.filename || asset.path?.split("/").pop() || "unknown",
+                                fileType: asset.mime_type?.startsWith("video/") ? "video" : "image",
+                                fileSize: asset.size_bytes || 0,
+                                width: asset.metadata?.width || 0,
+                                height: asset.metadata?.height || 0,
+                                thumbnailUrl: asset.metadata?.thumbnailUrl || asset.path || "",
+                                storagePath: asset.path || "",
+                                tags: asset.metadata?.aiTags || [],
+                                category: asset.category || "images",
+                                people: asset.metadata?.people || [],
+                                colors: asset.metadata?.colors || [],
+                                platformFits: asset.metadata?.platformFits || [],
+                                graphicsSize: asset.metadata?.graphicsSize || "medium",
+                                orientation: asset.metadata?.orientation || "landscape",
+                                aspectRatio: asset.width && asset.height ? asset.width / asset.height : 1,
+                                campaignIds: asset.metadata?.campaignIds || [],
+                                eventIds: asset.metadata?.eventIds || [],
+                                usageCount: asset.usage_count || 0,
+                                favorite: asset.metadata?.favorite || false,
+                                source: asset.metadata?.source || "upload",
+                                uploadedAt: asset.created_at || new Date().toISOString(),
+                                uploadedBy: asset.metadata?.uploadedBy || "unknown",
+                                brandId: asset.brand_id || brandId,
+                                aiTagsPending: asset.metadata?.aiTagsPending || false,
+                                archived: asset.status === "archived" || asset.metadata?.archived || false,
+                              }));
+                              setAssets(mappedAssets);
+                              setError(null);
+                            }
+                          }
+                        } catch (err) {
+                          setError(err instanceof Error ? err.message : "Failed to load assets");
+                        } finally {
+                          setLoading(false);
+                        }
+                      };
+                      fetchAssets();
+                    }}
+                    className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+                  >
+                    Try Again
+                  </button>
+                </div>
+              )}
+
+              {/* Empty State (no assets) */}
+              {!loading && !error && sortedAssets.length === 0 && assets.length === 0 && (
+                <div className="text-center py-16">
+                  <FileQuestion className="w-16 h-16 text-slate-300 mx-auto mb-4" />
+                  <h3 className="text-lg font-bold text-slate-900 mb-1">No assets yet</h3>
+                  <p className="text-slate-600 mb-4">Upload your first asset to get started.</p>
+                  <button
+                    onClick={() => setShowUploadZone(true)}
+                    className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+                  >
+                    Upload Media
+                  </button>
+                </div>
+              )}
+
               {/* Bulk Actions Bar */}
               {selectedAssets.length > 0 && (
                 <div className="mb-6 p-4 bg-indigo-50 border border-indigo-200 rounded-lg flex items-center justify-between">

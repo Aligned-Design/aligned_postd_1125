@@ -87,9 +87,23 @@ OPENAI_EMBEDDING_DIMENSIONS=512       # Embedding dimensions
 **Environment Variables**:
 ```
 ANTHROPIC_API_KEY=sk-ant-[your-api-key]
+
+# Optional: Override default Claude model (defaults to agent-specific models)
+ANTHROPIC_MODEL=claude-3-5-sonnet-latest  # Use this model for all agent types
+
+# Optional: Force provider selection (auto/openai/anthropic)
+AI_PROVIDER=auto  # Default: auto (prefers OpenAI if both available)
 ```
 
-**Model**: `claude-opus-4-1` (latest, most capable)
+**Model Configuration**:
+- Default models vary by agent type (see `server/workers/ai-generation.ts`)
+- Can be overridden via `ANTHROPIC_MODEL` env var for all agent types
+- Recommended: `claude-3-5-sonnet-latest` or `claude-3-5-sonnet-20241022` for production
+
+**Provider Selection**:
+- `AI_PROVIDER=auto` (default): Prefers OpenAI if both keys are set, falls back to Anthropic
+- `AI_PROVIDER=openai`: Force OpenAI (will fail if `OPENAI_API_KEY` not set)
+- `AI_PROVIDER=anthropic`: Force Anthropic (will fail if `ANTHROPIC_API_KEY` not set)
 
 ---
 
@@ -725,6 +739,26 @@ Before deploying to production:
 - Check `VITE_SUPABASE_ANON_KEY` has required permissions
 - Verify Supabase project is running
 - Check database migrations are applied
+
+---
+
+## Deprecated Environment Variables
+
+### USE_MOCKS (REMOVED)
+
+**Status**: ❌ **REMOVED** - No longer used in production code
+
+**Previous Usage**: This variable was previously used to enable mock data in some routes.
+
+**Current Status**: 
+- ✅ Removed from all production routes (`server/routes/milestones.ts`, `server/routes/agents.ts`)
+- ✅ All routes now use real database queries
+- ⚠️ If `USE_MOCKS=true` is set, it will be ignored (no effect)
+
+**Action Required**: 
+- Remove `USE_MOCKS` from your `.env` files
+- It is no longer needed and has no effect
+- The validation script (`server/utils/validate-env.ts`) will warn if `USE_MOCKS=true` is set in production
 
 ---
 

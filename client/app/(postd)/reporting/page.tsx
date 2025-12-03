@@ -1,89 +1,52 @@
 import { ReportSettingsModal } from "@/components/dashboard/ReportSettingsModal";
 import { EmailReportDialog } from "@/components/dashboard/EmailReportDialog";
 import { ReportSettings } from "@/types/user";
-import { Plus, Mail, Trash2, Edit2, Send, Calendar, Users, Clock } from "lucide-react";
-import { useState } from "react";
-import { logInfo } from "@/lib/logger";
+import { Plus, Mail, Trash2, Edit2, Send, Calendar, Users, Clock, AlertCircle, Loader2 } from "lucide-react";
+import { useState, useEffect } from "react";
+import { logInfo, logError } from "@/lib/logger";
 import { PageShell } from "@/components/postd/ui/layout/PageShell";
 import { PageHeader } from "@/components/postd/ui/layout/PageHeader";
 
-// Mock saved reports data
-const MOCK_REPORTS: ReportSettings[] = [
-  {
-    id: "report-1",
-    accountId: "agency-1",
-    brandId: "brand-1",
-    name: "Aligned Analytics Report",
-    frequency: "weekly",
-    dayOfWeek: 1,
-    recipients: ["manager@agency.com", "client@brand.com"],
-    includeMetrics: ["reach", "engagement", "followers"],
-    includePlatforms: ["facebook", "instagram", "linkedin"],
-    isActive: true,
-    createdDate: "2024-10-15",
-    lastSent: "2024-11-07",
-  },
-  {
-    id: "report-2",
-    accountId: "agency-1",
-    brandId: "brand-2",
-    name: "Engagement Insights Report",
-    frequency: "weekly",
-    dayOfWeek: 3,
-    recipients: ["team@agency.com"],
-    includeMetrics: ["engagement", "engagement-rate", "google-business"],
-    includePlatforms: ["tiktok", "youtube"],
-    isActive: true,
-    createdDate: "2024-11-01",
-    lastSent: "2024-11-07",
-  },
-  {
-    id: "report-3",
-    accountId: "agency-1",
-    name: "Monthly Campaign Analysis",
-    frequency: "monthly",
-    monthlyType: "specific-day",
-    dayOfMonth: 1,
-    recipients: ["director@agency.com", "cmo@client.com"],
-    includeMetrics: ["reach", "engagement", "seo-ranking"],
-    includePlatforms: ["facebook", "instagram", "linkedin", "tiktok"],
-    isActive: true,
-    createdDate: "2024-09-20",
-    lastSent: "2024-11-01",
-  },
-  {
-    id: "report-4",
-    accountId: "agency-1",
-    name: "Quarterly Insights",
-    frequency: "quarterly",
-    quarterlyMonth: 0,
-    recipients: ["leadership@agency.com"],
-    includeMetrics: ["reach", "engagement", "followers", "google-business", "seo-ranking"],
-    includePlatforms: ["facebook", "instagram", "linkedin", "tiktok", "youtube"],
-    isActive: true,
-    createdDate: "2024-08-10",
-    lastSent: "2024-10-01",
-  },
-  {
-    id: "report-5",
-    accountId: "agency-1",
-    name: "Inactive Report",
-    frequency: "weekly",
-    dayOfWeek: 5,
-    recipients: ["old@email.com"],
-    includeMetrics: [],
-    includePlatforms: [],
-    isActive: false,
-    createdDate: "2024-08-10",
-  },
-];
-
 export default function Reporting() {
-  const [reports, setReports] = useState<ReportSettings[]>(MOCK_REPORTS);
+  const [reports, setReports] = useState<ReportSettings[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showEmailDialog, setShowEmailDialog] = useState(false);
   const [selectedReport, setSelectedReport] = useState<ReportSettings | null>(null);
   const [editingReport, setEditingReport] = useState<Partial<ReportSettings> | null>(null);
+
+  // ✅ FIX: Fetch real reports from API (no mock data)
+  useEffect(() => {
+    const loadReports = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+
+        const response = await fetch("/api/reports");
+
+        if (response.ok) {
+          const data = await response.json();
+          setReports(data.reports || []);
+        } else if (response.status === 404) {
+          // API endpoint not implemented yet
+          setReports([]);
+          setError("Reports feature is coming soon. The API endpoint is not yet implemented.");
+        } else {
+          throw new Error(`Failed to load reports: ${response.statusText}`);
+        }
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : "Failed to load reports";
+        logError("[Reporting] Failed to load reports", err instanceof Error ? err : new Error(String(err)));
+        setError(errorMessage);
+        setReports([]); // Show empty state instead of mock data
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadReports();
+  }, []);
 
   const getFrequencyLabel = (
     freq: string,
@@ -390,8 +353,52 @@ export default function Reporting() {
             </div>
           )}
 
-          {/* Empty State */}
-          {reports.length === 0 && (
+          {/* Loading State */}
+          {loading && (
+            <div className="bg-white/50 backdrop-blur-xl rounded-2xl p-12 text-center border border-white/60">
+              <Loader2 className="w-16 h-16 text-indigo-600 mx-auto mb-4 animate-spin" />
+              <h3 className="text-xl font-black text-slate-900 mb-2">Loading reports...</h3>
+            </div>
+          )}
+
+          {/* Error State */}
+          {!loading && error && reports.length === 0 && (
+            <div className="bg-white/50 backdrop-blur-xl rounded-2xl p-12 text-center border border-white/60">
+              <AlertCircle className="w-16 h-16 text-red-300 mx-auto mb-4" />
+              <h3 className="text-xl font-black text-slate-900 mb-2">Unable to load reports</h3>
+              <p className="text-slate-600 font-medium mb-6">{error}</p>
+              <button
+                onClick={() => {
+                  setLoading(true);
+                  setError(null);
+                  // Trigger reload
+                  const loadReports = async () => {
+                    try {
+                      const response = await fetch("/api/reports");
+                      if (response.ok) {
+                        const data = await response.json();
+                        setReports(data.reports || []);
+                        setError(null);
+                      } else {
+                        setError("Reports feature is coming soon.");
+                      }
+                    } catch (err) {
+                      setError(err instanceof Error ? err.message : "Failed to load reports");
+                    } finally {
+                      setLoading(false);
+                    }
+                  };
+                  loadReports();
+                }}
+                className="inline-flex items-center gap-2 px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-black rounded-lg shadow-lg hover:shadow-xl transition-all"
+              >
+                Try Again
+              </button>
+            </div>
+          )}
+
+          {/* Empty State - No Reports */}
+          {!loading && !error && reports.length === 0 && (
             <div className="bg-white/50 backdrop-blur-xl rounded-2xl p-12 text-center border border-white/60">
               <Mail className="w-16 h-16 text-slate-300 mx-auto mb-4" />
               <h3 className="text-xl font-black text-slate-900 mb-2">No reports yet</h3>

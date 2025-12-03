@@ -569,6 +569,11 @@ When working through integration tasks, reference these documents:
 ### Onboarding & Brand Guide Verification
 - `POSTD_ONBOARDING_ALIGNMENT_VERIFICATION.md` - Canonical verification of onboarding flow, Brand Guide integration, and content generation behavior
 
+### Production Readiness & Mock Usage
+- `docs/GO_LIVE_CHECKLIST.md` - Pre-deployment production readiness checklist
+- `docs/POSTD_MOCK_USAGE_RULES.md` - Rules for mock/demo data usage in POSTD
+- `POSTD_LIVE_VS_MOCK_AUDIT.md` - Complete mock data audit and remediation (root directory)
+
 ---
 
 ## 🔒 SECTION 6 — CRITICAL RULES

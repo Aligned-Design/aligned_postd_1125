@@ -7,11 +7,13 @@ export {
   celebrateWinToast,
   exampleWins,
 } from "./WinCelebration";
-export { ROIDashboard, mockROIData } from "./ROIDashboard";
-export {
-  BrandEvolutionVisualization,
-  mockBrandEvolutionData,
-} from "./BrandEvolutionVisualization";
+export { ROIDashboard } from "./ROIDashboard";
+// ✅ REMOVED: mockROIData export - no longer used in production
+// Mock data moved to Storybook or test fixtures if needed
+
+export { BrandEvolutionVisualization } from "./BrandEvolutionVisualization";
+// ✅ REMOVED: mockBrandEvolutionData export - no longer used in production
+// Mock data moved to Storybook or test fixtures if needed
 export {
   SeasonalDipInsurance,
   summerSlumpWarning,

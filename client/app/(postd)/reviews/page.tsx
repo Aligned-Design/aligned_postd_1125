@@ -3,8 +3,9 @@ import { useCurrentBrand } from "@/hooks/useCurrentBrand";
 import { ReviewCard } from "@/components/dashboard/ReviewCard";
 import { ReviewAdvisor } from "@/components/dashboard/ReviewAdvisor";
 import { Review, ReviewSource, ReviewListResponse } from "@shared/reviews";
-import { MOCK_BRAND_GUIDE, MOCK_AUTO_REPLY_SETTINGS } from "@/types/review";
+import { BrandGuide, AutoReplySettings } from "@/types/review";
 import { Star, Settings, Filter, MessageCircle, AlertCircle } from "lucide-react";
+import { useBrandGuide } from "@/hooks/useBrandGuide";
 import { useState, useEffect } from "react";
 import { PageShell } from "@/components/postd/ui/layout/PageShell";
 import { PageHeader } from "@/components/postd/ui/layout/PageHeader";
@@ -13,13 +14,15 @@ import { logError, logWarning, logInfo } from "@/lib/logger";
 export default function Reviews() {
   const { currentWorkspace } = useWorkspace();
   const { brandId } = useCurrentBrand();
+  const { brandGuide } = useBrandGuide();
   const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(true);
+  const [settingsLoading, setSettingsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filterSource, setFilterSource] = useState<ReviewSource | "all">("all");
   const [filterSentiment, setFilterSentiment] = useState<"all" | "positive" | "neutral" | "negative">("all");
   const [showAutoReplySettings, setShowAutoReplySettings] = useState(false);
-  const [autoReplySettings, setAutoReplySettings] = useState(MOCK_AUTO_REPLY_SETTINGS);
+  const [autoReplySettings, setAutoReplySettings] = useState<AutoReplySettings | null>(null);
   const [stats, setStats] = useState({
     total: 0,
     positive: 0,
@@ -137,6 +140,39 @@ export default function Reviews() {
     };
 
     loadReviews();
+  }, [brandId]);
+
+  // ✅ FIX: Load auto-reply settings from API (no mock data)
+  useEffect(() => {
+    const loadAutoReplySettings = async () => {
+      if (!brandId) {
+        setSettingsLoading(false);
+        return;
+      }
+
+      try {
+        setSettingsLoading(true);
+        const response = await fetch(`/api/settings/auto-reply?brandId=${brandId}`);
+
+        if (response.ok) {
+          const settings: AutoReplySettings = await response.json();
+          setAutoReplySettings(settings);
+        } else if (response.status === 404) {
+          // No settings configured yet - show empty state
+          setAutoReplySettings(null);
+        } else {
+          logWarning("[Reviews] Failed to load auto-reply settings", { status: response.status });
+          setAutoReplySettings(null);
+        }
+      } catch (err) {
+        logError("[Reviews] Failed to load auto-reply settings", err instanceof Error ? err : new Error(String(err)));
+        setAutoReplySettings(null);
+      } finally {
+        setSettingsLoading(false);
+      }
+    };
+
+    loadAutoReplySettings();
   }, [brandId]);
 
   // Filter reviews
@@ -297,7 +333,10 @@ export default function Reviews() {
             {/* Right Column - Advisor & Settings */}
             <div className="space-y-4">
               {/* Review Advisor */}
-              <ReviewAdvisor reviews={reviews} onGenerateReplies={handleGenerateReplies} />
+              <ReviewAdvisor 
+                reviews={reviews} 
+                onGenerateReplies={handleGenerateReplies}
+              />
 
               {/* Auto Reply Settings */}
               <div className="bg-white/50 backdrop-blur-xl rounded-xl p-5 border border-white/60 space-y-4">
@@ -306,86 +345,115 @@ export default function Reviews() {
                     <Settings className="w-4 h-4" />
                     Auto-Reply
                   </h3>
-                  <button
-                    onClick={() => setShowAutoReplySettings(!showAutoReplySettings)}
-                    className="text-xs font-bold text-indigo-600 hover:text-indigo-700"
-                  >
-                    {showAutoReplySettings ? "Hide" : "Edit"}
-                  </button>
+                  {autoReplySettings && (
+                    <button
+                      onClick={() => setShowAutoReplySettings(!showAutoReplySettings)}
+                      className="text-xs font-bold text-indigo-600 hover:text-indigo-700"
+                    >
+                      {showAutoReplySettings ? "Hide" : "Edit"}
+                    </button>
+                  )}
                 </div>
 
-                {/* Toggle */}
-                <button
-                  onClick={() =>
-                    setAutoReplySettings({ ...autoReplySettings, enableAutoReply: !autoReplySettings.enableAutoReply })
-                  }
-                  className={`w-full p-3 rounded-lg border-2 font-bold text-sm transition-all ${
-                    autoReplySettings.enableAutoReply
-                      ? "border-green-500 bg-green-50 text-green-700"
-                      : "border-slate-200 text-slate-600 hover:border-slate-300"
-                  }`}
-                >
-                  {autoReplySettings.enableAutoReply ? "✓ Auto-Reply Enabled" : "Auto-Reply Disabled"}
-                </button>
-
-                {/* Settings Panel */}
-                {showAutoReplySettings && (
-                  <div className="space-y-3 pt-3 border-t border-slate-200">
-                    <div>
-                      <label className="text-xs font-bold text-slate-700 block mb-2">5-Star Response Template</label>
-                      <textarea
-                        value={autoReplySettings.replyRules.fiveStars || ""}
-                        onChange={(e) =>
-                          setAutoReplySettings({
-                            ...autoReplySettings,
-                            replyRules: { ...autoReplySettings.replyRules, fiveStars: e.target.value },
-                          })
-                        }
-                        className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                        rows={2}
-                      />
-                    </div>
-
-                    <div>
-                      <label className="text-xs font-bold text-slate-700 block mb-2">1-Star Response Template</label>
-                      <textarea
-                        value={autoReplySettings.replyRules.oneStar || ""}
-                        onChange={(e) =>
-                          setAutoReplySettings({
-                            ...autoReplySettings,
-                            replyRules: { ...autoReplySettings.replyRules, oneStar: e.target.value },
-                          })
-                        }
-                        className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                        rows={2}
-                      />
-                    </div>
-
-                    <div className="flex gap-2">
-                      <label className="flex items-center gap-2 text-xs font-medium text-slate-700">
-                        <input
-                          type="checkbox"
-                          checked={autoReplySettings.includeFollowUpLinks}
-                          onChange={(e) =>
-                            setAutoReplySettings({
-                              ...autoReplySettings,
-                              includeFollowUpLinks: e.target.checked,
-                            })
-                          }
-                          className="w-4 h-4 rounded"
-                        />
-                        Include Follow-up Links
-                      </label>
-                    </div>
+                {/* Empty State - No Settings Configured */}
+                {!settingsLoading && !autoReplySettings && (
+                  <div className="text-center py-6">
+                    <p className="text-sm text-slate-600 mb-3">No auto-reply settings configured yet.</p>
+                    <button
+                      onClick={() => {
+                        // Initialize with default settings
+                        setAutoReplySettings({
+                          enableAutoReply: false,
+                          replyRules: {},
+                          includeFollowUpLinks: true,
+                          addCTA: true,
+                        });
+                        setShowAutoReplySettings(true);
+                      }}
+                      className="text-xs font-bold text-indigo-600 hover:text-indigo-700"
+                    >
+                      Configure Auto-Reply
+                    </button>
                   </div>
                 )}
 
-                {/* Info */}
-                <p className="text-xs text-slate-600 font-medium italic">
-                  {autoReplySettings.enableAutoReply
-                    ? "Auto-replies are enabled. We'll respond to 5-star and 4-star reviews automatically."
-                    : "Manual replies only. You'll handle each response personally."}
-                </p>
+                {/* Settings UI (only show if settings exist) */}
+                {autoReplySettings && (
+                  <>
+                    {/* Toggle */}
+                    <button
+                      onClick={() =>
+                        setAutoReplySettings({ ...autoReplySettings, enableAutoReply: !autoReplySettings.enableAutoReply })
+                      }
+                      className={`w-full p-3 rounded-lg border-2 font-bold text-sm transition-all ${
+                        autoReplySettings.enableAutoReply
+                          ? "border-green-500 bg-green-50 text-green-700"
+                          : "border-slate-200 text-slate-600 hover:border-slate-300"
+                      }`}
+                    >
+                      {autoReplySettings.enableAutoReply ? "✓ Auto-Reply Enabled" : "Auto-Reply Disabled"}
+                    </button>
+
+                    {/* Settings Panel */}
+                    {showAutoReplySettings && (
+                      <div className="space-y-3 pt-3 border-t border-slate-200">
+                        <div>
+                          <label className="text-xs font-bold text-slate-700 block mb-2">5-Star Response Template</label>
+                          <textarea
+                            value={autoReplySettings.replyRules.fiveStars || ""}
+                            onChange={(e) =>
+                              setAutoReplySettings({
+                                ...autoReplySettings,
+                                replyRules: { ...autoReplySettings.replyRules, fiveStars: e.target.value },
+                              })
+                            }
+                            className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            rows={2}
+                          />
+                        </div>
+
+                        <div>
+                          <label className="text-xs font-bold text-slate-700 block mb-2">1-Star Response Template</label>
+                          <textarea
+                            value={autoReplySettings.replyRules.oneStar || ""}
+                            onChange={(e) =>
+                              setAutoReplySettings({
+                                ...autoReplySettings,
+                                replyRules: { ...autoReplySettings.replyRules, oneStar: e.target.value },
+                              })
+                            }
+                            className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            rows={2}
+                          />
+                        </div>
+
+                        <div className="flex gap-2">
+                          <label className="flex items-center gap-2 text-xs font-medium text-slate-700">
+                            <input
+                              type="checkbox"
+                              checked={autoReplySettings.includeFollowUpLinks || false}
+                              onChange={(e) =>
+                                setAutoReplySettings({
+                                  ...autoReplySettings,
+                                  includeFollowUpLinks: e.target.checked,
+                                })
+                              }
+                              className="w-4 h-4 rounded"
+                            />
+                            Include Follow-up Links
+                          </label>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Info */}
+                    <p className="text-xs text-slate-600 font-medium italic">
+                      {autoReplySettings.enableAutoReply
+                        ? "Auto-replies are enabled. We'll respond to 5-star and 4-star reviews automatically."
+                        : "Manual replies only. You'll handle each response personally."}
+                    </p>
+                  </>
+                )}
               </div>
             </div>
           </div>

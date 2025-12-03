@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
+import { useCurrentBrand } from "@/hooks/useCurrentBrand";
 import { useToast } from "@/hooks/use-toast";
-import { logError } from "@/lib/logger";
+import { logError, logWarning } from "@/lib/logger";
 import { PageShell } from "@/components/postd/ui/layout/PageShell";
 import { PageHeader } from "@/components/postd/ui/layout/PageHeader";
 import { StatusOverviewBanner } from "@/components/dashboard/StatusOverviewBanner";
@@ -21,118 +22,8 @@ import {
   RefreshCw,
   AlertCircle,
   ChevronLeft,
+  Loader2,
 } from "lucide-react";
-
-const allPosts: Post[] = [
-  {
-    id: "1",
-    title: "Introducing New Features",
-    platform: "linkedin",
-    status: "reviewing",
-    brand: "Postd",
-    campaign: "Product Launch",
-    createdDate: "Nov 18",
-    scheduledDate: "Nov 22",
-    excerpt: "We're excited to announce our latest product updates...",
-  },
-  {
-    id: "2",
-    title: "Behind the Scenes",
-    platform: "instagram",
-    status: "draft",
-    brand: "Postd",
-    campaign: "Brand Awareness",
-    createdDate: "Nov 18",
-    excerpt: "Get a sneak peek into how our team creates content...",
-  },
-  {
-    id: "3",
-    title: "Weekly Tips",
-    platform: "twitter",
-    status: "reviewing",
-    brand: "Brand B",
-    campaign: "Customer Spotlight",
-    createdDate: "Nov 17",
-    scheduledDate: "Nov 21",
-    excerpt: "Three quick ways to boost your engagement this week...",
-  },
-  {
-    id: "4",
-    title: "Customer Success Story",
-    platform: "facebook",
-    status: "reviewing",
-    brand: "Postd",
-    campaign: "Customer Spotlight",
-    createdDate: "Nov 17",
-    excerpt: "See how our customers are achieving their goals...",
-  },
-  {
-    id: "5",
-    title: "Trending Sounds Challenge",
-    platform: "tiktok",
-    status: "scheduled",
-    brand: "Postd",
-    campaign: "Product Launch",
-    createdDate: "Nov 16",
-    scheduledDate: "Nov 20",
-    excerpt: "Join the latest trend and show your creative side...",
-  },
-  {
-    id: "6",
-    title: "Product Demo Video",
-    platform: "youtube",
-    status: "scheduled",
-    brand: "Brand B",
-    campaign: "Product Launch",
-    createdDate: "Nov 15",
-    scheduledDate: "Nov 19",
-    excerpt: "In-depth walkthrough of our latest features...",
-  },
-  {
-    id: "7",
-    title: "Design Inspiration",
-    platform: "pinterest",
-    status: "published",
-    brand: "Postd",
-    campaign: "Holiday Promo",
-    createdDate: "Nov 14",
-    scheduledDate: "Nov 18",
-    excerpt: "Curated collection of design inspiration...",
-  },
-  {
-    id: "8",
-    title: "Team Highlights",
-    platform: "linkedin",
-    status: "published",
-    brand: "Postd",
-    campaign: "Brand Awareness",
-    createdDate: "Nov 13",
-    scheduledDate: "Nov 17",
-    excerpt: "Celebrating our amazing team this week...",
-  },
-  {
-    id: "9",
-    title: "Weekend Plans",
-    platform: "twitter",
-    status: "draft",
-    brand: "Brand B",
-    campaign: "Customer Spotlight",
-    createdDate: "Nov 12",
-    excerpt: "What's on your weekend agenda?...",
-  },
-  {
-    id: "10",
-    title: "Email Campaign Sync Error",
-    platform: "instagram",
-    status: "draft",
-    brand: "Brand C",
-    campaign: "Brand Awareness",
-    createdDate: "Nov 11",
-    excerpt: "Failed to sync with email marketing platform...",
-    errorMessage:
-      "Failed to sync with email marketing platform. Please check your API credentials.",
-  },
-];
 
 const statusConfig: Record<
   PostStatus,
@@ -172,6 +63,7 @@ const statusConfig: Record<
 
 export default function ContentQueue() {
   const { currentWorkspace } = useWorkspace();
+  const { brandId } = useCurrentBrand();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { toast } = useToast();
@@ -184,7 +76,89 @@ export default function ContentQueue() {
   const [previewPost, setPreviewPost] = useState<Post | null>(null);
   const [showPreview, setShowPreview] = useState(false);
   const [viewMode, setViewMode] = useState<"grid" | "carousel">("grid");
-  const [posts, setPosts] = useState<Post[]>(allPosts);
+  
+  // ✅ FIX: Real posts data - no mock data
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // ✅ FIX: Fetch real posts from API
+  useEffect(() => {
+    loadPosts();
+  }, [brandId]);
+
+  const loadPosts = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      // Try to fetch from content_items API
+      const response = await fetch(brandId ? `/api/content-items?brandId=${brandId}` : "/api/content-items");
+
+      if (response.ok) {
+        const data = await response.json();
+        // Map API response to Post format
+        const mappedPosts: Post[] = (data.items || data.posts || []).map((item: any) => ({
+          id: item.id || item.content_id,
+          title: item.title || item.name || "Untitled Post",
+          platform: (item.platform || item.type || "instagram").toLowerCase(),
+          status: mapApiStatusToPostStatus(item.status),
+          brand: item.brand_name || item.brandName || currentWorkspace?.name || "Unknown",
+          campaign: item.campaign || item.campaign_name || "",
+          createdDate: formatDate(item.created_at || item.createdAt),
+          scheduledDate: item.scheduled_at || item.scheduledAt ? formatDate(item.scheduled_at || item.scheduledAt) : undefined,
+          excerpt: extractExcerpt(item.content || item.body || item.caption || ""),
+          errorMessage: item.error_message || item.errorMessage,
+        }));
+        setPosts(mappedPosts);
+      } else if (response.status === 404) {
+        // API endpoint not implemented yet
+        setPosts([]);
+        setError("Queue feature is coming soon. The API endpoint is not yet implemented.");
+      } else {
+        throw new Error(`Failed to load posts: ${response.statusText}`);
+      }
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : "Failed to load posts";
+      logError("[Queue] Failed to load posts", err instanceof Error ? err : new Error(String(err)));
+      setError(errorMessage);
+      setPosts([]); // Show empty state instead of mock data
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const mapApiStatusToPostStatus = (status: string): PostStatus => {
+    const statusMap: Record<string, PostStatus> = {
+      draft: "draft",
+      "pending_review": "reviewing",
+      "in_review": "reviewing",
+      reviewing: "reviewing",
+      scheduled: "scheduled",
+      approved: "scheduled",
+      published: "published",
+      errored: "errored",
+      failed: "errored",
+    };
+    return statusMap[status?.toLowerCase() || ""] || "draft";
+  };
+
+  const formatDate = (dateStr: string): string => {
+    if (!dateStr) return "";
+    const date = new Date(dateStr);
+    return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  };
+
+  const extractExcerpt = (content: string | object): string => {
+    if (typeof content === "string") {
+      return content.length > 80 ? content.substring(0, 80) + "..." : content;
+    }
+    if (typeof content === "object" && content !== null) {
+      const text = JSON.stringify(content);
+      return text.length > 80 ? text.substring(0, 80) + "..." : text;
+    }
+    return "";
+  };
 
   // Get status filter from URL query params
   const statusFilter = searchParams.get("status") as PostStatus | null;
@@ -271,14 +245,12 @@ export default function ContentQueue() {
     const Icon = PLATFORM_ICONS[post.platform] as React.ComponentType<any>;
     const isPending = post.status === "reviewing";
 
-    // Placeholder image - in production, this would come from post data
-    const placeholderImage = `https://images.unsplash.com/photo-${
-      post.id === "1"
-        ? "1552664730-d307ca884978?w=400&h=300&fit=crop"
-        : post.id === "3"
-          ? "1611532736579-6b16e2b50449?w=400&h=300&fit=crop"
-          : "1460661419201-fd4cecdf8a8b?w=400&h=300&fit=crop"
-    }`;
+    // ✅ REAL IMPLEMENTATION: Use real post media if available
+    // Check for media fields (may be added to Post type in future)
+    const postMedia = (post as any).thumbnailUrl || (post as any).mediaUrl || (post as any).imageUrl;
+    
+    // Default "no image" placeholder - simple gradient instead of external Unsplash URL
+    const defaultImagePlaceholder = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='300'%3E%3Crect fill='%23e0e7ff' width='400' height='300'/%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' dy='.3em' fill='%239ca3af' font-family='system-ui' font-size='14'%3ENo Image%3C/text%3E%3C/svg%3E";
 
     if (isPending) {
       // Pending cards: with image preview and 4-row layout
@@ -287,7 +259,7 @@ export default function ContentQueue() {
           {/* Image Preview */}
           <div className="relative w-full h-40 bg-gradient-to-br from-indigo-100 to-blue-100 overflow-hidden">
             <img
-              src={placeholderImage}
+              src={postMedia || defaultImagePlaceholder}
               alt={post.title}
               className="w-full h-full object-cover group-hover/card:scale-105 transition-transform duration-300"
             />
@@ -505,6 +477,33 @@ export default function ContentQueue() {
         }
       />
 
+      {/* Loading State */}
+      {loading && (
+        <div className="bg-white/50 backdrop-blur-xl rounded-2xl p-12 text-center border border-white/60">
+          <Loader2 className="w-16 h-16 text-indigo-600 mx-auto mb-4 animate-spin" />
+          <h3 className="text-xl font-black text-slate-900 mb-2">Loading posts...</h3>
+        </div>
+      )}
+
+      {/* Error State */}
+      {!loading && error && posts.length === 0 && (
+        <div className="bg-white/50 backdrop-blur-xl rounded-2xl p-12 text-center border border-white/60">
+          <AlertCircle className="w-16 h-16 text-red-300 mx-auto mb-4" />
+          <h3 className="text-xl font-black text-slate-900 mb-2">Unable to load posts</h3>
+          <p className="text-slate-600 font-medium mb-6">{error}</p>
+          <button
+            onClick={loadPosts}
+            className="inline-flex items-center gap-2 px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-black rounded-lg shadow-lg hover:shadow-xl transition-all"
+          >
+            <RefreshCw className="w-5 h-5" />
+            Try Again
+          </button>
+        </div>
+      )}
+
+      {/* Content - only show if not loading and no error */}
+      {!loading && !error && (
+        <>
           {/* Status Overview Banner */}
           <StatusOverviewBanner navigateToQueue={true} />
 
@@ -732,6 +731,8 @@ export default function ContentQueue() {
               <QueueAdvisor />
             </div>
           )}
+        </>
+      )}
 
       {/* Post Preview Modal */}
       <PostPreviewModal

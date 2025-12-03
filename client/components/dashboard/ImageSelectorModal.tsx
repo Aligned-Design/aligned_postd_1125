@@ -1,118 +1,114 @@
-import { useState } from "react";
-import { X, Upload, Search } from "lucide-react";
+import { useState, useEffect } from "react";
+import { X, Upload, Search, Loader2, FileQuestion, AlertCircle } from "lucide-react";
 import { Asset } from "@/types/library";
 import { StockImage } from "@/types/stock";
 import { StockImageModal } from "./StockImageModal";
+import { useCurrentBrand } from "@/hooks/useCurrentBrand";
+import { logError } from "@/lib/logger";
 
 interface ImageSelectorModalProps {
   onSelectImage: (imageUrl: string, imageName: string) => void;
   onClose: () => void;
 }
 
-// Mock library assets for demo
-const MOCK_LIBRARY_ASSETS: Asset[] = [
-  {
-    id: "asset-1",
-    filename: "workspace-meeting.jpg",
-    fileType: "image",
-    fileSize: 245000,
-    width: 1080,
-    height: 720,
-    thumbnailUrl: "https://images.unsplash.com/photo-1552664730-d307ca884978?w=300&h=200&fit=crop",
-    storagePath: "/library/workspace-meeting.jpg",
-    tags: ["team", "office", "meeting"],
-    category: "Team",
-    people: ["Team"],
-    colors: ["#3B82F6", "#1F2937"],
-    platformFits: ["Reels", "Story"],
-    graphicsSize: "social_square",
-    orientation: "horizontal",
-    aspectRatio: 1.5,
-    campaignIds: [],
-    eventIds: [],
-    usageCount: 2,
-    favorite: true,
-    source: "upload",
-    uploadedAt: new Date().toISOString(),
-    uploadedBy: "user",
-    brandId: "default",
-    aiTagsPending: false,
-    archived: false,
-  },
-  {
-    id: "asset-2",
-    filename: "product-showcase.jpg",
-    fileType: "image",
-    fileSize: 320000,
-    width: 1080,
-    height: 1080,
-    thumbnailUrl: "https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=300&h=300&fit=crop",
-    storagePath: "/library/product-showcase.jpg",
-    tags: ["product", "technology"],
-    category: "Product",
-    people: [],
-    colors: ["#EC4899", "#8B5CF6"],
-    platformFits: ["Square Post", "Story"],
-    graphicsSize: "social_square",
-    orientation: "square",
-    aspectRatio: 1,
-    campaignIds: [],
-    eventIds: [],
-    usageCount: 1,
-    favorite: false,
-    source: "upload",
-    uploadedAt: new Date(Date.now() - 86400000).toISOString(),
-    uploadedBy: "user",
-    brandId: "default",
-    aiTagsPending: false,
-    archived: false,
-  },
-  {
-    id: "asset-3",
-    filename: "event-celebration.jpg",
-    fileType: "image",
-    fileSize: 280000,
-    width: 1080,
-    height: 1920,
-    thumbnailUrl: "https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=300&h=400&fit=crop",
-    storagePath: "/library/event-celebration.jpg",
-    tags: ["event", "celebration", "party"],
-    category: "Event",
-    people: ["Team"],
-    colors: ["#FBBF24", "#DC2626"],
-    platformFits: ["Story", "Portrait"],
-    graphicsSize: "story_portrait",
-    orientation: "vertical",
-    aspectRatio: 0.5625,
-    campaignIds: [],
-    eventIds: [],
-    usageCount: 0,
-    favorite: false,
-    source: "upload",
-    uploadedAt: new Date(Date.now() - 172800000).toISOString(),
-    uploadedBy: "user",
-    brandId: "default",
-    aiTagsPending: false,
-    archived: false,
-  },
-];
+// ✅ REMOVED: MOCK_LIBRARY_ASSETS - now fetching real assets from API
 
 export function ImageSelectorModal({ onSelectImage, onClose }: ImageSelectorModalProps) {
+  const { brandId } = useCurrentBrand();
   const [activeTab, setActiveTab] = useState<"library" | "upload" | "stock">("library");
   const [searchQuery, setSearchQuery] = useState("");
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
   const [uploadedName, setUploadedName] = useState("");
   const [showStockModal, setShowStockModal] = useState(false);
+  
+  // ✅ REAL IMPLEMENTATION: Fetch assets from API
+  const [assets, setAssets] = useState<Asset[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // Filter library assets
-  const filteredAssets = MOCK_LIBRARY_ASSETS.filter(
+  useEffect(() => {
+    const fetchAssets = async () => {
+      if (!brandId) {
+        setLoading(false);
+        return;
+      }
+
+      try {
+        setLoading(true);
+        setError(null);
+
+        const params = new URLSearchParams({
+          brandId,
+          limit: "100",
+          offset: "0",
+        });
+
+        const response = await fetch(`/api/media/list?${params.toString()}`);
+
+        if (!response.ok) {
+          throw new Error(`Failed to load assets: ${response.statusText}`);
+        }
+
+        const data = await response.json();
+
+        if (data.success && data.assets) {
+          const mappedAssets: Asset[] = data.assets.map((asset: any) => ({
+            id: asset.id,
+            filename: asset.filename || asset.path?.split("/").pop() || "unknown",
+            fileType: asset.mime_type?.startsWith("video/") ? "video" : "image",
+            fileSize: asset.size_bytes || 0,
+            width: asset.metadata?.width || 0,
+            height: asset.metadata?.height || 0,
+            thumbnailUrl: asset.metadata?.thumbnailUrl || asset.path || "",
+            storagePath: asset.path || "",
+            tags: asset.metadata?.aiTags || [],
+            category: asset.category || "images",
+            people: asset.metadata?.people || [],
+            colors: asset.metadata?.colors || [],
+            platformFits: asset.metadata?.platformFits || [],
+            graphicsSize: asset.metadata?.graphicsSize || "medium",
+            orientation: asset.metadata?.orientation || "landscape",
+            aspectRatio: asset.width && asset.height ? asset.width / asset.height : 1,
+            campaignIds: asset.metadata?.campaignIds || [],
+            eventIds: asset.metadata?.eventIds || [],
+            usageCount: asset.usage_count || 0,
+            favorite: asset.metadata?.favorite || false,
+            source: asset.metadata?.source || "upload",
+            uploadedAt: asset.created_at || new Date().toISOString(),
+            uploadedBy: asset.metadata?.uploadedBy || "unknown",
+            brandId: asset.brand_id || brandId,
+            aiTagsPending: asset.metadata?.aiTagsPending || false,
+            archived: asset.status === "archived" || asset.metadata?.archived || false,
+          }));
+
+          setAssets(mappedAssets);
+        } else {
+          setAssets([]);
+        }
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : "Failed to load library assets";
+        logError("[ImageSelectorModal] Failed to fetch assets", err instanceof Error ? err : new Error(String(err)), { brandId });
+        setError(errorMessage);
+        setAssets([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchAssets();
+  }, [brandId]);
+
+  // Filter library assets from real data
+  const filteredAssets = assets.filter(
     (asset) =>
       asset.filename.toLowerCase().includes(searchQuery.toLowerCase()) ||
       asset.tags.some((tag) => tag.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
-  // Recent uploads (mocked)
-  const recentAssets = MOCK_LIBRARY_ASSETS.slice(0, 3);
+  // Recent uploads (sorted by uploadedAt, most recent first)
+  const recentAssets = [...assets]
+    .sort((a, b) => new Date(b.uploadedAt).getTime() - new Date(a.uploadedAt).getTime())
+    .slice(0, 3);
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -200,30 +196,62 @@ export function ImageSelectorModal({ onSelectImage, onClose }: ImageSelectorModa
                 />
               </div>
 
-              {/* Recent Uploads Section */}
-              <div>
-                <p className="text-sm font-bold text-slate-600 mb-3">Recently Uploaded</p>
-                <div className="grid grid-cols-3 gap-4">
-                  {recentAssets.map((asset) => (
-                    <button
-                      key={asset.id}
-                      onClick={() => handleSelectImage(asset.thumbnailUrl, asset.filename)}
-                      className="group relative rounded-lg overflow-hidden border-2 border-slate-200 hover:border-lime-400 transition-all"
-                    >
-                      <img
-                        src={asset.thumbnailUrl}
-                        alt={asset.filename}
-                        className="w-full aspect-square object-cover group-hover:scale-110 transition-transform"
-                      />
-                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-all flex items-end p-2">
-                        <span className="text-xs font-bold text-white opacity-0 group-hover:opacity-100 transition-opacity">
-                          {asset.filename}
-                        </span>
-                      </div>
-                    </button>
-                  ))}
+              {/* Loading State */}
+              {loading && (
+                <div className="flex flex-col items-center justify-center py-12">
+                  <Loader2 className="w-8 h-8 text-indigo-600 animate-spin mb-4" />
+                  <p className="text-slate-600 font-medium">Loading library assets...</p>
                 </div>
-              </div>
+              )}
+
+              {/* Error State */}
+              {!loading && error && (
+                <div className="rounded-lg bg-red-50 border border-red-200 p-6">
+                  <div className="flex gap-3">
+                    <AlertCircle className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <p className="font-medium text-red-900 mb-1">Failed to load library assets</p>
+                      <p className="text-sm text-red-700">{error}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Empty State */}
+              {!loading && !error && assets.length === 0 && (
+                <div className="text-center py-12">
+                  <FileQuestion className="w-16 h-16 text-slate-300 mx-auto mb-4" />
+                  <h3 className="text-lg font-bold text-slate-900 mb-2">No images yet</h3>
+                  <p className="text-slate-600 mb-4">Upload your first image to get started.</p>
+                </div>
+              )}
+
+              {/* Recent Uploads Section */}
+              {!loading && !error && recentAssets.length > 0 && (
+                <div>
+                  <p className="text-sm font-bold text-slate-600 mb-3">Recently Uploaded</p>
+                  <div className="grid grid-cols-3 gap-4">
+                    {recentAssets.map((asset) => (
+                      <button
+                        key={asset.id}
+                        onClick={() => handleSelectImage(asset.thumbnailUrl, asset.filename)}
+                        className="group relative rounded-lg overflow-hidden border-2 border-slate-200 hover:border-lime-400 transition-all"
+                      >
+                        <img
+                          src={asset.thumbnailUrl || "data:image/svg+xml,%3Csvg width='300' height='300' xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='300' height='300' fill='%23f1f5f9'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='Arial' font-size='14' fill='%2364748b'%3ENo Image%3C/text%3E%3C/svg%3E"}
+                          alt={asset.filename}
+                          className="w-full aspect-square object-cover group-hover:scale-110 transition-transform"
+                        />
+                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-all flex items-end p-2">
+                          <span className="text-xs font-bold text-white opacity-0 group-hover:opacity-100 transition-opacity">
+                            {asset.filename}
+                          </span>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* Search Results */}
               {searchQuery && (
@@ -240,7 +268,7 @@ export function ImageSelectorModal({ onSelectImage, onClose }: ImageSelectorModa
                           className="group relative rounded-lg overflow-hidden border-2 border-slate-200 hover:border-lime-400 transition-all"
                         >
                           <img
-                            src={asset.thumbnailUrl}
+                            src={asset.thumbnailUrl || "data:image/svg+xml,%3Csvg width='300' height='300' xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='300' height='300' fill='%23f1f5f9'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='Arial' font-size='14' fill='%2364748b'%3ENo Image%3C/text%3E%3C/svg%3E"}
                             alt={asset.filename}
                             className="w-full aspect-square object-cover group-hover:scale-110 transition-transform"
                           />
@@ -257,18 +285,18 @@ export function ImageSelectorModal({ onSelectImage, onClose }: ImageSelectorModa
               )}
 
               {/* All Library Assets */}
-              {!searchQuery && (
+              {!searchQuery && !loading && !error && assets.length > 0 && (
                 <div>
                   <p className="text-sm font-bold text-slate-600 mb-3">All Assets</p>
                   <div className="grid grid-cols-4 gap-3">
-                    {MOCK_LIBRARY_ASSETS.map((asset) => (
+                    {assets.map((asset) => (
                       <button
                         key={asset.id}
                         onClick={() => handleSelectImage(asset.thumbnailUrl, asset.filename)}
                         className="group relative rounded-lg overflow-hidden border-2 border-slate-200 hover:border-lime-400 transition-all"
                       >
                         <img
-                          src={asset.thumbnailUrl}
+                          src={asset.thumbnailUrl || "data:image/svg+xml,%3Csvg width='300' height='300' xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='300' height='300' fill='%23f1f5f9'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='Arial' font-size='14' fill='%2364748b'%3ENo Image%3C/text%3E%3C/svg%3E"}
                           alt={asset.filename}
                           className="w-full aspect-square object-cover group-hover:scale-110 transition-transform"
                         />

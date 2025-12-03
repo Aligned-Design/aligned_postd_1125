@@ -16,7 +16,8 @@ import { PageHeader } from "@/components/postd/ui/layout/PageHeader";
 import { LoadingState } from "@/components/postd/dashboard/states/LoadingState";
 import { ErrorState } from "@/components/postd/ui/feedback/ErrorState";
 import { EmptyState } from "@/components/postd/ui/feedback/EmptyState";
-import { BarChart3 as BarChart3Icon } from "lucide-react";
+import { BarChart3 as BarChart3Icon, AlertCircle, Loader2 } from "lucide-react";
+import { logError } from "@/lib/logger";
 
 export default function Analytics() {
   const { currentWorkspace } = useWorkspace();
@@ -300,69 +301,42 @@ export default function Analytics() {
     },
   ]; // End of legacy mock - not used
 
-  // Mock AI insights
-  const insights: AnalyticsInsight[] = [
-    {
-      id: "1",
-      platform: "Instagram",
-      icon: "📸",
-      title: "Video Content Drives 3× Engagement",
-      description:
-        "Your Reels and videos drove 3× more engagement than static posts this week. Consider shifting 60% of your content to video format.",
-      metric: "Reels: 52 avg engagements vs Posts: 18 avg",
-      actionLabel: "Create Video Plan",
-      priority: "high",
-      type: "opportunity",
-    },
-    {
-      id: "2",
-      platform: "Facebook",
-      icon: "📘",
-      title: "Wednesday Posts Underperform",
-      description:
-        "Posts published on Wednesdays average 28% lower engagement. Reschedule your Wednesday content to Friday mornings (9-11 AM).",
-      metric: "Wed avg: 22 engagement vs Fri avg: 42",
-      actionLabel: "Adjust Schedule",
-      priority: "high",
-      type: "suggestion",
-    },
-    {
-      id: "3",
-      platform: "TikTok",
-      icon: "🎵",
-      title: "Growth Opportunity with Trending Sounds",
-      description:
-        "Posts using trending audio get 2.5× more views. 3 of your top 5 videos used trending sounds. Keep leveraging popular tracks.",
-      metric: "Trending audio: 28K avg reach vs Original: 11K",
-      actionLabel: "Trending Audio Ideas",
-      priority: "medium",
-      type: "opportunity",
-    },
-    {
-      id: "4",
-      platform: "YouTube",
-      icon: "📺",
-      title: "Tutorial Content Resonates",
-      description:
-        "Your 15-minute tutorial outperformed shorts. Consider producing 1-2 longer-form tutorials monthly for sustained engagement.",
-      metric: "Long-form avg: 8.9K reach vs Shorts: 4.2K",
-      actionLabel: "Plan Tutorials",
-      priority: "medium",
-      type: "suggestion",
-    },
-    {
-      id: "5",
-      platform: "LinkedIn",
-      icon: "💼",
-      title: "Post Timing Impact",
-      description:
-        "Tuesday and Thursday posts at 8 AM perform 45% better. This is peak time for your professional audience.",
-      metric: "Tue/Thu 8 AM: 1,200 avg reach vs Other times: 680",
-      actionLabel: "Optimize Timing",
-      priority: "low",
-      type: "suggestion",
-    },
-  ];
+  // ✅ FIX: Real AI insights - no mock data
+  const [insights, setInsights] = useState<AnalyticsInsight[]>([]);
+  const [insightsLoading, setInsightsLoading] = useState(true);
+  const [insightsError, setInsightsError] = useState<string | null>(null);
+
+  // ✅ FIX: Fetch real AI insights from API
+  useEffect(() => {
+    const loadInsights = async () => {
+      try {
+        setInsightsLoading(true);
+        setInsightsError(null);
+
+        const response = await fetch("/api/analytics/insights");
+
+        if (response.ok) {
+          const data = await response.json();
+          setInsights(data.insights || []);
+        } else if (response.status === 404) {
+          // API endpoint not implemented yet
+          setInsights([]);
+          setInsightsError("AI Insights feature is coming soon. The API endpoint is not yet implemented.");
+        } else {
+          throw new Error(`Failed to load insights: ${response.statusText}`);
+        }
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : "Failed to load insights";
+        logError("[Analytics] Failed to load insights", err instanceof Error ? err : new Error(String(err)));
+        setInsightsError(errorMessage);
+        setInsights([]); // Show empty state instead of mock data
+      } finally {
+        setInsightsLoading(false);
+      }
+    };
+
+    loadInsights();
+  }, []);
 
   const handleReportSettings = () => {
     setShowReportSettings(true);
@@ -550,91 +524,46 @@ export default function Analytics() {
           {/* AI Insights Panel */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-1">
-              <AnalyticsAdvisor insights={insights} />
+              {insightsLoading ? (
+                <div className="bg-white/50 backdrop-blur-xl rounded-2xl p-6 border border-white/60">
+                  <Loader2 className="w-8 h-8 text-indigo-600 animate-spin mx-auto mb-2" />
+                  <p className="text-sm text-slate-600 text-center">Loading AI insights...</p>
+                </div>
+              ) : insightsError ? (
+                <div className="bg-white/50 backdrop-blur-xl rounded-2xl p-6 border border-white/60">
+                  <AlertCircle className="w-8 h-8 text-red-300 mx-auto mb-2" />
+                  <p className="text-sm text-slate-600 text-center">{insightsError}</p>
+                  <p className="text-xs text-slate-500 text-center mt-2">AI Insights coming soon</p>
+                </div>
+              ) : insights.length === 0 ? (
+                <div className="bg-white/50 backdrop-blur-xl rounded-2xl p-6 border border-white/60">
+                  <p className="text-sm font-medium text-slate-900 mb-2">AI Insights</p>
+                  <p className="text-xs text-slate-600 text-center">No insights available yet. AI-powered recommendations will appear here once analytics data is available.</p>
+                </div>
+              ) : (
+                <AnalyticsAdvisor insights={insights} />
+              )}
             </div>
 
             {/* Key Takeaways */}
             <div className="lg:col-span-2 space-y-4">
+              {/* Weekly Summary - Coming Soon */}
               <div className="bg-white/50 backdrop-blur-xl rounded-2xl p-6 border border-white/60 hover:bg-white/70 transition-all duration-300">
                 <h3 className="text-lg font-black text-slate-900 mb-4">Weekly Summary</h3>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="p-4 rounded-lg bg-emerald-50/50 border border-emerald-200/50">
-                    <p className="text-xs font-bold text-emerald-700 uppercase tracking-wider mb-1">
-                      Total Reach
-                    </p>
-                    <p className="text-2xl sm:text-3xl font-black text-slate-900">
-                      382K
-                    </p>
-                    <p className="text-xs text-emerald-600 font-medium mt-2">↑ 13.2% vs last week</p>
-                  </div>
-
-                  <div className="p-4 rounded-lg bg-pink-50/50 border border-pink-200/50">
-                    <p className="text-xs font-bold text-pink-700 uppercase tracking-wider mb-1">
-                      Total Engagement
-                    </p>
-                    <p className="text-2xl sm:text-3xl font-black text-slate-900">
-                      20.5K
-                    </p>
-                    <p className="text-xs text-pink-600 font-medium mt-2">↑ 10.4% vs last week</p>
-                  </div>
-
-                  <div className="p-4 rounded-lg bg-blue-50/50 border border-blue-200/50">
-                    <p className="text-xs font-bold text-blue-700 uppercase tracking-wider mb-1">
-                      Avg Engagement Rate
-                    </p>
-                    <p className="text-2xl sm:text-3xl font-black text-slate-900">
-                      5.4%
-                    </p>
-                    <p className="text-xs text-blue-600 font-medium mt-2">↑ 0.8% vs last week</p>
-                  </div>
-
-                  <div className="p-4 rounded-lg bg-purple-50/50 border border-purple-200/50">
-                    <p className="text-xs font-bold text-purple-700 uppercase tracking-wider mb-1">
-                      New Followers
-                    </p>
-                    <p className="text-2xl sm:text-3xl font-black text-slate-900">
-                      1,847
-                    </p>
-                    <p className="text-xs text-purple-600 font-medium mt-2">↑ 3.9% vs last week</p>
-                  </div>
+                <div className="text-center py-8">
+                  <p className="text-sm text-slate-600 font-medium">
+                    Summary metrics will appear here once you start publishing content and connecting your social media accounts.
+                  </p>
                 </div>
               </div>
 
-              {/* Top Opportunities */}
+              {/* Top Opportunities - Coming Soon */}
               <div className="bg-white/50 backdrop-blur-xl rounded-2xl p-6 border border-white/60 hover:bg-white/70 transition-all duration-300">
                 <h3 className="text-lg font-black text-slate-900 mb-4">Top Opportunities</h3>
-
-                <div className="space-y-3">
-                  <div className="flex items-start gap-3 p-3 rounded-lg bg-emerald-50/50 border border-emerald-200/50">
-                    <span className="text-lg flex-shrink-0">💡</span>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-bold text-slate-900">Shift to Video Content</p>
-                      <p className="text-xs text-slate-600 mt-1">
-                        Video posts generate 3× more engagement. Reallocate budget to Reels/TikTok.
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-start gap-3 p-3 rounded-lg bg-amber-50/50 border border-amber-200/50">
-                    <span className="text-lg flex-shrink-0">🎯</span>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-bold text-slate-900">Optimize Post Timing</p>
-                      <p className="text-xs text-slate-600 mt-1">
-                        Friday 9-11 AM sees 42 avg engagements. Reschedule low-performing day content.
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-start gap-3 p-3 rounded-lg bg-blue-50/50 border border-blue-200/50">
-                    <span className="text-lg flex-shrink-0">📈</span>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-bold text-slate-900">Leverage Trending Audio</p>
-                      <p className="text-xs text-slate-600 mt-1">
-                        TikTok trending sounds deliver 2.5× reach. Implement trending audio strategy.
-                      </p>
-                    </div>
-                  </div>
+                <div className="text-center py-8">
+                  <p className="text-sm text-slate-600 font-medium">
+                    AI-powered opportunity recommendations will appear here once analytics data is available.
+                  </p>
                 </div>
               </div>
             </div>

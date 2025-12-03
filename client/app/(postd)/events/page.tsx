@@ -16,8 +16,10 @@ import {
   AlertCircle,
   ListTodo,
   Grid3x3,
+  Loader2,
 } from "lucide-react";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
+import { logError } from "@/lib/logger";
 import { PageShell } from "@/components/postd/ui/layout/PageShell";
 import { PageHeader } from "@/components/postd/ui/layout/PageHeader";
 
@@ -41,198 +43,52 @@ export default function Events() {
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [generatedEvent, setGeneratedEvent] = useState<Event | null>(null);
 
-  // Mock events data
-  const [events, setEvents] = useState<Event[]>([
-    {
-      id: "1",
-      title: "Product Launch Webinar",
-      description: "Join us for our Q1 2024 product launch webinar featuring new AI capabilities.",
-      location: "Zoom (online)",
-      startDate: "2024-03-15",
-      startTime: "14:00",
-      endDate: "2024-03-15",
-      endTime: "15:30",
-      imageUrl: "https://images.unsplash.com/photo-1552664730-d307ca884978?w=500&h=300&fit=crop",
-      eventType: "digital",
-      status: "published",
-      visibility: "public",
-      tags: ["product", "launch", "ai"],
-      brand: "Postd",
-      createdDate: "2024-02-20",
-      updatedDate: "2024-02-28",
-      platforms: [
-        { platform: "facebook", isConnected: true, syncStatus: "synced" },
-        { platform: "google_business", isConnected: true, syncStatus: "synced" },
-        { platform: "squarespace", isConnected: true, syncStatus: "pending" },
-      ],
-      promotionSchedule: [
-        {
-          id: "p1",
-          type: "before",
-          title: "Join Our Product Launch",
-          content: "Exciting new features coming March 15! Register now for our exclusive webinar.",
-          platforms: ["facebook", "google_business"],
-          scheduledDate: "2024-03-13",
-          status: "published",
-        },
-        {
-          id: "p2",
-          type: "during",
-          title: "Live: Product Launch",
-          content: "We're live now! Join us as we reveal our latest AI capabilities.",
-          platforms: ["facebook"],
-          scheduledDate: "2024-03-15",
-          status: "scheduled",
-        },
-        {
-          id: "p3",
-          type: "after",
-          title: "Watch the Recording",
-          content: "Missed the live event? Watch the full recording of our product launch webinar.",
-          platforms: ["facebook", "google_business", "squarespace"],
-          scheduledDate: "2024-03-16",
-          status: "draft",
-        },
-      ],
-      attendance: { interested: 245, going: 89, views: 1200 },
-      engagementData: { impressions: 3450, clicks: 234, shares: 45 },
-    },
-    {
-      id: "2",
-      title: "Customer Success Stories",
-      description: "Celebrate our amazing customers and their success stories",
-      location: "Instagram Live",
-      startDate: "2024-03-22",
-      startTime: "16:00",
-      endDate: "2024-03-22",
-      endTime: "16:30",
-      eventType: "digital",
-      status: "scheduled",
-      visibility: "public",
-      tags: ["customer", "success", "stories"],
-      brand: "Postd",
-      createdDate: "2024-02-25",
-      updatedDate: "2024-02-28",
-      platforms: [
-        { platform: "facebook", isConnected: true, syncStatus: "synced" },
-        { platform: "google_business", isConnected: true, syncStatus: "failed" },
-        { platform: "squarespace", isConnected: false, syncStatus: "not_linked" },
-      ],
-      promotionSchedule: [
-        {
-          id: "p4",
-          type: "before",
-          title: "Tune In Tomorrow",
-          content: "Don't miss our live Instagram session with amazing customers sharing their success stories!",
-          platforms: ["facebook"],
-          scheduledDate: "2024-03-21",
-          status: "scheduled",
-        },
-      ],
-    },
-    {
-      id: "3",
-      title: "Quarterly Business Review",
-      description: "Q1 performance review and planning session for all teams",
-      location: "San Francisco HQ - Conference Room A",
-      startDate: "2024-04-05",
-      startTime: "10:00",
-      endDate: "2024-04-05",
-      endTime: "12:00",
-      eventType: "in_person",
-      status: "draft",
-      visibility: "private",
-      tags: ["internal", "planning", "quarterly"],
-      brand: "Postd",
-      createdDate: "2024-02-28",
-      updatedDate: "2024-02-28",
-      platforms: [
-        { platform: "facebook", isConnected: true, syncStatus: "not_linked" },
-        { platform: "google_business", isConnected: true, syncStatus: "not_linked" },
-        { platform: "squarespace", isConnected: false, syncStatus: "not_linked" },
-      ],
-      promotionSchedule: [],
-    },
-    {
-      id: "4",
-      title: "Community Webinar Series",
-      description: "Monthly webinar educating our community on social media best practices",
-      location: "Zoom",
-      startDate: "2024-03-01",
-      startTime: "11:00",
-      endDate: "2024-03-01",
-      endTime: "12:00",
-      eventType: "digital",
-      status: "completed",
-      visibility: "public",
-      tags: ["education", "community", "webinar"],
-      brand: "Postd",
-      createdDate: "2024-01-15",
-      updatedDate: "2024-02-28",
-      platforms: [
-        { platform: "facebook", isConnected: true, syncStatus: "synced" },
-        { platform: "google_business", isConnected: true, syncStatus: "synced" },
-        { platform: "squarespace", isConnected: true, syncStatus: "synced" },
-      ],
-      promotionSchedule: [
-        {
-          id: "p5",
-          type: "before",
-          title: "Join Our Webinar",
-          content: "Learn social media best practices from the experts",
-          platforms: ["facebook", "google_business"],
-          scheduledDate: "2024-02-28",
-          status: "published",
-        },
-      ],
-      attendance: { interested: 567, going: 234, views: 5600 },
-      engagementData: { impressions: 8900, clicks: 890, shares: 234 },
-    },
-    {
-      id: "5",
-      title: "Spring Sale - 40% Off Everything",
-      description: "Limited-time spring promotion featuring 40% discounts on all products and services",
-      location: "Online & In-Store",
-      startDate: "2024-03-25",
-      startTime: "00:00",
-      endDate: "2024-03-31",
-      endTime: "23:59",
-      eventType: "promo",
-      status: "scheduled",
-      visibility: "public",
-      tags: ["sale", "spring", "discount"],
-      brand: "Postd",
-      createdDate: "2024-03-10",
-      updatedDate: "2024-03-10",
-      platforms: [
-        { platform: "facebook", isConnected: true, syncStatus: "synced" },
-        { platform: "google_business", isConnected: true, syncStatus: "synced" },
-        { platform: "squarespace", isConnected: true, syncStatus: "pending" },
-      ],
-      promotionSchedule: [
-        {
-          id: "p6",
-          type: "before",
-          title: "Huge Spring Sale Coming!",
-          content: "Get ready! Our biggest spring sale is starting March 25. Save 40% on everything!",
-          platforms: ["facebook", "google_business"],
-          scheduledDate: "2024-03-23",
-          status: "scheduled",
-        },
-        {
-          id: "p7",
-          type: "during",
-          title: "Sale is LIVE NOW - 40% Off!",
-          content: "It's here! All products on sale for 40% off. Shop now before it ends March 31!",
-          platforms: ["facebook", "google_business", "squarespace"],
-          scheduledDate: "2024-03-25",
-          status: "scheduled",
-        },
-      ],
-      attendance: { interested: 892, going: 0, views: 3200 },
-      engagementData: { impressions: 12500, clicks: 1250, shares: 89 },
-    },
-  ]);
+  // ✅ FIX: Real events data - no mock data
+  const [events, setEvents] = useState<Event[]>([]);
+  const [eventsLoading, setEventsLoading] = useState(true);
+  const [eventsError, setEventsError] = useState<string | null>(null);
+
+  // ✅ FIX: Fetch real events from API
+  useEffect(() => {
+    const loadEvents = async () => {
+      try {
+        setEventsLoading(true);
+        setEventsError(null);
+
+        const response = await fetch("/api/events");
+
+        if (response.ok) {
+          const data = await response.json();
+          setEvents(data.events || []);
+        } else if (response.status === 404) {
+          // API endpoint not implemented yet
+          setEvents([]);
+          setEventsError("Events feature is coming soon. The API endpoint is not yet implemented.");
+        } else {
+          throw new Error(`Failed to load events: ${response.statusText}`);
+        }
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : "Failed to load events";
+        logError("[Events] Failed to load events", err instanceof Error ? err : new Error(String(err)));
+        setEventsError(errorMessage);
+        setEvents([]); // Show empty state instead of mock data
+      } finally {
+        setEventsLoading(false);
+      }
+    };
+
+    loadEvents();
+  }, []);
+
+  // Helper: Get default placeholder SVG for events without images
+  const getEventPlaceholderSvg = () => {
+    return `data:image/svg+xml,${encodeURIComponent(`
+      <svg width="500" height="300" xmlns="http://www.w3.org/2000/svg">
+        <rect width="500" height="300" fill="#f1f5f9"/>
+        <text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" font-family="Arial, sans-serif" font-size="18" fill="#64748b">No Event Image</text>
+      </svg>
+    `)}`;
+  };
 
   // Calculate stats
   const stats: EventQuickStats = useMemo(() => {
@@ -403,6 +259,45 @@ export default function Events() {
           </button>
         }
       />
+      
+      {/* Loading State */}
+      {eventsLoading && (
+        <div className="bg-white/50 backdrop-blur-xl rounded-2xl p-12 text-center border border-white/60">
+          <Loader2 className="w-16 h-16 text-indigo-600 mx-auto mb-4 animate-spin" />
+          <h3 className="text-xl font-black text-slate-900 mb-2">Loading events...</h3>
+        </div>
+      )}
+
+      {/* Error State */}
+      {!eventsLoading && eventsError && events.length === 0 && (
+        <div className="bg-white/50 backdrop-blur-xl rounded-2xl p-12 text-center border border-white/60">
+          <AlertCircle className="w-16 h-16 text-red-300 mx-auto mb-4" />
+          <h3 className="text-xl font-black text-slate-900 mb-2">Unable to load events</h3>
+          <p className="text-slate-600 font-medium mb-6">{eventsError}</p>
+        </div>
+      )}
+
+      {/* Empty State */}
+      {!eventsLoading && !eventsError && events.length === 0 && (
+        <div className="bg-white/50 backdrop-blur-xl rounded-2xl p-12 text-center border border-white/60">
+          <Calendar className="w-16 h-16 text-slate-300 mx-auto mb-4" />
+          <h3 className="text-xl font-black text-slate-900 mb-2">No events yet</h3>
+          <p className="text-slate-600 font-medium mb-6">
+            Create your first event to get started with event management and promotion.
+          </p>
+          <button
+            onClick={handleAddEvent}
+            className="inline-flex items-center gap-2 px-6 py-3 bg-lime-400 text-indigo-950 rounded-lg hover:bg-lime-500 transition-colors font-bold"
+          >
+            <Plus className="w-5 h-5" />
+            Create Your First Event
+          </button>
+        </div>
+      )}
+
+      {/* Content - only show if not loading and no error */}
+      {!eventsLoading && !eventsError && events.length > 0 && (
+        <>
       {/* Zone 1: Strategic Overview */}
       <div className="mb-12">
 
@@ -632,6 +527,8 @@ export default function Events() {
         onLaunchManually={handleLaunchManually}
         onSkip={handleSkipCampaign}
       />
+        </>
+      )}
     </PageShell>
   );
 }

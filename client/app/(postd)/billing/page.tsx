@@ -19,6 +19,7 @@ import {
   Check,
   Sparkles,
   Info,
+  AlertCircle,
 } from "lucide-react";
 import {
   Tooltip,
@@ -65,11 +66,12 @@ export default function Billing() {
   const navigate = useNavigate();
   const [data, setData] = useState<BillingData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const isTrial = user?.plan === "trial";
   const isAgencyTier = (data?.subscription.brands || 0) >= 5;
 
-  // ✅ FIX: Add loadBillingData to dependencies or use useCallback
+  // ✅ FIX: Fetch real billing data from API
   useEffect(() => {
     loadBillingData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -77,60 +79,29 @@ export default function Billing() {
 
   const loadBillingData = async () => {
     try {
-      // Mock data - replace with actual API call to /api/billing/status
-      const brandCount = user?.role === "agency" ? 7 : 2;
-      const plan = user?.plan || "base";
+      setLoading(true);
+      setError(null);
 
-      const mockData: BillingData = {
-        subscription: {
-          plan: plan as "trial" | "base" | "agency",
-          status: plan === "trial" ? "trial" : "active",
-          currentPeriodEnd: new Date(
-            Date.now() + 30 * 24 * 60 * 60 * 1000,
-          ).toISOString(),
-          price: brandCount >= 5 ? 99 : 199,
-          brands: brandCount,
-        },
-        usage: {
-          postsPublished: user?.trial_published_count || 12,
-          brandsManaged: brandCount,
-          aiInsightsUsed: 45,
-          limits: {
-            postsPublished: plan === "trial" ? 2 : null,
-            brandsManaged: plan === "trial" ? 1 : 100,
-          },
-        },
-        invoices:
-          plan === "trial"
-            ? []
-            : [
-                {
-                  id: "INV-2025-001",
-                  date: new Date().toISOString(),
-                  amount: brandCount * (brandCount >= 5 ? 99 : 199),
-                  status: "paid",
-                },
-                {
-                  id: "INV-2025-002",
-                  date: new Date(
-                    Date.now() - 30 * 24 * 60 * 60 * 1000,
-                  ).toISOString(),
-                  amount: brandCount * (brandCount >= 5 ? 99 : 199),
-                  status: "paid",
-                },
-              ],
-        paymentMethod:
-          plan === "trial"
-            ? undefined
-            : {
-                last4: "4242",
-                expiry: "12/26",
-                brand: "Visa",
-              },
-      };
-      setData(mockData);
-    } catch (error) {
-      logError("Failed to load billing data", error instanceof Error ? error : new Error(String(error)));
+      // TODO: Replace with actual API call to /api/billing/status when backend is implemented
+      const response = await fetch("/api/billing/status");
+
+      if (!response.ok) {
+        // If endpoint not implemented, show empty state
+        if (response.status === 404) {
+          setData(null);
+          setError("Billing information is not yet available. Please check back later.");
+          return;
+        }
+        throw new Error(`Failed to load billing data: ${response.statusText}`);
+      }
+
+      const billingData: BillingData = await response.json();
+      setData(billingData);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : "Failed to load billing data";
+      logError("Failed to load billing data", err instanceof Error ? err : new Error(String(err)));
+      setError(errorMessage);
+      setData(null); // Show empty state instead of mock data
     } finally {
       setLoading(false);
     }
@@ -170,7 +141,45 @@ export default function Billing() {
     );
   }
 
-  if (!data) return <PageShell><div>Failed to load billing data</div></PageShell>;
+  // Error state
+  if (error && !data) {
+    return (
+      <PageShell>
+        <PageHeader
+          title="Billing & Subscription"
+          subtitle="Manage your subscription and billing information"
+        />
+        <div className="rounded-lg bg-red-50 border border-red-200 p-6">
+          <div className="flex gap-3">
+            <AlertCircle className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="font-medium text-red-900 mb-1">Unable to load billing information</p>
+              <p className="text-sm text-red-700">{error}</p>
+            </div>
+          </div>
+        </div>
+      </PageShell>
+    );
+  }
+
+  // Empty state (no billing data available)
+  if (!data) {
+    return (
+      <PageShell>
+        <PageHeader
+          title="Billing & Subscription"
+          subtitle="Manage your subscription and billing information"
+        />
+        <div className="rounded-lg bg-slate-50 border border-slate-200 p-12 text-center">
+          <Info className="h-12 w-12 text-slate-300 mx-auto mb-4" />
+          <h3 className="text-lg font-bold text-slate-900 mb-2">No billing information available</h3>
+          <p className="text-slate-600 mb-4">
+            Billing information will appear here once your account is set up.
+          </p>
+        </div>
+      </PageShell>
+    );
+  }
 
   return (
     <PageShell>

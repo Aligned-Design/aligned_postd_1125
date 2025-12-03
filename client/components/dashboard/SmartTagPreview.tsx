@@ -9,7 +9,15 @@ interface SmartTagPreviewProps {
 }
 
 export function SmartTagPreview({ assetId, onApprove, onSkip }: SmartTagPreviewProps) {
-  // Mock detection for now
+  // ✅ FIX: Use SVG placeholder instead of Unsplash
+  const defaultPlaceholder = `data:image/svg+xml,${encodeURIComponent(`
+    <svg width="300" height="300" xmlns="http://www.w3.org/2000/svg">
+      <rect width="300" height="300" fill="#f1f5f9"/>
+      <text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" fill="#64748b">Asset Preview</text>
+    </svg>
+  `)}`;
+  
+  // Mock detection for now - TODO: Fetch real asset from API using assetId
   const mockAsset: Asset = {
     id: assetId,
     filename: "sample.jpg",
@@ -17,7 +25,7 @@ export function SmartTagPreview({ assetId, onApprove, onSkip }: SmartTagPreviewP
     fileSize: 2500000,
     width: 1280,
     height: 720,
-    thumbnailUrl: "https://images.unsplash.com/photo-1500000000?w=300&h=300&fit=crop",
+    thumbnailUrl: defaultPlaceholder,
     storagePath: "/assets/sample.jpg",
     tags: [],
     category: "Team",

@@ -18,23 +18,8 @@ const MilestoneKeyParamSchema = z.object({
   key: z.string().min(1, 'Milestone key is required'),
 }).strict();
 
-// Mock data for development
-const MOCK_MILESTONES = [
-  {
-    key: "first_post",
-    title: "First Post Published",
-    description: "You've published your first piece of content!",
-    achieved: true,
-    achievedAt: new Date(Date.now() - 86400000 * 2).toISOString(),
-  },
-  {
-    key: "ten_posts",
-    title: "10 Posts Published",
-    description: "You're building momentum!",
-    achieved: false,
-    achievedAt: null,
-  },
-];
+// ✅ REMOVED: MOCK_MILESTONES - always use real database
+// Mock data moved to test fixtures if needed for testing
 
 /**
  * GET /api/milestones
@@ -51,19 +36,7 @@ const MOCK_MILESTONES = [
  */
 router.get("/", (async (req, res, next) => {
   try {
-    // Check if we should use mocks
-    const useMocks =
-      process.env.USE_MOCKS === "true" ||
-      process.env.NODE_ENV === "development";
-
-    if (useMocks) {
-      return res.status(HTTP_STATUS.OK).json({ 
-        success: true, 
-        milestones: MOCK_MILESTONES,
-        total: MOCK_MILESTONES.length,
-      });
-    }
-
+    // ✅ REMOVED: USE_MOCKS check - always use real database in production
     // Get workspaceId from authenticated session or header fallback
     // Future work: Extract from req.user.workspaceId when available
     const workspaceId =

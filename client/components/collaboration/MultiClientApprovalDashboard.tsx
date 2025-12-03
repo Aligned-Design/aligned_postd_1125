@@ -144,6 +144,7 @@ export function MultiClientApprovalDashboard({
 }: MultiClientApprovalDashboardProps) {
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [approvals, setApprovals] = useState<ApprovalItem[]>([]);
   const [selectedItem, setSelectedItem] = useState<ApprovalItem | null>(null);
   const [showPreview, setShowPreview] = useState(false);
@@ -165,8 +166,11 @@ export function MultiClientApprovalDashboard({
   const loadApprovals = async () => {
     try {
       setLoading(true);
-      // TODO: Replace with real API endpoint
+      setError(null); // Clear previous errors
+      
+      // ✅ REAL IMPLEMENTATION: Fetch from real API endpoint
       const response = await fetch("/api/approvals/pending?limit=100");
+      
       if (response.ok) {
         const data = await response.json();
         // Map API response to ApprovalItem format
@@ -191,13 +195,22 @@ export function MultiClientApprovalDashboard({
           approvedAt: item.approvedAt || item.approved_at,
         }));
         setApprovals(mappedItems);
+        setError(null);
       } else {
-        // Fallback to mock data for development
-        setApprovals(getMockApprovals());
+        // ✅ REMOVED: Mock fallback - show error state instead
+        const errorMessage = `Failed to load approvals: ${response.statusText}`;
+        setError(errorMessage);
+        setApprovals([]); // Show empty state, not mock data
       }
     } catch (error) {
-      console.error("Failed to load approvals:", error);
-      setApprovals(getMockApprovals());
+      // ✅ REMOVED: Mock fallback - show error state instead
+      const errorMessage = error instanceof Error ? error.message : "Failed to load approvals. Please try again.";
+      setError(errorMessage);
+      setApprovals([]); // Show empty state, not mock data
+      // Log error for debugging
+      if (typeof console !== "undefined" && console.error) {
+        console.error("Failed to load approvals:", error);
+      }
     } finally {
       setLoading(false);
     }
@@ -405,6 +418,50 @@ export function MultiClientApprovalDashboard({
         </Button>
       </div>
 
+      {/* ✅ Error State */}
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
+          <div className="flex items-center gap-2 mb-2">
+            <AlertTriangle className="w-5 h-5 text-red-600" />
+            <h3 className="font-semibold text-red-900">Failed to load approvals</h3>
+          </div>
+          <p className="text-sm text-red-700 mb-3">{error}</p>
+          <Button
+            onClick={() => {
+              setError(null);
+              loadApprovals();
+            }}
+            variant="outline"
+            size="sm"
+            className="border-red-300 text-red-700 hover:bg-red-100"
+          >
+            Try Again
+          </Button>
+        </div>
+      )}
+
+      {/* Loading State */}
+      {loading && !error && (
+        <div className="flex items-center justify-center py-16">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mx-auto mb-4"></div>
+            <p className="text-slate-600">Loading approvals...</p>
+          </div>
+        </div>
+      )}
+
+      {/* Empty State (no approvals and not loading) */}
+      {!loading && !error && approvals.length === 0 && (
+        <div className="text-center py-16">
+          <CheckCircle className="w-16 h-16 text-slate-300 mx-auto mb-4" />
+          <h3 className="text-lg font-bold text-slate-900 mb-1">No approvals pending</h3>
+          <p className="text-slate-600">All content is up to date. New approvals will appear here.</p>
+        </div>
+      )}
+
+      {/* Main Content - only show if not loading and no error */}
+      {!loading && !error && approvals.length > 0 && (
+        <>
       {/* Filters */}
       <Card>
         <CardContent className="pt-6 pb-6">
@@ -539,13 +596,15 @@ export function MultiClientApprovalDashboard({
         />
       )}
 
-      {/* Audit Log Dialog */}
-      {selectedItem && (
-        <AuditLogDialog
-          item={selectedItem}
-          open={showAuditLog}
-          onClose={() => setShowAuditLog(false)}
-        />
+          {/* Audit Log Dialog */}
+          {selectedItem && (
+            <AuditLogDialog
+              item={selectedItem}
+              open={showAuditLog}
+              onClose={() => setShowAuditLog(false)}
+            />
+          )}
+        </>
       )}
     </div>
   );
@@ -899,12 +958,15 @@ function AuditLogDialog({ item, open, onClose }: AuditLogDialogProps) {
         const data = await response.json();
         setAuditLogs(data.history || []);
       } else {
-        // Fallback to mock data
-        setAuditLogs(getMockAuditLogs(item));
+        // ✅ REMOVED: Mock fallback - show empty state instead
+        setAuditLogs([]);
       }
     } catch (error) {
-      console.error("Failed to load audit log:", error);
-      setAuditLogs(getMockAuditLogs(item));
+      // ✅ REMOVED: Mock fallback - show empty state instead
+      if (typeof console !== "undefined" && console.error) {
+        console.error("Failed to load audit log:", error);
+      }
+      setAuditLogs([]);
     } finally {
       setLoading(false);
     }
@@ -984,7 +1046,9 @@ function AuditLogDialog({ item, open, onClose }: AuditLogDialogProps) {
   );
 }
 
-// Mock data helpers
+// ✅ DEV/TEST ONLY: Mock approval data for development and testing
+// This function is NOT used in production - removed from loadApprovals()
+// Keep for Storybook examples and tests only
 function getMockApprovals(): ApprovalItem[] {
   return [
     {

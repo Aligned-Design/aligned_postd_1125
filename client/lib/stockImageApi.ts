@@ -141,37 +141,49 @@ export async function searchStockImages(
       hasMore: data.hasMore || false,
     };
   } catch (error) {
-    // Log error in development only
-    logError("[Stock Images] API error, falling back to mock data", error instanceof Error ? error : new Error(String(error)));
+    logError("[Stock Images] API error", error instanceof Error ? error : new Error(String(error)));
     
-    // Fallback to mock data if API fails
-    const results = MOCK_STOCK_IMAGES.filter((img) => {
-      const matchesQuery =
-        !query ||
-        img.title.toLowerCase().includes(query.toLowerCase()) ||
-        img.description?.toLowerCase().includes(query.toLowerCase()) ||
-        img.tags?.some((tag) => tag.toLowerCase().includes(query.toLowerCase()));
+    // ✅ DEV-ONLY FALLBACK: Only use mock data in development
+    const isDev = typeof process !== "undefined" && process.env.NODE_ENV !== "production";
+    
+    if (isDev) {
+      // Development: fallback to mock data for easier testing
+      const results = MOCK_STOCK_IMAGES.filter((img) => {
+        const matchesQuery =
+          !query ||
+          img.title.toLowerCase().includes(query.toLowerCase()) ||
+          img.description?.toLowerCase().includes(query.toLowerCase()) ||
+          img.tags?.some((tag) => tag.toLowerCase().includes(query.toLowerCase()));
 
-      const matchesProvider = providers.includes(img.provider);
+        const matchesProvider = providers.includes(img.provider);
 
-      const matchesOrientation =
-        !orientation ||
-        (orientation === "landscape" && img.width > img.height) ||
-        (orientation === "portrait" && img.height > img.width) ||
-        (orientation === "square" && Math.abs(img.width - img.height) < 100);
+        const matchesOrientation =
+          !orientation ||
+          (orientation === "landscape" && img.width > img.height) ||
+          (orientation === "portrait" && img.height > img.width) ||
+          (orientation === "square" && Math.abs(img.width - img.height) < 100);
 
-      return matchesQuery && matchesProvider && matchesOrientation;
-    });
+        return matchesQuery && matchesProvider && matchesOrientation;
+      });
 
-    const start = (page - 1) * perPage;
-    const end = start + perPage;
-    const paginatedResults = results.slice(start, end);
+      const start = (page - 1) * perPage;
+      const end = start + perPage;
+      const paginatedResults = results.slice(start, end);
 
+      return {
+        images: paginatedResults,
+        total: results.length,
+        page,
+        hasMore: end < results.length,
+      };
+    }
+    
+    // Production: return empty results instead of fake images
     return {
-      images: paginatedResults,
-      total: results.length,
+      images: [],
+      total: 0,
       page,
-      hasMore: end < results.length,
+      hasMore: false,
     };
   }
 }
@@ -196,10 +208,18 @@ export async function getStockImage(id: string): Promise<StockImage | null> {
     const data = await response.json();
     return data.image || null;
   } catch (error) {
-    // Log error in development only
-    logError("[Stock Images] API error, falling back to mock data", error instanceof Error ? error : new Error(String(error)));
-    // Fallback to mock data
-    return MOCK_STOCK_IMAGES.find((img) => img.id === id) || null;
+    logError("[Stock Images] API error", error instanceof Error ? error : new Error(String(error)));
+    
+    // ✅ DEV-ONLY FALLBACK: Only use mock data in development
+    const isDev = typeof process !== "undefined" && process.env.NODE_ENV !== "production";
+    
+    if (isDev) {
+      // Development: fallback to mock data for easier testing
+      return MOCK_STOCK_IMAGES.find((img) => img.id === id) || null;
+    }
+    
+    // Production: return null instead of fake image
+    return null;
   }
 }
 
@@ -236,15 +256,21 @@ export function getLicenseBadgeColor(license: string): string {
   return colors[license as keyof typeof colors] || "bg-gray-100 text-gray-800";
 }
 
-// Real API integration functions (to be filled in when keys are provided)
+// ✅ NOTE: These functions are not currently used in production paths
+// They are marked for future implementation with real APIs
+// For now, they return empty arrays in production and mock data only in dev
 export async function searchUnsplashImages(
   query: string,
   page: number = 1,
   perPage: number = 12
 ): Promise<StockImage[]> {
   // TODO: Implement with real Unsplash API when key is provided
-  const results = MOCK_STOCK_IMAGES.filter((img) => img.provider === "unsplash");
-  return results.slice((page - 1) * perPage, page * perPage);
+  const isDev = typeof process !== "undefined" && process.env.NODE_ENV !== "production";
+  if (isDev) {
+    const results = MOCK_STOCK_IMAGES.filter((img) => img.provider === "unsplash");
+    return results.slice((page - 1) * perPage, page * perPage);
+  }
+  return []; // Production: return empty until real API is implemented
 }
 
 export async function searchPexelsImages(
@@ -253,8 +279,12 @@ export async function searchPexelsImages(
   perPage: number = 12
 ): Promise<StockImage[]> {
   // TODO: Implement with real Pexels API when key is provided
-  const results = MOCK_STOCK_IMAGES.filter((img) => img.provider === "pexels");
-  return results.slice((page - 1) * perPage, page * perPage);
+  const isDev = typeof process !== "undefined" && process.env.NODE_ENV !== "production";
+  if (isDev) {
+    const results = MOCK_STOCK_IMAGES.filter((img) => img.provider === "pexels");
+    return results.slice((page - 1) * perPage, page * perPage);
+  }
+  return []; // Production: return empty until real API is implemented
 }
 
 export async function searchPixabayImages(
@@ -263,6 +293,10 @@ export async function searchPixabayImages(
   perPage: number = 12
 ): Promise<StockImage[]> {
   // TODO: Implement with real Pixabay API when key is provided
-  const results = MOCK_STOCK_IMAGES.filter((img) => img.provider === "pixabay");
-  return results.slice((page - 1) * perPage, page * perPage);
+  const isDev = typeof process !== "undefined" && process.env.NODE_ENV !== "production";
+  if (isDev) {
+    const results = MOCK_STOCK_IMAGES.filter((img) => img.provider === "pixabay");
+    return results.slice((page - 1) * perPage, page * perPage);
+  }
+  return []; // Production: return empty until real API is implemented
 }

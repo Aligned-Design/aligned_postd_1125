@@ -80,6 +80,14 @@ const validators: Record<string, EnvValidator> = {
       message: "Should start with 'sk-ant-'",
     }),
   },
+  ANTHROPIC_MODEL: {
+    name: "Anthropic Model",
+    required: false,
+    validate: (val) => ({
+      valid: val.length > 5 && (val.includes("claude") || val.includes("sonnet") || val.includes("haiku") || val.includes("opus")),
+      message: "Should be a valid Claude model name (e.g., claude-3-5-sonnet-latest)",
+    }),
+  },
 
   // Application Config
   NODE_ENV: {
@@ -89,6 +97,25 @@ const validators: Record<string, EnvValidator> = {
       valid: ["development", "staging", "production"].includes(val),
       message: "Should be: development, staging, or production",
     }),
+  },
+  // ✅ DEPRECATED: USE_MOCKS has been removed from production code
+  // This validation warns if USE_MOCKS is set (it should not be used)
+  USE_MOCKS: {
+    name: "Use Mocks (DEPRECATED)",
+    required: false,
+    validate: (val) => {
+      const isProduction = process.env.NODE_ENV === "production";
+      if (isProduction && val === "true") {
+        return {
+          valid: false,
+          message: "⚠️  WARNING: USE_MOCKS=true in production is not allowed. Mock data has been removed from production code.",
+        };
+      }
+      return {
+        valid: true,
+        message: "USE_MOCKS is deprecated and no longer used. Remove this variable.",
+      };
+    },
   },
   PORT: {
     name: "Application Port",

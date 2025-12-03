@@ -472,8 +472,11 @@ class MediaService {
       // Convert buffer to base64 for Claude
       const base64 = file.toString("base64");
 
+      // Use ANTHROPIC_MODEL env var if set, otherwise default to sonnet for vision tasks
+      const model = process.env.ANTHROPIC_MODEL || "claude-3-5-sonnet-20241022";
+      
       const response = await this.claude.messages.create({
-        model: "claude-3-5-sonnet-20241022",
+        model,
         max_tokens: 200,
         messages: [
           {

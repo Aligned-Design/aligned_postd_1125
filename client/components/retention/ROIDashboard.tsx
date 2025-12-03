@@ -329,8 +329,9 @@ export function ROIDashboard({ data, className }: ROIDashboardProps) {
   );
 }
 
-// Placeholder/demo data - TODO: Replace with real API data when ROI tracking is implemented
-// This is used in insights-roi/page.tsx as placeholder data until the ROI API is ready
+// ✅ DEV/TEST ONLY: Mock ROI data for development and testing
+// This is NOT used in production - insights-roi/page.tsx shows "coming soon" instead
+// Keep for Storybook examples and tests only
 export const mockROIData: ROIData = {
   monthlyTimeSaved: {
     total: 18,

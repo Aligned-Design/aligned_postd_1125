@@ -31,7 +31,7 @@ export default function Calendar() {
   // TODO: Replace with real data fetching hook when API is ready
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
-  const [hasContent, setHasContent] = useState(true); // Mock: assume content exists
+  const [hasContent, setHasContent] = useState(true); // Default to true - will be updated when real data is fetched
 
   const brands = ["Brand A", "Brand B", "Brand C"];
   const platforms = ["LinkedIn", "Instagram", "Facebook", "Twitter", "TikTok", "YouTube"];

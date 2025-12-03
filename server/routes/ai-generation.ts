@@ -7,6 +7,7 @@ import {
 } from "../workers/ai-generation";
 import { AppError } from "../lib/error-middleware";
 import { ErrorCode, HTTP_STATUS } from "../lib/error-responses";
+import { logger } from "../lib/logger";
 
 import type { AIGenerationRequest } from "@shared/api";
 
@@ -46,7 +47,9 @@ export const generateContent: RequestHandler = async (req, res) => {
 
     (res as any).json(result);
   } catch (error) {
-    console.error("AI content generation failed:", error);
+    logger.error("AI content generation failed", error instanceof Error ? error : new Error(String(error)), {
+      operation: "generateContent",
+    });
     if (error instanceof AppError) {
       throw error;
     }
@@ -96,7 +99,9 @@ export const generateDesign: RequestHandler = async (req, res) => {
 
     (res as any).json(result);
   } catch (error) {
-    console.error("AI design generation failed:", error);
+    logger.error("AI design generation failed", error instanceof Error ? error : new Error(String(error)), {
+      operation: "generateDesign",
+    });
     if (error instanceof AppError) {
       throw error;
     }
@@ -121,7 +126,9 @@ export const getProviders: RequestHandler = (req, res) => {
       default: providers[0] || null,
     });
   } catch (error) {
-    console.error("Failed to get AI providers:", error);
+    logger.error("Failed to get AI providers", error instanceof Error ? error : new Error(String(error)), {
+      operation: "getProviders",
+    });
     throw new AppError(
       ErrorCode.INTERNAL_ERROR,
       "Failed to get providers",

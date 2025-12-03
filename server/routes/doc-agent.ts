@@ -241,7 +241,8 @@ export const generateDocContent: RequestHandler = async (req, res) => {
       if (strategyBrief && strategyBrief.id !== strategyBriefId) {
         // If specific ID requested but latest is different, try to get by ID
         // (For now, we only have getLatest - can extend later)
-        console.log(`[Copywriter] StrategyBrief ID ${strategyBriefId} requested, using latest: ${strategyBrief.id}`);
+        // Note: StrategyBrief ID mismatch - using latest instead of requested ID
+        // This is expected behavior when only getLatest() is available
       }
     }
 

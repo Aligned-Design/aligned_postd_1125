@@ -40,16 +40,17 @@ export function SectionCarousel({
     }
   };
 
-  const placeholderImage = (id: string) => {
-    const imageMap: Record<string, string> = {
-      "1": "1552664730-d307ca884978?w=400&h=300&fit=crop",
-      "3": "1611532736579-6b16e2b50449?w=400&h=300&fit=crop",
-      "4": "1552664730-d307ca884978?w=400&h=300&fit=crop",
-      "5": "1460661419201-fd4cecdf8a8b?w=400&h=300&fit=crop",
-    };
-    return `https://images.unsplash.com/photo-${
-      imageMap[id] || "1460661419201-fd4cecdf8a8b?w=400&h=300&fit=crop"
-    }`;
+  // ✅ REAL IMPLEMENTATION: Get post image from post data or use default placeholder
+  const getPostImage = (post: Post) => {
+    // Check for media fields (may be added to Post type in future)
+    const postMedia = (post as any).thumbnailUrl || (post as any).mediaUrl || (post as any).imageUrl;
+    
+    if (postMedia) {
+      return postMedia;
+    }
+    
+    // Default "no image" placeholder - simple gradient instead of external Unsplash URL
+    return "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='300'%3E%3Crect fill='%23e0e7ff' width='400' height='300'/%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' dy='.3em' fill='%239ca3af' font-family='system-ui' font-size='14'%3ENo Image%3C/text%3E%3C/svg%3E";
   };
 
   if (posts.length === 0) {
@@ -108,7 +109,7 @@ export function SectionCarousel({
                 {/* Image Preview */}
                 <div className="relative w-full h-40 bg-gradient-to-br from-indigo-100 to-blue-100 overflow-hidden">
                   <img
-                    src={placeholderImage(post.id)}
+                    src={getPostImage(post)}
                     alt={post.title}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                   />

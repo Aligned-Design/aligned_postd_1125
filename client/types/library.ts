@@ -232,6 +232,9 @@ export function mockDetectAsset(filename: string, fileType: AssetFileType): Smar
 /**
  * Generate mock asset data for demo
  */
+// ✅ DEV/TEST ONLY: This function is for development and testing purposes only
+// Do NOT use in production pages - always fetch real assets from API
+// For production use, see: client/app/(postd)/library/page.tsx (uses /api/media/list)
 export function generateMockAssets(count: number = 12): Asset[] {
   const mockData = [
     { filename: "team-headshot-lauren.jpg", category: "Team", people: ["Lauren"], imageId: "1571282237490-a4a3a5e1b6e" },

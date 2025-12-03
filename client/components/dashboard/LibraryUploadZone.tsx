@@ -58,6 +58,18 @@ export function LibraryUploadZone({ onUploadComplete, onCancel }: LibraryUploadZ
         const fileType = file.type.startsWith("image") ? "image" : "video";
         const detection = mockDetectAsset(file.name, fileType);
 
+        // ✅ FIX: Generate real preview URL from file instead of Unsplash placeholder
+        // Use object URL for immediate preview, will be replaced with real storage URL after upload
+        const previewUrl = URL.createObjectURL(file);
+        
+        // Default SVG placeholder if we can't generate preview
+        const defaultPlaceholder = `data:image/svg+xml,${encodeURIComponent(`
+          <svg width="300" height="300" xmlns="http://www.w3.org/2000/svg">
+            <rect width="300" height="300" fill="#f1f5f9"/>
+            <text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" fill="#64748b">No Preview</text>
+          </svg>
+        `)}`;
+
         const asset: Asset = {
           id: `asset-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
           filename: file.name,
@@ -66,7 +78,7 @@ export function LibraryUploadZone({ onUploadComplete, onCancel }: LibraryUploadZ
           width: 1280,
           height: 720,
           duration: fileType === "video" ? 30 : undefined,
-          thumbnailUrl: `https://images.unsplash.com/photo-${Math.random() * 1000000 | 0}?w=300&h=300&fit=crop`,
+          thumbnailUrl: previewUrl || defaultPlaceholder,
           storagePath: `/assets/${file.name}`,
 
           tags: detection.suggestedTags.slice(0, 5),

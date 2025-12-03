@@ -281,7 +281,9 @@ export function BrandEvolutionVisualization({
   );
 }
 
-// Example data
+// ✅ DEV/TEST ONLY: Mock brand evolution data for development and testing
+// This is NOT used in production - insights-roi/page.tsx shows "coming soon" instead
+// Keep for Storybook examples and tests only
 export const mockBrandEvolutionData: BrandEvolutionData = {
   voiceProfile: [
     { trait: "Professional", month1: 80, now: 75, change: "-5%" },
