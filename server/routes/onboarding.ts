@@ -244,10 +244,10 @@ router.get("/content-package/:brandId", async (req, res, next) => {
     const copyData = packageData.copy as any;
 
     // Transform to frontend format
-    // Prefer brand_id_uuid over brand_id (deprecated) - migration 005
+    // Use brand_id_uuid (UUID) - migration 005 finalized, migration 006 drops brand_id TEXT
     const contentPackage = {
       id: packageData.content_id,
-      brandId: packageData.brand_id_uuid || packageData.brand_id, // Prefer UUID, fallback to TEXT for backward compatibility
+      brandId: packageData.brand_id_uuid, // UUID - primary identifier (migration 005)
       weeklyFocus: copyData.weeklyFocus || "",
       generatedAt: copyData.generatedAt || packageData.created_at,
       items: (copyData.items || []).map((item: any) => ({

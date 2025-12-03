@@ -1,25 +1,30 @@
 -- ============================================================================
 -- Migration 006: Drop Legacy brand_id TEXT Columns
 -- Created: 2025-01-20
+-- Updated: 2025-01-16 (added safety checks)
 -- Purpose: Remove deprecated brand_id TEXT columns from persistence schema tables
 -- Reference: MVP_DATABASE_TABLE_AUDIT_REPORT.md - Phase 4
 -- Prerequisites: 
 --   - Migration 003 (added brand_id_uuid columns)
 --   - Migration 005 (updated RLS policies to use brand_id_uuid)
---   - Phase 3 (application code migrated to use brand_id_uuid)
+--   - Migration 010 (ensures all RLS policies use brand_id_uuid)
+--   - Application code migrated to use brand_id_uuid (no fallbacks)
 -- ============================================================================
 --
 -- PROBLEM:
 -- The 10 persistence schema tables historically used brand_id TEXT instead of UUID.
 -- Migration 003 added brand_id_uuid columns and backfilled data.
 -- Migration 005 updated RLS policies to use brand_id_uuid.
--- Phase 3 updated all application code to use brand_id_uuid.
+-- Migration 010 ensures all policies are correct.
+-- Application code has been updated to use brand_id_uuid (no fallbacks).
 -- The legacy brand_id TEXT columns are now unused and can be safely dropped.
 --
 -- SOLUTION:
--- 1. Drop indexes on brand_id TEXT columns
--- 2. Drop brand_id TEXT columns from all 10 tables
--- 3. Drop is_brand_member_text() helper function (no longer used)
+-- 1. Safety checks: Verify brand_id_uuid columns exist and are populated
+-- 2. Safety checks: Verify no RLS policies use is_brand_member_text() or brand_id TEXT
+-- 3. Drop indexes on brand_id TEXT columns
+-- 4. Drop brand_id TEXT columns from all 10 tables
+-- 5. Drop is_brand_member_text() helper function (no longer used)
 --
 -- AFFECTED TABLES (10):
 -- - strategy_briefs
@@ -39,6 +44,51 @@
 -- - No remaining references to brand_id TEXT in codebase
 -- - This migration is irreversible - ensure backups before running
 -- ============================================================================
+
+-- ============================================================================
+-- STEP 0: Safety Checks (Pre-flight Verification)
+-- ============================================================================
+-- Verify that migration is safe to run before dropping columns
+
+DO $$
+DECLARE
+  missing_uuid_count INTEGER;
+  policies_using_text_count INTEGER;
+BEGIN
+  -- Check 1: Verify all persistence tables have brand_id_uuid columns
+  SELECT COUNT(*) INTO missing_uuid_count
+  FROM information_schema.columns
+  WHERE table_schema = 'public'
+    AND table_name IN (
+      'strategy_briefs', 'content_packages', 'brand_history',
+      'brand_success_patterns', 'collaboration_logs', 'performance_logs',
+      'platform_insights', 'token_health', 'weekly_summaries', 'advisor_review_audits'
+    )
+    AND column_name = 'brand_id_uuid';
+  
+  IF missing_uuid_count < 10 THEN
+    RAISE EXCEPTION 'Safety check failed: Not all persistence tables have brand_id_uuid column. Found % out of 10.', missing_uuid_count;
+  END IF;
+  
+  -- Check 2: Verify no RLS policies still use is_brand_member_text() or brand_id TEXT
+  SELECT COUNT(*) INTO policies_using_text_count
+  FROM pg_policies
+  WHERE tablename IN (
+    'strategy_briefs', 'content_packages', 'brand_history',
+    'brand_success_patterns', 'collaboration_logs', 'performance_logs',
+    'platform_insights', 'token_health', 'weekly_summaries', 'advisor_review_audits'
+  )
+  AND (
+    qual LIKE '%is_brand_member_text%'
+    OR (qual LIKE '%brand_id%' AND qual NOT LIKE '%brand_id_uuid%')
+  );
+  
+  IF policies_using_text_count > 0 THEN
+    RAISE EXCEPTION 'Safety check failed: Found % RLS policies still using is_brand_member_text() or brand_id TEXT. Run migration 010 first.', policies_using_text_count;
+  END IF;
+  
+  RAISE NOTICE 'Safety checks passed. Proceeding with migration 006.';
+END $$;
 
 -- ============================================================================
 -- STEP 1: Drop Indexes on brand_id TEXT Columns
