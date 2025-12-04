@@ -141,7 +141,7 @@ These tables are referenced but may have fallbacks:
 | `approval_requests` | Approval request tracking | Used by approvals service |
 | `generation_logs` | AI generation audit trail | Used by agents routes |
 | `brand_kits` | Brand kit storage | Used by agents routes |
-| `brand_safety_configs` | AI safety constraints | Used by agents routes |
+| `brands.safety_config` (JSONB) | AI safety constraints | Used by agents routes (stored on brands table, not separate table) |
 | `advisor_cache` | Cached advisor insights | Used by agents routes |
 | `content_packages` | Content package templates | Used by onboarding |
 | `share_links` | Client portal share links | Used by client-portal |

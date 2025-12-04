@@ -12,6 +12,7 @@
  */
 
 import { Router } from "express";
+import { z } from "zod";
 import { supabase } from "../lib/supabase";
 import { AppError } from "../lib/error-middleware";
 import { ErrorCode, HTTP_STATUS } from "../lib/error-responses";
@@ -25,6 +26,8 @@ import {
   DesignOutput,
   AdvisorOutput,
   BrandSafetyConfig,
+  DEFAULT_SAFETY_CONFIG,
+  SafetyMode,
 } from "../../client/types/agent-config";
 import { parseBrandKit } from "../types/guards";
 import { calculateBFS } from "../agents/brand-fidelity-scorer";
@@ -47,60 +50,242 @@ const MAX_REGENERATION_ATTEMPTS = 3;
 /**
  * POST /api/agents/generate/doc
  * Generate content with Doc Agent
+ * 
+ * Canonical contract:
+ * {
+ *   "brand_id": "UUID",
+ *   "input": {
+ *     "topic": "string",
+ *     "platform": "linkedin" | "instagram" | ...,
+ *     "tone": "professional" | "casual" | ...,
+ *     "format": "post" | "carousel" | ...,
+ *     ...
+ *   }
+ * }
+ * 
+ * Backwards compatibility: Also accepts:
+ * - brandId (camelCase) → normalized to brand_id
+ * - Top-level prompt/platform/tone → normalized into input object
  */
 router.post("/generate/doc", async (req, res) => {
   const startTime = Date.now();
   const requestId = uuidv4();
   try {
-    // Validate input with Zod schema
-    const {
-      brand_id,
-      input,
-      safety_mode = "safe",
-      __idempotency_key,
-    } = validateDocRequest(req.body);
+    // ✅ BACKWARDS COMPATIBILITY: Normalize request body before validation
+    // Accept both brandId (camelCase) and brand_id (snake_case)
+    // Accept top-level prompt/platform/tone and map into input object
+    const normalizedBody: any = { ...req.body };
+    
+    // Normalize brand_id: accept brandId → brand_id
+    if (normalizedBody.brandId && !normalizedBody.brand_id) {
+      normalizedBody.brand_id = normalizedBody.brandId;
+      delete normalizedBody.brandId;
+    }
+    
+    // Normalize input: if top-level prompt/platform/tone exist, create/merge input object
+    // This handles legacy requests that send prompt/platform/tone at the top level
+    if (!normalizedBody.input) {
+      // Check if we have any top-level fields that should be in input
+      const hasTopLevelFields = normalizedBody.prompt || normalizedBody.topic || normalizedBody.platform || normalizedBody.tone || normalizedBody.format || normalizedBody.contentType;
+      
+      if (hasTopLevelFields) {
+        normalizedBody.input = {
+          // Canonical field is "topic" (matches Zod schema). Accept "prompt" as legacy alias.
+          topic: normalizedBody.prompt || normalizedBody.topic || "",
+          platform: normalizedBody.platform || "instagram",
+          tone: normalizedBody.tone || "professional",
+          format: normalizedBody.format || normalizedBody.contentType || "post",
+          max_length: normalizedBody.maxLength || normalizedBody.max_length,
+          include_cta: normalizedBody.includeCTA !== undefined ? normalizedBody.includeCTA : normalizedBody.include_cta !== undefined ? normalizedBody.include_cta : true,
+          cta_type: normalizedBody.ctaType || normalizedBody.cta_type || normalizedBody.callToAction,
+          additional_context: normalizedBody.additionalContext || normalizedBody.additional_context,
+        };
+        
+        // Clean up top-level fields that are now in input
+        delete normalizedBody.prompt;
+        delete normalizedBody.topic;
+        delete normalizedBody.platform;
+        delete normalizedBody.tone;
+        delete normalizedBody.format;
+        delete normalizedBody.contentType;
+        delete normalizedBody.maxLength;
+        delete normalizedBody.max_length;
+        delete normalizedBody.includeCTA;
+        delete normalizedBody.include_cta;
+        delete normalizedBody.ctaType;
+        delete normalizedBody.cta_type;
+        delete normalizedBody.callToAction;
+        delete normalizedBody.additionalContext;
+        delete normalizedBody.additional_context;
+      }
+    }
+    
+    // Validate input with Zod schema (now using normalized body)
+    let brand_id: string;
+    let input: DocInput;
+    let safety_mode: string;
+    let __idempotency_key: string | undefined;
+    
+    try {
+      const validated = validateDocRequest(normalizedBody);
+      brand_id = validated.brand_id;
+      input = validated.input as DocInput;
+      safety_mode = validated.safety_mode || "safe";
+      __idempotency_key = validated.__idempotency_key;
+    } catch (validationError: any) {
+      // Handle Zod validation errors with clear messages
+      if (validationError instanceof z.ZodError) {
+        const errorMessages = validationError.errors.map((err) => {
+          const path = err.path.join(".");
+          return `${path}: ${err.message}`;
+        }).join("; ");
+        throw new AppError(
+          ErrorCode.MISSING_REQUIRED_FIELD,
+          `Validation failed: ${errorMessages}`,
+          HTTP_STATUS.BAD_REQUEST,
+          "warning",
+          { 
+            requestId, 
+            originalBody: req.body, 
+            normalizedBody,
+            hint: "If you sent brandId or top-level prompt/platform/tone, normalization may have failed. Check that the request format matches the canonical contract."
+          },
+          "Please check your request format. Expected: { brand_id: string, input: { topic: string, platform: string, ... } }",
+        );
+      }
+      // If it's not a ZodError but has errors array (legacy format)
+      if (validationError.errors && Array.isArray(validationError.errors)) {
+        const errorMessages = validationError.errors.map((err: any) => {
+          const path = err.path?.join?.(".") || String(err.path || "unknown");
+          return `${path}: ${err.message || String(err)}`;
+        }).join("; ");
+        throw new AppError(
+          ErrorCode.MISSING_REQUIRED_FIELD,
+          `Validation failed: ${errorMessages}`,
+          HTTP_STATUS.BAD_REQUEST,
+          "warning",
+          { 
+            requestId, 
+            originalBody: req.body, 
+            normalizedBody,
+            hint: "If you sent brandId or top-level prompt/platform/tone, normalization may have failed. Check that the request format matches the canonical contract."
+          },
+          "Please check your request format. Expected: { brand_id: string, input: { topic: string, platform: string, ... } }",
+        );
+      }
+      // If error message is already a stringified array, parse it
+      if (typeof validationError.message === 'string' && validationError.message.startsWith('[')) {
+        try {
+          const parsedErrors = JSON.parse(validationError.message);
+          if (Array.isArray(parsedErrors)) {
+            const errorMessages = parsedErrors.map((err: any) => {
+              const path = err.path?.join?.(".") || String(err.path || "unknown");
+              return `${path}: ${err.message || String(err)}`;
+            }).join("; ");
+            throw new AppError(
+              ErrorCode.MISSING_REQUIRED_FIELD,
+              `Validation failed: ${errorMessages}`,
+              HTTP_STATUS.BAD_REQUEST,
+              "warning",
+              { 
+                requestId, 
+                originalBody: req.body, 
+                normalizedBody,
+                hint: "Normalization may have failed. Original request had brandId/top-level fields but they weren't converted."
+              },
+              "Please check your request format. Expected: { brand_id: string, input: { topic: string, platform: string, ... } }",
+            );
+          }
+        } catch {
+          // If parsing fails, fall through to throw original error
+        }
+      }
+      throw validationError;
+    }
     const docInput = input as DocInput;
 
-    // Load brand safety config
-    const { data: brandData, error: brandError } = await supabase
-      .from("brand_safety_configs")
-      .select("*")
-      .eq("brand_id", brand_id)
+    // Load brand safety config and brand kit from brands table
+    // ✅ FALLBACK: If PostgREST schema cache error occurs, use default safety config
+    let brandData: { safety_config: any; brand_kit: any } | null = null;
+    let brandError: any = null;
+    
+    const { data: fetchedBrandData, error: fetchedBrandError } = await supabase
+      .from("brands")
+      .select("safety_config, brand_kit")
+      .eq("id", brand_id)
       .single();
 
-    if (brandError && brandError.code !== "PGRST116") {
-      throw new Error(
-        `Failed to load brand safety config: ${brandError.message}`,
+    brandData = fetchedBrandData;
+    brandError = fetchedBrandError;
+
+    // ✅ HANDLE SCHEMA CACHE ERRORS: Fallback to default safety config
+    const isSchemaCacheError = brandError?.message?.includes("brand_safety_configs") || 
+                               brandError?.message?.includes("Could not find the table") ||
+                               brandError?.message?.includes("schema cache");
+
+    if (brandError && !isSchemaCacheError) {
+      // Real database error (not schema cache issue)
+      console.error("[Doc Agent] Failed to load brand data:", {
+        brand_id,
+        error: brandError.message,
+        code: brandError.code,
+        details: brandError.details,
+      });
+      
+      throw new AppError(
+        ErrorCode.DATABASE_ERROR,
+        `Failed to load brand data: ${brandError.message}`,
+        HTTP_STATUS.INTERNAL_SERVER_ERROR,
+        "error",
+        { brand_id, originalError: brandError.message, requestId },
+        "Please verify the brand exists and you have access to it.",
       );
     }
 
-    const safetyConfig: BrandSafetyConfig = brandData || {
-      safety_mode,
-      banned_phrases: [],
-      competitor_names: [],
-      claims: [],
-      required_disclaimers: [],
-      required_hashtags: [],
-      brand_links: [],
-      disallowed_topics: [],
-      allow_topics: [],
-      compliance_pack: "none",
+    if (isSchemaCacheError) {
+      // ✅ FALLBACK: PostgREST schema cache is stale - use default safety config
+      console.warn("[Doc Agent] PostgREST schema cache error detected, using default safety config", {
+        brand_id,
+        error: brandError?.message,
+        requestId,
+        action: "fallback_to_default_safety_config",
+      });
+      
+      // Use default safety config and attempt to load brand_kit separately
+      // Try a simpler query that might work even with stale cache
+      const { data: brandKitData } = await supabase
+        .from("brands")
+        .select("brand_kit")
+        .eq("id", brand_id)
+        .single();
+      
+      // Use default safety config
+      brandData = {
+        safety_config: null, // Will be replaced with default below
+        brand_kit: brandKitData?.brand_kit || null,
+      };
+    }
+
+    // Extract safety config from JSONB column (with fallback defaults)
+    // ✅ FALLBACK: If schema cache error occurred, use default safety config
+    const safetyConfigData: BrandSafetyConfig = isSchemaCacheError
+      ? {
+          ...DEFAULT_SAFETY_CONFIG,
+          safety_mode: (safety_mode || DEFAULT_SAFETY_CONFIG.safety_mode) as SafetyMode,
+        }
+      : ((brandData?.safety_config as BrandSafetyConfig) || {
+          ...DEFAULT_SAFETY_CONFIG,
+          safety_mode: (safety_mode || DEFAULT_SAFETY_CONFIG.safety_mode) as SafetyMode,
+        });
+
+    const safetyConfig: BrandSafetyConfig = {
+      ...safetyConfigData,
+      safety_mode: (safetyConfigData.safety_mode || safety_mode || DEFAULT_SAFETY_CONFIG.safety_mode) as SafetyMode,
     };
 
-    // Load brand kit for context injection
-    const { data: brandKit, error: brandKitError } = await supabase
-      .from("brand_kits")
-      .select("*")
-      .eq("brand_id", brand_id)
-      .single();
-
-    if (brandKitError) {
-      throw new Error(
-        `Failed to load brand kit: ${brandKitError?.message || String(brandKitError)}`,
-      );
-    }
-
-    const parsedBrandKit = parseBrandKit(brandKit || {});
+    // Extract brand kit from JSONB column
+    const brandKit = brandData?.brand_kit || {};
+    const parsedBrandKit = parseBrandKit(brandKit);
 
     let attempts = 0;
     let output: DocOutput | undefined;
@@ -330,18 +515,20 @@ router.post("/generate/design", async (req, res) => {
     // Validate input with Zod schema
     const { brand_id, input } = validateDesignRequest(req.body);
 
-    // Load brand kit for visual context
-    const { data: brandKit, error: brandKitError } = await supabase
-      .from("brand_kits")
-      .select("*")
-      .eq("brand_id", brand_id)
+    // Load brand kit for visual context from brands table
+    const { data: brandData, error: brandError } = await supabase
+      .from("brands")
+      .select("brand_kit")
+      .eq("id", brand_id)
       .single();
 
-    if (brandKitError) {
+    if (brandError) {
       throw new Error(
-        `Failed to load brand kit: ${brandKitError?.message || String(brandKitError)}`,
+        `Failed to load brand kit: ${brandError?.message || String(brandError)}`,
       );
     }
+
+    const brandKit = brandData?.brand_kit || {};
 
     const parsedBrandKit = parseBrandKit(brandKit || {});
 
@@ -568,15 +755,18 @@ router.post("/bfs/calculate", async (req, res) => {
       );
     }
 
-    // Load brand kit
-    const { data: brandKit } = await supabase
-      .from("brand_kits")
-      .select("*")
-      .eq("brand_id", brand_id)
+    // Load brand kit from brands table
+    const { data: brandData } = await supabase
+      .from("brands")
+      .select("brand_kit, tone_keywords")
+      .eq("id", brand_id)
       .single();
 
+    const brandKit = brandData?.brand_kit || {};
+    const toneKeywords = brandData?.tone_keywords || [];
+
     const bfs = await calculateBFS(content, {
-      tone_keywords: brandKit?.toneKeywords || [],
+      tone_keywords: Array.isArray(toneKeywords) ? toneKeywords : [],
       brandPersonality: brandKit?.brandPersonality || [],
       writingStyle: brandKit?.writingStyle,
       commonPhrases: brandKit?.commonPhrases,

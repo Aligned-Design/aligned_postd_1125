@@ -1,7 +1,12 @@
 /**
- * Doc Agent API Route
+ * Doc Agent API Route (Legacy Endpoint)
  * 
  * Handles requests to generate on-brand text content (captions, emails, blogs, ads, etc.).
+ * 
+ * @endpoint POST /api/ai/doc (legacy)
+ * @canonical POST /api/agents/generate/doc (use this for new integrations)
+ * 
+ * TODO: Migrate remaining usage to /api/agents/generate/doc and deprecate this endpoint.
  * 
  * @response Returns `AiDocGenerationResponse` directly (not wrapped in { success: true } envelope).
  * This is intentional to maintain backward compatibility with existing clients.

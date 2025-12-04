@@ -105,13 +105,14 @@ async function runSmokeTests(): Promise<SmokeTestReport> {
 
   const mockBrandId = "test-brand-smoke-001";
 
-  // Test payloads
+  // Test payloads - using canonical contract: brand_id + input object
   const docPayload = {
     brand_id: mockBrandId,
     input: {
       topic: "Product announcement",
       platform: "instagram",
-      goal: "engagement",
+      tone: "professional",
+      format: "post",
     },
     safety_mode: "safe",
   };

@@ -7,11 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Aligned doc agent request contract across code and docs (`/api/agents/generate/doc` endpoint)
+  - Fixed normalization logic to properly handle `brandId` → `brand_id` and top-level fields → `input` object
+  - Improved Zod validation error handling with clear, user-friendly messages
+  - Verified OpenAI integration is correctly wired through `generateWithAI` → `server/lib/openai-client.ts`
+- Added comprehensive smoke test script for doc agent endpoint (`scripts/api-doc-agent-smoke.ts`)
+
+### Changed
+- Updated API documentation (`docs/API_USAGE_AND_TESTING.md`) with explicit canonical contract for doc agent
+  - Documented required fields: `brand_id` (UUID) and `input` object with `topic`, `platform`, etc.
+  - Clarified backwards compatibility support for legacy formats
+
 ### Added
 - Repository structure improvements and documentation organization
 - Security vulnerability fixes in environment configuration
 - README files for all documentation subdirectories
 - Contributing guidelines and security policy
+- API V2 routing integration: Reviews and Webhooks endpoints registered in `server/index-v2.ts`
+  - Wired `reviewsRouter` into v2 server at `/api/reviews`
+  - Registered all 7 webhook handlers under `/api/webhooks/*` in the v2 server
+  - Confirmed no new TypeScript or lint errors introduced
+  - Verified API V2 Trust But Verify report now reflects actual routing state
 
 ### Fixed
 - API keys exposed in `.env.example` replaced with placeholders

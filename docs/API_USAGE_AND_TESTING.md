@@ -1,10 +1,11 @@
 # API Usage and Testing Guide
 
-Complete guide for running, testing, and using the Aligned AI API endpoints.
+Complete guide for running, testing, and using the Aligned-20ai.posted API endpoints.
 
 **Last Updated:** 2025-01-XX  
-**Base URL (Local):** `http://localhost:8080`  
-**Base URL (Production):** `https://your-domain.vercel.app`
+**Server Entry Point:** `server/index-v2.ts`  
+**Framework:** Express.js with TypeScript  
+**Base URL:** `http://localhost:8080/api` (development)
 
 ---
 
@@ -12,13 +13,13 @@ Complete guide for running, testing, and using the Aligned AI API endpoints.
 
 - [Local Development Setup](#local-development-setup)
 - [Environment Variables](#environment-variables)
-- [Running the API Server](#running-the-api-server)
-- [Health Check Endpoints](#health-check-endpoints)
+- [Running the API Locally](#running-the-api-locally)
+- [Testing Endpoints](#testing-endpoints)
 - [Authentication](#authentication)
 - [Example Requests](#example-requests)
 - [Error Handling](#error-handling)
-- [Testing](#testing)
-- [Client Integration](#client-integration)
+- [Smoke Tests](#smoke-tests)
+- [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -26,9 +27,10 @@ Complete guide for running, testing, and using the Aligned AI API endpoints.
 
 ### Prerequisites
 
-- Node.js 18+ and pnpm installed
-- Supabase project configured
-- API keys for AI providers (OpenAI or Anthropic)
+- Node.js >= 24.0.0
+- pnpm (package manager)
+- Supabase account and project
+- Environment variables configured (see below)
 
 ### Installation
 
@@ -36,8 +38,11 @@ Complete guide for running, testing, and using the Aligned AI API endpoints.
 # Install dependencies
 pnpm install
 
-# Copy environment template (if not exists)
-cp .env.example .env
+# Verify environment variables
+pnpm run validate:env
+
+# Verify Supabase connection
+pnpm run verify:supabase
 ```
 
 ---
@@ -46,46 +51,48 @@ cp .env.example .env
 
 ### Required Variables
 
+Create a `.env` file in the project root with the following variables:
+
 ```bash
-# Supabase Configuration (REQUIRED)
-VITE_SUPABASE_URL=https://your-project-id.supabase.co
-VITE_SUPABASE_ANON_KEY=your-anon-key
+# Supabase Configuration
+SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
-SUPABASE_URL=https://your-project-id.supabase.co
+VITE_SUPABASE_URL=https://your-project.supabase.co
 
-# AI Provider (at least one required)
-OPENAI_API_KEY=sk-...
+# JWT Secret (for token generation)
+JWT_SECRET=your-jwt-secret-key
+
+# AI Provider (OpenAI or Anthropic)
+AI_PROVIDER=openai
+OPENAI_API_KEY=your-openai-api-key
 # OR
-ANTHROPIC_API_KEY=sk-ant-...
-AI_PROVIDER=openai  # or "anthropic" or "auto"
+ANTHROPIC_API_KEY=your-anthropic-api-key
 
-# Application URLs
-VITE_APP_URL=http://localhost:8080
-NODE_ENV=development
+# Application URL
+VITE_APP_URL=http://localhost:5173
+
+# Optional: Ping message
+PING_MESSAGE=pong
 ```
 
 ### Optional Variables
 
 ```bash
-# OAuth Integrations
+# OAuth Configuration (for integrations)
 META_APP_ID=your-meta-app-id
 LINKEDIN_CLIENT_ID=your-linkedin-client-id
-TIKTOK_CLIENT_KEY=your-tiktok-key
+TIKTOK_CLIENT_KEY=your-tiktok-client-key
 
-# Email Service
-SENDGRID_API_KEY=your-sendgrid-key
-EMAIL_FROM_ADDRESS=noreply@yourdomain.com
+# Email Service (SendGrid)
+SENDGRID_API_KEY=your-sendgrid-api-key
 
-# Monitoring
-SENTRY_DSN=your-sentry-dsn
-ENABLE_SENTRY=false
+# Node Environment
+NODE_ENV=development
 ```
-
-**See `VERCEL_ENV_CHECKLIST.md` for complete list.**
 
 ---
 
-## Running the API Server
+## Running the API Locally
 
 ### Development Mode
 
@@ -93,58 +100,85 @@ ENABLE_SENTRY=false
 # Start both client and server (recommended)
 pnpm dev
 
-# Or start server only
+# Start only the server
 pnpm dev:server
-# Server runs on http://localhost:8080
+
+# Server will run on http://localhost:8080
+# API endpoints available at http://localhost:8080/api
 ```
 
 ### Production Mode
 
 ```bash
-# Build
+# Build the application
 pnpm build
 
 # Start production server
 pnpm start
-# Server runs on port 3000 (or PORT env var)
+
+# Server will run on port 3000 (or PORT env var)
 ```
 
 ### Verify Server is Running
 
 ```bash
 # Health check
-curl http://localhost:8080/api/health
+curl http://localhost:8080/health
 
 # Ping endpoint
 curl http://localhost:8080/api/ping
+
+# Expected response:
+# { "message": "pong" }
 ```
 
 ---
 
-## Health Check Endpoints
+## Testing Endpoints
 
-### Basic Health Check
+### Health Check Endpoints
+
+#### Basic Health Check
 
 ```bash
-GET /api/health
+curl http://localhost:8080/health
 ```
 
 **Response:**
 ```json
 {
   "status": "ok",
-  "timestamp": "2025-01-XXT10:00:00.000Z",
-  "service": "postd-backend",
-  "aiConfigured": true,
-  "aiProvider": "openai",
-  "integrationsConfigured": true
+  "timestamp": "2025-01-XXT00:00:00.000Z"
 }
 ```
 
-### AI Service Health
+#### Comprehensive Health Check
 
 ```bash
-GET /api/health/ai
+curl http://localhost:8080/api/debug
+```
+
+**Response:**
+```json
+{
+  "status": "healthy",
+  "timestamp": "2025-01-XXT00:00:00.000Z",
+  "checks": {
+    "supabase": "ok",
+    "auth": "ok",
+    "tenant": "ok",
+    "brand_create": "ok",
+    "media_assets": "ok",
+    "crawler": "ok",
+    "brand_guide": "ok"
+  }
+}
+```
+
+#### AI Service Health
+
+```bash
+curl http://localhost:8080/api/health/ai
 ```
 
 **Response:**
@@ -153,14 +187,14 @@ GET /api/health/ai
   "status": "ok",
   "provider": "openai",
   "configured": true,
-  "timestamp": "2025-01-XXT10:00:00.000Z"
+  "timestamp": "2025-01-XXT00:00:00.000Z"
 }
 ```
 
-### Database Health
+#### Supabase Connection Check
 
 ```bash
-GET /api/health/supabase
+curl http://localhost:8080/api/health/supabase
 ```
 
 **Response:**
@@ -168,16 +202,7 @@ GET /api/health/supabase
 {
   "status": "ok",
   "connected": true,
-  "timestamp": "2025-01-XXT10:00:00.000Z"
-}
-```
-
-**Error Response (503):**
-```json
-{
-  "status": "error",
-  "error": "Connection failed",
-  "timestamp": "2025-01-XXT10:00:00.000Z"
+  "timestamp": "2025-01-XXT00:00:00.000Z"
 }
 ```
 
@@ -185,12 +210,9 @@ GET /api/health/supabase
 
 ## Authentication
 
-Most endpoints require authentication via JWT token in the `Authorization` header.
-
-### Getting an Auth Token
+### Sign Up
 
 ```bash
-# Sign up
 curl -X POST http://localhost:8080/api/auth/signup \
   -H "Content-Type: application/json" \
   -d '{
@@ -198,8 +220,27 @@ curl -X POST http://localhost:8080/api/auth/signup \
     "password": "securepassword123",
     "name": "John Doe"
   }'
+```
 
-# Login
+**Response:**
+```json
+{
+  "success": true,
+  "user": {
+    "id": "user-uuid",
+    "email": "user@example.com",
+    "tenantId": "tenant-uuid"
+  },
+  "tokens": {
+    "accessToken": "jwt-token",
+    "refreshToken": "refresh-token"
+  }
+}
+```
+
+### Login
+
+```bash
 curl -X POST http://localhost:8080/api/auth/login \
   -H "Content-Type: application/json" \
   -d '{
@@ -212,388 +253,674 @@ curl -X POST http://localhost:8080/api/auth/login \
 ```json
 {
   "success": true,
-  "data": {
-    "user": { ... },
-    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+  "user": {
+    "id": "user-uuid",
+    "email": "user@example.com",
+    "tenantId": "tenant-uuid"
+  },
+  "tokens": {
+    "accessToken": "jwt-token",
+    "refreshToken": "refresh-token"
   }
 }
 ```
 
-### Using the Token
+### Using Authentication Token
+
+For authenticated endpoints, include the token in the Authorization header:
 
 ```bash
-# Include in Authorization header
-curl http://localhost:8080/api/dashboard \
-  -H "Authorization: Bearer YOUR_TOKEN_HERE" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "brandId": "uuid-here",
-    "timeRange": "30d"
-  }'
+curl -X GET http://localhost:8080/api/auth/me \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
 ```
 
 ---
 
 ## Example Requests
 
-### 1. Create a Brand
+### Create Brand
 
 ```bash
-POST /api/brands
-Authorization: Bearer <token>
-Content-Type: application/json
-
-{
-  "name": "My Brand",
-  "website_url": "https://example.com",
-  "industry": "Technology",
-  "description": "A tech company",
-  "autoRunOnboarding": true
-}
-```
-
-**Response (201):**
-```json
-{
-  "success": true,
-  "data": {
-    "id": "uuid-here",
+curl -X POST http://localhost:8080/api/brands \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
     "name": "My Brand",
-    "slug": "my-brand",
-    "created_at": "2025-01-XXT10:00:00.000Z"
-  }
-}
+    "website_url": "https://example.com",
+    "industry": "Technology",
+    "description": "A tech company"
+  }'
 ```
 
-### 2. Get Brand Guide
-
-```bash
-GET /api/brand-guide/:brandId
-Authorization: Bearer <token>
-```
-
-**Response (200):**
+**Response:**
 ```json
 {
-  "id": "uuid-here",
-  "brandId": "brand-uuid",
-  "brandName": "My Brand",
-  "voice": { ... },
-  "visuals": { ... },
-  "content": { ... }
+  "id": "brand-uuid",
+  "name": "My Brand",
+  "slug": "my-brand",
+  "website_url": "https://example.com",
+  "tenant_id": "tenant-uuid",
+  "created_at": "2025-01-XXT00:00:00.000Z"
 }
 ```
 
-### 3. Generate AI Content
+### Get Dashboard Data
 
 ```bash
-POST /api/agents/generate/doc
-Authorization: Bearer <token>
-Content-Type: application/json
-
-{
-  "brand_id": "uuid-here",
-  "input": {
-    "topic": "Product launch",
-    "platform": "linkedin",
-    "tone": "professional"
-  },
-  "safety_mode": "safe"
-}
-```
-
-**Response (200):**
-```json
-{
-  "success": true,
-  "data": {
-    "content": "Generated content here...",
-    "brandFidelityScore": 0.95,
-    "metadata": { ... }
-  }
-}
-```
-
-### 4. Publish Content
-
-```bash
-POST /api/publishing/:brandId/publish
-Authorization: Bearer <token>
-Content-Type: application/json
-
-{
-  "content": "Post content here",
-  "platforms": ["linkedin", "twitter"],
-  "scheduledAt": "2025-01-XXT14:00:00.000Z"
-}
-```
-
-**Response (201):**
-```json
-{
-  "success": true,
-  "data": {
-    "jobId": "job-uuid",
-    "status": "pending",
-    "platforms": ["linkedin", "twitter"]
-  }
-}
-```
-
-### 5. Get Analytics
-
-```bash
-GET /api/analytics/:brandId?timeRange=30d
-Authorization: Bearer <token>
-```
-
-**Response (200):**
-```json
-{
-  "success": true,
-  "data": {
-    "metrics": { ... },
-    "insights": [ ... ],
+curl -X POST http://localhost:8080/api/dashboard \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "brandId": "brand-uuid",
     "timeRange": "30d"
+  }'
+```
+
+**Response:**
+```json
+{
+  "kpis": [
+    {
+      "id": "total-posts",
+      "label": "Total Posts",
+      "value": "42",
+      "change": "+12%",
+      "trend": "up"
+    }
+  ],
+  "chartData": [
+    { "date": "Jan", "value": 100 },
+    { "date": "Feb", "value": 120 }
+  ],
+  "topContent": [],
+  "recentActivity": []
+}
+```
+
+### Generate Content with Doc Agent
+
+**Endpoint:** `POST /api/agents/generate/doc`
+
+**Canonical Request Format:**
+```bash
+curl -X POST http://localhost:8080/api/agents/generate/doc \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "brand_id": "YOUR_BRAND_ID",
+    "input": {
+      "topic": "Write a launch announcement with steps for my new product",
+      "platform": "linkedin",
+      "tone": "professional",
+      "format": "post",
+      "max_length": 2200,
+      "include_cta": true,
+      "cta_type": "link"
+    }
+  }'
+```
+
+**Request Contract:**
+- **`brand_id`** (string, UUID, required): The brand ID for content generation. Must be a valid UUID.
+- **`input`** (object, required): Generation parameters object containing:
+  - **`topic`** (string, required): The content topic/prompt (min 1 char, max 5000 chars)
+  - **`platform`** (enum, required): Target platform - one of: `"instagram"`, `"facebook"`, `"linkedin"`, `"twitter"`, `"tiktok"`, `"email"`
+  - **`tone`** (string, optional): Content tone (default: `"professional"`)
+  - **`format`** (enum, optional): Content format - one of: `"post"`, `"carousel"`, `"reel"`, `"story"`, `"image"`, `"email"` (default: `"post"`)
+  - **`max_length`** (number, optional): Maximum content length in characters (min 50, max 10000)
+  - **`include_cta`** (boolean, optional): Whether to include a call-to-action (default: `true`)
+  - **`cta_type`** (enum, optional): CTA type - one of: `"link"`, `"comment"`, `"dm"`, `"bio"`, `"email"`
+  - **`additional_context`** (string, optional): Additional context for generation
+- **`safety_mode`** (enum, optional): Safety mode - one of: `"safe"`, `"bold"`, `"edgy_opt_in"` (default: `"safe"`)
+- **`__idempotency_key`** (string, optional): Request ID for idempotency
+
+**Backwards Compatibility:**
+The endpoint accepts legacy formats for backwards compatibility:
+- `brandId` (camelCase) → automatically normalized to `brand_id`
+- Top-level `prompt`/`platform`/`tone`/`format` fields → automatically normalized into `input` object
+
+**Note:** While legacy formats are supported, `brand_id` + `input` is the canonical contract going forward. All new integrations should use the canonical format.
+
+**Response:**
+```json
+{
+  "success": true,
+  "output": {
+    "headline": "Generated headline...",
+    "body": "Generated content body...",
+    "cta": "Learn more",
+    "hashtags": ["#YourBrand"],
+    "post_theme": "post",
+    "tone_used": "professional",
+    "aspect_ratio": "1200x630",
+    "char_count": 150,
+    "bfs": {
+      "overall": 0.85,
+      "passed": true
+    },
+    "linter": {
+      "passed": true
+    }
+  },
+  "metadata": {
+    "tokens_in": 500,
+    "tokens_out": 200,
+    "provider": "openai",
+    "model": "gpt-5-mini"
   }
 }
 ```
 
-### 6. Upload Media
+### Get Brand Guide
 
 ```bash
-POST /api/media/upload
-Authorization: Bearer <token>
-Content-Type: multipart/form-data
-
-file: <binary>
-brandId: uuid-here
-category: images
+curl -X GET http://localhost:8080/api/brand-guide/brand-uuid \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
 ```
 
-**Response (201):**
+**Response:**
+```json
+{
+  "id": "brand-uuid",
+  "brand_kit": {
+    "colors": {
+      "primary": "#000000",
+      "secondary": "#FFFFFF"
+    },
+    "typography": {
+      "headings": "Arial",
+      "body": "Helvetica"
+    }
+  },
+  "updated_at": "2025-01-XXT00:00:00.000Z"
+}
+```
+
+### Upload Media
+
+```bash
+curl -X POST http://localhost:8080/api/media/upload \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \
+  -F "files=@/path/to/image.jpg" \
+  -F "brandId=brand-uuid" \
+  -F "category=product"
+```
+
+**Response:**
+```json
+{
+  "assets": [
+    {
+      "id": "asset-uuid",
+      "url": "https://...",
+      "filename": "image.jpg",
+      "size": 123456,
+      "mimeType": "image/jpeg"
+    }
+  ]
+}
+```
+
+### List Media Assets (v2)
+
+```bash
+curl -X GET "http://localhost:8080/api/media?brandId=brand-uuid&limit=20&offset=0" \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
+```
+
+**Response:**
+```json
+{
+  "items": [
+    {
+      "id": "asset-uuid",
+      "brandId": "brand-uuid",
+      "type": "image",
+      "url": "https://...",
+      "filename": "image.jpg",
+      "size": 123456,
+      "uploadedAt": "2025-01-XXT00:00:00.000Z"
+    }
+  ],
+  "total": 42,
+  "limit": 20,
+  "offset": 0,
+  "hasMore": true
+}
+```
+
+### Get Analytics Overview (v2)
+
+```bash
+curl -X GET "http://localhost:8080/api/analytics/overview?brandId=brand-uuid&days=30" \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
+```
+
+**Response:**
+```json
+{
+  "period": "last_30_days",
+  "totals": {
+    "impressions": 128430,
+    "clicks": 7421,
+    "ctr": 0.0578,
+    "followers": 324,
+    "postsPublished": 28
+  }
+}
+```
+
+### Get Engagement Trend (v2)
+
+```bash
+curl -X GET "http://localhost:8080/api/analytics/engagement-trend?brandId=brand-uuid&days=30" \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
+```
+
+**Response:**
+```json
+{
+  "periodDays": 30,
+  "series": [
+    {
+      "date": "2025-01-01",
+      "likes": 45,
+      "comments": 12,
+      "shares": 8
+    }
+  ]
+}
+```
+
+### Get Pending Approvals (v2)
+
+```bash
+curl -X GET "http://localhost:8080/api/approvals/pending?brandId=brand-uuid&limit=10&offset=0" \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
+```
+
+**Response:**
+```json
+{
+  "items": [
+    {
+      "id": "approval-uuid",
+      "brandId": "brand-uuid",
+      "contentId": "post-uuid",
+      "title": "LinkedIn Post Review",
+      "platform": "linkedin",
+      "status": "pending",
+      "requestedBy": "user-uuid",
+      "requestedAt": "2025-01-XXT00:00:00.000Z",
+      "dueDate": "2025-01-XXT00:00:00.000Z",
+      "content": {
+        "headline": "Post Title",
+        "body": "Post content..."
+      }
+    }
+  ],
+  "total": 5,
+  "limit": 10,
+  "offset": 0,
+  "hasMore": false
+}
+```
+
+### Approve Content (v2)
+
+```bash
+curl -X POST "http://localhost:8080/api/approvals/approval-uuid/approve" \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "notes": "Looks good!"
+  }'
+```
+
+**Response:**
+```json
+{
+  "approvalId": "approval-uuid",
+  "status": "approved",
+  "approvedAt": "2025-01-XXT00:00:00.000Z",
+  "notes": "Looks good!"
+}
+```
+
+### Reject Content (v2)
+
+```bash
+curl -X POST "http://localhost:8080/api/approvals/approval-uuid/reject" \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "reason": "Needs revision"
+  }'
+```
+
+**Response:**
+```json
+{
+  "approvalId": "approval-uuid",
+  "status": "rejected",
+  "rejectedAt": "2025-01-XXT00:00:00.000Z",
+  "reason": "Needs revision"
+}
+```
+
+### Get Media Storage Usage (v2)
+
+```bash
+curl -X GET "http://localhost:8080/api/media/storage-usage?brandId=brand-uuid" \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
+```
+
+**Response:**
+```json
+{
+  "brandId": "brand-uuid",
+  "totalSize": 52428800,
+  "totalCount": 42,
+  "byType": {
+    "image": 35,
+    "video": 5,
+    "document": 2
+  },
+  "limit": 10737418240,
+  "used": 52428800,
+  "percentUsed": 0.49
+}
+```
+
+### Get Reviews
+
+```bash
+curl -X GET "http://localhost:8080/api/reviews/brand-uuid" \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
+```
+
+**Response:**
+```json
+{
+  "reviews": [],
+  "total": 0,
+  "stats": {
+    "total": 0,
+    "positive": 0,
+    "neutral": 0,
+    "negative": 0,
+    "needsReply": 0,
+    "avgRating": 0
+  }
+}
+```
+
+### Webhook Handler (Zapier)
+
+```bash
+curl -X POST "http://localhost:8080/api/webhooks/zapier" \
+  -H "x-brand-id: brand-uuid" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "action": "content.published",
+    "data": {
+      "postId": "post-uuid",
+      "platform": "linkedin"
+    }
+  }'
+```
+
+**Response:**
 ```json
 {
   "success": true,
-  "data": {
-    "assetId": "uuid-here",
-    "url": "https://...",
-    "size": 1024000,
-    "mimeType": "image/jpeg"
-  }
+  "eventId": "event-uuid",
+  "processed": true
 }
 ```
 
 ---
 
-## Error Handling
+## Response Format
 
-All errors follow a standardized format:
+### Success Responses
 
-### Error Response Structure
+All success responses return data directly (not wrapped in `{ ok: true, data: ... }`):
+
+```json
+{
+  "items": [...],
+  "total": 42
+}
+```
+
+Some endpoints may return simple objects:
+
+```json
+{
+  "id": "uuid",
+  "name": "Example"
+}
+```
+
+### Error Responses
+
+All errors follow this structure:
 
 ```json
 {
   "error": {
-    "code": "VALIDATION_ERROR",
-    "message": "Request validation failed",
-    "severity": "warning",
-    "timestamp": "2025-01-XXT10:00:00.000Z",
-    "requestId": "uuid-here",
-    "details": {
-      "validationErrors": [
-        {
-          "field": "brandId",
-          "message": "Invalid UUID format",
-          "code": "invalid_string"
-        }
-      ]
-    },
-    "suggestion": "Please review the validation errors and retry your request"
+    "code": "ERROR_CODE",
+    "message": "Human-readable error message",
+    "severity": "error",
+    "timestamp": "2025-01-XXT00:00:00.000Z",
+    "requestId": "request-uuid",
+    "details": {},
+    "suggestion": "Optional suggestion for fixing the error"
   }
 }
 ```
 
 ### Common Error Codes
 
-| Code | HTTP Status | Description |
-|------|-------------|-------------|
-| `VALIDATION_ERROR` | 422 | Request validation failed |
-| `MISSING_REQUIRED_FIELD` | 400 | Required field missing |
-| `UNAUTHORIZED` | 401 | Authentication required |
-| `FORBIDDEN` | 403 | Insufficient permissions |
-| `NOT_FOUND` | 404 | Resource not found |
-| `INTERNAL_ERROR` | 500 | Server error |
+- `VALIDATION_ERROR` (400) - Request validation failed
+- `UNAUTHORIZED` (401) - Authentication required
+- `FORBIDDEN` (403) - Insufficient permissions
+- `NOT_FOUND` (404) - Resource not found
+- `CONFLICT` (409) - Resource conflict
+- `RATE_LIMIT_EXCEEDED` (429) - Too many requests
+- `INTERNAL_ERROR` (500) - Server error
 
-### Example Error Responses
+### Validation Error Example
 
-**Validation Error (422):**
 ```bash
 curl -X POST http://localhost:8080/api/brands \
-  -H "Authorization: Bearer <token>" \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{"name": ""}'
+  -d '{
+    "name": ""
+  }'
 ```
 
+**Response (400):**
 ```json
 {
   "error": {
     "code": "VALIDATION_ERROR",
     "message": "Request validation failed",
     "severity": "warning",
+    "timestamp": "2025-01-XXT00:00:00.000Z",
     "validationErrors": [
       {
         "field": "name",
-        "message": "String must contain at least 1 character(s)",
+        "message": "Brand name is required",
         "code": "too_small"
       }
-    ]
+    ],
+    "suggestion": "Please review the validation errors and retry your request"
   }
 }
 ```
 
-**Unauthorized (401):**
+### Unauthorized Error Example
+
 ```bash
-curl http://localhost:8080/api/dashboard
+curl -X GET http://localhost:8080/api/brands
 ```
 
+**Response (401):**
 ```json
 {
   "error": {
     "code": "UNAUTHORIZED",
     "message": "Authentication required",
     "severity": "warning",
-    "timestamp": "2025-01-XXT10:00:00.000Z"
+    "timestamp": "2025-01-XXT00:00:00.000Z",
+    "suggestion": "Please provide a valid authentication token"
   }
 }
 ```
 
 ---
 
-## Testing
+## Smoke Tests
 
-### Run Test Suite
+### Running Smoke Tests
 
 ```bash
-# Run all tests
+# Run all smoke tests
 pnpm test
 
-# Run tests in watch mode
-pnpm test --watch
-
 # Run specific test file
-pnpm test server/__tests__/routes/content-packages.test.ts
+pnpm test server/__tests__/api-smoke.test.ts
 ```
 
-### Manual Testing with cURL
+### Manual Smoke Test Checklist
 
-#### Health Check
+1. **Health Check**
+   ```bash
+   curl http://localhost:8080/health
+   ```
+   Expected: `{ "status": "ok" }`
 
-```bash
-# Basic health
-curl http://localhost:8080/api/health
+2. **Ping**
+   ```bash
+   curl http://localhost:8080/api/ping
+   ```
+   Expected: `{ "message": "pong" }`
 
-# Database health
-curl http://localhost:8080/api/health/supabase
+3. **Authentication**
+   ```bash
+   # Sign up
+   curl -X POST http://localhost:8080/api/auth/signup \
+     -H "Content-Type: application/json" \
+     -d '{"email":"test@example.com","password":"test123456"}'
+   
+   # Login
+   curl -X POST http://localhost:8080/api/auth/login \
+     -H "Content-Type: application/json" \
+     -d '{"email":"test@example.com","password":"test123456"}'
+   ```
+   Expected: Success response with tokens
 
-# AI health
-curl http://localhost:8080/api/health/ai
-```
+4. **Authenticated Endpoint**
+   ```bash
+   # Get current user
+   curl -X GET http://localhost:8080/api/auth/me \
+     -H "Authorization: Bearer YOUR_TOKEN"
+   ```
+   Expected: User object
 
-#### Authentication Flow
-
-```bash
-# 1. Sign up
-curl -X POST http://localhost:8080/api/auth/signup \
-  -H "Content-Type: application/json" \
-  -d '{"email":"test@example.com","password":"test123456","name":"Test User"}'
-
-# 2. Login (save token)
-TOKEN=$(curl -s -X POST http://localhost:8080/api/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"email":"test@example.com","password":"test123456"}' \
-  | jq -r '.data.token')
-
-# 3. Use token
-curl http://localhost:8080/api/auth/me \
-  -H "Authorization: Bearer $TOKEN"
-```
-
-#### Brand Operations
-
-```bash
-# Create brand
-curl -X POST http://localhost:8080/api/brands \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "Test Brand",
-    "website_url": "https://example.com"
-  }'
-
-# List brands (if endpoint exists)
-curl http://localhost:8080/api/brands \
-  -H "Authorization: Bearer $TOKEN"
-```
-
-### Smoke Tests
-
-See `server/__tests__/` directory for automated tests.
-
-**Run smoke tests:**
-```bash
-pnpm test server/__tests__/routes/
-```
+5. **Brand Creation**
+   ```bash
+   curl -X POST http://localhost:8080/api/brands \
+     -H "Authorization: Bearer YOUR_TOKEN" \
+     -H "Content-Type: application/json" \
+     -d '{"name":"Test Brand"}'
+   ```
+   Expected: Brand object
 
 ---
 
-## Client Integration
+## API V2 Smoke Test
 
-### React/TypeScript Client
+A quick sanity check script is available to verify that critical v2 endpoints are wired and responding correctly.
 
-```typescript
-import { DashboardResponse } from '@shared/api';
+### Running the Smoke Test
 
-async function getDashboard(brandId: string, token: string) {
-  const response = await fetch('/api/dashboard', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      brandId,
-      timeRange: '30d',
-    }),
-  });
-
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error.message);
-  }
-
-  const data: DashboardResponse = await response.json();
-  return data;
-}
+```bash
+API_BASE_URL=http://localhost:8080 API_TOKEN=your-token TEST_BRAND_ID=your-brand-id pnpm tsx scripts/api-v2-smoke.ts
 ```
 
-### Error Handling in Client
+**Environment Variables:**
+- `API_BASE_URL` (optional): Base URL of the API server (default: `http://localhost:8080`)
+- `API_TOKEN` (required): Valid JWT Bearer token for authenticated endpoints
+- `TEST_BRAND_ID` (optional): Brand ID to use for testing (default: test UUID)
 
-```typescript
-try {
-  const data = await getDashboard(brandId, token);
-  // Handle success
-} catch (error) {
-  if (error.response?.status === 401) {
-    // Redirect to login
-  } else if (error.response?.status === 422) {
-    // Show validation errors
-    const validationErrors = error.response.data.error.details?.validationErrors;
-  } else {
-    // Show generic error
-  }
-}
+### What It Tests
+
+The script tests the following endpoints:
+
+**Authenticated Endpoints:**
+- `GET /api/analytics/overview` - Analytics overview
+- `GET /api/analytics/engagement-trend` - Engagement trend data
+- `GET /api/media?limit=1` - Media list
+- `GET /api/media/storage-usage?brandId=...` - Storage usage
+- `GET /api/approvals/pending` - Pending approvals
+- `GET /api/reviews/:brandId` - Reviews for a brand
+
+**Webhook Endpoints:**
+- `POST /api/webhooks/zapier` - Zapier webhook handler
+- `GET /api/webhooks/status/:eventId` - Webhook status (expects 404 for non-existent ID)
+
+### Expected Output
+
+The script logs each endpoint test with:
+- `[OK]` - Endpoint responded with expected status (200-299)
+- `[WARN]` - Endpoint responded with expected non-success status (e.g., 404 for fake ID)
+- `[FAIL]` - Endpoint failed or returned unexpected status
+
+At the end, it prints a summary:
+- Total endpoints tested
+- Count of OK, WARN, and FAIL results
+
+### Example Output
+
 ```
+🧪 API V2 Smoke Test
+
+Base URL: http://localhost:8080
+Brand ID: 550e8400-e29b-41d4-a716-446655440000
+Token: ✅ Provided
+
+============================================================
+
+📊 Testing Analytics v2 endpoints...
+[OK] GET /api/analytics/overview → 200 ✅
+[OK] GET /api/analytics/engagement-trend → 200 ✅
+
+📁 Testing Media v2 endpoints...
+[OK] GET /api/media?limit=1 → 200 ✅
+[OK] GET /api/media/storage-usage?brandId=... → 200 ✅
+
+...
+
+============================================================
+📊 SUMMARY
+============================================================
+
+Total endpoints tested: 8
+✅ OK:   6
+⚠️  WARN: 1
+❌ FAIL: 1
+```
+
+### Notes
+
+- This is a **sanity check**, not a full test suite
+- It verifies endpoints are accessible and responding (200 or expected auth errors)
+- It does not validate response data structure or business logic
+- For full test coverage, see `server/__tests__/api-smoke.test.ts`
 
 ---
 
@@ -603,73 +930,116 @@ try {
 
 1. **Check environment variables:**
    ```bash
-   # Verify required vars are set
-   echo $SUPABASE_URL
-   echo $SUPABASE_SERVICE_ROLE_KEY
+   pnpm run validate:env
    ```
 
-2. **Check port availability:**
+2. **Verify Supabase connection:**
    ```bash
-   # Check if port 8080 is in use
-   lsof -i :8080
+   pnpm run verify:supabase
    ```
 
-3. **Check logs:**
+3. **Check port availability:**
    ```bash
-   # Server logs will show startup errors
-   pnpm dev:server
-   ```
-
-### Database Connection Issues
-
-1. **Verify Supabase credentials:**
-   ```bash
-   curl http://localhost:8080/api/health/supabase
-   ```
-
-2. **Check network connectivity:**
-   ```bash
-   # Test Supabase URL
-   curl https://your-project-id.supabase.co/rest/v1/
+   lsof -i :8080  # macOS/Linux
+   netstat -ano | findstr :8080  # Windows
    ```
 
 ### Authentication Issues
 
-1. **Verify token format:**
-   - Token should start with `eyJ...`
-   - Include `Bearer ` prefix in header
+1. **Token expired:** Request a new token via `/api/auth/login`
+2. **Invalid token format:** Ensure token is in `Bearer <token>` format
+3. **Missing tenant:** User may not have a tenant assigned
 
-2. **Check token expiration:**
-   - Tokens expire after configured time
-   - Re-authenticate if expired
+### Database Connection Issues
+
+1. **Check Supabase URL and keys:**
+   ```bash
+   echo $SUPABASE_URL
+   echo $SUPABASE_SERVICE_ROLE_KEY
+   ```
+
+2. **Test connection:**
+   ```bash
+   curl http://localhost:8080/api/health/supabase
+   ```
+
+3. **Check Supabase dashboard:** Verify project is active
 
 ### Validation Errors
 
-1. **Check request body format:**
-   - Ensure JSON is valid
-   - Check required fields are present
-   - Verify UUID formats
+1. **Check request format:** Ensure JSON is valid
+2. **Verify required fields:** Check API documentation for required fields
+3. **Check data types:** Ensure UUIDs, dates, etc. are in correct format
 
-2. **Review error details:**
-   - Error response includes `validationErrors` array
-   - Each error shows `field`, `message`, and `code`
+### Rate Limiting
+
+Some endpoints have rate limiting. If you hit rate limits:
+
+1. Wait for the rate limit window to reset
+2. Use exponential backoff in your client
+3. Contact admin if limits are too restrictive
+
+---
+
+## Client Integration
+
+### Required Headers
+
+For authenticated requests:
+
+```
+Authorization: Bearer <access-token>
+Content-Type: application/json
+```
+
+### Response Handling
+
+Always check the response status:
+
+- `200-299`: Success
+- `400-499`: Client error (validation, auth, etc.)
+- `500-599`: Server error
+
+### Error Handling in Client
+
+```typescript
+try {
+  const response = await fetch('/api/brands', {
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json'
+    }
+  });
+  
+  if (!response.ok) {
+    const error = await response.json();
+    // Handle error.error.code, error.error.message, etc.
+    throw new Error(error.error.message);
+  }
+  
+  const data = await response.json();
+  return data;
+} catch (error) {
+  // Handle error
+}
+```
 
 ---
 
 ## Additional Resources
 
-- **API Surface Map:** See `docs/API_SURFACE_MAP.md` for complete endpoint list
-- **Error Codes:** See `server/lib/error-responses.ts` for all error codes
-- **Validation Schemas:** See `server/lib/validation-schemas.ts` for request schemas
-- **Environment Setup:** See `docs/ENVIRONMENT_SETUP.md` for detailed env var guide
+- [API Surface Map](./API_SURFACE_MAP.md) - Complete endpoint reference
+- [Error Codes Reference](../server/lib/error-responses.ts) - All error codes
+- [Validation Schemas](../server/lib/validation-schemas.ts) - Request validation schemas
+- [Supabase Documentation](https://supabase.com/docs) - Database and auth docs
 
 ---
 
 ## Support
 
 For issues or questions:
-1. Check error response `suggestion` field
-2. Review server logs
-3. Verify environment variables
-4. Check API documentation in `docs/API_SURFACE_MAP.md`
 
+1. Check the troubleshooting section above
+2. Review error messages and suggestions
+3. Check server logs for detailed error information
+4. Verify environment variables are set correctly
