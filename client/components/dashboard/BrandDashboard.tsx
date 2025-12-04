@@ -363,18 +363,61 @@ export function BrandDashboard({ brand, onUpdate }: BrandDashboardProps) {
         <h3 className="text-lg font-black text-slate-900 mb-4">Visual Identity</h3>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-          {/* Logo */}
+          {/* Logos - Display scraped logos or fallback to logoUrl */}
           <div>
-            <p className="text-xs font-bold text-slate-600 mb-2">LOGO</p>
-            {brand.logoUrl ? (
-              <div className="w-full h-24 bg-slate-100 rounded-lg flex items-center justify-center overflow-hidden border border-slate-200">
-                <img src={brand.logoUrl} alt="Brand logo" className="w-full h-full object-contain p-2" />
-              </div>
-            ) : (
-              <div className="w-full h-24 bg-slate-100 rounded-lg flex items-center justify-center border-2 border-dashed border-slate-300 text-slate-500 text-xs font-bold">
-                Add logo
-              </div>
-            )}
+            <p className="text-xs font-bold text-slate-600 mb-2">LOGOS</p>
+            {/* ✅ FIX: Get scraped logos from multiple possible sources */}
+            {(() => {
+              // Try to get logos from various possible locations
+              const logos: Array<{ id?: string; url: string; filename?: string }> = [];
+              
+              // 1. Check for top-level logos array (from API)
+              if ((brand as any).logos && Array.isArray((brand as any).logos)) {
+                logos.push(...(brand as any).logos);
+              }
+              
+              // 2. Check approvedAssets.uploadedPhotos (filtered by source='scrape' and role='logo')
+              if (brand.approvedAssets?.uploadedPhotos) {
+                const scrapedLogos = brand.approvedAssets.uploadedPhotos.filter((img: any) => {
+                  const metadata = img.metadata || {};
+                  const source = img.source || metadata.source || "";
+                  const role = metadata.role || "";
+                  return source === "scrape" && (role === "logo" || role === "Logo");
+                });
+                // Only add if not already in logos array
+                scrapedLogos.forEach((logo: any) => {
+                  if (!logos.some(l => l.url === logo.url)) {
+                    logos.push(logo);
+                  }
+                });
+              }
+              
+              // 3. Fallback to logoUrl if no scraped logos found
+              if (logos.length === 0 && brand.logoUrl) {
+                logos.push({ url: brand.logoUrl, id: "fallback-logo" });
+              }
+              
+              if (logos.length > 0) {
+                return (
+                  <div className="space-y-2">
+                    {logos.slice(0, 2).map((logo, idx) => (
+                      <div key={logo.id || idx} className="w-full h-24 bg-slate-100 rounded-lg flex items-center justify-center overflow-hidden border border-slate-200">
+                        <img src={logo.url} alt={logo.filename || `Brand logo ${idx + 1}`} className="w-full h-full object-contain p-2" />
+                      </div>
+                    ))}
+                    {logos.length > 2 && (
+                      <p className="text-xs text-slate-500 text-center">+{logos.length - 2} more logo{logos.length - 2 > 1 ? 's' : ''}</p>
+                    )}
+                  </div>
+                );
+              }
+              
+              return (
+                <div className="w-full h-24 bg-slate-100 rounded-lg flex items-center justify-center border-2 border-dashed border-slate-300 text-slate-500 text-xs font-bold">
+                  No logos found
+                </div>
+              );
+            })()}
           </div>
 
           {/* Typography */}
@@ -471,6 +514,77 @@ export function BrandDashboard({ brand, onUpdate }: BrandDashboardProps) {
           </div>
         )}
       </div>
+
+      {/* ✅ NEW: Brand Images Gallery - Display scraped brand images */}
+      {(() => {
+        // Get brand images from multiple possible sources
+        const brandImages: Array<{ id?: string; url: string; filename?: string; metadata?: any }> = [];
+        
+        // 1. Check for top-level images array (from API)
+        if ((brand as any).images && Array.isArray((brand as any).images)) {
+          brandImages.push(...(brand as any).images);
+        }
+        // Also check brandImages alias
+        if ((brand as any).brandImages && Array.isArray((brand as any).brandImages)) {
+          (brand as any).brandImages.forEach((img: any) => {
+            if (!brandImages.some(bi => bi.url === img.url)) {
+              brandImages.push(img);
+            }
+          });
+        }
+        
+        // 2. Check approvedAssets.uploadedPhotos (filtered by source='scrape' and role!=='logo')
+        if (brand.approvedAssets?.uploadedPhotos) {
+          const scrapedImages = brand.approvedAssets.uploadedPhotos.filter((img: any) => {
+            const metadata = img.metadata || {};
+            const source = img.source || metadata.source || "";
+            const role = metadata.role || "";
+            // Include scraped images that are NOT logos
+            return source === "scrape" && role !== "logo" && role !== "Logo";
+          });
+          // Only add if not already in brandImages array
+          scrapedImages.forEach((img: any) => {
+            if (!brandImages.some(bi => bi.url === img.url)) {
+              brandImages.push(img);
+            }
+          });
+        }
+        
+        // Only render section if we have images
+        if (brandImages.length === 0) {
+          return null;
+        }
+        
+        return (
+          <div className="bg-white/50 backdrop-blur-xl rounded-xl border border-white/60 p-6">
+            <h3 className="text-lg font-black text-slate-900 mb-4">Brand Images</h3>
+            <p className="text-xs text-slate-600 mb-4">
+              {brandImages.length} image{brandImages.length !== 1 ? 's' : ''} scraped from your website
+            </p>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              {brandImages.slice(0, 12).map((img, idx) => (
+                <div
+                  key={img.id || idx}
+                  className="relative aspect-square bg-slate-100 rounded-lg overflow-hidden border border-slate-200 hover:border-indigo-400 transition-colors group"
+                >
+                  <img
+                    src={img.url}
+                    alt={img.filename || `Brand image ${idx + 1}`}
+                    className="w-full h-full object-cover"
+                    loading="lazy"
+                  />
+                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
+                </div>
+              ))}
+            </div>
+            {brandImages.length > 12 && (
+              <p className="text-xs text-slate-500 text-center mt-4">
+                Showing 12 of {brandImages.length} images
+              </p>
+            )}
+          </div>
+        );
+      })()}
 
       {/* BFS Baseline */}
       {brand.performanceInsights?.bfsBaseline && (
