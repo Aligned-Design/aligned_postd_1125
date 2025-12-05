@@ -4,7 +4,7 @@
  */
 
 import { Button } from "@/components/ui/button";
-import { useCan } from "@/lib/auth/useCan";
+import { useCan } from "@/lib/auth";
 
 interface ActionButtonsHeaderProps {
   onCreateContent?: () => void;

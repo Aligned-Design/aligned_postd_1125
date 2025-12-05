@@ -10,7 +10,7 @@ import { supabase } from "../lib/supabase";
 import { AppError } from "../lib/error-middleware";
 import { ErrorCode, HTTP_STATUS } from "../lib/error-responses";
 import { authenticateUser } from "../middleware/security";
-import { assertBrandAccess } from "../lib/brand-access";
+import { validateBrandId } from "../middleware/validate-brand-id";
 import { getScrapedImages } from "../lib/scraped-images-service";
 import { getCurrentBrandGuide, saveBrandGuide } from "../lib/brand-guide-service";
 import { createVersionHistory, getVersionHistory, getBrandGuideVersion } from "../lib/brand-guide-version-history";
@@ -24,25 +24,10 @@ const router = Router();
  * GET /api/brand-guide/:brandId
  * Get Brand Guide data for a brand
  */
-router.get("/:brandId", authenticateUser, async (req, res, next) => {
+router.get("/:brandId", authenticateUser, validateBrandId, async (req, res, next) => {
   try {
-    const { brandId } = req.params;
-
-    // Validate brandId is a UUID (not "default-brand" or other placeholder)
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    if (!uuidRegex.test(brandId)) {
-      throw new AppError(
-        ErrorCode.INVALID_FORMAT,
-        "Invalid brand ID format",
-        HTTP_STATUS.BAD_REQUEST,
-        "warning",
-        undefined,
-        "Brand ID must be a valid UUID"
-      );
-    }
-
-    // ✅ SECURITY: Verify user has access to this brand and workspace
-    await assertBrandAccess(req, brandId, true, true);
+    // ✅ Use validated brandId from middleware (handles params, query, body)
+    const brandId = (req as any).validatedBrandId ?? req.params.brandId;
 
     // Fetch brand from Supabase
     const { data: brand, error } = await supabase
@@ -254,13 +239,11 @@ router.get("/:brandId", authenticateUser, async (req, res, next) => {
  * PUT /api/brand-guide/:brandId
  * Update entire Brand Guide (full replace)
  */
-router.put("/:brandId", authenticateUser, async (req, res, next) => {
+router.put("/:brandId", authenticateUser, validateBrandId, async (req, res, next) => {
   try {
-    const { brandId } = req.params;
+    // ✅ Use validated brandId from middleware
+    const brandId = (req as any).validatedBrandId ?? req.params.brandId;
     const brandGuide = req.body;
-
-    // ✅ SECURITY: Verify user has access to this brand and workspace
-    await assertBrandAccess(req, brandId, true, true);
 
     if (!brandGuide) {
       throw new AppError(
@@ -442,13 +425,11 @@ router.put("/:brandId", authenticateUser, async (req, res, next) => {
  * PATCH /api/brand-guide/:brandId
  * Partial update of Brand Guide (update specific fields only)
  */
-router.patch("/:brandId", authenticateUser, async (req, res, next) => {
+router.patch("/:brandId", authenticateUser, validateBrandId, async (req, res, next) => {
   try {
-    const { brandId } = req.params;
+    // ✅ Use validated brandId from middleware
+    const brandId = (req as any).validatedBrandId ?? req.params.brandId;
     const updates = req.body;
-
-    // ✅ SECURITY: Verify user has access to this brand and workspace
-    await assertBrandAccess(req, brandId, true, true);
 
     if (!updates || Object.keys(updates).length === 0) {
       throw new AppError(
@@ -717,12 +698,10 @@ router.patch("/:brandId", authenticateUser, async (req, res, next) => {
  * GET /api/brand-guide/:brandId/versions
  * Get version history for a brand
  */
-router.get("/:brandId/versions", authenticateUser, async (req, res, next) => {
+router.get("/:brandId/versions", authenticateUser, validateBrandId, async (req, res, next) => {
   try {
-    const { brandId } = req.params;
-
-    // ✅ SECURITY: Verify user has access to this brand and workspace
-    await assertBrandAccess(req, brandId, true, true);
+    // ✅ Use validated brandId from middleware
+    const brandId = (req as any).validatedBrandId ?? req.params.brandId;
 
     const versions = await getVersionHistory(brandId);
 
@@ -739,9 +718,11 @@ router.get("/:brandId/versions", authenticateUser, async (req, res, next) => {
  * GET /api/brand-guide/:brandId/versions/:version
  * Get a specific version of Brand Guide
  */
-router.get("/:brandId/versions/:version", authenticateUser, async (req, res, next) => {
+router.get("/:brandId/versions/:version", authenticateUser, validateBrandId, async (req, res, next) => {
   try {
-    const { brandId, version } = req.params;
+    // ✅ Use validated brandId from middleware
+    const brandId = (req as any).validatedBrandId ?? req.params.brandId;
+    const { version } = req.params;
     const versionNumber = parseInt(version, 10);
 
     if (isNaN(versionNumber)) {
@@ -752,9 +733,6 @@ router.get("/:brandId/versions/:version", authenticateUser, async (req, res, nex
         "warning"
       );
     }
-
-    // ✅ SECURITY: Verify user has access to this brand and workspace
-    await assertBrandAccess(req, brandId, true, true);
 
     const versionData = await getBrandGuideVersion(brandId, versionNumber);
 
@@ -781,9 +759,11 @@ router.get("/:brandId/versions/:version", authenticateUser, async (req, res, nex
  * POST /api/brand-guide/:brandId/rollback/:version
  * Rollback Brand Guide to a specific version
  */
-router.post("/:brandId/rollback/:version", authenticateUser, async (req, res, next) => {
+router.post("/:brandId/rollback/:version", authenticateUser, validateBrandId, async (req, res, next) => {
   try {
-    const { brandId, version } = req.params;
+    // ✅ Use validated brandId from middleware
+    const brandId = (req as any).validatedBrandId ?? req.params.brandId;
+    const { version } = req.params;
     const versionNumber = parseInt(version, 10);
 
     if (isNaN(versionNumber)) {
@@ -794,9 +774,6 @@ router.post("/:brandId/rollback/:version", authenticateUser, async (req, res, ne
         "warning"
       );
     }
-
-    // ✅ SECURITY: Verify user has access to this brand and workspace
-    await assertBrandAccess(req, brandId, true, true);
 
     // Get the version to rollback to
     const versionData = await getBrandGuideVersion(brandId, versionNumber);

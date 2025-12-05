@@ -26,17 +26,17 @@ You can override default models via environment variables:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `OPENAI_MODEL_TEXT` | `gpt-4o-mini` | Default text generation model (brand copy, social posts) |
-| `OPENAI_MODEL_ADVANCED` | `gpt-4o` | High-performance model for complex reasoning (advisor tasks) |
-| `OPENAI_MODEL_CHEAP` | `gpt-4o-mini` | Cheaper/faster model for background jobs |
-| `OPENAI_MODEL_EMBEDDING` | `text-embedding-3-small` | Embedding model for semantic similarity |
+| `OPENAI_MODEL_TEXT` | `gpt-5-mini` | Default text generation model (brand copy, social posts) |
+| `OPENAI_MODEL_ADVANCED` | `gpt-5.1` | High-performance model for complex reasoning (advisor tasks) |
+| `OPENAI_MODEL_CHEAP` | `gpt-5-nano` | Cheaper/faster model for background jobs |
+| `OPENAI_MODEL_EMBEDDING` | `text-embedding-3-large` | Embedding model for semantic similarity |
 | `OPENAI_EMBEDDING_DIMENSIONS` | `512` | Number of dimensions for embeddings (lower = cheaper) |
 
 ## Model Usage by Workload
 
 ### Text Generation (Default)
 
-**Model**: `OPENAI_MODEL_TEXT` (default: `gpt-4o-mini`)
+**Model**: `OPENAI_MODEL_TEXT` (default: `gpt-5-mini`)
 
 **Used for**:
 - Brand copy generation
@@ -50,7 +50,7 @@ You can override default models via environment variables:
 
 ### Advanced Reasoning
 
-**Model**: `OPENAI_MODEL_ADVANCED` (default: `gpt-4o`)
+**Model**: `OPENAI_MODEL_ADVANCED` (default: `gpt-5.1`)
 
 **Used for**:
 - Advisor/analysis tasks
@@ -64,7 +64,7 @@ You can override default models via environment variables:
 
 ### Background Jobs
 
-**Model**: `OPENAI_MODEL_CHEAP` (default: `gpt-4o-mini`)
+**Model**: `OPENAI_MODEL_CHEAP` (default: `gpt-5-nano`)
 
 **Used for**:
 - Non-critical background processing
@@ -77,7 +77,7 @@ You can override default models via environment variables:
 
 ### Embeddings
 
-**Model**: `OPENAI_MODEL_EMBEDDING` (default: `text-embedding-3-small`)
+**Model**: `OPENAI_MODEL_EMBEDDING` (default: `text-embedding-3-large`)
 
 **Used for**:
 - Semantic similarity calculations
@@ -97,13 +97,13 @@ You can change models at runtime by setting environment variables. No code chang
 **Example**: Use a different model for text generation:
 
 ```bash
-export OPENAI_MODEL_TEXT="gpt-4-turbo"
+export OPENAI_MODEL_TEXT="gpt-5-pro"
 ```
 
-**Example**: Use a cheaper embedding model:
+**Example**: Use a different embedding model:
 
 ```bash
-export OPENAI_MODEL_EMBEDDING="text-embedding-3-small"
+export OPENAI_MODEL_EMBEDDING="text-embedding-3-large"
 export OPENAI_EMBEDDING_DIMENSIONS="256"  # Lower dimensions = cheaper
 ```
 
@@ -189,16 +189,19 @@ All OpenAI calls use consistent error handling:
 ### Model not found errors
 
 **Solution**: Check that the model name in your env var is valid. Common models:
-- `gpt-4o-mini` ✅
-- `gpt-4o` ✅
-- `gpt-4-turbo` ✅
-- `text-embedding-3-small` ✅
+- `gpt-5-mini` ✅
+- `gpt-5.1` ✅
+- `gpt-5-nano` ✅
+- `gpt-5-pro` ✅
+- `text-embedding-3-large` ✅
+- `text-embedding-3-small` ✅ (alternative)
 - `text-embedding-ada-002` ⚠️ (legacy, consider migrating)
 
 ### High costs
 
 **Solution**: 
-- Use `gpt-4o-mini` instead of `gpt-4o` for most tasks
+- Use `gpt-5-mini` instead of `gpt-5.1` for most tasks
+- Use `gpt-5-nano` for background jobs
 - Reduce embedding dimensions
 - Use `OPENAI_MODEL_CHEAP` for background jobs
 

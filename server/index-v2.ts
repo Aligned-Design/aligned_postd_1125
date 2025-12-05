@@ -1,34 +1,42 @@
 import "dotenv/config";
 import express from "express";
 import cors from "cors";
+import { logger } from "./lib/logger";
 
 // ✅ CRITICAL: Validate Supabase environment variables on startup
+// NOTE: Server code should use SUPABASE_URL (not VITE_SUPABASE_URL)
+// VITE_* prefix is for client-side code only. Fallback to VITE_SUPABASE_URL
+// is kept for backward compatibility but should be removed in future versions.
 const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 if (!supabaseUrl) {
-  console.error("❌ CRITICAL: SUPABASE_URL or VITE_SUPABASE_URL is not set!");
-  console.error("   Auth and database operations will fail.");
-  console.error("   Set SUPABASE_URL or VITE_SUPABASE_URL in your environment variables.");
+  logger.error("SUPABASE_URL (or VITE_SUPABASE_URL fallback) is not set. Auth and database operations will fail.", undefined, {
+    error: "SUPABASE_URL_MISSING",
+  });
+  throw new Error("SUPABASE_URL is required");
 }
 
 if (!supabaseServiceKey) {
-  console.error("❌ CRITICAL: SUPABASE_SERVICE_ROLE_KEY is not set!");
-  console.error("   Auth and database operations will fail.");
-  console.error("   Set SUPABASE_SERVICE_ROLE_KEY in your environment variables.");
+  logger.error("SUPABASE_SERVICE_ROLE_KEY is not set. Auth and database operations will fail.", undefined, {
+    error: "SUPABASE_SERVICE_ROLE_KEY_MISSING",
+  });
+  throw new Error("SUPABASE_SERVICE_ROLE_KEY is required");
 }
 
 if (supabaseUrl && supabaseServiceKey) {
-  console.log("✅ Supabase credentials configured", {
+  logger.info("Supabase credentials configured", {
     url: supabaseUrl,
     hasServiceKey: true,
     keyLength: supabaseServiceKey.length,
   });
 } else {
-  console.error("❌ CRITICAL: Supabase credentials incomplete - server will fail!");
-  console.error("   Missing:", {
-    url: !supabaseUrl,
-    serviceKey: !supabaseServiceKey,
+  logger.error("Supabase credentials incomplete - server will fail", undefined, {
+    error: "SUPABASE_CREDENTIALS_INCOMPLETE",
+    missing: {
+      url: !supabaseUrl,
+      serviceKey: !supabaseServiceKey,
+    },
   });
   throw new Error("Supabase environment variables are required");
 }
@@ -38,7 +46,7 @@ import { supabase } from "./lib/supabase";
 
 async function verifySupabaseConnection() {
   try {
-    console.log("[Server] 🔍 Verifying Supabase connection...");
+    logger.info("Verifying Supabase connection");
     
     // Test query to verify connection
     const { data, error } = await supabase
@@ -47,8 +55,8 @@ async function verifySupabaseConnection() {
       .limit(1);
     
     if (error) {
-      console.error("[Server] ❌ Supabase connection test FAILED:", {
-        message: error.message,
+      logger.error("Supabase connection test failed", new Error(error.message), {
+        error: "SUPABASE_CONNECTION_FAILED",
         code: error.code,
         details: error.details,
         hint: error.hint,
@@ -56,13 +64,13 @@ async function verifySupabaseConnection() {
       throw new Error(`Supabase connection failed: ${error.message}`);
     }
     
-    console.log("[Server] ✅ Supabase connection verified", {
+    logger.info("Supabase connection verified", {
       url: supabaseUrl,
       testQuery: "success",
       rowCount: data?.length || 0,
     });
   } catch (err) {
-    console.error("[Server] ❌ CRITICAL: Supabase verification failed", err);
+    logger.error("CRITICAL: Supabase verification failed", err instanceof Error ? err : new Error(String(err)));
     throw err;
   }
 }
@@ -70,7 +78,9 @@ async function verifySupabaseConnection() {
 // Run verification (but don't block server startup in production)
 if (process.env.NODE_ENV !== "production") {
   verifySupabaseConnection().catch((err) => {
-    console.error("[Server] ⚠️  Supabase verification error (continuing anyway):", err);
+    logger.warn("Supabase verification error (continuing anyway)", {
+      error: err instanceof Error ? err.message : String(err),
+    });
   });
 }
 
@@ -88,6 +98,7 @@ import authDiagnosticsRouter from "./routes/auth-diagnostics";
 import milestonesRouter from "./routes/milestones";
 import agentsRouter from "./routes/agents";
 import analyticsRouter from "./routes/analytics-v2";
+import contentItemsRouter from "./routes/content-items";
 import approvalsRouter from "./routes/approvals-v2";
 import mediaRouter from "./routes/media-v2";
 import brandsRouter from "./routes/brands";
@@ -99,7 +110,18 @@ import { getAdvisorInsights } from "./routes/advisor";
 import { generateDocContent } from "./routes/doc-agent";
 import { generateDesignContent } from "./routes/design-agent";
 import { getDashboardData } from "./routes/dashboard";
+import { validateBrandId } from "./middleware/validate-brand-id";
 import debugHealthRouter from "./routes/debug-health";
+import reviewsRouter from "./routes/reviews";
+import {
+  handleZapierWebhook,
+  handleMakeWebhook,
+  handleSlackWebhook,
+  handleHubSpotWebhook,
+  getWebhookStatus,
+  getWebhookLogs,
+  retryWebhookEvent,
+} from "./routes/webhooks";
 
 export function createServer() {
   const app = express();
@@ -151,14 +173,25 @@ export function createServer() {
     res.json({ message: process.env.PING_MESSAGE || "pong" });
   });
 
+  // =============================================================================
+  // Webhook Routes (No authentication - uses signature verification)
+  // =============================================================================
+  app.post("/api/webhooks/zapier", handleZapierWebhook);
+  app.post("/api/webhooks/make", handleMakeWebhook);
+  app.post("/api/webhooks/slack", handleSlackWebhook);
+  app.post("/api/webhooks/hubspot", handleHubSpotWebhook);
+  app.get("/api/webhooks/status/:eventId", getWebhookStatus);
+  app.get("/api/webhooks/logs", getWebhookLogs);
+  app.post("/api/webhooks/retry/:eventId", retryWebhookEvent);
+
   // ✅ CRITICAL: All routes require authentication
   // AI Agent routes (Sprint 1)
   app.post("/api/ai/advisor", authenticateUser, getAdvisorInsights);
-  app.post("/api/ai/doc", authenticateUser, generateDocContent);
-  app.post("/api/ai/design", authenticateUser, generateDesignContent);
+  app.post("/api/ai/doc", authenticateUser, validateBrandId, generateDocContent); // Validates brandId from request body
+  app.post("/api/ai/design", authenticateUser, validateBrandId, generateDesignContent); // Validates brandId from request body
   
   // Dashboard route (Sprint 1)
-  app.post("/api/dashboard", authenticateUser, getDashboardData);
+  app.post("/api/dashboard", authenticateUser, validateBrandId, getDashboardData); // Validates brandId from request body
 
   // =============================================================================
   // Mount Routers
@@ -178,6 +211,7 @@ export function createServer() {
   app.use("/api/analytics", analyticsRouter);
   app.use("/api/approvals", approvalsRouter);
   app.use("/api/media", mediaRouter);
+  app.use("/api/reviews", reviewsRouter);
   
   // ✅ CRITICAL: Brand and onboarding routes (required for onboarding flow)
   app.use("/api/brands", brandsRouter);
@@ -185,6 +219,7 @@ export function createServer() {
   app.use("/api/brand-guide", brandGuideRouter);
   app.use("/api/onboarding", onboardingRouter);
   app.use("/api/content-plan", contentPlanRouter);
+  app.use("/api/content-items", contentItemsRouter);
   
   // ✅ DEBUG: Health check endpoint (comprehensive system verification)
   app.use("/api/debug", debugHealthRouter);
@@ -219,20 +254,22 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const port = process.env.PORT || 3000;
 
   app.listen(port, () => {
-    console.log(`🚀 Fusion Server v2 running on port ${port}`);
-    console.log(`📱 Frontend: http://localhost:${port}`);
-    console.log(`🔧 API: http://localhost:${port}/api`);
-    console.log(`📊 Health: http://localhost:${port}/health`);
+    logger.info("Fusion Server v2 started", {
+      port,
+      frontend: `http://localhost:${port}`,
+      api: `http://localhost:${port}/api`,
+      health: `http://localhost:${port}/health`,
+    });
   });
 
   // Graceful shutdown
   process.on("SIGTERM", () => {
-    console.log("🛑 Received SIGTERM, shutting down gracefully");
+    logger.info("Received SIGTERM, shutting down gracefully");
     process.exit(0);
   });
 
   process.on("SIGINT", () => {
-    console.log("🛑 Received SIGINT, shutting down gracefully");
+    logger.info("Received SIGINT, shutting down gracefully");
     process.exit(0);
   });
 }

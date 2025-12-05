@@ -1,3 +1,19 @@
+/**
+ * DEBUG/UTILITY ENDPOINT - NOT USED IN CLIENT PRODUCTION FLOWS
+ * 
+ * This endpoint is for internal testing and debugging only.
+ * It does NOT require brand context and is NOT part of the main AI agent pipeline.
+ * 
+ * For production AI content generation, use:
+ * - POST /api/ai/doc - Doc Agent (requires brand guide)
+ * - POST /api/ai/design - Design Agent (requires brand guide)
+ * - POST /api/ai/advisor - Advisor Agent (requires brand guide)
+ * 
+ * @see server/routes/doc-agent.ts - Production doc agent
+ * @see server/routes/design-agent.ts - Production design agent
+ * @see server/routes/advisor.ts - Production advisor agent
+ */
+
 import { RequestHandler } from "express";
 import { generateWithAI, getAvailableProviders, getDefaultProvider, validateAIProviders } from "../workers/ai-generation";
 import { AIGenerationRequest, AIGenerationResponse, AIProviderStatus } from "@shared/api";

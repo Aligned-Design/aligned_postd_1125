@@ -154,10 +154,15 @@ describe("OAuth CSRF Security", () => {
 
       validateOAuthState(req, res, () => {});
 
-      expect(req.validatedState).toBeDefined();
-      expect(req.validatedState.fullState).toBe(state);
-      expect(req.validatedState.rawToken).toBe(state);
-      expect(req.validatedState.parts).toEqual([state]);
+      const validatedState = (req as any).validatedState as {
+        fullState: string;
+        rawToken: string;
+        parts: string[];
+      };
+      expect(validatedState).toBeDefined();
+      expect(validatedState.fullState).toBe(state);
+      expect(validatedState.rawToken).toBe(state);
+      expect(validatedState.parts).toEqual([state]);
     });
 
     it("should not include branded information in state token", () => {
@@ -169,9 +174,14 @@ describe("OAuth CSRF Security", () => {
       validateOAuthState(req, res, () => {});
 
       // State should be just the token, not "token:brandId"
-      expect(req.validatedState.fullState).toBe(state);
-      expect(req.validatedState.parts.length).toBe(1);
-      expect(req.validatedState.parts[0]).toBe(state);
+      const validatedState = (req as any).validatedState as {
+        fullState: string;
+        rawToken: string;
+        parts: string[];
+      };
+      expect(validatedState.fullState).toBe(state);
+      expect(validatedState.parts.length).toBe(1);
+      expect(validatedState.parts[0]).toBe(state);
     });
   });
 

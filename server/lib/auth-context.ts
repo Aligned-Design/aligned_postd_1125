@@ -72,9 +72,16 @@ function extractBrandId(
   additionalBrandId?: string
 ): string | undefined {
   // Priority: explicit param > query > header > additional
+  // Safe type assertions: Express Request params/query are Record<string, string | undefined>
+  const params = req.params as Record<string, string | undefined>;
+  const query = req.query as Record<string, string | string[] | undefined>;
+  
+  const brandIdFromParams = typeof params.brandId === 'string' ? params.brandId : undefined;
+  const brandIdFromQuery = typeof query.brandId === 'string' ? query.brandId : undefined;
+  
   return (
-    ((req as any).params.brandId as string | undefined) ||
-    ((req as any).query.brandId as string | undefined) ||
+    brandIdFromParams ||
+    brandIdFromQuery ||
     (req.get("X-Brand-ID") as string | undefined) ||
     additionalBrandId
   );

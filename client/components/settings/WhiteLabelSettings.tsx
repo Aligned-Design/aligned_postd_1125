@@ -3,7 +3,7 @@
  * Admin-only feature for customizing branding
  */
 
-import { useCan } from "@/lib/auth/useCan";
+import { useCan } from "@/lib/auth";
 
 interface WhiteLabelSettingsProps {
   className?: string;

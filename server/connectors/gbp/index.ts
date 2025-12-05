@@ -1,8 +1,18 @@
 /**
  * Google Business Profile (GBP) Connector
- * Implements OAuth, post management, and insights
- *
- * Features:
+ * 
+ * ⚠️ NOT YET IMPLEMENTED - This is a scaffold only
+ * 
+ * All methods in this connector throw "Future work" errors.
+ * This connector is not available in production and will throw errors if accessed.
+ * 
+ * To implement:
+ * - See CONNECTOR_SPECS_GBP.md for implementation requirements
+ * - Implement OAuth flow (Google OAuth 2.0)
+ * - Implement post management (events, offers, products)
+ * - Implement insights polling (24-48 hour delay)
+ * 
+ * Features (planned):
  * - Multi-location support (business with multiple locations)
  * - Event posts, offer posts, product posts
  * - No native scheduling (workaround: scheduled queue jobs)

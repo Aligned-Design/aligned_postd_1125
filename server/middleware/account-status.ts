@@ -13,7 +13,7 @@ import {
 
 export interface AccountUser {
   id: string;
-  plan_status: "active" | "trial" | "past_due" | "archived" | "deleted";
+  plan_status?: "active" | "trial" | "past_due" | "archived" | "deleted";
   past_due_since?: string | null;
 }
 
@@ -32,9 +32,11 @@ export async function checkCanPublish(
       return next(new AppError(ErrorCode.UNAUTHORIZED, "Unauthorized", HTTP_STATUS.UNAUTHORIZED, "warning"));
     }
 
+    // Default to "active" if plan_status is not set
+    const planStatus = user.plan_status || "active";
     const daysPastDue = calculateDaysPastDue(user.past_due_since);
     const canPublish = canPerformAction(
-      user.plan_status,
+      planStatus,
       "canPublish",
       daysPastDue,
     );
@@ -45,7 +47,7 @@ export async function checkCanPublish(
         code: "PUBLISHING_DISABLED",
         message:
           "Your account publishing has been paused due to payment issues. Please update your billing information to continue.",
-        accountStatus: user.plan_status,
+        accountStatus: planStatus,
         daysPastDue,
         action: "Update payment at /billing",
       });
@@ -72,9 +74,11 @@ export async function checkCanApprove(
       return next(new AppError(ErrorCode.UNAUTHORIZED, "Unauthorized", HTTP_STATUS.UNAUTHORIZED, "warning"));
     }
 
+    // Default to "active" if plan_status is not set
+    const planStatus = user.plan_status || "active";
     const daysPastDue = calculateDaysPastDue(user.past_due_since);
     const canApprove = canPerformAction(
-      user.plan_status,
+      planStatus,
       "canApprove",
       daysPastDue,
     );
@@ -85,7 +89,7 @@ export async function checkCanApprove(
         code: "APPROVALS_DISABLED",
         message:
           "Approval workflows have been paused. Update your payment method to restore access.",
-        accountStatus: user.plan_status,
+        accountStatus: planStatus,
         daysPastDue,
       });
     }
@@ -111,8 +115,10 @@ export async function checkCanGenerateContent(
       return next(new AppError(ErrorCode.UNAUTHORIZED, "Unauthorized", HTTP_STATUS.UNAUTHORIZED, "warning"));
     }
 
+    // Default to "active" if plan_status is not set
+    const planStatus = user.plan_status || "active";
     const daysPastDue = calculateDaysPastDue(user.past_due_since);
-    const permissions = getAccountPermissions(user.plan_status, daysPastDue);
+    const permissions = getAccountPermissions(planStatus, daysPastDue);
 
     if (!permissions.canGenerateContent) {
       return res.status(403).json({
@@ -120,7 +126,7 @@ export async function checkCanGenerateContent(
         code: "CONTENT_GENERATION_DISABLED",
         message:
           "AI content generation is not available for archived accounts.",
-        accountStatus: user.plan_status,
+        accountStatus: planStatus,
       });
     }
 
@@ -165,9 +171,11 @@ export async function checkCanManageBrands(
       return next(new AppError(ErrorCode.UNAUTHORIZED, "Unauthorized", HTTP_STATUS.UNAUTHORIZED, "warning"));
     }
 
+    // Default to "active" if plan_status is not set
+    const planStatus = user.plan_status || "active";
     const daysPastDue = calculateDaysPastDue(user.past_due_since);
     const canManageBrands = canPerformAction(
-      user.plan_status,
+      planStatus,
       "canManageBrands",
       daysPastDue,
     );
@@ -178,7 +186,7 @@ export async function checkCanManageBrands(
         code: "BRAND_MANAGEMENT_DISABLED",
         message:
           "You cannot add or modify brands while your account has payment issues. Please update your billing information.",
-        accountStatus: user.plan_status,
+        accountStatus: planStatus,
       });
     }
 
@@ -200,12 +208,14 @@ export async function attachAccountStatus(
     const user = req.user as AccountUser | undefined;
 
     if (user) {
+      // Default to "active" if plan_status is not set
+      const planStatus = user.plan_status || "active";
       const daysPastDue = calculateDaysPastDue(user.past_due_since);
-      const permissions = getAccountPermissions(user.plan_status, daysPastDue);
+      const permissions = getAccountPermissions(planStatus, daysPastDue);
 
       // Attach to request for downstream use
       (req as any).accountStatus = {
-        planStatus: user.plan_status,
+        planStatus: planStatus,
         daysPastDue,
         permissions,
       };

@@ -8,6 +8,7 @@ import { z } from "zod";
 import { Review, ReviewListResponse, ReviewSentiment } from "@shared/reviews";
 import { AppError } from "../lib/error-middleware";
 import { ErrorCode, HTTP_STATUS } from "../lib/error-responses";
+import { authenticateUser } from "../middleware/security";
 import { requireScope } from "../middleware/requireScope";
 import { assertBrandAccess } from "../lib/brand-access";
 
@@ -34,10 +35,14 @@ function detectSentiment(rating: number, textLength: number): ReviewSentiment {
 /**
  * GET /api/reviews/:brandId
  * Get all reviews for a brand
- * RBAC: Requires 'content:view' scope
+ * 
+ * **Auth:** Required (authenticateUser)
+ * **Scope:** content:view
+ * **Params:** brandId (UUID)
  */
 reviewsRouter.get(
   "/:brandId",
+  authenticateUser,
   requireScope("content:view"),
   (async (req, res, next) => {
     try {
@@ -60,29 +65,8 @@ reviewsRouter.get(
         throw validationError;
       }
 
-      const authReq = req as any;
-      const user = authReq.user || authReq.auth;
-      const userScopes = user?.scopes || [];
-
-      // Check for content:view scope
-      if (!userScopes.includes("content:view")) {
-        console.warn("[Reviews] Missing scope:", {
-          brandId,
-          userId: user?.id || user?.userId,
-          userScopes,
-          requiredScope: "content:view",
-        });
-        throw new AppError(
-          ErrorCode.FORBIDDEN,
-          "Missing required scope: content:view",
-          HTTP_STATUS.FORBIDDEN,
-          "warning",
-          { brandId, userScopes, requiredScope: "content:view" },
-          "You don't have permission to view content. Please contact your administrator."
-        );
-      }
-
       // ✅ SECURITY: Verify user has access to this brand using database-backed check
+      // Note: requireScope middleware already checks for content:view scope
       await assertBrandAccess(req, brandId, true, true);
 
       // Future work: Replace with actual database query to content_items or reviews table

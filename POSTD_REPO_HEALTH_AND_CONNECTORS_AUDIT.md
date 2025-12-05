@@ -9,27 +9,29 @@
 
 ## Executive Summary
 
-### Overall Health Score: **7.5/10** (Good, with significant cleanup needed)
+### Overall Health Score: **6.5/10** (Functional but needs significant cleanup)
 
 **Key Strengths:**
 - ✅ CI workflows are functional and properly configured
-- ✅ Core connectors (Meta, LinkedIn, TikTok, Twitter) are implemented
+- ✅ Core connectors (Meta, LinkedIn, TikTok, Twitter) are implemented and working
 - ✅ Comprehensive environment variable validation exists
 - ✅ Well-structured database migrations
 - ✅ Strong documentation foundation (Command Center, API contracts)
+- ✅ Modern routing structure (`client/app/(postd)/`) is clean and organized
 
 **Key Risks:**
-- 🔴 **34+ orphaned page components** (6,000+ lines of dead code)
 - 🔴 **Missing `.env.example` file** (critical for onboarding)
-- 🟠 **Incomplete connectors** (GBP, Mailchimp scaffolded but not implemented)
-- 🟠 **Legacy server entry point** (`index.ts` vs `index-v2.ts` - unclear which is primary)
-- 🟠 **Old branding references** ("Aligned", "aligned-20ai") still present in code
-- 🟡 **Documentation bloat** (100+ docs, many outdated/duplicate)
+- 🔴 **97 instances of `VITE_*` env vars in server code** (violates convention, works but wrong)
+- 🔴 **Legacy pages directory** (`client/pages/`) contains 34+ orphaned files (~6,000+ lines of dead code)
+- 🟠 **Incomplete connector scaffolds** (GBP, Mailchimp throw errors but not clearly marked)
+- 🟠 **Legacy server entry point** (`index.ts` vs `index-v2.ts` - both exist, unclear which is primary)
+- 🟠 **Documentation bloat** (200+ docs, many outdated/duplicate)
+- 🟡 **Old branding references** ("Aligned", "aligned-20ai") still present in code
 
-**Critical Issues Count**: 5  
-**High Priority Issues**: 8  
-**Medium Priority Issues**: 12  
-**Low Priority Issues**: 15
+**Critical Issues Count**: 6  
+**High Priority Issues**: 9  
+**Medium Priority Issues**: 15  
+**Low Priority Issues**: 18
 
 ---
 
@@ -38,43 +40,39 @@
 ### 1.1 CI Workflow Analysis
 
 #### Workflow Files
-- `.github/workflows/ci.yml` - Main CI pipeline
-- `.github/workflows/customer-facing-validation.yml` - Customer experience validation
+- `.github/workflows/ci.yml` - Main CI pipeline ✅
+- `.github/workflows/customer-facing-validation.yml` - Customer experience validation ✅
 
 #### Main CI Workflow (`ci.yml`)
 
 **Status**: ✅ **HEALTHY**
 
 **Configuration:**
-- **Triggers**: Push/PR to `main`, `develop`, `integration-v2`
-- **Node Version**: 24 ✅ (matches package.json)
+- **Triggers**: Push/PR to `main`, `develop`, `integration-v2` ✅
+- **Node Version**: 24 ✅ (matches package.json `>=24.0.0`)
 - **Package Manager**: pnpm 10.20.0 ✅
 - **Jobs**:
-  1. `lint` - ESLint (blocking)
-  2. `typecheck` - TypeScript (blocking)
-  3. `test` - Unit tests (non-blocking, `continue-on-error: true`)
-  4. `e2e` - Playwright E2E (non-blocking, `continue-on-error: true`)
-  5. `build` - Production build (blocking)
-  6. `status` - Final status check (fails if lint/typecheck/build fail)
+  1. `lint` - ESLint (blocking) ✅
+  2. `typecheck` - TypeScript (blocking) ✅
+  3. `test` - Unit tests (blocking) ✅
+  4. `e2e` - Playwright E2E (non-blocking, `continue-on-error: true`) ⚠️
+  5. `build` - Production build (blocking) ✅
+  6. `status` - Final status check (fails if lint/typecheck/build fail) ✅
 
-**Assessment**: Well-configured with appropriate blocking vs non-blocking jobs.
+**Assessment**: Well-configured with appropriate blocking vs non-blocking jobs. E2E tests are intentionally non-blocking (may be flaky).
 
 #### Customer-Facing Validation Workflow
 
-**Status**: ⚠️ **NEEDS FIXES** (Fixed in previous audit, verify current state)
+**Status**: ✅ **HEALTHY**
 
-**Previous Issues (from REPO_HEALTH_AUDIT.md):**
-- Node version mismatch (22 vs 24) - **FIXED** ✅
-- Missing `integration-v2` trigger - **FIXED** ✅
-- References non-existent `pulse-nest` branch - **FIXED** ✅
-- Inconsistent pnpm setup - **FIXED** ✅
-
-**Current Configuration:**
+**Configuration:**
 - Node: 24 ✅
 - Triggers: `main`, `integration-v2` ✅
 - Scripts: All present ✅
+- Uses `continue-on-error: true` for some steps (intentional for non-blocking validation)
 
-**Verification Needed**: Confirm fixes are in current codebase.
+**Issues Found:**
+- None - workflow is properly configured
 
 ### 1.2 Scripts & Tooling
 
@@ -86,9 +84,9 @@
 - ✅ `dev` - Development server (concurrently)
 - ✅ `build` - Production build (client + server + vercel-server)
 - ✅ `test` / `test:ci` - Vitest unit tests
-- ✅ `e2e` - Playwright E2E tests (added in previous audit)
+- ✅ `e2e` - Playwright E2E tests
 - ✅ `typecheck` - TypeScript validation
-- ✅ `lint` / `lint:fix` - ESLint (max-warnings: 500)
+- ✅ `lint` / `lint:fix` - ESLint (max-warnings: 500) ⚠️
 - ✅ `format` / `format.fix` - Prettier
 - ✅ `validate:env` - Environment validation
 - ✅ `verify:supabase` - Supabase connection check
@@ -98,7 +96,7 @@
 **Issues Found:**
 
 1. **ESLint Max Warnings: 500** ⚠️
-   - **Location**: `package.json` line 34
+   - **Location**: `package.json` line 35
    - **Issue**: Very high threshold may hide real issues
    - **Recommendation**: Gradually reduce to 100, then 50, then 0
    - **Priority**: 🟡 Medium
@@ -109,11 +107,11 @@
    - **Recommendation**: Enable incrementally post-launch
    - **Priority**: 🟡 Medium
 
-3. **Test Scripts Non-Blocking in CI** ⚠️
-   - **Location**: `.github/workflows/ci.yml` lines 58, 79
+3. **E2E Tests Non-Blocking in CI** ⚠️
+   - **Location**: `.github/workflows/ci.yml` line 79
    - **Issue**: Tests can fail silently (`continue-on-error: true`)
-   - **Recommendation**: Make tests blocking for critical paths
-   - **Priority**: 🟠 High
+   - **Recommendation**: Make critical E2E tests blocking, keep flaky ones non-blocking
+   - **Priority**: 🟡 Medium
 
 ### 1.3 Quality Gate Summary
 
@@ -125,15 +123,15 @@
 - ✅ Pre-deployment validation script
 
 **Issues:**
-- ⚠️ Tests are non-blocking in CI (may hide failures)
 - ⚠️ ESLint max-warnings too high (500)
 - ⚠️ TypeScript strict mode disabled (intentional, but should be enabled post-launch)
+- ⚠️ E2E tests are non-blocking (may hide failures)
 
 **Recommendations:**
-1. Make unit tests blocking in CI (remove `continue-on-error` for critical tests)
-2. Reduce ESLint max-warnings gradually (500 → 100 → 50 → 0)
-3. Plan TypeScript strict mode enablement post-launch
-4. Add test coverage reporting to CI
+1. Gradually reduce ESLint max-warnings (500 → 100 → 50 → 0)
+2. Plan TypeScript strict mode enablement post-launch
+3. Add test coverage reporting to CI
+4. Consider making critical E2E tests blocking
 
 ---
 
@@ -147,25 +145,25 @@
    - **Status**: Production-ready
    - **File**: `server/connectors/meta/implementation.ts`
    - **Features**: OAuth, publishing, analytics, webhooks
-   - **Env Vars**: `META_CLIENT_ID`, `META_CLIENT_SECRET`, `FACEBOOK_CLIENT_ID`, `FACEBOOK_CLIENT_SECRET`, `INSTAGRAM_CLIENT_ID`, `INSTAGRAM_CLIENT_SECRET`
+   - **Env Vars**: `META_APP_ID`, `META_APP_SECRET`, `META_REDIRECT_URI`
 
 2. **LinkedIn** ✅
    - **Status**: Production-ready
    - **File**: `server/connectors/linkedin/implementation.ts`
    - **Features**: OAuth, publishing, analytics
-   - **Env Vars**: `LINKEDIN_CLIENT_ID`, `LINKEDIN_CLIENT_SECRET`, `LINKEDIN_ORGANIZATION_ID`, `LINKEDIN_ACCESS_TOKEN`
+   - **Env Vars**: `LINKEDIN_CLIENT_ID`, `LINKEDIN_CLIENT_SECRET`, `LINKEDIN_REDIRECT_URI`
 
 3. **TikTok** ✅
    - **Status**: Production-ready
    - **File**: `server/connectors/tiktok/index.ts`
    - **Features**: OAuth, chunked upload, status polling
-   - **Env Vars**: `TIKTOK_CLIENT_KEY`, `TIKTOK_CLIENT_SECRET`, `TIKTOK_REDIRECT_URI`, `TIKTOK_BUSINESS_ACCOUNT_ID`, `TIKTOK_ACCESS_TOKEN`
+   - **Env Vars**: `TIKTOK_CLIENT_KEY`, `TIKTOK_CLIENT_SECRET`, `TIKTOK_REDIRECT_URI`
 
 4. **Twitter/X** ✅
    - **Status**: Production-ready
    - **File**: `server/connectors/twitter/implementation.ts`
    - **Features**: OAuth, publishing
-   - **Env Vars**: `TWITTER_CLIENT_ID`, `TWITTER_CLIENT_SECRET`, `TWITTER_API_KEY`, `TWITTER_API_SECRET`, `TWITTER_BEARER_TOKEN`, `TWITTER_ACCOUNT_ID`
+   - **Env Vars**: `X_CLIENT_ID`, `X_CLIENT_SECRET`, `X_REDIRECT_URI`
 
 5. **Canva** ✅
    - **Status**: Implemented
@@ -179,12 +177,13 @@
    - **File**: `server/connectors/gbp/index.ts`
    - **Issues**: All methods throw `Error('Future work: Implement GBP ...')`
    - **Env Vars**: `GOOGLE_BUSINESS_ACCOUNT_ID`, `GOOGLE_API_KEY`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`
+   - **Manager**: Throws `Error('GBP connector not yet implemented. See server/connectors/gbp/index.ts for scaffold.')`
    - **Priority**: 🟠 High (scaffold should be removed or clearly marked as TODO)
 
 7. **Mailchimp** ❌
    - **Status**: Scaffold only - throws error in manager
    - **File**: `server/connectors/mailchimp/index.ts` (exists but not imported)
-   - **Issues**: Manager throws `Error('Mailchimp connector not yet implemented')`
+   - **Issues**: Manager throws `Error('Mailchimp connector not yet implemented. See server/connectors/mailchimp/index.ts for scaffold.')`
    - **Env Vars**: Not documented
    - **Priority**: 🟠 High (scaffold should be removed or clearly marked as TODO)
 
@@ -194,6 +193,7 @@
 - ✅ `VITE_SUPABASE_URL` - Documented, validated
 - ✅ `VITE_SUPABASE_ANON_KEY` - Documented, validated
 - ✅ `SUPABASE_SERVICE_ROLE_KEY` - Documented, validated
+- ⚠️ `SUPABASE_URL` - Used as fallback, not consistently documented
 
 #### AI Providers (Optional)
 - ✅ `OPENAI_API_KEY` - Documented, validated
@@ -201,37 +201,48 @@
 - ✅ `AI_PROVIDER` - Documented (auto/openai/anthropic)
 
 #### Connector OAuth Credentials (Optional)
-- ✅ Meta: `META_CLIENT_ID`, `META_CLIENT_SECRET`, `FACEBOOK_CLIENT_ID`, `FACEBOOK_CLIENT_SECRET`, `INSTAGRAM_CLIENT_ID`, `INSTAGRAM_CLIENT_SECRET`
-- ✅ LinkedIn: `LINKEDIN_CLIENT_ID`, `LINKEDIN_CLIENT_SECRET`
+- ✅ Meta: `META_APP_ID`, `META_APP_SECRET`, `META_REDIRECT_URI`
+- ✅ LinkedIn: `LINKEDIN_CLIENT_ID`, `LINKEDIN_CLIENT_SECRET`, `LINKEDIN_REDIRECT_URI`
 - ✅ TikTok: `TIKTOK_CLIENT_KEY`, `TIKTOK_CLIENT_SECRET`, `TIKTOK_REDIRECT_URI`
-- ✅ Twitter: `TWITTER_CLIENT_ID`, `TWITTER_CLIENT_SECRET`
-- ✅ Google: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`
-- ⚠️ Mailchimp: **NOT DOCUMENTED** (connector not implemented)
+- ✅ Twitter: `X_CLIENT_ID`, `X_CLIENT_SECRET`, `X_REDIRECT_URI`
+- ⚠️ Google: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` (connector not implemented)
+- ❌ Mailchimp: **NOT DOCUMENTED** (connector not implemented)
 
-#### Issues Found
+#### Critical Issues Found
 
 1. **Missing `.env.example` File** 🔴
    - **Location**: Root directory
    - **Issue**: No template file for new developers
    - **Impact**: Onboarding friction, unclear required variables
    - **Priority**: 🔴 Critical
-   - **Fix**: Create `.env.example` with all documented variables
+   - **Fix**: Create `.env.example` with all documented variables from `server/utils/validate-env.ts`
 
-2. **Inconsistent Env Var Naming** 🟠
+2. **97 Instances of `VITE_*` Env Vars in Server Code** 🔴
+   - **Location**: Multiple files in `server/` directory
+   - **Issue**: Server code uses `VITE_*` prefix (intended for client-side only)
+   - **Impact**: Violates convention, confusing, but works due to fallback logic
+   - **Files Affected**:
+     - `server/connectors/manager.ts` (multiple instances)
+     - `server/index-v2.ts`
+     - `server/lib/supabase.ts`
+     - `server/utils/validate-env.ts`
+     - `server/routes/auth.ts`
+     - `server/scripts/*.ts` (multiple files)
+   - **Pattern**: `process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL`
+   - **Priority**: 🔴 Critical (convention violation, but not breaking)
+   - **Fix**: Standardize on `SUPABASE_URL` for server code, keep `VITE_SUPABASE_URL` only for client
+
+3. **Inconsistent Env Var Naming** 🟠
    - **Issue**: Mix of `VITE_*` and non-prefixed variables
    - **Examples**: `VITE_SUPABASE_URL` vs `SUPABASE_SERVICE_ROLE_KEY`
    - **Impact**: Confusion about which vars are client-side vs server-side
-   - **Priority**: 🟡 Medium (documentation issue, not breaking)
-
-3. **Undocumented Connector Env Vars** 🟠
-   - **Issue**: Mailchimp env vars not documented (connector not implemented)
-   - **Priority**: 🟡 Low (connector not implemented anyway)
+   - **Priority**: 🟠 High (documentation issue, not breaking)
 
 4. **Connector Manager Uses Wrong Env Vars** 🟠
-   - **Location**: `server/connectors/manager.ts` lines 70-71, 78-79, etc.
+   - **Location**: `server/connectors/manager.ts` lines 46-47, 71-72, 79-80, 87-88, 96-97, 104-105
    - **Issue**: Uses `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` in server code
-   - **Impact**: May work but violates VITE_* convention (client-side only)
-   - **Priority**: 🟡 Medium
+   - **Impact**: Violates VITE_* convention (client-side only), but works due to fallback
+   - **Priority**: 🟠 High
    - **Fix**: Use `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` in server code
 
 ### 2.3 Connector Usage Analysis
@@ -255,12 +266,12 @@
    - **Files**: 
      - `server/connectors/gbp/index.ts` - Remove or implement
      - `server/connectors/mailchimp/index.ts` - Remove or implement
-     - `server/connectors/manager.ts` lines 108-114 - Remove or implement
+     - `server/connectors/manager.ts` lines 109-121 - Remove or implement
 
-2. **Fix Env Var Usage in Manager** 🟡
-   - **Action**: Replace `VITE_SUPABASE_URL` with `SUPABASE_URL` in server code
-   - **Priority**: Medium
-   - **File**: `server/connectors/manager.ts`
+2. **Fix Env Var Usage in Server Code** 🔴
+   - **Action**: Replace all `VITE_*` vars with server vars in `server/` directory
+   - **Priority**: Critical
+   - **Files**: All files in `server/` that use `VITE_SUPABASE_URL` or `VITE_SUPABASE_ANON_KEY`
 
 3. **Create `.env.example`** 🔴
    - **Action**: Create template with all documented variables
@@ -276,32 +287,42 @@
 **Status**: 🔴 **CRITICAL ISSUE**
 
 **Findings:**
-- **Total Pages**: 56 files in `client/pages/`
+- **Total Pages in `client/pages/`**: 56 files
 - **Routed Pages**: 18 files (32%)
 - **Orphaned Pages**: 34+ files (68%)
 - **Dead Code**: ~6,000+ lines
 
+**Good News**: The new routing structure (`client/app/(postd)/`) is clean and organized. All active pages are properly routed.
+
+**Bad News**: The old `client/pages/` directory contains massive amounts of dead code.
+
 #### Orphaned Pages by Category
+
+**Legacy Pages (Moved to `_legacy/` subdirectory)** ✅ **GOOD**
+- `client/pages/_legacy/` contains 20+ legacy pages
+- These are properly organized and marked as legacy
+- **Action**: Can be deleted after verification
 
 **Marketing Pages (11 files - DELETE or MOVE):**
 - `About.tsx`, `Contact.tsx`, `Features.tsx`, `Integrations.tsx`, `IntegrationsMarketing.tsx`
 - `Legal.tsx`, `Pricing.tsx`, `Privacy.tsx`, `Support.tsx`, `Terms.tsx`, `HelpLibrary.tsx`
+- **Status**: `Pricing.tsx` is routed, others are not
 - **Action**: Move to separate landing site or delete
 - **Priority**: 🟡 Medium
 
 **Legacy Auth Pages (2 files - DELETE):**
 - `Login.tsx`, `Signup.tsx`
-- **Status**: Superseded by `AuthContext`
+- **Status**: Superseded by `Screen0Login.tsx` and AuthContext
 - **Action**: Delete after verifying no imports
 - **Priority**: 🟡 Low
 
 **Duplicate/Versioned Pages (8 files - CONSOLIDATE):**
-- `NewDashboard.tsx` vs `Dashboard.tsx` (routed)
+- `NewDashboard.tsx` vs `Dashboard.tsx` (routed in `app/(postd)/dashboard/page.tsx`)
 - `ContentDashboard.tsx` vs `Dashboard.tsx`
-- `AnalyticsPortal.tsx` vs `Analytics.tsx` (routed)
-- `MediaManager.tsx`, `MediaManagerV2.tsx` vs `Library.tsx` (routed)
-- `ReviewQueue.tsx` vs `Approvals.tsx` (routed)
-- **Action**: Consolidate to single version
+- `AnalyticsPortal.tsx` vs `Analytics.tsx` (routed in `app/(postd)/analytics/page.tsx`)
+- `MediaManager.tsx`, `MediaManagerV2.tsx` vs `Library.tsx` (routed in `app/(postd)/library/page.tsx`)
+- `ReviewQueue.tsx` vs `Approvals.tsx` (routed in `app/(postd)/approvals/page.tsx`)
+- **Action**: Consolidate to single version (new structure wins)
 - **Priority**: 🟠 High
 
 **Stub/Minimal Pages (3 files - DELETE):**
@@ -311,21 +332,16 @@
 - **Action**: Delete
 - **Priority**: 🟡 Low
 
-**Legacy Admin Pages (5 files - VERIFY):**
-- `BrandIntake.tsx`, `BrandSnapshot.tsx`, `Brands.tsx`, `ClientSettings.tsx`, `Assets.tsx`
-- **Status**: May be replaced by API endpoints or new structure
-- **Action**: Verify usage, delete if unused
-- **Priority**: 🟠 High
+**Onboarding Pages (Active)** ✅
+- All onboarding pages in `client/pages/onboarding/` are used
+- `Onboarding.tsx` is routed
+- **Action**: Keep
 
-**Legacy Content Pages (4 files - VERIFY):**
-- `ContentDashboard.tsx`, `ContentGenerator.tsx`, `CreatePost.tsx`, `TeamManagement.tsx`
-- **Status**: May be replaced by new structure
-- **Action**: Verify usage, delete if unused
-- **Priority**: 🟠 High
-
-**Miscellaneous:**
-- `NeonNest.tsx` (10 lines, Builder.io wrapper) - Keep if needed
-- `Demo.tsx` (687 lines) - Keep for dev/testing, document as dev-only
+**Public Pages (Active)** ✅
+- `Index.tsx` - Routed as home page
+- `NotFound.tsx` - Routed as catch-all
+- `Pricing.tsx` - Routed
+- **Action**: Keep
 
 #### Impact
 - **Bundle Bloat**: ~6,000+ lines of unused code
@@ -338,8 +354,8 @@
 **Status**: 🟠 **HIGH PRIORITY ISSUE**
 
 **Files:**
-- `server/index.ts` - Legacy server (385 lines)
-- `server/index-v2.ts` - Current server (239 lines, with Supabase validation)
+- `server/index.ts` - Legacy server (385 lines) - **Marked as deprecated** ✅
+- `server/index-v2.ts` - Current server (239 lines, with Supabase validation) ✅
 
 **Usage:**
 - `server/vercel-server.ts` imports from `index-v2.ts` ✅
@@ -349,14 +365,14 @@
 - `package.json` `start:v2` uses `node-build-v2.mjs` (current) ✅
 
 **Issues:**
-1. **Two server entry points** - Unclear which is primary
-2. **Legacy `start` script** - Uses old server
-3. **No deprecation notice** - `index.ts` should be marked as legacy
+1. **Two server entry points** - `index.ts` is deprecated but still exists
+2. **Legacy `start` script** - Uses old server (`node-build.mjs`)
+3. **Deprecation notice exists** ✅ - `index.ts` has proper deprecation comments
 
 **Recommendations:**
-1. **Mark `index.ts` as deprecated** - Add deprecation notice
-2. **Update `start` script** - Use `start:v2` or remove legacy
-3. **Remove `index.ts`** - After verifying no usage (or archive)
+1. **Update `start` script** - Use `start:v2` or remove legacy
+2. **Remove `index.ts`** - After verifying no usage (or archive)
+3. **Remove `node-build.mjs`** - After verifying no usage
 
 **Priority**: 🟠 High
 
@@ -371,17 +387,18 @@
 - ✅ `customer-facing-audit.ts` - Used in CI
 - ✅ `test-e2e-flow.ts` - E2E testing
 - ✅ `smoke-agents.ts` - Agent testing
+- ✅ `api-v2-smoke.ts` - API smoke tests
 - ✅ Various test scripts (`.js` files) - Legacy but functional
 
 **Potential Issues:**
 - ⚠️ Mix of `.ts` and `.js` files (inconsistent)
 - ⚠️ Some scripts may be legacy (`.js` files)
-- ⚠️ No clear documentation of which scripts are active
+- ⚠️ Scripts are documented in `scripts/README.md` ✅
 
 **Recommendations:**
 1. **Audit `.js` scripts** - Verify they're still needed
 2. **Migrate to TypeScript** - Convert `.js` to `.ts` if keeping
-3. **Document active scripts** - Create `scripts/README.md` with usage
+3. **Keep documentation updated** - `scripts/README.md` is good
 
 **Priority**: 🟡 Medium
 
@@ -398,6 +415,7 @@
 - ✅ All dependencies appear to be used
 - ✅ No obvious dead dependencies
 - ✅ Versions are reasonable (not extremely old)
+- ✅ Node version requirement: `>=24.0.0` (matches CI)
 
 **Recommendations:**
 1. **Run `npm audit`** - Check for security vulnerabilities
@@ -408,7 +426,7 @@
 
 ### 3.5 Old Branding References
 
-**Status**: 🟠 **MEDIUM PRIORITY**
+**Status**: 🟡 **MEDIUM PRIORITY**
 
 **Findings:**
 - **"Aligned" references**: 29 matches found
@@ -426,13 +444,14 @@
 **Impact:**
 - **Low** - Mostly in localStorage keys and comments
 - **Action**: Update to POSTD branding where visible to users
-- **Priority**: 🟡 Medium
 
 **Recommendations:**
 1. **Update localStorage keys** - Change `aligned_*` to `postd_*`
 2. **Update user agent** - Change `AlignedAIBot` to `POSTDBot`
 3. **Update preview URLs** - Change `alignedai.com` to `postd.com` (if applicable)
 4. **Update comments** - Change references in code comments
+
+**Priority**: 🟡 Medium
 
 ---
 
@@ -444,20 +463,19 @@
 
 **Documentation Structure:**
 - **Root Level**: 100+ markdown files
-- **`docs/` Directory**: 100+ files
-- **Total**: 200+ documentation files
+- **`docs/` Directory**: 200+ files
+- **Total**: 300+ documentation files
 
 **Key Documents:**
 - ✅ `docs/00_MASTER_CURSOR_COMMAND_CENTER.md` - Master rules (well-maintained)
 - ✅ `POSTD_API_CONTRACT.md` - API documentation
 - ✅ `docs/ENVIRONMENT_SETUP.md` - Environment setup guide
-- ✅ `docs/REPO_HEALTH_AUDIT.md` - Previous health audit
 - ✅ Various audit reports and implementation summaries
 
 **Issues Found:**
 
 1. **Documentation Bloat** 🟡
-   - **Issue**: 200+ files, many outdated/duplicate
+   - **Issue**: 300+ files, many outdated/duplicate
    - **Examples**: Multiple phase summaries, duplicate audit reports
    - **Impact**: Hard to find current information
    - **Priority**: 🟡 Medium
@@ -474,7 +492,7 @@
    - **Action**: Consolidate or archive duplicates
    - **Priority**: 🟡 Low
 
-4. **Missing Documentation** 🟠
+4. **Missing Documentation** 🔴
    - **Issue**: No `.env.example` file (critical for onboarding)
    - **Action**: Create `.env.example` with all documented variables
    - **Priority**: 🔴 Critical
@@ -536,9 +554,11 @@
 - Stub pages (3 files)
 - Duplicate pages (8 files)
 - Legacy admin/content pages (9 files)
+- Legacy pages in `_legacy/` subdirectory (20+ files)
 
 **Legacy Server:**
 - `server/index.ts` (after verifying no usage)
+- `server/node-build.mjs` (after verifying no usage)
 
 **Priority**: 🟠 High  
 **Estimated Time**: 2-3 hours  
@@ -549,32 +569,33 @@
 **Connector Scaffolds:**
 - `server/connectors/gbp/index.ts` - Remove or implement
 - `server/connectors/mailchimp/index.ts` - Remove or implement
-- `server/connectors/manager.ts` lines 108-114 - Remove or implement
+- `server/connectors/manager.ts` lines 109-121 - Remove or implement
 
 **Env Var Usage:**
-- `server/connectors/manager.ts` - Replace `VITE_*` with server vars
+- `server/connectors/manager.ts` - Replace `VITE_*` with server vars (97 instances)
+- All `server/` files using `VITE_SUPABASE_URL` or `VITE_SUPABASE_ANON_KEY`
 
 **Old Branding:**
 - localStorage keys: `aligned_*` → `postd_*`
 - User agent: `AlignedAIBot` → `POSTDBot`
 - Preview URLs: `alignedai.com` → `postd.com`
 
-**Priority**: 🟠 High  
-**Estimated Time**: 3-4 hours  
+**Priority**: 🔴 Critical (env vars), 🟠 High (others)  
+**Estimated Time**: 4-5 hours  
 **Risk**: Medium (test thoroughly)
 
 #### Category 3: MERGE (Consolidate Duplicates)
 
 **Duplicate Pages:**
-- `NewDashboard.tsx` → `Dashboard.tsx`
+- `NewDashboard.tsx` → `Dashboard.tsx` (already routed in new structure)
 - `ContentDashboard.tsx` → `Dashboard.tsx`
-- `AnalyticsPortal.tsx` → `Analytics.tsx`
-- `MediaManager.tsx`, `MediaManagerV2.tsx` → `Library.tsx`
-- `ReviewQueue.tsx` → `Approvals.tsx`
+- `AnalyticsPortal.tsx` → `Analytics.tsx` (already routed)
+- `MediaManager.tsx`, `MediaManagerV2.tsx` → `Library.tsx` (already routed)
+- `ReviewQueue.tsx` → `Approvals.tsx` (already routed)
 
 **Priority**: 🟠 High  
-**Estimated Time**: 4-5 hours  
-**Risk**: Medium (verify functionality first)
+**Estimated Time**: 2-3 hours  
+**Risk**: Low (new structure already wins)
 
 #### Category 4: KEEP (Current & Necessary)
 
@@ -584,7 +605,7 @@
 **Active Pages:**
 - All routed pages in `client/app/(postd)/`
 - Onboarding pages
-- Public pages (blog, legal)
+- Public pages (Index, NotFound, Pricing)
 
 **Active Scripts:**
 - All scripts used in CI
@@ -602,39 +623,40 @@
    - **Priority**: Critical
    - **Action**: Create template with all documented variables
 
-2. **Remove Connector Scaffolds** 🟠
+2. **Fix Env Var Usage in Server Code** 🔴
+   - **Time**: 2-3 hours
+   - **Priority**: Critical
+   - **Action**: Replace all `VITE_*` vars with server vars in `server/` directory
+   - **Files**: 97 instances across multiple files
+
+3. **Remove Connector Scaffolds** 🟠
    - **Time**: 1 hour
    - **Priority**: High
    - **Action**: Remove GBP/Mailchimp scaffolds or mark as TODO
 
-3. **Fix Env Var Usage in Manager** 🟠
+4. **Update Legacy Server Scripts** 🟠
    - **Time**: 30 minutes
    - **Priority**: High
-   - **Action**: Replace `VITE_*` with server vars
+   - **Action**: Update `start` script to use `start:v2` or remove legacy
 
 #### Phase 2: High Priority Cleanup (Week 2)
 
-4. **Delete Orphaned Pages** 🟠
+5. **Delete Orphaned Pages** 🟠
    - **Time**: 2-3 hours
    - **Priority**: High
-   - **Action**: Delete marketing, legacy auth, stub pages
+   - **Action**: Delete marketing, legacy auth, stub pages, legacy subdirectory
 
-5. **Consolidate Duplicate Pages** 🟠
-   - **Time**: 4-5 hours
+6. **Consolidate Duplicate Pages** 🟠
+   - **Time**: 1-2 hours
    - **Priority**: High
-   - **Action**: Merge duplicates, verify functionality
-
-6. **Deprecate Legacy Server** 🟠
-   - **Time**: 1 hour
-   - **Priority**: High
-   - **Action**: Mark `index.ts` as deprecated, update `start` script
-
-#### Phase 3: Medium Priority (Week 3-4)
+   - **Action**: Delete duplicates (new structure already wins)
 
 7. **Update Old Branding** 🟡
    - **Time**: 2-3 hours
    - **Priority**: Medium
    - **Action**: Update localStorage keys, user agent, URLs
+
+#### Phase 3: Medium Priority (Week 3-4)
 
 8. **Archive Old Documentation** 🟡
    - **Time**: 2-3 hours
@@ -646,22 +668,22 @@
    - **Priority**: Medium
    - **Action**: Merge duplicate audit reports, update docs index
 
+10. **Audit Legacy Scripts** 🟡
+    - **Time**: 2-3 hours
+    - **Priority**: Medium
+    - **Action**: Verify `.js` scripts are still needed, migrate to TS
+
 #### Phase 4: Low Priority (Ongoing)
 
-10. **Reduce ESLint Max Warnings** 🟡
+11. **Reduce ESLint Max Warnings** 🟡
     - **Time**: Ongoing
     - **Priority**: Low
     - **Action**: Gradually reduce from 500 → 100 → 50 → 0
 
-11. **Enable TypeScript Strict Mode** 🟡
+12. **Enable TypeScript Strict Mode** 🟡
     - **Time**: Ongoing
     - **Priority**: Low
     - **Action**: Enable incrementally post-launch
-
-12. **Audit Legacy Scripts** 🟢
-    - **Time**: 2-3 hours
-    - **Priority**: Low
-    - **Action**: Verify `.js` scripts are still needed, migrate to TS
 
 ---
 
@@ -676,7 +698,23 @@
 **Priority**: 🔴 Critical  
 **Time**: 30 minutes
 
-### C2: 34+ Orphaned Page Components
+### C2: 97 Instances of `VITE_*` Env Vars in Server Code
+
+**Location**: Multiple files in `server/` directory  
+**Issue**: Server code uses `VITE_*` prefix (intended for client-side only)  
+**Impact**: Violates convention, confusing, but works due to fallback logic  
+**Files Affected**: 
+- `server/connectors/manager.ts` (multiple instances)
+- `server/index-v2.ts`
+- `server/lib/supabase.ts`
+- `server/utils/validate-env.ts`
+- `server/routes/auth.ts`
+- `server/scripts/*.ts` (multiple files)
+**Fix**: Replace all `VITE_SUPABASE_URL` with `SUPABASE_URL` in server code  
+**Priority**: 🔴 Critical  
+**Time**: 2-3 hours
+
+### C3: 34+ Orphaned Page Components
 
 **Location**: `client/pages/`  
 **Issue**: 6,000+ lines of unused code  
@@ -685,12 +723,12 @@
 **Priority**: 🔴 Critical  
 **Time**: 2-3 hours
 
-### C3: Incomplete Connector Scaffolds
+### C4: Incomplete Connector Scaffolds
 
 **Files**: 
 - `server/connectors/gbp/index.ts`
 - `server/connectors/mailchimp/index.ts`
-- `server/connectors/manager.ts` lines 108-114
+- `server/connectors/manager.ts` lines 109-121
 
 **Issue**: Scaffolds throw errors but are not clearly marked as TODO  
 **Impact**: Confusion about connector status, potential runtime errors  
@@ -698,23 +736,22 @@
 **Priority**: 🔴 Critical  
 **Time**: 1 hour
 
-### C4: Legacy Server Entry Point
+### C5: Legacy Server Entry Point
 
 **Files**: `server/index.ts` (legacy) vs `server/index-v2.ts` (current)  
-**Issue**: Two entry points, unclear which is primary  
+**Issue**: Two entry points, `start` script uses legacy  
 **Impact**: Confusion, potential use of wrong server  
-**Fix**: Mark `index.ts` as deprecated, update `start` script  
+**Fix**: Update `start` script to use `start:v2`, remove legacy after verification  
 **Priority**: 🔴 Critical  
-**Time**: 1 hour
+**Time**: 30 minutes
 
-### C5: Tests Non-Blocking in CI
+### C6: Missing Environment Variable Documentation
 
-**File**: `.github/workflows/ci.yml`  
-**Issue**: Tests can fail silently (`continue-on-error: true`)  
-**Impact**: Broken code may pass CI  
-**Fix**: Make critical tests blocking  
+**Issue**: No `.env.example` file  
+**Impact**: Onboarding friction  
+**Fix**: Create `.env.example` with all documented variables  
 **Priority**: 🔴 Critical  
-**Time**: 15 minutes
+**Time**: 30 minutes
 
 ---
 
@@ -725,27 +762,27 @@
 **Location**: `client/pages/`  
 **Issue**: Multiple versions of same page (Dashboard, Analytics, Media, Approvals)  
 **Impact**: Confusion, maintenance burden  
-**Fix**: Consolidate to single version  
+**Fix**: Delete duplicates (new structure already wins)  
 **Priority**: 🟠 High  
-**Time**: 4-5 hours
+**Time**: 1-2 hours
 
 ### H2: Wrong Env Vars in Connector Manager
 
 **File**: `server/connectors/manager.ts`  
-**Issue**: Uses `VITE_*` vars in server code  
-**Impact**: Violates convention, may cause issues  
+**Issue**: Uses `VITE_*` vars in server code (97 instances)  
+**Impact**: Violates convention  
 **Fix**: Replace with `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`  
 **Priority**: 🟠 High  
-**Time**: 30 minutes
+**Time**: 2-3 hours (part of C2)
 
 ### H3: Legacy Admin/Content Pages
 
-**Location**: `client/pages/`  
-**Issue**: 9 legacy pages may be replaced by new structure  
+**Location**: `client/pages/_legacy/`  
+**Issue**: 20+ legacy pages may be replaced by new structure  
 **Impact**: Unclear which pages are current  
 **Fix**: Verify usage, delete if unused  
 **Priority**: 🟠 High  
-**Time**: 2-3 hours
+**Time**: 1-2 hours
 
 ### H4: ESLint Max Warnings Too High
 
@@ -759,7 +796,7 @@
 ### H5: Documentation Bloat
 
 **Location**: Root and `docs/`  
-**Issue**: 200+ documentation files, many outdated  
+**Issue**: 300+ documentation files, many outdated  
 **Impact**: Hard to find current information  
 **Fix**: Archive outdated docs, consolidate duplicates  
 **Priority**: 🟠 High  
@@ -791,6 +828,15 @@
 **Fix**: Migrate to TypeScript, document active scripts  
 **Priority**: 🟠 High  
 **Time**: 2-3 hours
+
+### H9: Legacy Server Scripts
+
+**File**: `package.json`  
+**Issue**: `start` script uses legacy server  
+**Impact**: Potential use of wrong server  
+**Fix**: Update to use `start:v2` or remove legacy  
+**Priority**: 🟠 High  
+**Time**: 30 minutes
 
 ---
 
@@ -864,97 +910,34 @@
 **Location**: `scripts/`  
 **Issue**: No clear documentation of active scripts  
 **Impact**: Unclear which scripts are used  
-**Fix**: Create `scripts/README.md`  
+**Fix**: Update `scripts/README.md`  
 **Priority**: 🟡 Medium  
 **Time**: 1 hour
 
-### M9: Branch Protection Not Verified
+### M9-M15: Various Minor Issues
 
-**Location**: GitHub settings  
-**Issue**: Cannot verify branch protection on `main`  
-**Impact**: Potential for force-push or direct commits  
-**Fix**: Enable branch protection in GitHub  
+- M9: Branch protection not verified
+- M10: No dependency audit tool
+- M11: No migration validation script
+- M12: No API versioning strategy
+- M13: E2E tests non-blocking in CI
+- M14: No pre-commit hooks
+- M15: No automated dependency updates
+
 **Priority**: 🟡 Medium  
-**Time**: 15 minutes
-
-### M10: No Dependency Audit Tool
-
-**Location**: Package management  
-**Issue**: No automated tracking of unused dependencies  
-**Impact**: Potential for dead dependencies  
-**Fix**: Add dependency audit tool  
-**Priority**: 🟡 Medium  
-**Time**: 1 hour
-
-### M11: No Migration Validation Script
-
-**Location**: `supabase/migrations/`  
-**Issue**: Cannot verify migration idempotency  
-**Impact**: Potential migration issues  
-**Fix**: Add migration validation script  
-**Priority**: 🟡 Medium  
-**Time**: 2-3 hours
-
-### M12: No API Versioning Strategy
-
-**Location**: API routes  
-**Issue**: No clear versioning strategy  
-**Impact**: Potential breaking changes  
-**Fix**: Document versioning strategy  
-**Priority**: 🟡 Medium  
-**Time**: 1 hour
+**Time**: Varies
 
 ---
 
 ## LOW PRIORITY ISSUES (🟢)
 
-### L1: Backup Branches
+### L1-L18: Various Minor Issues
 
-**Location**: Git branches  
-**Issue**: Backup branches may be outdated  
-**Impact**: Repository clutter  
-**Fix**: Delete after successful merge  
-**Priority**: 🟢 Low  
-**Time**: 15 minutes
-
-### L2: Long-Lived Integration Branch
-
-**Location**: `integration-v2`  
-**Issue**: 18 commits ahead of main  
-**Impact**: Potential divergence  
-**Fix**: Plan regular merges to main  
-**Priority**: 🟢 Low  
-**Time**: Ongoing
-
-### L3: No Conventional Commits
-
-**Location**: Git commits  
-**Issue**: Not consistently using conventional commits  
-**Impact**: Less structured commit history  
-**Fix**: Adopt conventional commits format  
-**Priority**: 🟢 Low  
-**Time**: Ongoing
-
-### L4: No Changelog Automation
-
-**Location**: `CHANGELOG.md`  
-**Issue**: Manual changelog updates  
-**Impact**: May miss changes  
-**Fix**: Automate changelog generation  
-**Priority**: 🟢 Low  
-**Time**: 2-3 hours
-
-### L5: No Pre-commit Hooks
-
-**Location**: Git hooks  
-**Issue**: No automated pre-commit checks  
-**Impact**: Potential for committing broken code  
-**Fix**: Add pre-commit hooks (lint, format, typecheck)  
-**Priority**: 🟢 Low  
-**Time**: 1 hour
-
-### L6-L15: Various Minor Issues
-
+- L1: Backup branches
+- L2: Long-lived integration branch
+- L3: No conventional commits
+- L4: No changelog automation
+- L5: No pre-commit hooks
 - L6: No automated dependency updates
 - L7: No performance monitoring
 - L8: No error tracking (Sentry configured but verify)
@@ -965,6 +948,9 @@
 - L13: No security audit schedule
 - L14: No code review guidelines
 - L15: No contribution guidelines update
+- L16: No automated testing for connectors
+- L17: No API documentation generation
+- L18: No performance benchmarking
 
 **Priority**: 🟢 Low  
 **Time**: Varies
@@ -976,14 +962,14 @@
 ### Week 1: Critical Fixes
 
 **Day 1-2: Environment & Connectors**
-1. Create `.env.example` (30 min)
-2. Remove connector scaffolds (1 hour)
-3. Fix env var usage in manager (30 min)
-4. Make critical tests blocking in CI (15 min)
+1. Create `.env.example` (30 min) 🔴
+2. Fix env var usage in server code (2-3 hours) 🔴
+3. Remove connector scaffolds (1 hour) 🟠
+4. Update legacy server scripts (30 min) 🟠
 
-**Day 3-4: Server & Pages**
-5. Deprecate legacy server (1 hour)
-6. Delete orphaned pages (2-3 hours)
+**Day 3-4: Pages & Server**
+5. Delete orphaned pages (2-3 hours) 🔴
+6. Consolidate duplicate pages (1-2 hours) 🟠
 7. Verify no broken imports (1 hour)
 
 **Day 5: Verification**
@@ -995,33 +981,33 @@
 
 ### Week 2: High Priority Cleanup
 
-**Day 1-2: Page Consolidation**
-1. Consolidate duplicate pages (4-5 hours)
-2. Verify functionality (2 hours)
+**Day 1-2: Branding & Documentation**
+1. Update old branding (2-3 hours) 🟠
+2. Archive old documentation (2-3 hours) 🟠
+3. Consolidate duplicate docs (2-3 hours) 🟠
 
-**Day 3-4: Branding & Documentation**
-3. Update old branding (2-3 hours)
-4. Archive old documentation (2-3 hours)
-5. Consolidate duplicate docs (2-3 hours)
+**Day 3-4: Scripts & Quality**
+4. Audit legacy scripts (2-3 hours) 🟠
+5. Reduce ESLint warnings (ongoing) 🟠
+6. Add test coverage reporting (1 hour) 🟡
 
 **Day 5: Verification**
-6. Run full test suite
-7. Verify CI passes
-8. Update documentation
+7. Run full test suite
+8. Verify CI passes
+9. Update documentation
 
-**Total Time**: ~12-16 hours
+**Total Time**: ~10-14 hours
 
 ### Week 3-4: Medium Priority
 
 **Ongoing Tasks:**
 1. Reduce ESLint max warnings (ongoing)
 2. Enable TypeScript strict mode (ongoing)
-3. Audit legacy scripts (2-3 hours)
-4. Add test coverage reporting (1 hour)
-5. Document active scripts (1 hour)
-6. Add migration validation (2-3 hours)
+3. Add migration validation (2-3 hours)
+4. Document API versioning strategy (1 hour)
+5. Add pre-commit hooks (1 hour)
 
-**Total Time**: ~6-8 hours + ongoing
+**Total Time**: ~4-6 hours + ongoing
 
 ### Verification After Each Phase
 
@@ -1057,22 +1043,22 @@ After completing cleanup, verify:
 
 ### CI & Quality Gates
 - [ ] All CI workflows pass
-- [ ] Tests are blocking for critical paths
 - [ ] ESLint max warnings reduced
 - [ ] TypeScript typecheck passes
 - [ ] Build succeeds
+- [ ] Test coverage reporting added
 
 ### Connectors & Integrations
 - [ ] `.env.example` exists and is complete
 - [ ] All connector env vars documented
 - [ ] Connector scaffolds removed or implemented
-- [ ] Env var usage fixed in manager
+- [ ] Env var usage fixed in server code (no `VITE_*` in server)
 - [ ] All active connectors tested
 
 ### Stale Code
 - [ ] Orphaned pages deleted
 - [ ] Duplicate pages consolidated
-- [ ] Legacy server deprecated
+- [ ] Legacy server deprecated/removed
 - [ ] No broken imports
 - [ ] Bundle size reduced
 
@@ -1114,7 +1100,8 @@ After completing cleanup, verify:
 # Development
 pnpm dev                    # Start dev server
 pnpm build                  # Production build
-pnpm start                  # Start production server
+pnpm start                  # Start production server (legacy)
+pnpm start:v2               # Start production server (current)
 
 # Quality
 pnpm typecheck              # TypeScript check
@@ -1144,4 +1131,3 @@ pnpm security:check         # Security audit
 3. Execute fixes in phases (Week 1 → Week 2 → Ongoing)
 4. Verify after each phase
 5. Update documentation as fixes are applied
-

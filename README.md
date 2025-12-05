@@ -26,6 +26,8 @@ cd Aligned-20ai.posted
 pnpm install
 
 # Set up environment variables
+# Note: .env.example template is in docs/ENVIRONMENT_VARIABLES.md
+# Copy the template from that file to create .env.example, then:
 cp .env.example .env
 # Edit .env with your credentials (see Environment Variables below)
 
@@ -136,7 +138,7 @@ See **[CONTRIBUTING.md](CONTRIBUTING.md)** for detailed contribution guidelines.
 
 ## 🔑 Environment Variables
 
-Required environment variables (see `.env.example` for template):
+Required environment variables (see `docs/ENVIRONMENT_VARIABLES.md` for complete template):
 
 ### Core Configuration
 

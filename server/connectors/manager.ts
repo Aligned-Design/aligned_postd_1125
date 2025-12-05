@@ -42,8 +42,12 @@ export class ConnectorManager {
     vault?: TokenVault
   ) {
     this.tenantId = tenantId;
-    // Use server-side env vars (not VITE_* which are client-side)
+    // ✅ Use server-side env vars (not VITE_* which are client-side)
+    // NOTE: VITE_SUPABASE_URL fallback is kept for backward compatibility only.
+    // New deployments should use SUPABASE_URL for server code.
     const url = supabaseUrl || process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
+    // ✅ Use service role key (not anon key) for server operations
+    // NOTE: VITE_SUPABASE_ANON_KEY fallback is kept for backward compatibility only.
     const key = supabaseKey || process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY || '';
 
     this.supabase = createClient(url, key);
@@ -68,6 +72,7 @@ export class ConnectorManager {
       case 'meta':
         connector = new MetaConnector(this.tenantId, connectionId, {
           vault: this.vault,
+          // ✅ Use server-side env vars (VITE_* fallback for backward compatibility)
           supabaseUrl: process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '',
           supabaseKey: process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY || '',
         });
@@ -76,6 +81,7 @@ export class ConnectorManager {
       case 'linkedin':
         connector = new LinkedInConnector(this.tenantId, connectionId, {
           vault: this.vault,
+          // ✅ Use server-side env vars (VITE_* fallback for backward compatibility)
           supabaseUrl: process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '',
           supabaseKey: process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY || '',
         });
@@ -84,6 +90,7 @@ export class ConnectorManager {
       case 'tiktok':
         connector = new TikTokConnector(this.tenantId, connectionId, {
           vault: this.vault,
+          // ✅ Use server-side env vars (VITE_* fallback for backward compatibility)
           supabaseUrl: process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '',
           supabaseKey: process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY || '',
         });
@@ -93,6 +100,7 @@ export class ConnectorManager {
       case 'x':
         connector = new TwitterConnector(this.tenantId, connectionId, {
           vault: this.vault,
+          // ✅ Use server-side env vars (VITE_* fallback for backward compatibility)
           supabaseUrl: process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '',
           supabaseKey: process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY || '',
         });
@@ -101,6 +109,7 @@ export class ConnectorManager {
       case 'canva':
         connector = new CanvaConnector(this.tenantId, connectionId, {
           vault: this.vault,
+          // ✅ Use server-side env vars (VITE_* fallback for backward compatibility)
           supabaseUrl: process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '',
           supabaseKey: process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY || '',
         });

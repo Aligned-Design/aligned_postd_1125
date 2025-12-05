@@ -281,7 +281,7 @@ export default function CreativeStudio() {
     }, AUTOSAVE_DELAY);
 
     return () => clearTimeout(timer);
-  }, [state.design]);
+  }, [state.design, getValidBrandId]);
 
   // Load design from localStorage on mount (defensive)
   useEffect(() => {
@@ -330,7 +330,7 @@ export default function CreativeStudio() {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [state.design, state.selectedItemId]);
+  }, [state.design, state.selectedItemId, handleDeleteItem, handleRotateItem, handleSaveToLibrary, handleSendToQueue]);
 
   const handleStartDesign = (mode: "ai" | "template" | "scratch", format: DesignFormat) => {
     // For blank canvas, don't require persisted brand (allow workspace default)
@@ -629,7 +629,7 @@ export default function CreativeStudio() {
     });
   };
 
-const handleAddElement = (elementType: string, defaultProps: Record<string, any>, x: number, y: number) => {
+const handleAddElement = (elementType: string, defaultProps: Record<string, unknown>, x: number, y: number) => {
   // Check if this is an image element - if so, open image selector instead of creating placeholder
   if (elementType === "image" || elementType === "logo") {
     // Create a placeholder image item first
@@ -856,7 +856,7 @@ const handleAddElement = (elementType: string, defaultProps: Record<string, any>
     } finally {
       setIsSaving(false);
     }
-  };
+  }, [state.design, getValidBrandId, requireBrandForAction, toast]);
 
   const handleSaveAsDraft = async () => {
     if (!state.design) return;
@@ -998,7 +998,7 @@ const handleAddElement = (elementType: string, defaultProps: Record<string, any>
     });
 
     logTelemetry("send_to_queue", { designId: state.design.id });
-  };
+  }, [state.design, setState, toast]);
 
   const handleSendPublishNow = () => {
     if (!state.design) return;
@@ -1228,7 +1228,7 @@ const handleAddElement = (elementType: string, defaultProps: Record<string, any>
     logTelemetry("download", { designId: state.design.id });
   };
 
-  const handleRotateItem = (angle: number = 45) => {
+  const handleRotateItem = useCallback((angle: number = 45) => {
     if (!state.design || !state.selectedItemId) return;
 
     const item = state.design.items.find((i) => i.id === state.selectedItemId);
@@ -1243,9 +1243,9 @@ const handleAddElement = (elementType: string, defaultProps: Record<string, any>
     });
 
     logTelemetry("rotate_item", { itemId: state.selectedItemId, rotation: newRotation });
-  };
+  }, [state.design, state.selectedItemId, handleUpdateItem, toast]);
 
-  const handleDeleteItem = () => {
+  const handleDeleteItem = useCallback(() => {
     if (!state.design || !state.selectedItemId) return;
 
     const item = state.design.items.find((i) => i.id === state.selectedItemId);
@@ -1272,7 +1272,7 @@ const handleAddElement = (elementType: string, defaultProps: Record<string, any>
     });
 
     logTelemetry("delete_item", { itemId, itemType });
-  };
+  }, [state.design, state.selectedItemId, setState, toast]);
 
   const handleEnterCropMode = (itemId: string) => {
     const item = state.design?.items.find((i) => i.id === itemId);

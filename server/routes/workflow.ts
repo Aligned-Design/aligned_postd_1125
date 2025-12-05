@@ -84,20 +84,8 @@ const GetNotificationsQuerySchema = z.object({
   unreadOnly: z.string().transform(val => val === 'true').optional(),
 }).strict();
 
-// Extended request interface with user context
-interface AuthenticatedRequest extends Request {
-  user?: {
-    id: string;
-    email: string;
-    role: string;
-    brandId?: string;
-    brandIds?: string[];
-    scopes?: string[];
-    workspaceId?: string;
-    tenantId?: string;
-  };
-  userId?: string;
-}
+// Note: Request type is extended via server/types/express.d.ts
+// Use req.user or req.auth directly - no need for AuthenticatedRequest
 
 /**
  * GET /api/workflow/templates
@@ -110,8 +98,7 @@ interface AuthenticatedRequest extends Request {
 export const getWorkflowTemplates: RequestHandler = async (req, res, next) => {
   try {
     const { brandId } = req.query as { brandId?: string };
-    const authReq = req as AuthenticatedRequest;
-    const userBrandId = authReq.user?.brandId;
+    const userBrandId = req.user?.brandId;
 
     // Use provided brandId or fall back to user's brand
     const targetBrandId = brandId || userBrandId;
@@ -148,8 +135,7 @@ export const createWorkflowTemplate: RequestHandler = async (req, res, next) => 
   try {
     // ✅ VALIDATION: Body is already validated by middleware
     const template = req.body as z.infer<typeof CreateTemplateBodySchema>;
-    const authReq = req as AuthenticatedRequest;
-    const userBrandId = authReq.user?.brandId;
+    const userBrandId = req.user?.brandId;
 
     if (!userBrandId) {
       throw new AppError(
@@ -201,9 +187,8 @@ export const startWorkflow: RequestHandler = async (req, res, next) => {
   try {
     // ✅ VALIDATION: Body is already validated by middleware
     const { contentId, templateId, assignedUsers, priority, deadline } = req.body as z.infer<typeof StartWorkflowBodySchema>;
-    const authReq = req as AuthenticatedRequest;
-    const brandId = authReq.user?.brandId;
-    const _userId = authReq.user?.id || authReq.userId;
+    const brandId = req.user?.brandId;
+    const _userId = req.user?.id || req.auth?.userId;
 
     if (!brandId) {
       throw new AppError(
@@ -242,8 +227,7 @@ export const processWorkflowAction: RequestHandler = async (req, res, next) => {
     // ✅ VALIDATION: Params and body are already validated by middleware
     const { workflowId } = req.params as z.infer<typeof WorkflowIdParamSchema>;
     const action = req.body as z.infer<typeof WorkflowActionBodySchema>;
-    const authReq = req as AuthenticatedRequest;
-    const _userId = authReq.user?.id || authReq.userId;
+    const _userId = req.user?.id || req.auth?.userId;
 
     // Process action via database
     const updatedWorkflow = await workflowDB.processWorkflowAction(
@@ -265,8 +249,7 @@ export const processWorkflowAction: RequestHandler = async (req, res, next) => {
  */
 export const getWorkflowNotifications: RequestHandler = async (req, res, next) => {
   try {
-    const authReq = req as AuthenticatedRequest;
-    const userId = authReq.user?.id || authReq.userId;
+    const userId = req.user?.id || req.auth?.userId;
     // ✅ VALIDATION: Query is already validated by middleware
     const { unreadOnly } = req.query as { unreadOnly?: boolean };
 

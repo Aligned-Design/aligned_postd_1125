@@ -90,15 +90,15 @@ export class IntegrationsDBService {
       .from("platform_connections")
       .insert({
         brand_id: brandId,
-        provider,
-        account_username: options?.accountUsername,
+        platform: provider,  // Map provider to platform column
+        account_name: options?.accountUsername,  // Map accountUsername to account_name
         account_id: options?.accountId,
         access_token: accessToken,
         refresh_token: options?.refreshToken,
-        token_expires_at: options?.tokenExpiresAt?.toISOString(),
-        scopes: options?.scopes || [],
+        expires_at: options?.tokenExpiresAt?.toISOString(),  // Map token_expires_at to expires_at
         status: "connected",
         metadata: options?.metadata,
+        // Note: scopes column doesn't exist in schema - removed from insert
       })
       .select()
       .single();
@@ -113,7 +113,15 @@ export class IntegrationsDBService {
       );
     }
 
-    return data as PlatformConnectionRecord;
+    // Map database columns to interface (platform -> provider, account_name -> account_username, expires_at -> token_expires_at)
+    const mapped = data as any;
+    return {
+      ...mapped,
+      provider: mapped.platform || mapped.provider,  // Map platform to provider for interface
+      account_username: mapped.account_name || mapped.account_username,  // Map account_name to account_username
+      token_expires_at: mapped.expires_at || mapped.token_expires_at,  // Map expires_at to token_expires_at
+      scopes: mapped.scopes || [],  // Default to empty array if scopes column doesn't exist
+    } as PlatformConnectionRecord;
   }
 
   /**
@@ -139,7 +147,15 @@ export class IntegrationsDBService {
       );
     }
 
-    return data as PlatformConnectionRecord;
+    // Map database columns to interface (platform -> provider, account_name -> account_username, expires_at -> token_expires_at)
+    const mapped = data as any;
+    return {
+      ...mapped,
+      provider: mapped.platform || mapped.provider,  // Map platform to provider for interface
+      account_username: mapped.account_name || mapped.account_username,  // Map account_name to account_username
+      token_expires_at: mapped.expires_at || mapped.token_expires_at,  // Map expires_at to token_expires_at
+      scopes: mapped.scopes || [],  // Default to empty array if scopes column doesn't exist
+    } as PlatformConnectionRecord;
   }
 
   /**
@@ -161,7 +177,14 @@ export class IntegrationsDBService {
       );
     }
 
-    return (data || []) as PlatformConnectionRecord[];
+    // Map database columns to interface for all records
+    return (data || []).map((record: any) => ({
+      ...record,
+      provider: record.platform || record.provider,
+      account_username: record.account_name || record.account_username,
+      token_expires_at: record.expires_at || record.token_expires_at,
+      scopes: record.scopes || [],
+    })) as PlatformConnectionRecord[];
   }
 
   /**
@@ -175,7 +198,7 @@ export class IntegrationsDBService {
       .from("platform_connections")
       .select("*")
       .eq("brand_id", brandId)
-      .eq("provider", provider)
+      .eq("platform", provider)  // Map provider to platform column
       .order("created_at", { ascending: false });
 
     if (error) {
@@ -187,7 +210,14 @@ export class IntegrationsDBService {
       );
     }
 
-    return (data || []) as PlatformConnectionRecord[];
+    // Map database columns to interface for all records
+    return (data || []).map((record: any) => ({
+      ...record,
+      provider: record.platform || record.provider,
+      account_username: record.account_name || record.account_username,
+      token_expires_at: record.expires_at || record.token_expires_at,
+      scopes: record.scopes || [],
+    })) as PlatformConnectionRecord[];
   }
 
   /**
@@ -208,7 +238,7 @@ export class IntegrationsDBService {
     if (updates.accessToken) updateData.access_token = updates.accessToken;
     if (updates.refreshToken) updateData.refresh_token = updates.refreshToken;
     if (updates.tokenExpiresAt)
-      updateData.token_expires_at = updates.tokenExpiresAt.toISOString();
+      updateData.expires_at = updates.tokenExpiresAt.toISOString();  // Map token_expires_at to expires_at
     if (updates.status) updateData.status = updates.status;
     if (updates.metadata) updateData.metadata = updates.metadata;
 
@@ -228,7 +258,15 @@ export class IntegrationsDBService {
       );
     }
 
-    return data as PlatformConnectionRecord;
+    // Map database columns to interface (platform -> provider, account_name -> account_username, expires_at -> token_expires_at)
+    const mapped = data as any;
+    return {
+      ...mapped,
+      provider: mapped.platform || mapped.provider,  // Map platform to provider for interface
+      account_username: mapped.account_name || mapped.account_username,  // Map account_name to account_username
+      token_expires_at: mapped.expires_at || mapped.token_expires_at,  // Map expires_at to token_expires_at
+      scopes: mapped.scopes || [],  // Default to empty array if scopes column doesn't exist
+    } as PlatformConnectionRecord;
   }
 
   /**
@@ -470,7 +508,7 @@ export class IntegrationsDBService {
       .from("platform_connections")
       .select("id", { count: "exact" })
       .eq("brand_id", brandId)
-      .eq("provider", provider)
+      .eq("platform", provider)  // Map provider to platform column
       .eq("status", "connected")
       .limit(1);
 

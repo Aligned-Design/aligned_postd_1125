@@ -21,9 +21,9 @@ export function authenticateUser(
     // Call jwtAuth middleware to verify token
     jwtAuth(req, res, () => {
       // After JWT is verified, normalize req.user for backward compatibility
-      const auth = (req as any).auth;
+      const auth = req.auth;
       if (auth) {
-        (req as any).user = {
+        req.user = {
           id: auth.userId,
           email: auth.email,
           role: auth.role,

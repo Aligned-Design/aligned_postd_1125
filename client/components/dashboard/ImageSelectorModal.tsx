@@ -52,7 +52,41 @@ export function ImageSelectorModal({ onSelectImage, onClose }: ImageSelectorModa
         const data = await response.json();
 
         if (data.success && data.assets) {
-          const mappedAssets: Asset[] = data.assets.map((asset: any) => ({
+          // Type for API response asset (matches Supabase media table structure)
+          type ApiAsset = {
+            id: string;
+            filename?: string;
+            path?: string;
+            mime_type?: string;
+            size_bytes?: number;
+            width?: number;
+            height?: number;
+            metadata?: {
+              width?: number;
+              height?: number;
+              thumbnailUrl?: string;
+              aiTags?: string[];
+              people?: string[];
+              colors?: string[];
+              platformFits?: string[];
+              graphicsSize?: string;
+              orientation?: string;
+              campaignIds?: string[];
+              eventIds?: string[];
+              favorite?: boolean;
+              source?: string;
+              uploadedBy?: string;
+              aiTagsPending?: boolean;
+              archived?: boolean;
+            };
+            category?: string;
+            usage_count?: number;
+            created_at?: string;
+            brand_id?: string;
+            status?: string;
+          };
+
+          const mappedAssets: Asset[] = data.assets.map((asset: ApiAsset) => ({
             id: asset.id,
             filename: asset.filename || asset.path?.split("/").pop() || "unknown",
             fileType: asset.mime_type?.startsWith("video/") ? "video" : "image",

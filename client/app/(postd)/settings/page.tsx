@@ -230,7 +230,7 @@ export default function Settings() {
                     <label className="block text-sm font-bold text-slate-700 mb-2">Role *</label>
                     <select
                       value={inviteRole}
-                      onChange={(e) => setInviteRole(e.target.value as any)}
+                      onChange={(e) => setInviteRole(e.target.value as "Viewer" | "Contributor" | "Manager" | "Admin")}
                       className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 mb-3"
                     >
                       <option value="Viewer">Viewer (Read-only)</option>
@@ -273,7 +273,7 @@ export default function Settings() {
                           value={member.role}
                           onChange={(e) =>
                             updateMember(currentWorkspace.id, member.id, {
-                              role: e.target.value as any,
+                              role: e.target.value as "Viewer" | "Contributor" | "Manager" | "Admin",
                             })
                           }
                           className="px-3 py-1 text-sm border border-slate-300 rounded-lg font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500"

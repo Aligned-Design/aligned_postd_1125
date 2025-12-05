@@ -3,8 +3,7 @@
  * Shows AI insights and suggestions
  */
 
-import { useAuth } from "@/lib/auth/useAuth";
-import { useCan } from "@/lib/auth/useCan";
+import { useAuth, useCan } from "@/lib/auth";
 
 interface AlignedAISummaryProps {
   className?: string;

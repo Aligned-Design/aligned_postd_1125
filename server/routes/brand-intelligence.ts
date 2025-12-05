@@ -3,14 +3,16 @@ import { BrandIntelligence } from "@shared/brand-intelligence";
 import { AppError } from "../lib/error-middleware";
 import { ErrorCode, HTTP_STATUS } from "../lib/error-responses";
 import { supabase } from "../lib/supabase";
-import { assertBrandAccess } from "../lib/brand-access";
+import { validateBrandId } from "../middleware/validate-brand-id";
 import { logger } from "../lib/logger";
 
+// ✅ Note: This handler is used with validateBrandId middleware in the route registration
+// The middleware validates brandId format and access before this handler runs
 export const getBrandIntelligence: RequestHandler = async (req, res) => {
   try {
-    const { brandId } = req.params;
+    // ✅ Use validated brandId from middleware (checks params, query, body)
+    const brandId = (req as any).validatedBrandId ?? req.params.brandId;
 
-    // Validate required parameter
     if (!brandId) {
       throw new AppError(
         ErrorCode.MISSING_REQUIRED_FIELD,
@@ -21,21 +23,6 @@ export const getBrandIntelligence: RequestHandler = async (req, res) => {
         "Please provide brandId as a URL parameter"
       );
     }
-
-    // Validate brandId format (basic check)
-    if (typeof brandId !== "string" || brandId.length === 0) {
-      throw new AppError(
-        ErrorCode.INVALID_FORMAT,
-        "Invalid brandId format",
-        HTTP_STATUS.BAD_REQUEST,
-        "warning",
-        undefined,
-        "brandId must be a non-empty string"
-      );
-    }
-
-    // Verify user has access to this brand
-    await assertBrandAccess(req, brandId);
 
     // ✅ REAL IMPLEMENTATION: Query real brand data from database
     const { data: brand, error: brandError } = await supabase

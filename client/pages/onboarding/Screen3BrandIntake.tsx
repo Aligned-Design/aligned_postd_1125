@@ -170,7 +170,8 @@ export default function Screen3BrandIntake() {
     setIsGenerating(true);
 
     try {
-      // TODO: Migrate from "aligned_brand_id" to "postd_brand_id" (keeping backward compatibility)
+      // ✅ Use postd_brand_id (fallback to aligned_brand_id for backward compatibility)
+      // TODO: Remove aligned_brand_id fallback after migration complete
       const brandId = localStorage.getItem("postd_brand_id") || localStorage.getItem("aligned_brand_id");
       if (!brandId) {
         throw new Error("Brand ID not found. Please go back and complete brand creation.");

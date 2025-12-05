@@ -73,15 +73,15 @@ export default function Library() {
         
         if (data.success && data.assets) {
           // Map API response to Asset format
-          const mappedAssets: Asset[] = data.assets.map((asset: any) => ({
-            id: asset.id,
-            filename: asset.filename || asset.path?.split("/").pop() || "unknown",
-            fileType: asset.mime_type?.startsWith("video/") ? "video" : "image",
-            fileSize: asset.size_bytes || 0,
-            width: asset.metadata?.width || 0,
-            height: asset.metadata?.height || 0,
-            thumbnailUrl: asset.metadata?.thumbnailUrl || asset.path || "",
-            storagePath: asset.path || "",
+          const mappedAssets: Asset[] = data.assets.map((asset: Record<string, unknown>) => ({
+            id: String(asset.id || ""),
+            filename: String(asset.filename || (typeof asset.path === "string" ? asset.path.split("/").pop() : "") || "unknown"),
+            fileType: typeof asset.mime_type === "string" && asset.mime_type.startsWith("video/") ? "video" : "image",
+            fileSize: Number(asset.size_bytes || 0),
+            width: (asset.metadata && typeof asset.metadata === "object" && "width" in asset.metadata) ? Number(asset.metadata.width) || 0 : 0,
+            height: (asset.metadata && typeof asset.metadata === "object" && "height" in asset.metadata) ? Number(asset.metadata.height) || 0 : 0,
+            thumbnailUrl: String((asset.metadata && typeof asset.metadata === "object" && "thumbnailUrl" in asset.metadata ? asset.metadata.thumbnailUrl : asset.path) || ""),
+            storagePath: String(asset.path || ""),
             tags: asset.metadata?.aiTags || [],
             category: asset.category || "images",
             people: asset.metadata?.people || [],
@@ -263,7 +263,7 @@ export default function Library() {
 
       return true;
     });
-  }, [assets, filters]);
+  }, [assets, filters, showArchived]);
 
   // Sort logic
   const sortedAssets = useMemo(() => {
@@ -375,7 +375,7 @@ export default function Library() {
   const selectedAssetData = assets.find((a) => a.id === selectedAssetId);
   const allTags = Array.from(new Set(assets.flatMap((a) => a.tags))).sort();
   const allPeople = Array.from(new Set(assets.flatMap((a) => a.people))).sort();
-  const allGraphicsSizes = Array.from(new Set(assets.map((a) => a.graphicsSize))) as any[];
+  const allGraphicsSizes = Array.from(new Set(assets.map((a) => a.graphicsSize))) as string[];
 
   return (    
       <FirstVisitTooltip page="library">
@@ -534,14 +534,14 @@ export default function Library() {
                           if (response.ok) {
                             const data = await response.json();
                             if (data.success && data.assets) {
-                              const mappedAssets: Asset[] = data.assets.map((asset: any) => ({
-                                id: asset.id,
-                                filename: asset.filename || asset.path?.split("/").pop() || "unknown",
-                                fileType: asset.mime_type?.startsWith("video/") ? "video" : "image",
-                                fileSize: asset.size_bytes || 0,
-                                width: asset.metadata?.width || 0,
-                                height: asset.metadata?.height || 0,
-                                thumbnailUrl: asset.metadata?.thumbnailUrl || asset.path || "",
+                              const mappedAssets: Asset[] = data.assets.map((asset: Record<string, unknown>) => ({
+                                id: String(asset.id || ""),
+                                filename: String(asset.filename || (typeof asset.path === "string" ? asset.path.split("/").pop() : "") || "unknown"),
+                                fileType: typeof asset.mime_type === "string" && asset.mime_type.startsWith("video/") ? "video" : "image",
+                                fileSize: Number(asset.size_bytes || 0),
+                                width: (asset.metadata && typeof asset.metadata === "object" && "width" in asset.metadata) ? Number(asset.metadata.width) || 0 : 0,
+                                height: (asset.metadata && typeof asset.metadata === "object" && "height" in asset.metadata) ? Number(asset.metadata.height) || 0 : 0,
+                                thumbnailUrl: String((asset.metadata && typeof asset.metadata === "object" && "thumbnailUrl" in asset.metadata ? asset.metadata.thumbnailUrl : asset.path) || ""),
                                 storagePath: asset.path || "",
                                 tags: asset.metadata?.aiTags || [],
                                 category: asset.category || "images",

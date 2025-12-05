@@ -14,6 +14,7 @@ interface LinkedAccount {
   tokenExpiresIn?: number; // days until expiration
   permissions?: string[];
   lastSync?: string;
+  comingSoon?: boolean; // For connectors not yet implemented
 }
 
 const linkedAccounts: LinkedAccount[] = [
@@ -92,6 +93,7 @@ const linkedAccounts: LinkedAccount[] = [
     icon: "📧",
     handle: "Email Marketing",
     status: "error",
+    comingSoon: true, // ⚠️ Not yet implemented - connector scaffold only
   },
   {
     id: "9",

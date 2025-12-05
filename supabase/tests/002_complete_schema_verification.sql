@@ -18,17 +18,11 @@
 -- 10. Helper functions status
 -- ============================================================================
 
-\echo '============================================================================'
-\echo 'POSTD SUPABASE SCHEMA VERIFICATION REPORT'
-\echo '============================================================================'
-\echo ''
 
 -- ============================================================================
 -- SECTION 1: Core Tables Verification
 -- ============================================================================
 
-\echo '1. CORE TABLES VERIFICATION'
-\echo '----------------------------'
 
 -- Check core tables exist
 SELECT 
@@ -91,14 +85,11 @@ SELECT
     ELSE '❌ FAIL'
   END as status;
 
-\echo ''
 
 -- ============================================================================
 -- SECTION 2: media_assets.status Column Verification
 -- ============================================================================
 
-\echo '2. MEDIA_ASSETS.STATUS COLUMN VERIFICATION'
-\echo '------------------------------------------'
 
 SELECT 
   'media_assets.status column' as check_type,
@@ -139,14 +130,11 @@ SELECT
     ELSE '❌ FAIL'
   END as status;
 
-\echo ''
 
 -- ============================================================================
 -- SECTION 3: Persistence Schema brand_id_uuid Verification
 -- ============================================================================
 
-\echo '3. PERSISTENCE SCHEMA BRAND_ID_UUID VERIFICATION'
-\echo '------------------------------------------------'
 
 -- Check all 10 persistence tables have brand_id_uuid columns
 SELECT 
@@ -181,14 +169,11 @@ WHERE table_schema = 'public'
   AND column_name = 'brand_id_uuid'
 ORDER BY table_name;
 
-\echo ''
 
 -- ============================================================================
 -- SECTION 4: Foreign Key Constraints Verification
 -- ============================================================================
 
-\echo '4. FOREIGN KEY CONSTRAINTS VERIFICATION'
-\echo '----------------------------------------'
 
 -- Check FK constraints on persistence tables
 SELECT 
@@ -214,14 +199,11 @@ WHERE conname LIKE 'fk_%_brand_id_uuid'
   AND contype = 'f'
 ORDER BY conrelid::regclass;
 
-\echo ''
 
 -- ============================================================================
 -- SECTION 5: RLS Status Verification
 -- ============================================================================
 
-\echo '5. RLS STATUS VERIFICATION'
-\echo '---------------------------'
 
 -- Check RLS is enabled on key tables
 SELECT 
@@ -256,14 +238,11 @@ WHERE schemaname = 'public'
     'platform_insights', 'token_health', 'weekly_summaries', 'advisor_review_audits'
   );
 
-\echo ''
 
 -- ============================================================================
 -- SECTION 6: RLS Policies Use brand_id_uuid (Not brand_id TEXT)
 -- ============================================================================
 
-\echo '6. RLS POLICIES USE BRAND_ID_UUID VERIFICATION'
-\echo '-----------------------------------------------'
 
 -- Check for policies using is_brand_member_text() (should be 0)
 SELECT 
@@ -314,14 +293,11 @@ WHERE tablename IN (
 )
 AND qual LIKE '%brand_id_uuid%';
 
-\echo ''
 
 -- ============================================================================
 -- SECTION 7: Migration 006 Status (brand_id TEXT Columns)
 -- ============================================================================
 
-\echo '7. MIGRATION 006 STATUS (BRAND_ID TEXT COLUMNS)'
-\echo '------------------------------------------------'
 
 -- Check if brand_id TEXT columns still exist (should be 0 if migration 006 applied)
 SELECT 
@@ -362,14 +338,11 @@ WHERE table_schema = 'public'
 GROUP BY table_name
 ORDER BY table_name;
 
-\echo ''
 
 -- ============================================================================
 -- SECTION 8: Helper Functions Status
 -- ============================================================================
 
-\echo '8. HELPER FUNCTIONS STATUS'
-\echo '--------------------------'
 
 -- Check is_brand_member_text() function status
 SELECT 
@@ -407,14 +380,11 @@ SELECT
     ELSE '❌ FAIL'
   END as status;
 
-\echo ''
 
 -- ============================================================================
 -- SECTION 9: Data Integrity Checks
 -- ============================================================================
 
-\echo '9. DATA INTEGRITY VERIFICATION'
-\echo '-------------------------------'
 
 -- Check brand_id_uuid columns are populated (if tables have data)
 SELECT 
@@ -466,34 +436,9 @@ LEFT JOIN brands b ON s.brand_id_uuid = b.id
 WHERE s.brand_id_uuid IS NOT NULL
   AND b.id IS NULL;
 
-\echo ''
 
 -- ============================================================================
 -- SECTION 10: Summary Report
 -- ============================================================================
 
-\echo '============================================================================'
-\echo 'VERIFICATION SUMMARY'
-\echo '============================================================================'
-\echo ''
-\echo 'To see detailed results, review the output above.'
-\echo ''
-\echo 'Expected Results:'
-\echo '  ✅ All core tables exist'
-\echo '  ✅ media_assets.status column exists'
-\echo '  ✅ All 10 persistence tables have brand_id_uuid columns'
-\echo '  ✅ All persistence tables have FK constraints'
-\echo '  ✅ RLS enabled on all tenant-scoped tables'
-\echo '  ✅ No policies use is_brand_member_text() or brand_id TEXT'
-\echo '  ✅ All policies use brand_id_uuid'
-\echo '  ✅ brand_id TEXT columns dropped (if migration 006 applied)'
-\echo '  ✅ is_brand_member_text() function dropped (if migration 006 applied)'
-\echo '  ✅ No orphaned brand references'
-\echo ''
-\echo 'If any checks fail:'
-\echo '  1. Review the specific check output above'
-\echo '  2. Apply missing migrations (001-010)'
-\echo '  3. Run migration 010 if RLS policies are incorrect'
-\echo '  4. Run migration 006 only after all other migrations are applied'
-\echo '============================================================================'
 

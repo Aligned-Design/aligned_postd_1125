@@ -175,7 +175,9 @@ export default function BrandIntake() {
     try {
       // ✅ Use real crawler API instead of Edge Function fallback
       // Get workspaceId/tenantId from user context for image persistence
-      const workspaceId = (user as any)?.workspaceId || (user as any)?.tenantId || localStorage.getItem("aligned_workspace_id");
+      const workspaceId = (user as { workspaceId?: string; tenantId?: string })?.workspaceId || 
+                          (user as { workspaceId?: string; tenantId?: string })?.tenantId || 
+                          localStorage.getItem("aligned_workspace_id");
 
       // Use apiPost for authenticated requests
       const { apiPost } = await import("@/lib/api");
@@ -185,7 +187,7 @@ export default function BrandIntake() {
       // Call real crawler API with sync mode
       const result = await apiPost<{
         success: boolean;
-        brandKit: any;
+        brandKit: Record<string, unknown>;
         status: string;
       }>("/api/crawl/start?sync=true", {
         brand_id: brandId,

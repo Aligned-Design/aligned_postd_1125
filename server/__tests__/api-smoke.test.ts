@@ -242,5 +242,175 @@ describe("API Smoke Tests", () => {
       expect(response.body).toHaveProperty("status");
     });
   });
+
+  describe("V2 Endpoints - Analytics", () => {
+    it("GET /api/analytics/overview should require authentication", async () => {
+      const response = await request(app).get("/api/analytics/overview");
+
+      expect(response.status).toBe(401);
+      expect(response.body).toHaveProperty("error");
+      expect(response.body.error).toHaveProperty("code");
+    });
+
+    it("GET /api/analytics/engagement-trend should require authentication", async () => {
+      const response = await request(app).get("/api/analytics/engagement-trend");
+
+      expect(response.status).toBe(401);
+      expect(response.body).toHaveProperty("error");
+    });
+
+    it("GET /api/analytics/content-performance should require authentication", async () => {
+      const response = await request(app).get("/api/analytics/content-performance");
+
+      expect(response.status).toBe(401);
+      expect(response.body).toHaveProperty("error");
+    });
+
+    it("GET /api/analytics/top-posts should require authentication", async () => {
+      const response = await request(app).get("/api/analytics/top-posts");
+
+      expect(response.status).toBe(401);
+      expect(response.body).toHaveProperty("error");
+    });
+  });
+
+  describe("V2 Endpoints - Approvals", () => {
+    it("GET /api/approvals/pending should require authentication", async () => {
+      const response = await request(app).get("/api/approvals/pending");
+
+      expect(response.status).toBe(401);
+      expect(response.body).toHaveProperty("error");
+    });
+
+    it("GET /api/approvals/history should require authentication", async () => {
+      const response = await request(app).get("/api/approvals/history");
+
+      expect(response.status).toBe(401);
+      expect(response.body).toHaveProperty("error");
+    });
+
+    it("GET /api/approvals/:approvalId should require authentication", async () => {
+      const response = await request(app).get("/api/approvals/550e8400-e29b-41d4-a716-446655440000");
+
+      expect(response.status).toBe(401);
+      expect(response.body).toHaveProperty("error");
+    });
+
+    it("POST /api/approvals/:approvalId/approve should require authentication", async () => {
+      const response = await request(app)
+        .post("/api/approvals/550e8400-e29b-41d4-a716-446655440000/approve")
+        .send({ notes: "Looks good" });
+
+      expect(response.status).toBe(401);
+      expect(response.body).toHaveProperty("error");
+    });
+
+    it("POST /api/approvals/:approvalId/reject should require authentication", async () => {
+      const response = await request(app)
+        .post("/api/approvals/550e8400-e29b-41d4-a716-446655440000/reject")
+        .send({ reason: "Needs revision" });
+
+      expect(response.status).toBe(401);
+      expect(response.body).toHaveProperty("error");
+    });
+  });
+
+  describe("V2 Endpoints - Media", () => {
+    it("GET /api/media should require authentication", async () => {
+      const response = await request(app).get("/api/media");
+
+      expect(response.status).toBe(401);
+      expect(response.body).toHaveProperty("error");
+    });
+
+    it("GET /api/media/storage-usage should require authentication", async () => {
+      const response = await request(app).get("/api/media/storage-usage?brandId=550e8400-e29b-41d4-a716-446655440000");
+
+      expect(response.status).toBe(401);
+      expect(response.body).toHaveProperty("error");
+    });
+
+    it("GET /api/media/:assetId should require authentication", async () => {
+      const response = await request(app).get("/api/media/550e8400-e29b-41d4-a716-446655440000");
+
+      expect(response.status).toBe(401);
+      expect(response.body).toHaveProperty("error");
+    });
+
+    it("DELETE /api/media/:assetId should require authentication", async () => {
+      const response = await request(app).delete("/api/media/550e8400-e29b-41d4-a716-446655440000");
+
+      expect(response.status).toBe(401);
+      expect(response.body).toHaveProperty("error");
+    });
+  });
+
+  describe("V2 Endpoints - Validation", () => {
+    it("GET /api/analytics/overview should validate query parameters", async () => {
+      const mockToken = "mock-token";
+
+      const response = await request(app)
+        .get("/api/analytics/overview?days=invalid")
+        .set("Authorization", `Bearer ${mockToken}`);
+
+      // Should fail validation (400) or auth (401)
+      expect([400, 401]).toContain(response.status);
+    });
+
+    it("GET /api/approvals/pending should validate query parameters", async () => {
+      const mockToken = "mock-token";
+
+      const response = await request(app)
+        .get("/api/approvals/pending?limit=invalid")
+        .set("Authorization", `Bearer ${mockToken}`);
+
+      // Should fail validation (400) or auth (401)
+      expect([400, 401]).toContain(response.status);
+    });
+
+    it("POST /api/approvals/:approvalId/reject should validate request body", async () => {
+      const mockToken = "mock-token";
+
+      const response = await request(app)
+        .post("/api/approvals/550e8400-e29b-41d4-a716-446655440000/reject")
+        .set("Authorization", `Bearer ${mockToken}`)
+        .send({}); // Missing required 'reason' field
+
+      // Should fail validation (400) or auth (401)
+      expect([400, 401]).toContain(response.status);
+    });
+  });
+
+  describe("Reviews Endpoint", () => {
+    it("GET /api/reviews/:brandId should require authentication", async () => {
+      const response = await request(app).get("/api/reviews/550e8400-e29b-41d4-a716-446655440000");
+
+      expect(response.status).toBe(401);
+      expect(response.body).toHaveProperty("error");
+    });
+  });
+
+  describe("Webhooks Endpoints", () => {
+    it("POST /api/webhooks/zapier should validate x-brand-id header", async () => {
+      const response = await request(app)
+        .post("/api/webhooks/zapier")
+        .send({ action: "test" });
+
+      // Should fail validation (missing x-brand-id header)
+      expect([400, 422]).toContain(response.status);
+      expect(response.body).toHaveProperty("error");
+    });
+
+    it("POST /api/webhooks/make should validate request body", async () => {
+      const response = await request(app)
+        .post("/api/webhooks/make")
+        .set("x-brand-id", "550e8400-e29b-41d4-a716-446655440000")
+        .send({}); // Missing required 'event' field
+
+      // Should fail validation
+      expect([400, 422]).toContain(response.status);
+      expect(response.body).toHaveProperty("error");
+    });
+  });
 });
 

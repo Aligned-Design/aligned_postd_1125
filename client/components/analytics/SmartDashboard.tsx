@@ -4,7 +4,7 @@
  */
 
 import { useState } from "react";
-import { useCan } from "@/lib/auth/useCan";
+import { useCan } from "@/lib/auth";
 
 interface SmartDashboardProps {
   hasGoals?: boolean;

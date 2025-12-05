@@ -72,26 +72,23 @@ export async function runGenerationPipeline(
   }> = [];
 
   try {
-    // Load brand data
-    const { data: brandKit, error: brandError } = await supabase
-      .from("brand_kits")
-      .select("*")
-      .eq("brand_id", request.brand_id)
+    // Load brand data from brands table
+    const { data: brandData, error: brandError } = await supabase
+      .from("brands")
+      .select("brand_kit, safety_config")
+      .eq("id", request.brand_id)
       .single();
 
     if (brandError) {
-      throw new Error(`Failed to load brand kit: ${brandError.message}`);
+      throw new Error(`Failed to load brand data: ${brandError.message}`);
     }
 
-    const { data: safetyConfig, error: __safetyError } = await supabase
-      .from("brand_safety_configs")
-      .select("*")
-      .eq("brand_id", request.brand_id)
-      .single();
+    const brandKit = brandData?.brand_kit || {};
+    const safetyConfigData = (brandData?.safety_config as BrandSafetyConfig) || {};
 
-    const brandSafety: BrandSafetyConfig = safetyConfig || {
-      safety_mode: "safe",
-      banned_phrases: [],
+    const brandSafety: BrandSafetyConfig = {
+      safety_mode: safetyConfigData.safety_mode || "safe",
+      banned_phrases: safetyConfigData.banned_phrases || [],
       competitor_names: [],
       claims: [],
       required_disclaimers: [],

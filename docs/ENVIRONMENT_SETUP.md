@@ -55,17 +55,18 @@ SUPABASE_SERVICE_ROLE_KEY=[service-role-key]
 OPENAI_API_KEY=sk-[your-api-key]
 
 # Optional: Override default models (see docs/AI_MODEL_CONFIG.md for details)
-OPENAI_MODEL_TEXT=gpt-4o-mini          # Default text generation
-OPENAI_MODEL_ADVANCED=gpt-4o           # Advanced reasoning
-OPENAI_MODEL_CHEAP=gpt-4o-mini         # Background jobs
-OPENAI_MODEL_EMBEDDING=text-embedding-3-small  # Embeddings
+OPENAI_MODEL_TEXT=gpt-5-mini          # Default text generation
+OPENAI_MODEL_ADVANCED=gpt-5.1         # Advanced reasoning
+OPENAI_MODEL_CHEAP=gpt-5-nano         # Background jobs
+OPENAI_MODEL_EMBEDDING=text-embedding-3-large  # Embeddings
 OPENAI_EMBEDDING_DIMENSIONS=512       # Embedding dimensions
 ```
 
 **Default Models** (can be overridden via env vars):
-- `gpt-4o-mini`: Default text generation (cost-effective, fast)
-- `gpt-4o`: Advanced reasoning tasks (higher capability)
-- `text-embedding-3-small`: Embeddings (modern, cost-effective)
+- `gpt-5-mini`: Default text generation (cost-effective, fast)
+- `gpt-5.1`: Advanced reasoning tasks (higher capability)
+- `gpt-5-nano`: Background jobs (ultra cost-effective)
+- `text-embedding-3-large`: Embeddings (high-quality, modern)
 
 **Cost Optimization**:
 - Default models are optimized for cost/performance balance
@@ -580,7 +581,7 @@ SOCKETIO_RECONNECTION_DELAY_MAX=5000
 # Web Crawling
 CRAWL_MAX_PAGES=50
 CRAWL_TIMEOUT_MS=30000
-CRAWL_USER_AGENT=POSTDBot/1.0 (+contact: hello@aligned-by-design.com)
+CRAWL_USER_AGENT=POSTDBot/1.0 (+contact: hello@postd.ai)
 
 # Monitoring (Optional)
 SENTRY_DSN=[sentry-dsn]
@@ -684,7 +685,7 @@ If you get `Invalid API key` errors:
    ```bash
    docker build --build-arg VITE_SUPABASE_URL=$VITE_SUPABASE_URL \
      --build-arg VITE_SUPABASE_ANON_KEY=$VITE_SUPABASE_ANON_KEY \
-     -t aligned-ai .
+     -t postd .
    ```
 
 2. **Run container**:
@@ -692,7 +693,7 @@ If you get `Invalid API key` errors:
    docker run -p 3000:3000 \
      -e SUPABASE_SERVICE_ROLE_KEY=$SUPABASE_SERVICE_ROLE_KEY \
      -e OPENAI_API_KEY=$OPENAI_API_KEY \
-     aligned-ai
+     postd
    ```
 
 ### Environment Checklist

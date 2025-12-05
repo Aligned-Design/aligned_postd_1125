@@ -72,12 +72,15 @@ export function buildIdentityPrompt(brandGuide: BrandGuide): string {
   }
   if (identity.values && identity.values.length > 0) {
     prompt += `Core Values: ${identity.values.join(", ")}\n`;
+    prompt += `**These values must be reflected in every piece of content. Reference them naturally, not as a list.**\n`;
   }
   if (identity.targetAudience) {
     prompt += `Target Audience: ${identity.targetAudience}\n`;
+    prompt += `**Write as if speaking directly to this audience. Use their language, address their needs.**\n`;
   }
   if (identity.painPoints && identity.painPoints.length > 0) {
     prompt += `Pain Points: ${identity.painPoints.join(", ")}\n`;
+    prompt += `**Address these pain points in your content. Show how ${brandGuide.brandName} solves these problems.**\n`;
   }
   if (identity.competitors && identity.competitors.length > 0) {
     prompt += `Competitors to Avoid: ${identity.competitors.join(", ")}\n`;
@@ -99,15 +102,18 @@ export function buildVoiceTonePrompt(brandGuide: BrandGuide): string {
 
   if (voiceAndTone.tone && voiceAndTone.tone.length > 0) {
     prompt += `Tone Keywords: ${voiceAndTone.tone.join(", ")}\n`;
+    prompt += `**CRITICAL**: Your writing MUST embody these tone keywords. Every sentence should reflect: ${voiceAndTone.tone.join(", ")}.\n`;
   }
 
   prompt += `Tone Profile:\n`;
   prompt += `- Friendliness: ${voiceAndTone.friendlinessLevel}/100 (0=Formal, 100=Warm & Friendly)\n`;
   prompt += `- Formality: ${voiceAndTone.formalityLevel}/100 (0=Casual, 100=Professional)\n`;
   prompt += `- Confidence: ${voiceAndTone.confidenceLevel}/100 (0=Tentative, 100=Bold & Authoritative)\n`;
+  prompt += `**IMPORTANT**: Adjust your writing style to match these exact levels. Do not use generic marketing language.\n`;
 
   if (voiceAndTone.voiceDescription) {
     prompt += `\nVoice Description: ${voiceAndTone.voiceDescription}\n`;
+    prompt += `**This is how ${brandGuide.brandName} actually sounds. Match this voice exactly.**\n`;
   }
 
   if (voiceAndTone.writingRules && voiceAndTone.writingRules.length > 0) {

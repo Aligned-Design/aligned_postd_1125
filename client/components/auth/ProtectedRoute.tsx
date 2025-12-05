@@ -5,9 +5,7 @@
 
 import { ReactNode } from "react";
 import { Navigate } from "react-router-dom";
-import { useAuth } from "@/lib/auth/useAuth";
-import { useCan } from "@/lib/auth/useCan";
-import type { Scope } from "@/lib/auth/useCan";
+import { useAuth, useCan, type Scope } from "@/lib/auth";
 
 interface ProtectedRouteProps {
   children: ReactNode;

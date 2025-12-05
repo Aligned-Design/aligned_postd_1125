@@ -354,7 +354,7 @@ export default function Events() {
                 <div className="flex flex-wrap gap-2 flex-1">
                   <select
                     value={filterStatus}
-                    onChange={(e) => setFilterStatus(e.target.value as any)}
+                    onChange={(e) => setFilterStatus(e.target.value as "all" | "upcoming" | "past")}
                     className="px-3 py-2 rounded-lg text-xs font-medium border border-slate-300 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   >
                     <option value="all">All Status</option>

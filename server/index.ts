@@ -236,12 +236,14 @@ export function createServer() {
     "/api/ai/doc",
     authenticateUser,
     requireScope("ai:generate"),
+    validateBrandId, // Validates brandId from request body
     generateDocContent,
   );
   app.post(
     "/api/ai/design",
     authenticateUser,
     requireScope("ai:generate"),
+    validateBrandId, // Validates brandId from request body
     generateDesignContent,
   );
 
@@ -254,7 +256,7 @@ export function createServer() {
   );
 
   // Dashboard route
-  app.post("/api/dashboard", authenticateUser, requireScope("content:view"), getDashboardData);
+  app.post("/api/dashboard", authenticateUser, requireScope("content:view"), validateBrandId, getDashboardData);
 
   // Orchestration routes (full collaboration pipeline)
   app.use("/api/orchestration", orchestrationRouter);
@@ -307,7 +309,7 @@ export function createServer() {
   );
 
   // Brand Intelligence routes
-  app.get("/api/brand-intelligence/:brandId", authenticateUser, getBrandIntelligence);
+  app.get("/api/brand-intelligence/:brandId", authenticateUser, validateBrandId, getBrandIntelligence);
   app.post("/api/brand-intelligence/feedback", authenticateUser, submitRecommendationFeedback);
 
   // Media routes

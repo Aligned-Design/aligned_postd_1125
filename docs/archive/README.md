@@ -42,9 +42,21 @@ All canonical documents are listed in [`DOCS_INDEX.md`](../../DOCS_INDEX.md) und
 - `PHASE5_COMPLETION_SUMMARY.md` - Conflicting Phase 5 summary (different phase)
 - `PHASE5_READINESS_SUMMARY.md` - Conflicting Phase 5 summary (different phase)
 
+### Migration Documents (21 files)
+- `migrations/MIGRATIONS_*.md` - Historical migration validation and execution documents
+- These documents track the migration process from earlier database schema versions
+
+### Phase Implementation Documents (6 files)
+- `PHASE_2_FIXES_SUMMARY.md` - Historical phase 2 fixes
+- `PHASE2_P0_P1_FIXES_SUMMARY.md` - Historical phase 2 P0/P1 fixes
+- `PHASE5_VERIFICATION.md` - Historical phase 5 verification
+- `PHASE5_CODE_REFERENCES.md` - Historical phase 5 code references
+- `PHASE6_IMPLEMENTATION.md` - Historical phase 6 implementation
+- `PHASE7_IMPLEMENTATION.md` - Historical phase 7 implementation
+
 ## Archive Date
 
-All files in this archive were moved during Phase 5 Documentation Cleanup (2025-01-20).
+All files in this archive were moved during Phase 5 Documentation Cleanup (2025-01-20) and Repository Health Remediation (2025-01-20).
 
 ---
 

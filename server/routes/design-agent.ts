@@ -39,10 +39,27 @@ import { StrategyBriefStorage, ContentPackageStorage, BrandHistoryStorage, Perfo
 import { getBrandVisualIdentity } from "../lib/brand-visual-identity";
 import { getCurrentBrandGuide } from "../lib/brand-guide-service";
 import { mapVariantToVisualEntry } from "../lib/collaboration-utils";
+import { logger } from "../lib/logger";
 
 // Simple logger for telemetry
 function logDesignAgentCall(provider: string, latencyMs: number, avgBFS: number, retryAttempted: boolean, variantCount: number, error?: string) {
-  console.log(`[Creative] provider=${provider} latency=${latencyMs}ms avgBFS=${avgBFS.toFixed(2)} retry=${retryAttempted} variants=${variantCount}${error ? ` error=${error}` : ""}`);
+  if (error) {
+    logger.error("Design agent call failed", new Error(error), {
+      provider,
+      latencyMs,
+      avgBFS,
+      retryAttempted,
+      variantCount,
+    });
+  } else {
+    logger.info("Design agent call completed", {
+      provider,
+      latencyMs,
+      avgBFS,
+      retryAttempted,
+      variantCount,
+    });
+  }
 }
 
 /**
@@ -79,7 +96,7 @@ function parseDesignVariants(content: string): AiDesignVariant[] {
       performanceInsights: item.performanceInsights,
     }));
   } catch (error) {
-    console.error("Failed to parse design variants:", error);
+    logger.error("Failed to parse design variants", error instanceof Error ? error : new Error(String(error)));
     // Return a fallback variant
     return [{
       id: "parse-error",
@@ -236,17 +253,29 @@ export const generateDesignContent: RequestHandler = async (req, res) => {
   try {
     // Validate request body with Zod
     const requestBody = AiDesignGenerationRequestSchema.parse(req.body);
-    const { brandId, campaignName, platform, format, tone, visualStyle, additionalContext, requestId, strategyBriefId, contentPackageId } = requestBody;
+    // ✅ Use validated brandId from middleware (checks params, query, body)
+    const brandId = (req as any).validatedBrandId ?? requestBody.brandId;
+    const { campaignName, platform, format, tone, visualStyle, additionalContext, requestId, strategyBriefId, contentPackageId } = requestBody;
 
-    // ✅ SECURITY: Verify user has access to this brand and workspace
-    await assertBrandAccess(req, brandId, true, true);
+    if (!brandId) {
+      throw new AppError(
+        ErrorCode.MISSING_REQUIRED_FIELD,
+        "brandId is required",
+        HTTP_STATUS.BAD_REQUEST,
+        "warning"
+      );
+    }
 
     // ✅ COLLABORATION: Read StrategyBrief if provided
     let strategyBrief = null;
     if (strategyBriefId) {
       strategyBrief = await StrategyBriefStorage.getLatest(brandId);
       if (strategyBrief && strategyBrief.id !== strategyBriefId) {
-        console.log(`[Creative] StrategyBrief ID ${strategyBriefId} requested, using latest: ${strategyBrief.id}`);
+        logger.info("StrategyBrief ID mismatch, using latest", {
+          requestedId: strategyBriefId,
+          latestId: strategyBrief.id,
+          brandId,
+        });
       }
     }
 
@@ -255,7 +284,10 @@ export const generateDesignContent: RequestHandler = async (req, res) => {
     if (contentPackageId) {
       contentPackage = await ContentPackageStorage.getById(contentPackageId);
       if (!contentPackage) {
-        console.warn(`[Creative] ContentPackage ${contentPackageId} not found`);
+        logger.warn("ContentPackage not found", {
+          contentPackageId,
+          brandId,
+        });
       }
     }
 
@@ -421,9 +453,16 @@ export const generateDesignContent: RequestHandler = async (req, res) => {
               });
               contentPackage.updatedAt = new Date().toISOString();
               await ContentPackageStorage.save(contentPackage);
-              console.log(`[Creative] Updated ContentPackage ${contentPackage.id} with visuals (retry)`);
+              logger.info("Updated ContentPackage with visuals (retry)", {
+                contentPackageId: contentPackage.id,
+                brandId,
+              });
             } catch (collabError) {
-              console.warn(`[Creative] Failed to update ContentPackage:`, collabError);
+              logger.warn("Failed to update ContentPackage", {
+                contentPackageId: contentPackage.id,
+                brandId,
+                error: collabError instanceof Error ? collabError.message : String(collabError),
+              });
             }
           }
 
@@ -496,9 +535,17 @@ export const generateDesignContent: RequestHandler = async (req, res) => {
             });
             contentPackage.updatedAt = new Date().toISOString();
             await ContentPackageStorage.save(contentPackage);
-            console.log(`[Creative] Updated ContentPackage ${contentPackage.id} with design context and ${contentPackage.visuals.length} visuals`);
+            logger.info("Updated ContentPackage with design context", {
+              contentPackageId: contentPackage.id,
+              visualsCount: contentPackage.visuals.length,
+              brandId,
+            });
           } catch (collabError) {
-            console.warn(`[Creative] Failed to update ContentPackage:`, collabError);
+            logger.warn("Failed to update ContentPackage", {
+              contentPackageId: contentPackage.id,
+              brandId,
+              error: collabError instanceof Error ? collabError.message : String(collabError),
+            });
           }
         }
 
@@ -526,7 +573,11 @@ export const generateDesignContent: RequestHandler = async (req, res) => {
         
         // Try fallback provider
             provider = provider === "openai" ? "claude" : "openai";
-        console.log(`Attempt ${attempt} failed, trying provider: ${provider}`);
+        logger.info("Design generation attempt failed, trying alternative provider", {
+          attempt,
+          provider,
+          brandId,
+        });
       }
     }
 

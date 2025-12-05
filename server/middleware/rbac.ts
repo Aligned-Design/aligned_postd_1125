@@ -1,4 +1,4 @@
-import type { Request, Response, NextFunction } from "express";
+import { Request, Response, NextFunction } from "express";
 import { AppError } from "../lib/error-middleware";
 import { ErrorCode, HTTP_STATUS } from "../lib/error-responses";
 
@@ -190,7 +190,11 @@ export function hasAllPermissions(
 /**
  * Middleware: Require authentication
  */
-export function requireAuth(req: Request, _res: Response, next: NextFunction) {
+export function requireAuth(
+  req: Request,
+  _res: Response,
+  next: NextFunction,
+): void {
   const auth = req.auth;
 
   if (!auth || !auth.userId) {
@@ -209,7 +213,7 @@ export function requireAuth(req: Request, _res: Response, next: NextFunction) {
  * Middleware: Require specific role
  */
 export function requireRole(...roles: Role[]) {
-  return (req: Request, _res: Response, next: NextFunction) => {
+  return (req: Request, _res: Response, next: NextFunction): void => {
     const auth = req.auth;
 
     if (!auth || !auth.role) {
@@ -221,7 +225,7 @@ export function requireRole(...roles: Role[]) {
       );
     }
 
-    if (!roles.includes(auth.role)) {
+    if (!roles.includes(auth.role as Role)) {
       throw new AppError(
         ErrorCode.FORBIDDEN,
         "Insufficient permissions",
@@ -239,7 +243,7 @@ export function requireRole(...roles: Role[]) {
  * Middleware: Require specific permission
  */
 export function requirePermission(...permissions: Permission[]) {
-  return (req: Request, _res: Response, next: NextFunction) => {
+  return (req: Request, _res: Response, next: NextFunction): void => {
     const auth = req.auth;
 
     if (!auth || !auth.role) {
@@ -252,7 +256,7 @@ export function requirePermission(...permissions: Permission[]) {
     }
 
     const hasRequiredPermission = permissions.some((p) =>
-      hasPermission(auth.role, p),
+      hasPermission(auth.role as Role, p),
     );
 
     if (!hasRequiredPermission) {
@@ -276,9 +280,12 @@ export function requireBrandAccess(
   req: Request,
   _res: Response,
   next: NextFunction,
-) {
+): void {
   const auth = req.auth;
-  const brandId = req.params.brandId || req.body.brandId || req.query.brandId;
+  const brandId =
+    (req.params as Record<string, string>).brandId ||
+    (req.body as Record<string, any>).brandId ||
+    (req.query as Record<string, any>).brandId;
 
   if (!auth || !auth.userId) {
     throw new AppError(
@@ -320,12 +327,13 @@ export function requireBrandAccess(
  * Middleware: Require ownership (user can only access their own resources)
  */
 export function requireOwnership(userIdField: string = "userId") {
-  return (req: Request, _res: Response, next: NextFunction) => {
+  return (req: Request, _res: Response, next: NextFunction): void => {
     const auth = req.auth;
+    const params = req.params as Record<string, string>;
+    const body = req.body as Record<string, any>;
+    const query = req.query as Record<string, any>;
     const resourceUserId =
-      req.params[userIdField] ||
-      req.body[userIdField] ||
-      req.query[userIdField];
+      params[userIdField] || body[userIdField] || query[userIdField];
 
     if (!auth || !auth.userId) {
       throw new AppError(
@@ -338,7 +346,8 @@ export function requireOwnership(userIdField: string = "userId") {
 
     // Superadmins can access any resource
     if (auth.role === Role.SUPERADMIN) {
-      return next();
+      next();
+      return;
     }
 
     if (auth.userId !== resourceUserId) {
@@ -370,7 +379,11 @@ export function getUserPermissions(role: Role): Permission[] {
  * This function is kept for backward compatibility but should not be used.
  * @deprecated Use authenticateUser from server/middleware/security.ts instead
  */
-export function mockAuth(req: Request, _res: Response, next: NextFunction) {
+export function mockAuth(
+  req: Request,
+  _res: Response,
+  next: NextFunction,
+): void {
   console.error("[Auth] ❌ CRITICAL: mockAuth is deprecated and should not be used!");
   console.error("[Auth] All routes must use real Supabase Auth via authenticateUser middleware.");
   console.error("[Auth] This request will be rejected to prevent security bypass.");

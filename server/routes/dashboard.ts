@@ -11,11 +11,12 @@ import { supabase } from "../lib/supabase";
 import { AppError } from "../lib/error-middleware";
 import { ErrorCode, HTTP_STATUS } from "../lib/error-responses";
 import { DashboardResponse, DashboardKpi, ChartDataPoint, TopContentItem, ActivityItem } from "@shared/api";
-import { assertBrandAccess } from "../lib/brand-access";
+import { validateBrandId } from "../middleware/validate-brand-id";
 
 // ✅ VALIDATION: Zod schema for dashboard request
+// Note: brandId validation is handled by validateBrandId middleware
 const DashboardRequestSchema = z.object({
-  brandId: z.string().uuid("Invalid brand ID format"),
+  brandId: z.string(), // Format validation handled by middleware
   timeRange: z.enum(["7d", "30d", "90d", "all"]).optional().default("30d"),
 }).strict();
 
@@ -48,8 +49,7 @@ async function getDashboardKPIs(
   brandId: string, 
   timeRange: "7d" | "30d" | "90d" | "all"
 ): Promise<DashboardKpi[]> {
-  // ✅ CRITICAL: Verify brand access before querying
-  await assertBrandAccess(req, brandId, true, true);
+  // ✅ Brand access already verified by validateBrandId middleware
   
   const dateFrom = getDateRange(timeRange);
   
@@ -134,8 +134,7 @@ async function getChartData(
   brandId: string, 
   timeRange: "7d" | "30d" | "90d" | "all"
 ): Promise<ChartDataPoint[]> {
-  // ✅ CRITICAL: Verify brand access before querying
-  await assertBrandAccess(req, brandId, true, true);
+  // ✅ Brand access already verified by validateBrandId middleware
   
   const dateFrom = getDateRange(timeRange);
   
@@ -296,10 +295,18 @@ export const getDashboardData: RequestHandler = async (req, res) => {
       throw validationError;
     }
 
-    const { brandId, timeRange = "30d" } = requestBody;
+    // ✅ Use validated brandId from middleware (checks params, query, body)
+    const brandId = (req as any).validatedBrandId ?? requestBody.brandId;
+    const { timeRange = "30d" } = requestBody;
 
-    // ✅ CRITICAL: Verify brand access at route level
-    await assertBrandAccess(req, brandId, true, true);
+    if (!brandId) {
+      throw new AppError(
+        ErrorCode.MISSING_REQUIRED_FIELD,
+        "brandId is required",
+        HTTP_STATUS.BAD_REQUEST,
+        "warning"
+      );
+    }
 
     // Fetch all dashboard data in parallel
     const [kpis, chartData, topContent, recentActivity] = await Promise.all([

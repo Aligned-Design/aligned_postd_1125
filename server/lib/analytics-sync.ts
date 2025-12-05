@@ -1042,14 +1042,14 @@ export class AnalyticsSync {
           .upsert(
             chunk.map((metric) => ({
               brand_id: metric.brandId,
-              tenant_id: metric.brandId, // Assuming tenant_id = brand_id for now
+              content_item_id: metric.postId,  // Map postId to content_item_id (schema column name)
               platform: metric.platform,
-              post_id: metric.postId,
               date: metric.date,
               metrics: metric.metrics,
-              metadata: metric.metadata,
+              // Note: tenant_id column doesn't exist in schema - removed
+              // Note: metadata column doesn't exist in schema - removed (use metrics JSONB instead)
             })),
-            { onConflict: "brand_id,platform,post_id,date" },
+            { onConflict: "brand_id,platform,date" },  // Fix unique constraint to match schema
           );
 
         if (dbError) {
@@ -1082,7 +1082,7 @@ export class AnalyticsSync {
         .from("analytics_sync_logs")
         .insert({
           brand_id: brandId,
-          tenant_id: brandId,
+          // Note: tenant_id column doesn't exist in schema - removed
           platform,
           sync_type: "incremental",
           status: "failed",

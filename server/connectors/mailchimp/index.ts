@@ -1,8 +1,19 @@
 /**
  * Mailchimp Connector
- * Implements API key auth, campaign management, and contact management
- *
- * Features:
+ * 
+ * ⚠️ NOT YET IMPLEMENTED - This is a scaffold only
+ * 
+ * All methods in this connector throw "Future work" errors.
+ * This connector is not available in production and will throw errors if accessed.
+ * 
+ * To implement:
+ * - See CONNECTOR_SPECS_MAILCHIMP.md for implementation requirements
+ * - Implement API key authentication (Mailchimp does NOT use OAuth)
+ * - Implement campaign creation and scheduling
+ * - Implement contact list management
+ * - Implement campaign performance tracking
+ * 
+ * Features (planned):
  * - API key authentication (NO OAuth)
  * - Email campaign creation and scheduling
  * - Contact list management

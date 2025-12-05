@@ -71,13 +71,7 @@ export default function Billing() {
   const isTrial = user?.plan === "trial";
   const isAgencyTier = (data?.subscription.brands || 0) >= 5;
 
-  // ✅ FIX: Fetch real billing data from API
-  useEffect(() => {
-    loadBillingData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user]); // loadBillingData is stable, safe to omit
-
-  const loadBillingData = async () => {
+  const loadBillingData = React.useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -105,7 +99,12 @@ export default function Billing() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  // ✅ FIX: Fetch real billing data from API
+  useEffect(() => {
+    loadBillingData();
+  }, [user, loadBillingData]);
 
   const calculateMonthlyTotal = () => {
     if (!data) return 0;
@@ -233,7 +232,15 @@ function TrialView({
   onUpgrade,
   data,
 }: {
-  trialStatus: any;
+  trialStatus: {
+    isTrial: boolean;
+    publishedCount: number;
+    maxPosts: number;
+    remainingPosts: number;
+    daysRemaining: number | null;
+    isExpired: boolean;
+    canPublish?: boolean;
+  } | undefined;
   onUpgrade: () => void;
   data: BillingData;
 }) {

@@ -4,7 +4,7 @@
  */
 
 import { useState } from "react";
-import { useCan } from "@/lib/auth/useCan";
+import { useCan } from "@/lib/auth";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface UserPreferencesProps {

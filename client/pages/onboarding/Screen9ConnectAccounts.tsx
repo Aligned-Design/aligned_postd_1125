@@ -12,12 +12,12 @@ import { ArrowRight, Check, X, Instagram, Facebook, Linkedin, Twitter, Mail, Map
 import { OnboardingProgress } from "@/components/onboarding/OnboardingProgress";
 
 const PLATFORMS = [
-  { id: "instagram", name: "Instagram", icon: Instagram, color: "from-pink-500 to-rose-500" },
-  { id: "facebook", name: "Facebook", icon: Facebook, color: "from-blue-500 to-blue-600" },
-  { id: "linkedin", name: "LinkedIn", icon: Linkedin, color: "from-blue-600 to-blue-700" },
-  { id: "twitter", name: "Twitter / X", icon: Twitter, color: "from-slate-700 to-slate-900" },
-  { id: "email", name: "Email", icon: Mail, color: "from-purple-500 to-indigo-500" },
-  { id: "google", name: "Google Business", icon: MapPin, color: "from-green-500 to-emerald-500" },
+  { id: "instagram", name: "Instagram", icon: Instagram, color: "from-pink-500 to-rose-500", comingSoon: false },
+  { id: "facebook", name: "Facebook", icon: Facebook, color: "from-blue-500 to-blue-600", comingSoon: false },
+  { id: "linkedin", name: "LinkedIn", icon: Linkedin, color: "from-blue-600 to-blue-700", comingSoon: false },
+  { id: "twitter", name: "Twitter / X", icon: Twitter, color: "from-slate-700 to-slate-900", comingSoon: false },
+  { id: "email", name: "Email", icon: Mail, color: "from-purple-500 to-indigo-500", comingSoon: false },
+  { id: "google", name: "Google Business", icon: MapPin, color: "from-green-500 to-emerald-500", comingSoon: true }, // ✅ Stubbed connector
 ];
 
 export default function Screen9ConnectAccounts() {
@@ -100,7 +100,14 @@ export default function Screen9ConnectAccounts() {
                     </div>
                   )}
                 </div>
-                <h3 className="text-lg font-black text-slate-900 mb-2">{platform.name}</h3>
+                <div className="flex items-center gap-2 mb-2">
+                  <h3 className="text-lg font-black text-slate-900">{platform.name}</h3>
+                  {platform.comingSoon && (
+                    <span className="px-2 py-0.5 bg-slate-100 text-slate-600 text-xs font-semibold rounded">
+                      Coming Soon
+                    </span>
+                  )}
+                </div>
                 {isConnected ? (
                   <button
                     onClick={() => handleDisconnect(platform.id)}
@@ -110,15 +117,21 @@ export default function Screen9ConnectAccounts() {
                   </button>
                 ) : (
                   <button
-                    onClick={() => handleConnect(platform.id)}
-                    disabled={isConnectingPlatform}
+                    onClick={() => {
+                      if (platform.comingSoon) {
+                        alert(`${platform.name} integration is coming soon. Check back later!`);
+                        return;
+                      }
+                      handleConnect(platform.id);
+                    }}
+                    disabled={isConnectingPlatform || platform.comingSoon}
                     className={`w-full px-4 py-2 font-black rounded-lg transition-colors text-sm ${
-                      isConnectingPlatform
+                      isConnectingPlatform || platform.comingSoon
                         ? "bg-slate-200 text-slate-500 cursor-not-allowed"
                         : "bg-indigo-600 text-white hover:bg-indigo-700"
                     }`}
                   >
-                    {isConnectingPlatform ? "Connecting..." : "Connect"}
+                    {isConnectingPlatform ? "Connecting..." : platform.comingSoon ? "Coming Soon" : "Connect"}
                   </button>
                 )}
               </div>

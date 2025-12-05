@@ -234,10 +234,18 @@ export const generateDocContent: RequestHandler = async (req, res) => {
   try {
     // Validate request body with Zod
     const requestBody = AiDocGenerationRequestSchema.parse(req.body);
-    const { brandId, topic, platform, contentType, tone, length, callToAction, additionalContext, requestId, strategyBriefId, contentPackageId } = requestBody;
+    // ✅ Use validated brandId from middleware (checks params, query, body)
+    const brandId = (req as any).validatedBrandId ?? requestBody.brandId;
+    const { topic, platform, contentType, tone, length, callToAction, additionalContext, requestId, strategyBriefId, contentPackageId } = requestBody;
 
-    // ✅ SECURITY: Verify user has access to this brand and workspace
-    await assertBrandAccess(req, brandId, true, true);
+    if (!brandId) {
+      throw new AppError(
+        ErrorCode.MISSING_REQUIRED_FIELD,
+        "brandId is required",
+        HTTP_STATUS.BAD_REQUEST,
+        "warning"
+      );
+    }
 
     // ✅ COLLABORATION: Read StrategyBrief if provided
     let strategyBrief = null;

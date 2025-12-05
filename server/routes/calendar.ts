@@ -8,7 +8,7 @@ import { Router, RequestHandler } from "express";
 import { z } from "zod";
 import { authenticateUser } from "../middleware/security";
 import { requireScope } from "../middleware/requireScope";
-import { assertBrandAccess } from "../lib/brand-access";
+import { validateBrandId } from "../middleware/validate-brand-id";
 import { supabase } from "../lib/supabase";
 import { AppError } from "../lib/error-middleware";
 import { ErrorCode, HTTP_STATUS } from "../lib/error-responses";
@@ -17,8 +17,9 @@ import { logger } from "../lib/logger";
 const calendarRouter = Router();
 
 // Validation schemas
+// Note: brandId validation is handled by validateBrandId middleware
 const CalendarParamsSchema = z.object({
-  brandId: z.string().uuid("Invalid brand ID format"),
+  brandId: z.string(), // Format validation handled by middleware
 });
 
 const CalendarQuerySchema = z.object({
@@ -40,18 +41,16 @@ calendarRouter.get(
   "/:brandId",
   authenticateUser,
   requireScope("content:view"),
+  validateBrandId, // Validates brandId format and access
   (async (req, res, next) => {
     try {
-      // ✅ VALIDATION: Validate params and query
-      let brandId: string;
+      // ✅ Use validated brandId from middleware
+      const brandId = (req as any).validatedBrandId ?? req.params.brandId;
       let startDate: string;
       let endDate: string;
       let status: string | undefined;
 
       try {
-        const validatedParams = CalendarParamsSchema.parse(req.params);
-        brandId = validatedParams.brandId;
-
         const validatedQuery = CalendarQuerySchema.parse(req.query);
         const today = new Date().toISOString().split('T')[0];
         const defaultEndDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
@@ -71,8 +70,6 @@ calendarRouter.get(
         }
         throw validationError;
       }
-
-      await assertBrandAccess(req, brandId, true, true);
 
       // Build query
       let query = supabase

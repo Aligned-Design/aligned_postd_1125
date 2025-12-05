@@ -38,12 +38,94 @@ export async function getCurrentBrandGuide(brandId: string): Promise<BrandGuide 
  */
 export async function saveBrandGuide(brandId: string, guide: Partial<BrandGuide>): Promise<void> {
   try {
-    // Map BrandGuide to Supabase structure
+    // ✅ P1 FIX: Map BrandGuide to structured brand_kit JSONB
+    // All Brand Guide data is now stored in a single structured brand_kit field
     const brandKit: any = {
+      // Top-level fields (for backward compatibility)
       brandName: guide.brandName,
       purpose: guide.purpose,
       mission: guide.mission,
       vision: guide.vision,
+      
+      // Identity (structured)
+      identity: {
+        name: guide.brandName || guide.identity?.name,
+        businessType: guide.identity?.businessType,
+        industry: guide.identity?.industry,
+        industryKeywords: guide.identity?.industryKeywords || [],
+        competitors: guide.identity?.competitors || [],
+        sampleHeadlines: guide.identity?.sampleHeadlines || [],
+        values: guide.identity?.values || [],
+        targetAudience: guide.identity?.targetAudience,
+        painPoints: guide.identity?.painPoints || [],
+      },
+      
+      // Voice & Tone (structured)
+      voiceAndTone: {
+        tone: guide.voiceAndTone?.tone || [],
+        friendlinessLevel: guide.voiceAndTone?.friendlinessLevel ?? 50,
+        formalityLevel: guide.voiceAndTone?.formalityLevel ?? 50,
+        confidenceLevel: guide.voiceAndTone?.confidenceLevel ?? 50,
+        voiceDescription: guide.voiceAndTone?.voiceDescription,
+        writingRules: guide.voiceAndTone?.writingRules || [],
+        avoidPhrases: guide.voiceAndTone?.avoidPhrases || [],
+      },
+      
+      // Visual Identity (structured)
+      visualIdentity: {
+        colors: guide.visualIdentity?.colors || [],
+        typography: {
+          heading: guide.visualIdentity?.typography?.heading,
+          body: guide.visualIdentity?.typography?.body,
+          source: guide.visualIdentity?.typography?.source || "google",
+          customUrl: guide.visualIdentity?.typography?.customUrl,
+        },
+        photographyStyle: {
+          mustInclude: guide.visualIdentity?.photographyStyle?.mustInclude || [],
+          mustAvoid: guide.visualIdentity?.photographyStyle?.mustAvoid || [],
+        },
+        logoUrl: guide.visualIdentity?.logoUrl,
+        visualNotes: guide.visualIdentity?.visualNotes,
+      },
+      
+      // Content Rules (structured)
+      contentRules: {
+        platformGuidelines: guide.contentRules?.platformGuidelines || {},
+        preferredPlatforms: guide.contentRules?.preferredPlatforms || [],
+        preferredPostTypes: guide.contentRules?.preferredPostTypes || [],
+        brandPhrases: guide.contentRules?.brandPhrases || [],
+        formalityLevel: guide.contentRules?.formalityLevel,
+        contentPillars: guide.contentRules?.contentPillars || [],
+        neverDo: guide.contentRules?.neverDo || [],
+        guardrails: guide.contentRules?.guardrails || [],
+      },
+      
+      // Approved Assets
+      approvedAssets: guide.approvedAssets || {
+        uploadedPhotos: [],
+        uploadedGraphics: [],
+        uploadedTemplates: [],
+        approvedStockImages: [],
+        productsServices: [],
+      },
+      
+      // Personas & Goals
+      personas: guide.personas || [],
+      goals: guide.goals || [],
+      
+      // Performance Insights
+      performanceInsights: guide.performanceInsights || {
+        visualPatterns: [],
+        copyPatterns: [],
+        bfsBaseline: guide.performanceInsights?.bfsBaseline,
+      },
+      
+      // Metadata
+      version: guide.version || 1,
+      setupMethod: guide.setupMethod || "detailed",
+      
+      // Legacy flat fields (for backward compatibility with existing code)
+      // These are derived from structured fields above
       businessType: guide.identity?.businessType,
       industry: guide.identity?.industry,
       keywords: guide.identity?.industryKeywords || [],
@@ -51,9 +133,9 @@ export async function saveBrandGuide(brandId: string, guide: Partial<BrandGuide>
       competitors: guide.identity?.competitors || [],
       sampleHeadlines: guide.identity?.sampleHeadlines || [],
       values: guide.identity?.values || [],
-      coreValues: guide.identity?.values || [], // Legacy alias
+      coreValues: guide.identity?.values || [],
       targetAudience: guide.identity?.targetAudience,
-      primaryAudience: guide.identity?.targetAudience, // Legacy alias
+      primaryAudience: guide.identity?.targetAudience,
       painPoints: guide.identity?.painPoints || [],
       toneKeywords: guide.voiceAndTone?.tone || [],
       friendlinessLevel: guide.voiceAndTone?.friendlinessLevel,
@@ -69,37 +151,19 @@ export async function saveBrandGuide(brandId: string, guide: Partial<BrandGuide>
       customFontUrl: guide.visualIdentity?.typography?.customUrl,
       primaryColors: guide.visualIdentity?.colors || [],
       logoUrl: guide.visualIdentity?.logoUrl,
-      photographyStyle: {
-        mustInclude: guide.visualIdentity?.photographyStyle?.mustInclude || [],
-        mustAvoid: guide.visualIdentity?.photographyStyle?.mustAvoid || [],
-      },
       platformGuidelines: guide.contentRules?.platformGuidelines || {},
       preferredPlatforms: guide.contentRules?.preferredPlatforms || [],
       preferredPostTypes: guide.contentRules?.preferredPostTypes || [],
       brandPhrases: guide.contentRules?.brandPhrases || [],
-      contentFormalityLevel: guide.contentRules?.formalityLevel, // String enum, different from voiceAndTone.formalityLevel (number)
+      contentFormalityLevel: guide.contentRules?.formalityLevel,
       contentPillars: guide.contentRules?.contentPillars || [],
-      messagingPillars: guide.contentRules?.contentPillars || [], // Legacy alias
+      messagingPillars: guide.contentRules?.contentPillars || [],
       neverDo: guide.contentRules?.neverDo || [],
       guardrails: guide.contentRules?.guardrails || [],
-      approvedAssets: guide.approvedAssets || {
-        uploadedPhotos: [],
-        uploadedGraphics: [],
-        uploadedTemplates: [],
-        approvedStockImages: [],
-        productsServices: [],
-      },
-      personas: guide.personas || [],
-      goals: guide.goals || [],
-      performanceInsights: guide.performanceInsights || {
-        visualPatterns: [],
-        copyPatterns: [],
-        bfsBaseline: guide.performanceInsights?.bfsBaseline,
-      },
-      version: guide.version || 1,
-      setupMethod: guide.setupMethod || "detailed",
     };
 
+    // ✅ LEGACY: Keep voice_summary and visual_summary for backward compatibility
+    // These will be removed in a future migration after all code is updated
     const voiceSummary: any = {
       tone: guide.voiceAndTone?.tone || [],
       friendlinessLevel: guide.voiceAndTone?.friendlinessLevel,

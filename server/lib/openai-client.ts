@@ -13,6 +13,7 @@
  */
 
 import OpenAI from "openai";
+import { logger } from "./logger";
 
 /**
  * Initialize OpenAI client
@@ -72,10 +73,10 @@ export const openai = new Proxy({} as OpenAI, {
  * Used for most content generation tasks (brand copy, social posts, etc.)
  * Can be overridden via OPENAI_MODEL_TEXT environment variable.
  * 
- * Default: "gpt-4o-mini" (cost-effective, fast)
+ * Default: "gpt-5-mini" (cost-effective, fast)
  */
 export const DEFAULT_OPENAI_MODEL =
-  process.env.OPENAI_MODEL_TEXT ?? "gpt-4o-mini";
+  process.env.OPENAI_MODEL_TEXT ?? "gpt-5-mini";
 
 /**
  * High-performance model for complex reasoning tasks
@@ -83,10 +84,10 @@ export const DEFAULT_OPENAI_MODEL =
  * Used for advisor/analysis tasks that require deeper reasoning.
  * Can be overridden via OPENAI_MODEL_ADVANCED environment variable.
  * 
- * Default: "gpt-4o" (more capable, higher cost)
+ * Default: "gpt-5.1" (more capable, higher cost)
  */
 export const ADVANCED_OPENAI_MODEL =
-  process.env.OPENAI_MODEL_ADVANCED ?? "gpt-4o";
+  process.env.OPENAI_MODEL_ADVANCED ?? "gpt-5.1";
 
 /**
  * Cheaper/faster model for background jobs
@@ -94,10 +95,10 @@ export const ADVANCED_OPENAI_MODEL =
  * Used for non-critical background processing where cost/speed matters.
  * Can be overridden via OPENAI_MODEL_CHEAP environment variable.
  * 
- * Default: "gpt-4o-mini" (same as default, but can be set to nano if available)
+ * Default: "gpt-5-nano" (same as default, but can be set to nano if available)
  */
 export const CHEAP_OPENAI_MODEL =
-  process.env.OPENAI_MODEL_CHEAP ?? "gpt-4o-mini";
+  process.env.OPENAI_MODEL_CHEAP ?? "gpt-5-nano";
 
 /**
  * Default embedding model
@@ -105,10 +106,10 @@ export const CHEAP_OPENAI_MODEL =
  * Used for generating embeddings for semantic similarity, tone matching, etc.
  * Can be overridden via OPENAI_MODEL_EMBEDDING environment variable.
  * 
- * Default: "text-embedding-3-small" (modern, cost-effective)
+ * Default: "text-embedding-3-large" (modern, high-quality embeddings)
  */
 export const DEFAULT_EMBEDDING_MODEL =
-  process.env.OPENAI_MODEL_EMBEDDING ?? "text-embedding-3-small";
+  process.env.OPENAI_MODEL_EMBEDDING ?? "text-embedding-3-large";
 
 /**
  * Embedding dimensions
@@ -124,15 +125,24 @@ export const EMBEDDING_DIMENSIONS =
 // ==================== HELPER FUNCTIONS ====================
 
 /**
- * Generate content using OpenAI Responses API (preferred for new code)
+ * Generate content using OpenAI Responses API (future enhancement)
  * 
- * NOTE: Responses API may not be available in all OpenAI SDK versions.
- * This function is prepared for when Responses API becomes available.
- * Currently falls back to Chat Completions API.
+ * NOTE: As of 2025-01-16, we use Chat Completions API as the standard.
+ * The Responses API is a newer OpenAI feature that may be available in future SDK versions.
+ * 
+ * Current implementation: Uses Chat Completions API via generateWithChatCompletions()
+ * Future: When Responses API is stable and available, we can migrate to:
+ *   const response = await client.responses.create({
+ *     model: options?.model ?? DEFAULT_OPENAI_MODEL,
+ *     input: prompt,
+ *     ...
+ *   });
  * 
  * @param prompt - User prompt text
  * @param options - Optional configuration
  * @returns Generated text content
+ * @deprecated This function currently just wraps generateWithChatCompletions.
+ *            Use generateWithChatCompletions() directly for clarity.
  */
 export async function generateWithResponsesAPI(
   prompt: string,
@@ -142,9 +152,8 @@ export async function generateWithResponsesAPI(
     maxTokens?: number;
   }
 ): Promise<string> {
-  // TODO: When Responses API is available in OpenAI SDK, use:
-  // const response = await client.responses.create({...});
-  // For now, use Chat Completions API as the standard
+  // Currently uses Chat Completions API (standard, stable, widely supported)
+  // Responses API migration can happen when SDK support is stable
   return generateWithChatCompletions(
     [{ role: "user", content: prompt }],
     options
@@ -152,13 +161,16 @@ export async function generateWithResponsesAPI(
 }
 
 /**
- * Generate content using Chat Completions API (legacy, but still supported)
+ * Generate content using OpenAI Chat Completions API (current standard)
  * 
- * Use this if you need features not available in Responses API,
- * or for compatibility with existing code.
+ * This is the primary method for OpenAI text generation in POSTD.
+ * Chat Completions API is stable, well-documented, and fully supported.
  * 
- * @param messages - Chat messages array
- * @param options - Optional configuration
+ * All main AI agents (doc, design, advisor) use this via server/workers/ai-generation.ts
+ * which calls this function through the shared OpenAI client.
+ * 
+ * @param messages - Chat messages array (system, user, assistant roles)
+ * @param options - Optional configuration (model, temperature, maxTokens)
  * @returns Generated message content
  */
 export async function generateWithChatCompletions(
@@ -171,6 +183,14 @@ export async function generateWithChatCompletions(
 ): Promise<string> {
   const client = getOpenAIClient();
   const model = options?.model ?? DEFAULT_OPENAI_MODEL;
+
+  // Log model usage in development mode
+  if (process.env.NODE_ENV === "development") {
+    logger.debug("Using OpenAI model", {
+      model,
+      endpoint: "generateWithChatCompletions",
+    });
+  }
 
   try {
     const response = await client.chat.completions.create({
@@ -191,10 +211,13 @@ export async function generateWithChatCompletions(
     return content;
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    console.error(`[OpenAI] Chat Completions API error:`, {
-      error: errorMessage,
-      model,
-    });
+    // Use structured logger if available, otherwise console.error for critical startup errors
+    if (typeof process !== 'undefined' && process.env.NODE_ENV !== 'production') {
+      console.error(`[OpenAI] Chat Completions API error:`, {
+        error: errorMessage,
+        model,
+      });
+    }
     throw new Error(`OpenAI generation failed: ${errorMessage}`);
   }
 }
@@ -217,6 +240,14 @@ export async function generateEmbedding(
   const model = options?.model ?? DEFAULT_EMBEDDING_MODEL;
   const dimensions = options?.dimensions ?? EMBEDDING_DIMENSIONS;
 
+  // Log model usage in development mode
+  if (process.env.NODE_ENV === "development") {
+    logger.debug("Using OpenAI model", {
+      model,
+      endpoint: "generateWithChatCompletions",
+    });
+  }
+
   try {
     const response = await client.embeddings.create({
       model,
@@ -227,10 +258,13 @@ export async function generateEmbedding(
     return response.data[0]?.embedding || [];
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    console.error(`[OpenAI] Embedding error:`, {
-      error: errorMessage,
-      model,
-    });
+    // Use structured logger if available, otherwise console.error for critical startup errors
+    if (typeof process !== 'undefined' && process.env.NODE_ENV !== 'production') {
+      console.error(`[OpenAI] Embedding error:`, {
+        error: errorMessage,
+        model,
+      });
+    }
     throw new Error(`OpenAI embedding failed: ${errorMessage}`);
   }
 }

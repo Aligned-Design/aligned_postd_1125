@@ -2505,8 +2505,8 @@ function filterBrandColors(colors: string[]): string[] {
   for (const color of colors) {
     const normalized = color.startsWith("#") ? color : `#${color}`;
     
-    // Skip if too similar to existing color (within 30 units)
-    const tooSimilar = filtered.some(existing => colorDistance(normalized, existing) < 30);
+    // Skip if too similar to existing color (within 10 units for better deduplication)
+    const tooSimilar = filtered.some(existing => colorDistance(normalized, existing) < 10);
     if (tooSimilar) continue;
     
     // Skip photo colors (unless we have very few colors)

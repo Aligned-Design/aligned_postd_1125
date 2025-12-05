@@ -1,10 +1,15 @@
 /**
  * Monthly Auto-Plan Generator
- * Generates content plans based on analytics insights and recommendations
+ * Generates content plans based on analytics insights, brand guide, and AI recommendations
  */
 
 import { analyticsDB } from "./analytics-db-service";
 import { advisorEngine } from "./advisor-engine";
+import { getCurrentBrandGuide } from "./brand-guide-service";
+import { getBrandProfile } from "./brand-profile";
+import { generateWithAI } from "../workers/ai-generation";
+import { buildFullBrandGuidePrompt } from "./prompts/brand-guide-prompts";
+import { logger } from "./logger";
 
 export interface AutoPlanData {
   month: string;
@@ -25,6 +30,7 @@ export interface AutoPlanData {
 export class AutoPlanGenerator {
   /**
    * Generate monthly content plan for a brand
+   * ✅ FIX: Now integrates brand guide and uses AI for plan generation
    */
   async generateMonthlyPlan(
     brandId: string,
@@ -43,6 +49,10 @@ export class AutoPlanGenerator {
       0,
     );
 
+    // ✅ BRAND GUIDE: Load brand guide (source of truth)
+    const brandGuide = await getCurrentBrandGuide(brandId);
+    const brand = await getBrandProfile(brandId);
+
     // Get metrics for the past 90 days for analysis
     const metrics = await analyticsDB.getMetricsByDateRange(
       brandId,
@@ -55,7 +65,7 @@ export class AutoPlanGenerator {
     );
 
     if (metrics.length === 0) {
-      return this.generateDefaultPlan(monthStart, 0.5);
+      return this.generateDefaultPlan(monthStart, 0.5, brandGuide);
     }
 
     // Convert to advisor format
@@ -72,7 +82,6 @@ export class AutoPlanGenerator {
     })) as unknown[];
 
     // Generate forecast for the month
-    // ✅ Type assertion: formattedMetrics is properly typed from map
     const forecast = await advisorEngine.generateForecast(
       brandId,
       formattedMetrics as any,
@@ -80,7 +89,6 @@ export class AutoPlanGenerator {
     );
 
     // Generate insights for topics and formats
-    // ✅ Type assertion: formattedMetrics is properly typed from map
     const insights = await advisorEngine.generateInsights({
       brandId,
       currentMetrics: formattedMetrics as any,
@@ -92,8 +100,14 @@ export class AutoPlanGenerator {
       userFeedback: [],
     });
 
-    // Extract recommendations from insights
-    const topics = this.extractTopicsFromInsights(insights);
+    // ✅ AI + BRAND GUIDE: Generate topics using AI with brand guide context
+    const topics = await this.generateTopicsWithAI(
+      brandGuide,
+      brand,
+      insights,
+      formattedMetrics.length,
+    );
+
     const formats = forecast.recommendations?.topFormats || [
       "video",
       "carousel",
@@ -135,6 +149,7 @@ export class AutoPlanGenerator {
       confidence: forecast.predictions?.reach?.confidence || 0.75,
       notes: [
         `Based on ${formattedMetrics.length} data points from the past 90 days`,
+        brandGuide ? `Aligned with brand guide content pillars` : `Using analytics-based recommendations`,
         `Recommended posting frequency: ${(recommendedPostCount / (daysInMonth / 7)).toFixed(1)} posts per week`,
         `Focus on ${topics[0] || "varied content"} for maximum engagement`,
         `Best performing platform: ${Object.entries(platformMix).sort(([, a], [, b]) => b - a)[0]?.[0] || "Instagram"}`,
@@ -142,6 +157,90 @@ export class AutoPlanGenerator {
     };
 
     return plan;
+  }
+
+  /**
+   * ✅ NEW: Generate topics using AI with brand guide context
+   */
+  private async generateTopicsWithAI(
+    brandGuide: any,
+    brand: any,
+    insights: unknown[],
+    dataPointCount: number,
+  ): Promise<string[]> {
+    try {
+      // Build AI prompt with brand guide + analytics insights
+      let prompt = `You are a content strategist. Generate 5-7 content topic recommendations for a monthly content plan.\n\n`;
+
+      // ✅ BRAND GUIDE: Include brand guide data
+      if (brandGuide) {
+        prompt += buildFullBrandGuidePrompt(brandGuide);
+        prompt += `\n\n`;
+      } else if (brand) {
+        prompt += `## Brand Profile\n`;
+        prompt += `Name: ${brand.name}\n`;
+        if (brand.targetAudience) {
+          prompt += `Target Audience: ${brand.targetAudience}\n`;
+        }
+        if (brand.values && brand.values.length > 0) {
+          prompt += `Values: ${brand.values.join(", ")}\n`;
+        }
+        prompt += `\n`;
+      }
+
+      // Include analytics insights
+      prompt += `## Analytics Insights\n`;
+      prompt += `Based on ${dataPointCount} data points from the past 90 days:\n`;
+      const contentInsights = insights.filter((i: any) => i.category === "content");
+      if (contentInsights.length > 0) {
+        contentInsights.slice(0, 3).forEach((insight: any) => {
+          prompt += `- ${insight.title}: ${insight.body}\n`;
+        });
+      } else {
+        prompt += `- No specific content insights available\n`;
+      }
+
+      // ✅ BRAND GUIDE: Use content pillars if available
+      if (brandGuide?.contentRules?.contentPillars && brandGuide.contentRules.contentPillars.length > 0) {
+        prompt += `\n## Content Pillars (MUST USE)\n`;
+        prompt += `The brand has defined these content pillars: ${brandGuide.contentRules.contentPillars.join(", ")}\n`;
+        prompt += `Generate topics that align with these pillars.\n`;
+      }
+
+      prompt += `\n## Requirements\n`;
+      prompt += `- Generate 5-7 specific, actionable content topics\n`;
+      prompt += `- Topics should align with brand guide (if provided)\n`;
+      prompt += `- Topics should be relevant to target audience\n`;
+      prompt += `- Topics should be varied (mix of educational, promotional, behind-the-scenes, etc.)\n`;
+      prompt += `- Return as JSON array: ["topic1", "topic2", "topic3", ...]\n`;
+
+      // Call AI to generate topics
+      const provider = process.env.AI_PROVIDER === "anthropic" ? "claude" : "openai";
+      logger.info("Generating content topics with AI", { brandId: brand?.id, provider });
+      
+      const result = await generateWithAI(prompt, "advisor", provider);
+
+      // Parse JSON response
+      try {
+        const jsonMatch = result.content.match(/\[[\s\S]*?\]/);
+        if (jsonMatch) {
+          const parsed = JSON.parse(jsonMatch[0]);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            logger.info("AI-generated topics", { count: parsed.length, topics: parsed });
+            return parsed.slice(0, 7); // Return up to 7 topics
+          }
+        }
+      } catch (parseError) {
+        logger.warn("Failed to parse AI topic response, falling back to insights", {
+          error: parseError instanceof Error ? parseError.message : String(parseError),
+        });
+      }
+    } catch (error) {
+      logger.error("AI topic generation failed, falling back to insights", error instanceof Error ? error : new Error(String(error)));
+    }
+
+    // Fallback: Extract topics from insights
+    return this.extractTopicsFromInsights(insights);
   }
 
   /**
@@ -228,17 +327,24 @@ export class AutoPlanGenerator {
 
   /**
    * Generate default plan when no data available
+   * ✅ FIX: Now uses brand guide content pillars if available
    */
-  private generateDefaultPlan(month: Date, confidence: number): AutoPlanData {
+  private generateDefaultPlan(month: Date, confidence: number, brandGuide?: any): AutoPlanData {
     const daysInMonth = new Date(
       month.getFullYear(),
       month.getMonth() + 1,
       0,
     ).getDate();
 
+    // ✅ BRAND GUIDE: Use content pillars if available
+    let defaultTopics = ["behind-the-scenes", "tips", "user-generated-content"];
+    if (brandGuide?.contentRules?.contentPillars && brandGuide.contentRules.contentPillars.length > 0) {
+      defaultTopics = brandGuide.contentRules.contentPillars.slice(0, 5);
+    }
+
     return {
       month: month.toISOString().split("T")[0],
-      topics: ["behind-the-scenes", "tips", "user-generated-content"],
+      topics: defaultTopics,
       formats: ["video", "carousel", "image"],
       bestTimes: ["9:00 AM", "1:00 PM", "7:00 PM"],
       platformMix: {
@@ -251,29 +357,29 @@ export class AutoPlanGenerator {
       contentCalendar: [
         {
           week: 1,
-          topics: ["behind-the-scenes"],
+          topics: [defaultTopics[0] || "general"],
           platforms: ["instagram", "facebook"],
         },
         {
           week: 2,
-          topics: ["tips"],
+          topics: [defaultTopics[1] || defaultTopics[0] || "general"],
           platforms: ["linkedin", "facebook"],
         },
         {
           week: 3,
-          topics: ["user-generated-content"],
+          topics: [defaultTopics[2] || defaultTopics[0] || "general"],
           platforms: ["instagram", "twitter"],
         },
         {
           week: 4,
-          topics: ["behind-the-scenes"],
+          topics: [defaultTopics[0] || "general"],
           platforms: ["instagram", "linkedin"],
         },
       ],
       confidence,
       notes: [
         "Default plan generated - insufficient historical data",
-        "Update this plan as you collect more analytics data",
+        brandGuide ? "Using brand guide content pillars" : "Update this plan as you collect more analytics data",
         "Recommended posting frequency: ~3 posts per week",
         "Rotate between platforms for maximum audience reach",
       ],

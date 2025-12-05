@@ -85,6 +85,7 @@ export default function ContentQueue() {
   // ✅ FIX: Fetch real posts from API
   useEffect(() => {
     loadPosts();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- loadPosts is stable, only re-run on brandId change
   }, [brandId]);
 
   const loadPosts = async () => {
@@ -98,18 +99,31 @@ export default function ContentQueue() {
       if (response.ok) {
         const data = await response.json();
         // Map API response to Post format
-        const mappedPosts: Post[] = (data.items || data.posts || []).map((item: any) => ({
-          id: item.id || item.content_id,
-          title: item.title || item.name || "Untitled Post",
-          platform: (item.platform || item.type || "instagram").toLowerCase(),
-          status: mapApiStatusToPostStatus(item.status),
-          brand: item.brand_name || item.brandName || currentWorkspace?.name || "Unknown",
-          campaign: item.campaign || item.campaign_name || "",
-          createdDate: formatDate(item.created_at || item.createdAt),
-          scheduledDate: item.scheduled_at || item.scheduledAt ? formatDate(item.scheduled_at || item.scheduledAt) : undefined,
-          excerpt: extractExcerpt(item.content || item.body || item.caption || ""),
-          errorMessage: item.error_message || item.errorMessage,
-        }));
+        const mappedPosts: Post[] = (data.items || data.posts || []).map((item: Record<string, unknown>) => {
+          const id = String(item.id || item.content_id || "");
+          const title = String(item.title || item.name || "Untitled Post");
+          const platform = String(item.platform || item.type || "instagram").toLowerCase();
+          const status = mapApiStatusToPostStatus(String(item.status || "draft"));
+          const brand = String(item.brand_name || item.brandName || currentWorkspace?.name || "Unknown");
+          const campaign = String(item.campaign || item.campaign_name || "");
+          const createdDate = formatDate(String(item.created_at || item.createdAt || ""));
+          const scheduledDate = item.scheduled_at || item.scheduledAt ? formatDate(String(item.scheduled_at || item.scheduledAt)) : undefined;
+          const excerpt = extractExcerpt(String(item.content || item.body || item.caption || ""));
+          const errorMessage = item.error_message || item.errorMessage ? String(item.error_message || item.errorMessage) : undefined;
+          
+          return {
+            id,
+            title,
+            platform,
+            status,
+            brand,
+            campaign,
+            createdDate,
+            scheduledDate,
+            excerpt,
+            errorMessage,
+          };
+        });
         setPosts(mappedPosts);
       } else if (response.status === 404) {
         // API endpoint not implemented yet
@@ -242,12 +256,14 @@ export default function ContentQueue() {
   ];
 
   const PostCard = ({ post }: { post: Post }) => {
-    const Icon = PLATFORM_ICONS[post.platform] as React.ComponentType<any>;
+    const Icon = PLATFORM_ICONS[post.platform] as React.ComponentType<{ className?: string }>;
     const isPending = post.status === "reviewing";
 
     // ✅ REAL IMPLEMENTATION: Use real post media if available
     // Check for media fields (may be added to Post type in future)
-    const postMedia = (post as any).thumbnailUrl || (post as any).mediaUrl || (post as any).imageUrl;
+    type PostWithMedia = Post & { thumbnailUrl?: string; mediaUrl?: string; imageUrl?: string };
+    const postWithMedia = post as PostWithMedia;
+    const postMedia = postWithMedia.thumbnailUrl || postWithMedia.mediaUrl || postWithMedia.imageUrl;
     
     // Default "no image" placeholder - simple gradient instead of external Unsplash URL
     const defaultImagePlaceholder = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='300'%3E%3Crect fill='%23e0e7ff' width='400' height='300'/%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' dy='.3em' fill='%239ca3af' font-family='system-ui' font-size='14'%3ENo Image%3C/text%3E%3C/svg%3E";

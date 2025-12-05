@@ -29,30 +29,35 @@ const PLATFORM_CONFIG = {
     icon: Instagram,
     color: "bg-gradient-to-r from-purple-500 to-pink-500",
     description: "Share photos and stories",
+    comingSoon: false,
   },
   facebook: {
     name: "Facebook",
     icon: Facebook,
     color: "bg-blue-600",
     description: "Reach your audience on Facebook",
+    comingSoon: false,
   },
   linkedin: {
     name: "LinkedIn",
     icon: Linkedin,
     color: "bg-blue-700",
     description: "Professional networking and content",
+    comingSoon: false,
   },
   twitter: {
     name: "Twitter",
     icon: Twitter,
     color: "bg-black",
     description: "Share thoughts and engage",
+    comingSoon: false,
   },
   google_business: {
     name: "Google Business",
     icon: MapPin,
     color: "bg-green-600",
     description: "Manage your business presence",
+    comingSoon: true, // ✅ Stubbed connector - mark as coming soon
   },
 } as const;
 
@@ -117,7 +122,8 @@ export function ConnectionWizard({
         5 * 60 * 1000,
       );
     } catch (error) {
-      console.error("Connection error:", error);
+      const { logError } = await import("@/lib/logger");
+      logError("Connection error", error instanceof Error ? error : new Error(String(error)));
       setError(error instanceof Error ? error.message : "Connection failed");
       setConnecting(null);
     }
@@ -136,7 +142,8 @@ export function ConnectionWizard({
         onConnectionUpdate?.();
       }
     } catch (error) {
-      console.error("Disconnect error:", error);
+      const { logError } = await import("@/lib/logger");
+      logError("Disconnect error", error instanceof Error ? error : new Error(String(error)));
       setError("Failed to disconnect. Please try again.");
     }
   };
@@ -154,7 +161,8 @@ export function ConnectionWizard({
         onConnectionUpdate?.();
       }
     } catch (error) {
-      console.error("Token refresh error:", error);
+      const { logError } = await import("@/lib/logger");
+      logError("Token refresh error", error instanceof Error ? error : new Error(String(error)));
       setError("Failed to refresh connection. Please reconnect.");
     }
   };
@@ -199,7 +207,14 @@ export function ConnectionWizard({
                     <Icon className="h-5 w-5" />
                   </div>
                   <div className="flex-1">
-                    <CardTitle className="text-lg">{config.name}</CardTitle>
+                    <div className="flex items-center gap-2">
+                      <CardTitle className="text-lg">{config.name}</CardTitle>
+                      {config.comingSoon && (
+                        <Badge variant="secondary" className="text-xs">
+                          Coming Soon
+                        </Badge>
+                      )}
+                    </div>
                     <p className="text-sm text-gray-600">
                       {config.description}
                     </p>
@@ -272,14 +287,26 @@ export function ConnectionWizard({
                   </div>
                 ) : (
                   <Button
-                    onClick={() => handleConnect(platform as Platform)}
-                    disabled={isConnecting}
+                    onClick={() => {
+                      if (config.comingSoon) {
+                        setError(`${config.name} integration is coming soon. Check back later!`);
+                        return;
+                      }
+                      handleConnect(platform as Platform);
+                    }}
+                    disabled={isConnecting || config.comingSoon}
                     className="w-full"
+                    variant={config.comingSoon ? "outline" : "default"}
                   >
                     {isConnecting ? (
                       <>
                         <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
                         Connecting...
+                      </>
+                    ) : config.comingSoon ? (
+                      <>
+                        <ExternalLink className="h-4 w-4 mr-2" />
+                        Coming Soon
                       </>
                     ) : (
                       <>

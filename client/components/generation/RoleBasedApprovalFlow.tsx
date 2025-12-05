@@ -4,8 +4,7 @@
  */
 
 import { useState } from "react";
-import { useAuth } from "@/lib/auth/useAuth";
-import { useCan } from "@/lib/auth/useCan";
+import { useAuth, useCan } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 
 interface TeamMember {

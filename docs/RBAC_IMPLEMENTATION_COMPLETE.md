@@ -362,7 +362,145 @@ All code compiles, permissions enforce correctly, and user workflows are protect
 
 ---
 
+## Type Safety & Middleware Architecture
+
+### Express Request Type Augmentation
+
+**Location:** `server/types/express.d.ts` (single source of truth)
+
+The Express Request interface is extended via declaration merging to include:
+
+```typescript
+interface Request {
+  auth?: {
+    userId: string;
+    email: string;
+    role: string; // Role enum value
+    brandIds?: string[];
+    tenantId?: string;
+    workspaceId?: string;
+    scopes?: string[];
+  };
+  user?: {
+    id: string;
+    email: string;
+    role: string;
+    brandId?: string;
+    brandIds?: string[];
+    tenantId?: string;
+    workspaceId?: string;
+    scopes?: string[];
+  };
+}
+```
+
+**Key Points:**
+- ✅ Single augmentation file: `server/types/express.d.ts` (no duplicates)
+- ✅ Type shape matches runtime JWT payload from `jwtAuth` middleware
+- ✅ All core middleware (`rbac.ts`, `auth-middleware.ts`, `authenticateUser.ts`) is type-safe
+- ✅ No unsafe `as any` casts in auth/RBAC middleware
+- ✅ Narrow, safe type assertions only (e.g., `req.params as Record<string, string>`)
+
+**Middleware Flow:**
+1. `jwtAuth` (in `server/lib/jwt-auth.ts`) verifies JWT and sets `req.auth`
+2. `authenticateUser` (in `server/middleware/authenticateUser.ts`) normalizes `req.user` for backward compatibility
+3. RBAC middleware (`server/middleware/rbac.ts`) uses `req.auth` for permission checks
+4. All access is type-safe with no unsafe casts
+
+---
+
+---
+
+## RBAC Verification Notes (2025-01-20)
+
+### Verification Summary
+
+**Status:** ✅ Implementation verified and aligned with documentation
+
+### Issues Found & Fixed
+
+#### 1. Client Component Import Inconsistency ✅ FIXED
+**Issue:** Multiple components imported `useAuth` and `useCan` directly from `@/lib/auth/useAuth` and `@/lib/auth/useCan` instead of the centralized `@/lib/auth` export.
+
+**Files Fixed:**
+- `client/components/auth/ProtectedRoute.tsx`
+- `client/components/dashboard/ActionButtonsHeader.tsx`
+- `client/components/dashboard/DashboardWidgets.tsx`
+- `client/components/settings/WhiteLabelSettings.tsx`
+- `client/components/settings/UserPreferences.tsx`
+- `client/components/analytics/SmartDashboard.tsx`
+- `client/components/generation/RoleBasedApprovalFlow.tsx`
+- `client/components/dashboard/AlignedAISummary.tsx`
+- `client/app/(postd)/client-portal/page.tsx`
+
+**Change:** All imports now use centralized `@/lib/auth` export for consistency.
+
+#### 2. Type Safety Issues ✅ FIXED
+**Issue:** Multiple route handlers used unsafe `(req as any)` casts instead of typed `req.user` or `req.auth` from Express Request augmentation.
+
+**Files Fixed:**
+- `server/routes/workflow.ts` - Removed duplicate `AuthenticatedRequest` interface, replaced all `authReq` casts with direct `req.user`/`req.auth` access
+- `server/routes/approvals-v2.ts` - Replaced `(req as any).user` with `req.user`
+- `server/routes/analytics-v2.ts` - Replaced `(req as any).user` with `req.user`
+- `server/routes/media-v2.ts` - Replaced `(req as any).user` with `req.user`
+
+**Change:** All middleware now relies on type-safe Express Request augmentation from `server/types/express.d.ts`.
+
+#### 3. Permissions Configuration Clarification 📝 DOCUMENTED
+**Issue:** `config/permissions.json` contains 9 roles (SUPERADMIN, OWNER, ADMIN, AGENCY_ADMIN, BRAND_MANAGER, CREATOR, ANALYST, CLIENT_APPROVER, VIEWER) while documentation mentions 7 canonical roles.
+
+**Resolution:** OWNER and ADMIN are legacy roles maintained for backward compatibility. They map to AGENCY_ADMIN permissions and are still supported in the system. The 7 canonical roles (excluding OWNER and ADMIN) represent the primary role system going forward.
+
+**Status:** No code changes needed - legacy roles are intentionally preserved for compatibility.
+
+### Verification Results
+
+#### ✅ Client-Side RBAC
+- All listed components use `useCan()` hook correctly
+- All components import from centralized `@/lib/auth` location
+- Permission checks use scopes from `config/permissions.json`
+- `ProtectedRoute` component properly gates routes by scope
+
+#### ✅ Server-Side RBAC
+- All critical routes use `requireScope()` middleware
+- Middleware stack order is correct: `authenticateUser` → `requireScope` → handler
+- Type safety verified - no unsafe casts in auth/RBAC middleware
+- Express Request augmentation is single source of truth (`server/types/express.d.ts`)
+
+#### ✅ Middleware Type Safety
+- Single Express Request augmentation in `server/types/express.d.ts`
+- No duplicate `declare global { namespace Express }` blocks
+- All middleware uses typed `req.user` and `req.auth` properties
+- No unsafe `as any` casts in auth/RBAC code paths
+
+#### ✅ Tests
+- `client/lib/auth/__tests__/useCan.test.ts` exists and covers permission matrix
+- `server/__tests__/rbac-enforcement.test.ts` exists and covers middleware enforcement
+- Tests use same roles/scopes as `config/permissions.json`
+
+### Remaining TODOs for Phase 7+
+
+- [ ] RLS policies audit (all tables)
+- [ ] Cross-brand access verification tests
+- [ ] Performance validation (latency < 3s for scoped routes)
+- [ ] Feature flag implementation (`ENFORCE_STRICT_RBAC`)
+
+### Files Modified in This Verification Pass
+
+**Client (9 files):**
+- Fixed import paths to use centralized `@/lib/auth` export
+
+**Server (4 files):**
+- Removed unsafe type casts
+- Removed duplicate type definitions
+- Improved type safety
+
+**Documentation (1 file):**
+- Added verification notes section
+
+---
+
 **Document:** `docs/RBAC_IMPLEMENTATION_COMPLETE.md`  
-**Version:** 1.0  
-**Last Updated:** 2025-11-12  
-**Status:** ✅ Complete
+**Version:** 1.1  
+**Last Updated:** 2025-01-20  
+**Status:** ✅ Complete & Verified

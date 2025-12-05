@@ -15,6 +15,7 @@ import {
 import { webhookHandler } from "../lib/webhook-handler";
 import { webhookEvents } from "../lib/dbClient";
 import { logAuditAction } from "../lib/audit-logger";
+import { logger } from "../lib/logger";
 
 // ==================== TYPES & VALIDATION ====================
 
@@ -100,8 +101,12 @@ function _getWebhookSecret(provider: WebhookProvider): string {
 /**
  * POST /api/webhooks/zapier
  * Receive events from Zapier (idempotent)
+ * 
+ * **Auth:** Not required (uses signature verification)
+ * **Security:** Validates x-brand-id header and request body signature
+ * **Body:** { action: string, data?: object, id?: string }
  */
-export const handleZapierWebhook: RequestHandler = async (req, res) => {
+export const handleZapierWebhook: RequestHandler = async (req, res, next) => {
   try {
     const brandId = req.headers["x-brand-id"] as string;
     if (!brandId) {
@@ -146,14 +151,21 @@ export const handleZapierWebhook: RequestHandler = async (req, res) => {
 
     (res as any).json(response);
   } catch (error) {
-    console.error("[Zapier Webhook] Error:", error);
-    throw new AppError(
-      ErrorCode.INTERNAL_ERROR,
-      error instanceof Error ? error.message : "Internal server error",
-      HTTP_STATUS.INTERNAL_SERVER_ERROR,
-      "error",
-      error instanceof Error ? { originalError: error.message } : undefined,
-      "Please try again later or contact support"
+    logger.error("Zapier webhook error", error instanceof Error ? error : new Error(String(error)));
+    // If it's already an AppError, pass it to error middleware
+    if (error instanceof AppError) {
+      return next(error);
+    }
+    // Otherwise, wrap and pass to error middleware
+    next(
+      new AppError(
+        ErrorCode.INTERNAL_ERROR,
+        error instanceof Error ? error.message : "Internal server error",
+        HTTP_STATUS.INTERNAL_SERVER_ERROR,
+        "error",
+        error instanceof Error ? { originalError: error.message } : undefined,
+        "Please try again later or contact support"
+      )
     );
   }
 };
@@ -161,8 +173,12 @@ export const handleZapierWebhook: RequestHandler = async (req, res) => {
 /**
  * POST /api/webhooks/make
  * Receive events from Make.com (idempotent)
+ * 
+ * **Auth:** Not required (uses signature verification)
+ * **Security:** Validates x-brand-id header and request body signature
+ * **Body:** { event: string, data?: object, webhook_id?: string }
  */
-export const handleMakeWebhook: RequestHandler = async (req, res) => {
+export const handleMakeWebhook: RequestHandler = async (req, res, next) => {
   try {
     const brandId = req.headers["x-brand-id"] as string;
     if (!brandId) {
@@ -207,14 +223,19 @@ export const handleMakeWebhook: RequestHandler = async (req, res) => {
 
     (res as any).json(response);
   } catch (error) {
-    console.error("[Make Webhook] Error:", error);
-    throw new AppError(
-      ErrorCode.INTERNAL_ERROR,
-      error instanceof Error ? error.message : "Internal server error",
-      HTTP_STATUS.INTERNAL_SERVER_ERROR,
-      "error",
-      error instanceof Error ? { originalError: error.message } : undefined,
-      "Please try again later or contact support"
+    logger.error("Make webhook error", error instanceof Error ? error : new Error(String(error)));
+    if (error instanceof AppError) {
+      return next(error);
+    }
+    next(
+      new AppError(
+        ErrorCode.INTERNAL_ERROR,
+        error instanceof Error ? error.message : "Internal server error",
+        HTTP_STATUS.INTERNAL_SERVER_ERROR,
+        "error",
+        error instanceof Error ? { originalError: error.message } : undefined,
+        "Please try again later or contact support"
+      )
     );
   }
 };
@@ -222,8 +243,12 @@ export const handleMakeWebhook: RequestHandler = async (req, res) => {
 /**
  * POST /api/webhooks/slack
  * Receive events from Slack (Events API)
+ * 
+ * **Auth:** Not required (uses signature verification)
+ * **Security:** Validates x-brand-id header and Slack signature
+ * **Body:** Slack Events API payload (supports url_verification challenge)
  */
-export const handleSlackWebhook: RequestHandler = async (req, res) => {
+export const handleSlackWebhook: RequestHandler = async (req, res, next) => {
   try {
     const brandId = req.headers["x-brand-id"] as string;
     if (!brandId) {
@@ -260,14 +285,19 @@ export const handleSlackWebhook: RequestHandler = async (req, res) => {
       (res as any).json({ ok: true });
     }
   } catch (error) {
-    console.error("[Slack Webhook] Error:", error);
-    throw new AppError(
-      ErrorCode.INTERNAL_ERROR,
-      error instanceof Error ? error.message : "Internal server error",
-      HTTP_STATUS.INTERNAL_SERVER_ERROR,
-      "error",
-      error instanceof Error ? { originalError: error.message } : undefined,
-      "Please try again later or contact support"
+    logger.error("Slack webhook error", error instanceof Error ? error : new Error(String(error)));
+    if (error instanceof AppError) {
+      return next(error);
+    }
+    next(
+      new AppError(
+        ErrorCode.INTERNAL_ERROR,
+        error instanceof Error ? error.message : "Internal server error",
+        HTTP_STATUS.INTERNAL_SERVER_ERROR,
+        "error",
+        error instanceof Error ? { originalError: error.message } : undefined,
+        "Please try again later or contact support"
+      )
     );
   }
 };
@@ -275,8 +305,12 @@ export const handleSlackWebhook: RequestHandler = async (req, res) => {
 /**
  * POST /api/webhooks/hubspot
  * Receive events from HubSpot
+ * 
+ * **Auth:** Not required (uses signature verification)
+ * **Security:** Validates x-brand-id header and HubSpot signature
+ * **Body:** Single event object or array of event objects
  */
-export const handleHubSpotWebhook: RequestHandler = async (req, res) => {
+export const handleHubSpotWebhook: RequestHandler = async (req, res, next) => {
   try {
     const brandId = req.headers["x-brand-id"] as string;
     if (!brandId) {
@@ -298,7 +332,7 @@ export const handleHubSpotWebhook: RequestHandler = async (req, res) => {
       // Validate event
       const validationResult = HubSpotWebhookBodySchema.safeParse(event);
       if (!validationResult.success) {
-        console.warn("[HubSpot Webhook] Invalid event:", event);
+        logger.warn("HubSpot webhook invalid event", { event });
         continue;
       }
 
@@ -322,14 +356,19 @@ export const handleHubSpotWebhook: RequestHandler = async (req, res) => {
       results: responses,
     });
   } catch (error) {
-    console.error("[HubSpot Webhook] Error:", error);
-    throw new AppError(
-      ErrorCode.INTERNAL_ERROR,
-      error instanceof Error ? error.message : "Internal server error",
-      HTTP_STATUS.INTERNAL_SERVER_ERROR,
-      "error",
-      error instanceof Error ? { originalError: error.message } : undefined,
-      "Please try again later or contact support"
+    logger.error("HubSpot webhook error", error instanceof Error ? error : new Error(String(error)));
+    if (error instanceof AppError) {
+      return next(error);
+    }
+    next(
+      new AppError(
+        ErrorCode.INTERNAL_ERROR,
+        error instanceof Error ? error.message : "Internal server error",
+        HTTP_STATUS.INTERNAL_SERVER_ERROR,
+        "error",
+        error instanceof Error ? { originalError: error.message } : undefined,
+        "Please try again later or contact support"
+      )
     );
   }
 };
@@ -337,8 +376,12 @@ export const handleHubSpotWebhook: RequestHandler = async (req, res) => {
 /**
  * GET /api/webhooks/status/:eventId
  * Get status of a specific webhook event
+ * 
+ * **Auth:** Not required (but validates brand ownership via x-brand-id header)
+ * **Params:** eventId (string)
+ * **Headers:** x-brand-id (required)
  */
-export const getWebhookStatus: RequestHandler = async (req, res) => {
+export const getWebhookStatus: RequestHandler = async (req, res, next) => {
   try {
     const { eventId } = req.params;
     const brandId = req.headers["x-brand-id"] as string;
@@ -419,13 +462,18 @@ export const getWebhookStatus: RequestHandler = async (req, res) => {
     });
   } catch (error) {
     console.error("[Webhook Status] Error:", error);
-    throw new AppError(
-      ErrorCode.INTERNAL_ERROR,
-      error instanceof Error ? error.message : "Internal server error",
-      HTTP_STATUS.INTERNAL_SERVER_ERROR,
-      "error",
-      error instanceof Error ? { originalError: error.message } : undefined,
-      "Please try again later or contact support"
+    if (error instanceof AppError) {
+      return next(error);
+    }
+    next(
+      new AppError(
+        ErrorCode.INTERNAL_ERROR,
+        error instanceof Error ? error.message : "Internal server error",
+        HTTP_STATUS.INTERNAL_SERVER_ERROR,
+        "error",
+        error instanceof Error ? { originalError: error.message } : undefined,
+        "Please try again later or contact support"
+      )
     );
   }
 };
@@ -433,8 +481,12 @@ export const getWebhookStatus: RequestHandler = async (req, res) => {
 /**
  * GET /api/webhooks/logs
  * Get webhook event logs with filtering
+ * 
+ * **Auth:** Not required (but validates brand ownership via x-brand-id header)
+ * **Headers:** x-brand-id (required)
+ * **Query:** provider, status, startDate, endDate, limit, offset
  */
-export const getWebhookLogs: RequestHandler = async (req, res) => {
+export const getWebhookLogs: RequestHandler = async (req, res, next) => {
   try {
     const brandId = req.headers["x-brand-id"] as string;
     if (!brandId) {
@@ -508,14 +560,19 @@ export const getWebhookLogs: RequestHandler = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("[Webhook Logs] Error:", error);
-    throw new AppError(
-      ErrorCode.INTERNAL_ERROR,
-      error instanceof Error ? error.message : "Internal server error",
-      HTTP_STATUS.INTERNAL_SERVER_ERROR,
-      "error",
-      error instanceof Error ? { originalError: error.message } : undefined,
-      "Please try again later or contact support"
+    logger.error("Webhook logs error", error instanceof Error ? error : new Error(String(error)));
+    if (error instanceof AppError) {
+      return next(error);
+    }
+    next(
+      new AppError(
+        ErrorCode.INTERNAL_ERROR,
+        error instanceof Error ? error.message : "Internal server error",
+        HTTP_STATUS.INTERNAL_SERVER_ERROR,
+        "error",
+        error instanceof Error ? { originalError: error.message } : undefined,
+        "Please try again later or contact support"
+      )
     );
   }
 };
@@ -523,8 +580,12 @@ export const getWebhookLogs: RequestHandler = async (req, res) => {
 /**
  * POST /api/webhooks/retry/:eventId
  * Manually trigger retry for a failed webhook event
+ * 
+ * **Auth:** Not required (but validates brand ownership via x-brand-id header)
+ * **Params:** eventId (string)
+ * **Headers:** x-brand-id (required), x-user-id (optional), x-user-email (optional)
  */
-export const retryWebhookEvent: RequestHandler = async (req, res) => {
+export const retryWebhookEvent: RequestHandler = async (req, res, next) => {
   try {
     const { eventId } = req.params;
     const brandId = req.headers["x-brand-id"] as string;
@@ -585,14 +646,19 @@ export const retryWebhookEvent: RequestHandler = async (req, res) => {
       eventId,
     });
   } catch (error) {
-    console.error("[Webhook Retry] Error:", error);
-    throw new AppError(
-      ErrorCode.INTERNAL_ERROR,
-      error instanceof Error ? error.message : "Internal server error",
-      HTTP_STATUS.INTERNAL_SERVER_ERROR,
-      "error",
-      error instanceof Error ? { originalError: error.message } : undefined,
-      "Please try again later or contact support"
+    logger.error("Webhook retry error", error instanceof Error ? error : new Error(String(error)));
+    if (error instanceof AppError) {
+      return next(error);
+    }
+    next(
+      new AppError(
+        ErrorCode.INTERNAL_ERROR,
+        error instanceof Error ? error.message : "Internal server error",
+        HTTP_STATUS.INTERNAL_SERVER_ERROR,
+        "error",
+        error instanceof Error ? { originalError: error.message } : undefined,
+        "Please try again later or contact support"
+      )
     );
   }
 };

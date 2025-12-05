@@ -3,7 +3,7 @@
  * Shows approval and content widgets with role-based actions
  */
 
-import { useCan } from "@/lib/auth/useCan";
+import { useCan } from "@/lib/auth";
 
 interface ApprovalItem {
   id: string;

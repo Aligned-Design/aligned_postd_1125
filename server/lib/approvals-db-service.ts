@@ -118,7 +118,7 @@ export class ApprovalsDBService {
       .update({
         status: "approved",
         approved_by: approvedBy,
-        approval_date: new Date().toISOString(),
+        approved_at: new Date().toISOString(),
       })
       .eq("post_id", postId)
       .eq("brand_id", brandId)
@@ -166,7 +166,7 @@ export class ApprovalsDBService {
         rejected_by: rejectedBy,
         rejection_reason: reason,
         rejection_note: note,
-        rejection_date: new Date().toISOString(),
+        rejected_at: new Date().toISOString(),
       })
       .eq("post_id", postId)
       .eq("brand_id", brandId)
@@ -199,7 +199,7 @@ export class ApprovalsDBService {
       .update({
         status: "approved",
         approved_by: approvedBy,
-        approval_date: new Date().toISOString(),
+        approved_at: new Date().toISOString(),
       })
       .in("post_id", postIds)
       .eq("brand_id", brandId)
@@ -233,7 +233,7 @@ export class ApprovalsDBService {
         status: "rejected",
         rejected_by: rejectedBy,
         rejection_reason: reason,
-        rejection_date: new Date().toISOString(),
+        rejected_at: new Date().toISOString(),
       })
       .in("post_id", postIds)
       .eq("brand_id", brandId)
@@ -463,6 +463,66 @@ export class ApprovalsDBService {
     }
 
     return count || 0;
+  }
+
+  /**
+   * Create a scheduled_content row when content is scheduled
+   * This is the canonical way to track scheduled content items
+   * 
+   * @param contentId - UUID of the content_items row
+   * @param brandId - UUID of the brand
+   * @param scheduledAt - When the content should be published
+   * @param platforms - Array of platform names (e.g., ["instagram", "facebook"])
+   * @returns The created scheduled_content record
+   */
+  async createScheduledContent(
+    contentId: string,
+    brandId: string,
+    scheduledAt: Date,
+    platforms: string[],
+  ): Promise<Record<string, any>> {
+    if (!platforms || platforms.length === 0) {
+      throw new AppError(
+        ErrorCode.VALIDATION_ERROR,
+        "At least one platform is required",
+        HTTP_STATUS.BAD_REQUEST,
+        "warning",
+      );
+    }
+
+    const { data, error } = await supabase
+      .from("scheduled_content")
+      .insert({
+        brand_id: brandId,
+        content_id: contentId,
+        scheduled_at: scheduledAt.toISOString(),
+        platforms: platforms,
+        status: "scheduled",
+      })
+      .select()
+      .single();
+
+    if (error) {
+      // Handle unique constraint violation (content_id + scheduled_at)
+      if (error.code === "23505") {
+        throw new AppError(
+          ErrorCode.DUPLICATE_RESOURCE,
+          "Content is already scheduled for this time",
+          HTTP_STATUS.CONFLICT,
+          "warning",
+          { details: error.message },
+        );
+      }
+      throw new AppError(
+        ErrorCode.DATABASE_ERROR,
+        "Failed to create scheduled content",
+        HTTP_STATUS.INTERNAL_SERVER_ERROR,
+        "critical",
+        { details: error.message },
+      );
+    }
+
+    return data as Record<string, any>;
   }
 
   /**

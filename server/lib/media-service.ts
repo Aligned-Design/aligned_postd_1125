@@ -552,9 +552,33 @@ class MediaService {
       .limit(1);
 
     if (!error && data && data.length > 0) {
+      // Map database row to MediaAsset format
+      const row = data[0] as Record<string, unknown>;
+      const metadata = row.metadata && typeof row.metadata === "object" ? row.metadata as Record<string, unknown> : {};
+      const existingAsset: MediaAsset = {
+        id: String(row.id),
+        filename: String(row.filename || ""),
+        originalName: String(row.filename || ""),
+        category: (row.category as MediaCategory) || "images",
+        mimeType: String(row.mime_type || ""),
+        size: Number(row.size_bytes || 0),
+        width: metadata.width ? Number(metadata.width) : undefined,
+        height: metadata.height ? Number(metadata.height) : undefined,
+        hash: String(row.hash || ""),
+        tags: Array.isArray(metadata.tags) ? metadata.tags.map(String) : [],
+        brandId: String(row.brand_id || ""),
+        tenantId: String(row.tenant_id || ""),
+        bucketPath: String(row.path || ""),
+        thumbnailPath: row.thumbnail_path ? String(row.thumbnail_path) : undefined,
+        variants: Array.isArray(row.variants) ? row.variants as MediaVariant[] : [],
+        metadata: metadata as unknown as MediaAsset["metadata"],
+        createdAt: String(row.created_at || new Date().toISOString()),
+        updatedAt: String(row.updated_at || new Date().toISOString()),
+      };
+      
       return {
         isDuplicate: true,
-        existingAsset: data[0] as MediaAsset,
+        existingAsset,
         similarity: 1.0,
         hash,
       };

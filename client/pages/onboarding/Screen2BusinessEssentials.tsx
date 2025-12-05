@@ -10,6 +10,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { ArrowRight, Globe, Building2 } from "lucide-react";
 import { OnboardingProgress } from "@/components/onboarding/OnboardingProgress";
 import { logInfo, logError } from "@/lib/logger";
+import type { Brand } from "@/lib/supabase";
 
 // Helper to extract brand name from URL
 const extractBrandNameFromUrl = (url: string): string => {
@@ -127,7 +128,7 @@ export default function Screen2BusinessEssentials() {
             });
           }
 
-          const brandResponse = await apiPost<{ success: boolean; brand: any }>("/api/brands", {
+          const brandResponse = await apiPost<{ success: boolean; brand: Brand }>("/api/brands", {
             name: brandName,
             website_url: normalizedUrl,
             industry: businessType,
@@ -139,7 +140,11 @@ export default function Screen2BusinessEssentials() {
 
           if (brandResponse.success && brandResponse.brand) {
             const realBrandId = brandResponse.brand.id;
-            localStorage.setItem("aligned_brand_id", realBrandId);
+            // ✅ Standardize: Use postd_brand_id as primary key
+            localStorage.setItem("postd_brand_id", realBrandId);
+            // ✅ Use postd_brand_id (keep aligned_brand_id for backward compatibility during migration)
+            localStorage.setItem("postd_brand_id", realBrandId);
+            localStorage.setItem("aligned_brand_id", realBrandId); // Legacy - remove after migration complete
             if (import.meta.env.DEV) {
               logInfo("Brand created", { step: "brand_creation" });
             }
@@ -292,7 +297,7 @@ export default function Screen2BusinessEssentials() {
                   const workspaceId = (user as any)?.workspaceId || (user as any)?.tenantId;
                   const brandName = description || "My Brand";
 
-                  const brandResponse = await apiPost<{ success: boolean; brand: any }>("/api/brands", {
+                  const brandResponse = await apiPost<{ success: boolean; brand: Brand }>("/api/brands", {
                     name: brandName,
                     website_url: "", // Empty for manual setup
                     industry: businessType,
@@ -303,7 +308,9 @@ export default function Screen2BusinessEssentials() {
                   });
 
                   if (brandResponse.success && brandResponse.brand) {
-                    localStorage.setItem("aligned_brand_id", brandResponse.brand.id);
+                    // ✅ Use postd_brand_id (keep aligned_brand_id for backward compatibility)
+                    localStorage.setItem("postd_brand_id", brandResponse.brand.id);
+                    localStorage.setItem("aligned_brand_id", brandResponse.brand.id); // Legacy - remove after migration complete
                     if (import.meta.env.DEV) {
                       logInfo("Brand created for manual setup", { step: "manual_setup" });
                     }

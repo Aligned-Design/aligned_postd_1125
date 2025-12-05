@@ -93,7 +93,6 @@ export function CreativeStudioCanvas({
   }, [croppingItemId, design.items, cropAspectRatio]);
 
   // Initialize crop state when entering crop mode or update when aspect ratio changes
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- cropState is also updated by user interactions, so we need to sync computed state
   useEffect(() => {
     // Initialize when entering crop mode
     if (croppingItemId && !cropState && initialCropState) {

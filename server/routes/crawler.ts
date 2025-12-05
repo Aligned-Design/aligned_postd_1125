@@ -76,7 +76,7 @@ import { supabase } from "../lib/supabase";
 import { AppError } from "../lib/error-middleware";
 import { ErrorCode, HTTP_STATUS } from "../lib/error-responses";
 import { authenticateUser } from "../middleware/security";
-import { assertBrandAccess } from "../lib/brand-access";
+import { validateBrandIdFormat } from "../middleware/validate-brand-id";
 import {
   crawlWebsite,
   extractColors,
@@ -157,7 +157,7 @@ setInterval(cleanupStaleLocks, 60 * 1000);
 // ✅ CRITICAL: Require authentication for all crawler routes
 // Crawler needs tenantId from authenticated user to persist images correctly
 // ✅ FIX: Route is mounted at /api/crawl, so use /start not /crawl/start
-router.post("/start", authenticateUser, async (req, res, next) => {
+router.post("/start", authenticateUser, validateBrandIdFormat, async (req, res, next) => {
   // ✅ CRITICAL: Declare lockKey at function scope for error cleanup
   let lockKey: string | undefined;
   
@@ -267,14 +267,21 @@ router.post("/start", authenticateUser, async (req, res, next) => {
       requestId: (req as any).id,
     });
 
-    // For onboarding (sync mode), skip brand access check
-    // For async mode, verify user has access to brand
-    if (!isSync && brand_id) {
+    // ✅ Use validated brandId from middleware (validates format, allows temp IDs)
+    const validatedBrandId = (req as any).validatedBrandId;
+    if (validatedBrandId) {
+      finalBrandId = validatedBrandId;
+    }
+    
+    // For onboarding (sync mode), skip brand access check (temp IDs allowed)
+    // For async mode, verify user has access to brand (UUID only)
+    if (!isSync && finalBrandId && !finalBrandId.startsWith("brand_")) {
+      // UUID format - verify access
       const userId = req.headers["x-user-id"]; // From auth middleware
       const { data: member, error: memberError } = await supabase
         .from("brand_members")
         .select("*")
-        .eq("brand_id", brand_id)
+        .eq("brand_id", finalBrandId)
         .eq("user_id", userId)
         .single();
 

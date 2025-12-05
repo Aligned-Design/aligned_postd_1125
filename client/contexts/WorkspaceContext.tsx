@@ -34,42 +34,10 @@ interface WorkspaceContextType {
 
 const WorkspaceContext = createContext<WorkspaceContextType | undefined>(undefined);
 
-const INITIAL_WORKSPACES: Workspace[] = [
-  {
-    id: "ws-abd",
-    name: "ABD Events",
-    logo: "🎪",
-    industry: "Events & Entertainment",
-    timezone: "America/New_York",
-    createdAt: new Date().toISOString(),
-    members: [
-      { id: "u1", name: "Lauren", email: "lauren@aligned.com", role: "Admin", avatar: "👩‍💼" },
-      { id: "u2", name: "Kris", email: "kris@aligned.com", role: "Manager", avatar: "👨‍💼" },
-    ],
-  },
-  {
-    id: "ws-aa",
-    name: "Aligned Aesthetics",
-    logo: "✨",
-    industry: "Beauty & Skincare",
-    timezone: "America/Los_Angeles",
-    createdAt: new Date().toISOString(),
-    members: [
-      { id: "u1", name: "Lauren", email: "lauren@aligned.com", role: "Admin", avatar: "👩‍💼" },
-    ],
-  },
-  {
-    id: "ws-ii",
-    name: "Indie Investing",
-    logo: "📈",
-    industry: "Finance & Investment",
-    timezone: "America/Chicago",
-    createdAt: new Date().toISOString(),
-    members: [
-      { id: "u1", name: "Lauren", email: "lauren@aligned.com", role: "Admin", avatar: "👩‍💼" },
-    ],
-  },
-];
+// ✅ REMOVED: Sample/demo brands (ABD Events, Aligned Aesthetics, Indie Investing)
+// These should only be used as fallback when no real workspaces exist
+// In production, workspaces should be loaded from Supabase
+const INITIAL_WORKSPACES: Workspace[] = [];
 
 export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   // Load from localStorage using initial state function to avoid setState in effect
@@ -189,7 +157,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   const effectiveWorkspaceId = effectiveWorkspace?.id || currentWorkspaceId;
 
   // Auto-select first workspace if current is missing (silent, no error)
-  // eslint-disable-next-line react-hooks/set-state-in-effect -- Need to sync workspace selection when workspaces array changes
+   
   useEffect(() => {
     if (!currentWorkspace && workspaces.length > 0) {
       const firstWorkspace = workspaces[0];

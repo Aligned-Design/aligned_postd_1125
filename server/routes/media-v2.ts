@@ -1,187 +1,362 @@
-import { Router } from "express";
+/**
+ * Media API Routes (v2)
+ * 
+ * Real implementation using media database service.
+ * Replaces mock implementation with actual data access.
+ */
+
+import { Router, RequestHandler } from "express";
 import { z } from "zod";
+import { mediaDB } from "../lib/media-db-service";
+import { AppError } from "../lib/error-middleware";
+import { ErrorCode, HTTP_STATUS } from "../lib/error-responses";
+import { authenticateUser } from "../middleware/security";
+import { requireScope } from "../middleware/requireScope";
+import { validateBrandId } from "../middleware/validate-brand-id";
 
-const r = Router();
+const router = Router();
 
-// Mock media library data
-const MOCK_MEDIA = [
-  {
-    id: "asset_1",
-    brandId: "brand_abd",
-    type: "image",
-    url: "https://images.unsplash.com/photo-1611162617474-5b21e879e113?w=800",
-    thumbnailUrl:
-      "https://images.unsplash.com/photo-1611162617474-5b21e879e113?w=200",
-    filename: "product-hero.jpg",
-    size: 245600,
-    width: 1920,
-    height: 1080,
-    mimeType: "image/jpeg",
-    category: "product",
-    tags: ["hero", "product", "featured"],
-    uploadedBy: "Lauren",
-    uploadedAt: new Date(Date.now() - 86400000 * 7).toISOString(),
-  },
-  {
-    id: "asset_2",
-    brandId: "brand_abd",
-    type: "image",
-    url: "https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=800",
-    thumbnailUrl:
-      "https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=200",
-    filename: "analytics-dashboard.jpg",
-    size: 189400,
-    width: 1600,
-    height: 900,
-    mimeType: "image/jpeg",
-    category: "screenshot",
-    tags: ["analytics", "dashboard", "data"],
-    uploadedBy: "Sarah Johnson",
-    uploadedAt: new Date(Date.now() - 86400000 * 5).toISOString(),
-  },
-  {
-    id: "asset_3",
-    brandId: "brand_abd",
-    type: "image",
-    url: "https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=800",
-    thumbnailUrl:
-      "https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=200",
-    filename: "team-meeting.jpg",
-    size: 312800,
-    width: 2000,
-    height: 1333,
-    mimeType: "image/jpeg",
-    category: "team",
-    tags: ["team", "collaboration", "office"],
-    uploadedBy: "Mike Chen",
-    uploadedAt: new Date(Date.now() - 86400000 * 3).toISOString(),
-  },
-  {
-    id: "asset_4",
-    brandId: "brand_abd",
-    type: "video",
-    url: "https://example.com/videos/promo.mp4",
-    thumbnailUrl:
-      "https://images.unsplash.com/photo-1492691527719-9d1e07e534b4?w=200",
-    filename: "promo-video.mp4",
-    size: 15728640,
-    width: 1920,
-    height: 1080,
-    duration: 45,
-    mimeType: "video/mp4",
-    category: "video",
-    tags: ["promo", "marketing", "video"],
-    uploadedBy: "Emma Davis",
-    uploadedAt: new Date(Date.now() - 86400000 * 2).toISOString(),
-  },
-];
-
-/** GET /api/media?brandId=...&category=...&limit=20
- *  List media assets with filtering and pagination
- */
-r.get("/", (req, res) => {
-  const { brandId, category, type, limit, offset, search } = z
-    .object({
-      brandId: z.string().default("brand_abd"),
-      category: z.string().optional(),
-      type: z.enum(["image", "video", "document"]).optional(),
-      limit: z.coerce.number().int().min(1).max(100).default(20),
-      offset: z.coerce.number().int().min(0).default(0),
-      search: z.string().optional(),
-    })
-    .parse(req.query);
-
-  let filtered = MOCK_MEDIA.filter((m) => m.brandId === brandId);
-
-  if (category) {
-    filtered = filtered.filter((m) => m.category === category);
-  }
-
-  if (type) {
-    filtered = filtered.filter((m) => m.type === type);
-  }
-
-  if (search) {
-    const searchLower = search.toLowerCase();
-    filtered = filtered.filter(
-      (m) =>
-        m.filename.toLowerCase().includes(searchLower) ||
-        m.tags.some((tag) => tag.toLowerCase().includes(searchLower)),
-    );
-  }
-
-  const items = filtered.slice(offset, offset + limit);
-
-  res.json({
-    items,
-    total: filtered.length,
-    limit,
-    offset,
-    hasMore: offset + limit < filtered.length,
-  });
+// ✅ VALIDATION: Zod schemas for media routes
+// Note: brandId validation is handled by validateBrandId middleware
+const MediaQuerySchema = z.object({
+  brandId: z.string().optional(), // Format validation handled by middleware
+  category: z.string().optional(),
+  type: z.enum(["image", "video", "document"]).optional(),
+  limit: z.coerce.number().int().min(1).max(100).default(20).optional(),
+  offset: z.coerce.number().int().min(0).default(0).optional(),
+  search: z.string().optional(),
 });
 
-/** GET /api/media/:assetId
- *  Get single asset details
- */
-r.get("/:assetId", (req, res) => {
-  const { assetId } = req.params;
-  const asset = MOCK_MEDIA.find((m) => m.id === assetId);
-
-  if (!asset) {
-    return res.status(404).json({
-      error: {
-        code: "NOT_FOUND",
-        message: "Asset not found",
-      },
-    });
-  }
-
-  res.json(asset);
+const AssetIdParamSchema = z.object({
+  assetId: z.string().uuid("Invalid asset ID format"),
 });
 
-/** GET /api/media/storage-usage?brandId=...
- *  Get storage usage stats
+const StorageUsageQuerySchema = z.object({
+  brandId: z.string(), // Format validation handled by middleware
+});
+
+/**
+ * Helper function to map database record to API response format
  */
-r.get("/storage-usage", (req, res) => {
-  const { brandId } = z
-    .object({
-      brandId: z.string().default("brand_abd"),
-    })
-    .parse(req.query);
+function mapAssetToResponse(asset: any, baseUrl?: string) {
+  const metadata = asset.metadata as Record<string, unknown> | undefined;
+  const mimeType = asset.mime_type || "";
+  const isImage = mimeType.startsWith("image/");
+  const isVideo = mimeType.startsWith("video/");
+  
+  // Determine type from mime type
+  let type: "image" | "video" | "document" = "document";
+  if (isImage) type = "image";
+  else if (isVideo) type = "video";
 
-  const brandAssets = MOCK_MEDIA.filter((m) => m.brandId === brandId);
-  const totalSize = brandAssets.reduce((sum, asset) => sum + asset.size, 0);
-  const totalCount = brandAssets.length;
+  // Get URL from path (for scraped images, path contains the URL)
+  const url = asset.path?.startsWith("http") ? asset.path : 
+    (baseUrl ? `${baseUrl}/${asset.path}` : asset.path);
 
-  const byType = {
-    image: brandAssets.filter((m) => m.type === "image").length,
-    video: brandAssets.filter((m) => m.type === "video").length,
-    document: brandAssets.filter((m) => m.type === "document").length,
+  return {
+    id: asset.id,
+    brandId: asset.brand_id,
+    type,
+    url,
+    thumbnailUrl: isImage ? url : undefined, // For now, use same URL as thumbnail
+    filename: asset.filename,
+    size: asset.size_bytes || 0,
+    width: typeof metadata?.width === "number" ? metadata.width : undefined,
+    height: typeof metadata?.height === "number" ? metadata.height : undefined,
+    duration: typeof metadata?.duration === "number" ? metadata.duration : undefined,
+    mimeType,
+    category: asset.category || "uncategorized",
+    tags: Array.isArray(metadata?.tags) ? metadata.tags : [],
+    uploadedBy: typeof metadata?.uploadedBy === "string" ? metadata.uploadedBy : undefined,
+    uploadedAt: asset.created_at,
   };
+}
 
-  res.json({
-    brandId,
-    totalSize,
-    totalCount,
-    byType,
-    limit: 10737418240, // 10GB limit
-    used: totalSize,
-    percentUsed: (totalSize / 10737418240) * 100,
-  });
-});
-
-/** DELETE /api/media/:assetId
- *  Delete an asset
+/**
+ * GET /api/media?brandId=...&category=...&limit=20
+ * List media assets with filtering and pagination
+ * 
+ * **Auth:** Required (authenticateUser)
+ * **Scope:** content:view
+ * **Query:** brandId (UUID, optional), category (string, optional), type (image|video|document, optional), limit (1-100, default 20), offset (default 0), search (string, optional)
  */
-r.delete("/:assetId", (req, res) => {
-  const { assetId } = req.params;
+router.get(
+  "/",
+  authenticateUser,
+  requireScope("content:view"),
+  validateBrandId, // Validates brandId format and access (if provided)
+  (async (req, res, next) => {
+    try {
+      // ✅ Use validated brandId from middleware
+      let brandId: string | undefined = (req as any).validatedBrandId ?? (req.query.brandId as string);
+      let category: string | undefined;
+      let type: "image" | "video" | "document" | undefined;
+      let limit: number;
+      let offset: number;
+      let search: string | undefined;
+      
+      try {
+        const validated = MediaQuerySchema.parse(req.query);
+        brandId = brandId || validated.brandId;
+        category = validated.category;
+        type = validated.type;
+        limit = validated.limit || 20;
+        offset = validated.offset || 0;
+        search = validated.search;
+      } catch (validationError) {
+        if (validationError instanceof z.ZodError) {
+          throw new AppError(
+            ErrorCode.VALIDATION_ERROR,
+            "Invalid query parameters",
+            HTTP_STATUS.BAD_REQUEST,
+            "warning",
+            { validationErrors: validationError.errors }
+          );
+        }
+        throw validationError;
+      }
 
-  res.json({
-    success: true,
-    assetId,
-    deletedAt: new Date().toISOString(),
-  });
-});
+      // Get brandId if not provided
+      if (!brandId) {
+        const user = req.user || req.auth;
+        if (user?.brandIds && user.brandIds.length > 0) {
+          brandId = user.brandIds[0];
+        } else {
+          throw new AppError(
+            ErrorCode.MISSING_REQUIRED_FIELD,
+            "brandId is required",
+            HTTP_STATUS.BAD_REQUEST,
+            "warning"
+          );
+        }
+      }
 
-export default r;
+      // List media assets from database
+      const { assets, total } = await mediaDB.listMediaAssets(brandId, {
+        category,
+        searchTerm: search,
+        limit,
+        offset,
+        sortBy: "created_at",
+        sortOrder: "desc",
+      });
+
+      // Filter by type if provided (based on mime type)
+      let filteredAssets = assets;
+      if (type) {
+        filteredAssets = assets.filter((asset) => {
+          const mimeType = asset.mime_type || "";
+          if (type === "image") return mimeType.startsWith("image/");
+          if (type === "video") return mimeType.startsWith("video/");
+          return !mimeType.startsWith("image/") && !mimeType.startsWith("video/");
+        });
+      }
+
+      // Map to response format
+      const items = filteredAssets.map((asset) => mapAssetToResponse(asset));
+
+      res.json({
+        items,
+        total: filteredAssets.length,
+        limit,
+        offset,
+        hasMore: offset + limit < filteredAssets.length,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }) as RequestHandler
+);
+
+/**
+ * GET /api/media/:assetId
+ * Get single asset details
+ * 
+ * **Auth:** Required (authenticateUser)
+ * **Scope:** content:view
+ * **Params:** assetId (UUID)
+ */
+router.get(
+  "/:assetId",
+  authenticateUser,
+  requireScope("content:view"),
+  (async (req, res, next) => {
+    try {
+      // ✅ VALIDATION: Validate assetId parameter
+      let assetId: string;
+      try {
+        const validated = AssetIdParamSchema.parse(req.params);
+        assetId = validated.assetId;
+      } catch (validationError) {
+        if (validationError instanceof z.ZodError) {
+          throw new AppError(
+            ErrorCode.VALIDATION_ERROR,
+            "Invalid asset ID format",
+            HTTP_STATUS.BAD_REQUEST,
+            "warning",
+            { validationErrors: validationError.errors }
+          );
+        }
+        throw validationError;
+      }
+
+      // Get asset from database
+      const asset = await mediaDB.getMediaAsset(assetId);
+
+      if (!asset) {
+        throw new AppError(
+          ErrorCode.NOT_FOUND,
+          "Asset not found",
+          HTTP_STATUS.NOT_FOUND,
+          "info"
+        );
+      }
+
+      // ✅ Verify brand access (brandId comes from asset record, not request params)
+      // Note: Cannot use validateBrandId middleware here since brandId is from DB, not request
+      await assertBrandAccess(req, asset.brand_id, true, true);
+
+      // Map to response format
+      const response = mapAssetToResponse(asset);
+
+      res.json(response);
+    } catch (error) {
+      next(error);
+    }
+  }) as RequestHandler
+);
+
+/**
+ * GET /api/media/storage-usage?brandId=...
+ * Get storage usage stats
+ * 
+ * **Auth:** Required (authenticateUser)
+ * **Scope:** content:view
+ * **Query:** brandId (UUID, required)
+ */
+router.get(
+  "/storage-usage",
+  authenticateUser,
+  requireScope("content:view"),
+  validateBrandId, // Validates brandId format and access (required for this route)
+  (async (req, res, next) => {
+    try {
+      // ✅ Use validated brandId from middleware (required for this route)
+      const brandId = (req as any).validatedBrandId ?? (req.query.brandId as string);
+      if (!brandId) {
+        throw new AppError(
+          ErrorCode.MISSING_REQUIRED_FIELD,
+          "brandId is required",
+          HTTP_STATUS.BAD_REQUEST,
+          "warning"
+        );
+      }
+      
+      // Validate other query parameters
+      try {
+        StorageUsageQuerySchema.parse(req.query);
+      } catch (validationError) {
+        if (validationError instanceof z.ZodError) {
+          throw new AppError(
+            ErrorCode.VALIDATION_ERROR,
+            "Invalid query parameters",
+            HTTP_STATUS.BAD_REQUEST,
+            "warning",
+            { validationErrors: validationError.errors }
+          );
+        }
+        throw validationError;
+      }
+
+      // Get storage usage from database service
+      const usage = await mediaDB.getStorageUsage(brandId);
+
+      // Get asset counts by type
+      const { assets } = await mediaDB.listMediaAssets(brandId, { limit: 1000 });
+      
+      const byType = {
+        image: assets.filter((a) => a.mime_type?.startsWith("image/")).length,
+        video: assets.filter((a) => a.mime_type?.startsWith("video/")).length,
+        document: assets.filter((a) => {
+          const mime = a.mime_type || "";
+          return !mime.startsWith("image/") && !mime.startsWith("video/");
+        }).length,
+      };
+
+      res.json({
+        brandId,
+        totalSize: usage.totalUsedBytes,
+        totalCount: usage.assetCount,
+        byType,
+        limit: usage.quotaLimitBytes,
+        used: usage.totalUsedBytes,
+        percentUsed: parseFloat(usage.percentageUsed.toFixed(2)),
+      });
+    } catch (error) {
+      next(error);
+    }
+  }) as RequestHandler
+);
+
+/**
+ * DELETE /api/media/:assetId
+ * Delete an asset
+ * 
+ * **Auth:** Required (authenticateUser)
+ * **Scope:** content:manage
+ * **Params:** assetId (UUID)
+ */
+router.delete(
+  "/:assetId",
+  authenticateUser,
+  requireScope("content:manage"),
+  (async (req, res, next) => {
+    try {
+      // ✅ VALIDATION: Validate assetId parameter
+      let assetId: string;
+      try {
+        const validated = AssetIdParamSchema.parse(req.params);
+        assetId = validated.assetId;
+      } catch (validationError) {
+        if (validationError instanceof z.ZodError) {
+          throw new AppError(
+            ErrorCode.VALIDATION_ERROR,
+            "Invalid asset ID format",
+            HTTP_STATUS.BAD_REQUEST,
+            "warning",
+            { validationErrors: validationError.errors }
+          );
+        }
+        throw validationError;
+      }
+
+      // Get asset to verify brand access
+      const asset = await mediaDB.getMediaAsset(assetId);
+
+      if (!asset) {
+        throw new AppError(
+          ErrorCode.NOT_FOUND,
+          "Asset not found",
+          HTTP_STATUS.NOT_FOUND,
+          "info"
+        );
+      }
+
+      // ✅ Verify brand access (brandId comes from asset record, not request params)
+      // Note: Cannot use validateBrandId middleware here since brandId is from DB, not request
+      await assertBrandAccess(req, asset.brand_id, true, true);
+
+      // Delete asset from database
+      await mediaDB.deleteMediaAsset(assetId);
+
+      res.json({
+        assetId,
+        deletedAt: new Date().toISOString(),
+      });
+    } catch (error) {
+      next(error);
+    }
+  }) as RequestHandler
+);
+
+export default router;

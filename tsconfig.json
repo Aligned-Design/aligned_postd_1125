@@ -18,6 +18,9 @@
     "forceConsistentCasingInFileNames": true,
 
 
+    // NOTE: strict mode disabled for v1 launch (intentional)
+    // TODO: Enable strict mode incrementally post-launch
+    // Tracked in POSTD_REPO_HEALTH_STATUS.md (H7)
     "strict": false,
     "noUnusedLocals": false,
     "noUnusedParameters": false,

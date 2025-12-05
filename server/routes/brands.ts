@@ -14,7 +14,7 @@ import { requireScope } from "../middleware/requireScope";
 import { assertBrandAccess } from "../lib/brand-access";
 import { logger } from "../lib/logger";
 import { runOnboardingWorkflow } from "../lib/onboarding-orchestrator";
-import { transferScrapedImages } from "../lib/scraped-images-service";
+import { reconcileTemporaryBrandAssets } from "../lib/brand-reconciliation";
 
 const router = Router();
 
@@ -52,7 +52,7 @@ async function generateUniqueSlug(baseSlug: string, tenantId: string): Promise<s
   
   // If error occurred (not just "not found"), log it but continue
   if (checkError && checkError.code !== "PGRST116") {
-    console.warn("[Brands] Error checking slug availability, proceeding with base slug", {
+    logger.warn("Error checking slug availability, proceeding with base slug", {
       error: checkError.message,
       code: checkError.code,
       slug: normalizedSlug,
@@ -80,7 +80,7 @@ async function generateUniqueSlug(baseSlug: string, tenantId: string): Promise<s
     
     // If error occurred (not just "not found"), log it but continue
     if (candidateError && candidateError.code !== "PGRST116") {
-      console.warn("[Brands] Error checking candidate slug, trying next", {
+      logger.warn("Error checking candidate slug, trying next", {
         error: candidateError.message,
         code: candidateError.code,
         slug: candidateSlug,
@@ -99,7 +99,7 @@ async function generateUniqueSlug(baseSlug: string, tenantId: string): Promise<s
     if (counter > 1000) {
       // Fallback to timestamp-based slug
       const fallbackSlug = `${normalizedSlug}-${Date.now()}`;
-      console.warn("[Brands] Reached max iterations, using timestamp-based slug", {
+      logger.warn("Reached max iterations, using timestamp-based slug", {
         baseSlug: normalizedSlug,
         fallbackSlug,
       });
@@ -262,7 +262,7 @@ router.post(
       }
 
       // ✅ VERIFY: Check if tenant exists in database
-      console.log("[Brands] 🔍 Verifying tenant exists", {
+      logger.info("Verifying tenant exists", {
         tenantId: finalTenantId,
         userId: user?.id,
       });
@@ -274,18 +274,15 @@ router.post(
         .single();
 
       if (tenantCheckError || !existingTenant) {
-        console.error("[Brands] ❌ Tenant not found in database", {
+        logger.warn("Tenant not found in database, creating", {
           tenantId: finalTenantId,
           error: tenantCheckError?.message,
           code: tenantCheckError?.code,
+          userId: user?.id,
         });
 
         // ✅ CREATE TENANT ON THE FLY if it doesn't exist
         // This handles edge cases where tenant wasn't created during signup
-        console.log("[Brands] 🏢 Creating missing tenant", {
-          tenantId: finalTenantId,
-          userId: user?.id,
-        });
 
         const tenantName = user?.email?.split("@")[0] || `Workspace ${finalTenantId.substring(0, 8)}`;
         const { data: newTenant, error: tenantCreateError } = await supabase
@@ -301,8 +298,8 @@ router.post(
           .single();
 
         if (tenantCreateError || !newTenant) {
-          console.error("[Brands] ❌ Failed to create tenant", {
-            error: tenantCreateError?.message,
+          logger.error("Failed to create tenant", tenantCreateError ? new Error(tenantCreateError.message) : new Error("Unknown error"), {
+            tenantId: finalTenantId,
             code: tenantCreateError?.code,
           });
           throw new AppError(
@@ -317,32 +314,19 @@ router.post(
           );
         }
 
-        console.log("[Tenants] ✅ Tenant created successfully", {
+        logger.info("Tenant created successfully", {
           tenantId: newTenant.id,
           tenantName: newTenant.name,
           plan: newTenant.plan,
-          createdAt: newTenant.created_at,
         });
-        console.log("[Tenants] Using tenantId:", newTenant.id);
       } else {
-      console.log("[Tenants] ✅ Tenant verified", {
-        tenantId: existingTenant.id,
-        tenantName: existingTenant.name,
-      });
-      console.log("[Tenants] Using tenantId:", existingTenant.id);
+        logger.info("Tenant verified", {
+          tenantId: existingTenant.id,
+          tenantName: existingTenant.name,
+        });
       }
 
       // ✅ LOGGING: Brand creation start with IDs
-      console.log("[Brands] Creating brand", {
-        userId: user?.id,
-        tenantId: finalTenantId,
-        brandName: name,
-        website_url,
-        hasUser: !!user,
-        userRole: user?.role,
-        tenantExists: !!existingTenant,
-      });
-      
       logger.info("Creating new brand", {
         requestId,
         userId: user?.id,
@@ -350,13 +334,16 @@ router.post(
         tenantId: finalTenantId,
         name,
         website_url,
+        hasUser: !!user,
+        userRole: user?.role,
+        tenantExists: !!existingTenant,
       });
 
       // ✅ Generate unique slug before insert to prevent duplicate key errors
       const baseSlug = slug || name.toLowerCase().replace(/\s+/g, "-");
       let uniqueSlug = await generateUniqueSlug(baseSlug, finalTenantId);
       
-      console.log("[Brands] Generated unique slug", {
+      logger.debug("Generated unique slug", {
         baseSlug,
         uniqueSlug,
         tenantId: finalTenantId,
@@ -381,13 +368,11 @@ router.post(
       const maxRetries = 3;
 
       while (retryCount <= maxRetries) {
-        console.log("[Brands] Inserting brand data (attempt " + (retryCount + 1) + ")", {
-          ...brandInsertData,
-          slugLength: brandInsertData.slug?.length,
-          tenantIdType: typeof finalTenantId,
-          tenantIdLength: finalTenantId?.length,
-          userIdType: typeof user?.id,
-          userIdLength: user?.id?.length,
+        logger.debug("Inserting brand data", {
+          attempt: retryCount + 1,
+          slug: brandInsertData.slug,
+          tenantId: finalTenantId,
+          userId: user?.id,
         });
 
         const result = await supabase
@@ -407,7 +392,8 @@ router.post(
         )) {
           retryCount++;
           if (retryCount <= maxRetries) {
-            console.warn("[Brands] Duplicate slug detected, generating new slug (attempt " + retryCount + ")", {
+            logger.warn("Duplicate slug detected, generating new slug", {
+              attempt: retryCount,
               previousSlug: uniqueSlug,
               error: brandError.message,
             });
@@ -429,12 +415,10 @@ router.post(
 
       // ✅ CRITICAL: Log detailed error information
       if (brandError) {
-        console.error("[Brands] ❌ Supabase insert error", {
-          message: brandError.message,
+        logger.error("Supabase insert error", new Error(brandError.message), {
           code: brandError.code,
           details: brandError.details,
           hint: brandError.hint,
-          fullError: JSON.stringify(brandError, null, 2),
           insertData: brandInsertData,
         });
         
@@ -462,7 +446,7 @@ router.post(
       }
 
       if (!brandData) {
-        console.error("[Brands] ❌ No brand data returned from insert", {
+        logger.error("No brand data returned from insert", new Error("Insert succeeded but no data returned"), {
           hasError: !!brandError,
           insertData: brandInsertData,
         });
@@ -476,7 +460,7 @@ router.post(
         );
       }
 
-      console.log("[Brands] ✅ Brand created successfully", {
+      logger.info("Brand created successfully", {
         brandId: brandData.id,
         brandName: brandData.name,
         tenantId: brandData.tenant_id || brandData.workspace_id,
@@ -501,7 +485,7 @@ router.post(
       }
 
       // ✅ LOGGING: Brand creation complete with all IDs
-      console.log("[Brands] Brand created", {
+      logger.info("Brand creation complete", {
         userId: user?.id,
         tenantId: finalTenantId,
         brandId: brandData.id,
@@ -515,28 +499,41 @@ router.post(
         duration: Date.now() - startTime,
       });
 
-      // ✅ ROOT FIX: Transfer scraped images from temporary onboarding brandId to real brandId
+      // ✅ P0 FIX: Reconcile temporary brand assets to final brand UUID
       // Check if request includes temporary brandId from onboarding
       const tempBrandId = req.body.tempBrandId || req.body.onboardingBrandId;
       if (tempBrandId && tempBrandId.startsWith("brand_") && tempBrandId !== brandData.id) {
         try {
-          const transferredCount = await transferScrapedImages(tempBrandId, brandData.id);
-          if (transferredCount > 0) {
-            logger.info("Transferred scraped images from onboarding", {
+          const reconciliation = await reconcileTemporaryBrandAssets(tempBrandId, brandData.id);
+          if (reconciliation.transferredImages > 0) {
+            logger.info("Reconciled temporary brand assets", {
               requestId,
               fromBrandId: tempBrandId,
               toBrandId: brandData.id,
-              imageCount: transferredCount,
+              transferredImages: reconciliation.transferredImages,
+              success: reconciliation.success,
             });
           }
-        } catch (transferError) {
-          logger.warn("Failed to transfer scraped images from onboarding", {
-            requestId,
-            fromBrandId: tempBrandId,
-            toBrandId: brandData.id,
-            error: transferError instanceof Error ? transferError.message : String(transferError),
-          });
-          // Don't fail brand creation if transfer fails
+          if (reconciliation.errors.length > 0) {
+            logger.warn("Brand reconciliation completed with errors", {
+              requestId,
+              fromBrandId: tempBrandId,
+              toBrandId: brandData.id,
+              errors: reconciliation.errors,
+            });
+            // Don't fail brand creation if reconciliation has errors, but log them
+          }
+        } catch (reconciliationError) {
+          logger.error(
+            "Failed to reconcile temporary brand assets",
+            reconciliationError instanceof Error ? reconciliationError : new Error(String(reconciliationError)),
+            {
+              requestId,
+              fromBrandId: tempBrandId,
+              toBrandId: brandData.id,
+            }
+          );
+          // Don't fail brand creation if reconciliation fails, but log the error
         }
       }
 
@@ -576,4 +573,5 @@ router.post(
 );
 
 export default router;
+
 
