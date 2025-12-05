@@ -750,7 +750,7 @@ const handleAddElement = (elementType: string, defaultProps: Record<string, unkn
     setState(redo);
   };
 
-  const handleSaveToLibrary = async () => {
+  const handleSaveToLibrary = useCallback(async () => {
     if (!state.design) return;
 
     // Ensure design has a valid brandId - use current brand from context if missing
@@ -984,7 +984,7 @@ const handleAddElement = (elementType: string, defaultProps: Record<string, unkn
     logTelemetry("save_create_variant", { originalId: state.design.id, variantId: variant.id });
   };
 
-  const handleSendToQueue = () => {
+  const handleSendToQueue = useCallback(() => {
     if (!state.design) return;
 
     setState((prev) => ({
