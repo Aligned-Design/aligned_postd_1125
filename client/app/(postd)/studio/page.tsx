@@ -307,30 +307,6 @@ export default function CreativeStudio() {
     });
   }, [state.design]);
 
-  // Keyboard shortcuts
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === "s") {
-        e.preventDefault();
-        handleSaveToLibrary();
-      } else if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
-        e.preventDefault();
-        handleSendToQueue();
-      } else if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === "S") {
-        e.preventDefault();
-        setShowScheduleModal(true);
-      } else if (e.key === "Delete" && state.selectedItemId) {
-        e.preventDefault();
-        handleDeleteItem();
-      } else if ((e.ctrlKey || e.metaKey) && e.key === "r" && state.selectedItemId) {
-        e.preventDefault();
-        handleRotateItem(45);
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [state.design, state.selectedItemId, handleDeleteItem, handleRotateItem, handleSaveToLibrary, handleSendToQueue]);
 
   const handleStartDesign = (mode: "ai" | "template" | "scratch", format: DesignFormat) => {
     // For blank canvas, don't require persisted brand (allow workspace default)

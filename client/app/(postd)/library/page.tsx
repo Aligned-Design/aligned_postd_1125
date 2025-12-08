@@ -13,7 +13,7 @@ import {
   Filter,
   Loader2,
 } from "lucide-react";
-import { Asset, LibraryFilter, LibraryViewPreferences, AssetFileType } from "@/types/library";
+import { Asset, LibraryFilter, LibraryViewPreferences, AssetFileType, GraphicsSize, Orientation, PlatformFit } from "@/types/library";
 import { StockImage } from "@/types/stock";
 import { LibraryUploadZone } from "@/components/dashboard/LibraryUploadZone";
 import { LibraryAssetDrawer } from "@/components/dashboard/LibraryAssetDrawer";
@@ -73,34 +73,41 @@ export default function Library() {
         
         if (data.success && data.assets) {
           // Map API response to Asset format
-          const mappedAssets: Asset[] = data.assets.map((asset: Record<string, unknown>) => ({
-            id: String(asset.id || ""),
-            filename: String(asset.filename || (typeof asset.path === "string" ? asset.path.split("/").pop() : "") || "unknown"),
-            fileType: typeof asset.mime_type === "string" && asset.mime_type.startsWith("video/") ? "video" : "image",
-            fileSize: Number(asset.size_bytes || 0),
-            width: (asset.metadata && typeof asset.metadata === "object" && "width" in asset.metadata) ? Number(asset.metadata.width) || 0 : 0,
-            height: (asset.metadata && typeof asset.metadata === "object" && "height" in asset.metadata) ? Number(asset.metadata.height) || 0 : 0,
-            thumbnailUrl: String((asset.metadata && typeof asset.metadata === "object" && "thumbnailUrl" in asset.metadata ? asset.metadata.thumbnailUrl : asset.path) || ""),
-            storagePath: String(asset.path || ""),
-            tags: asset.metadata?.aiTags || [],
-            category: asset.category || "images",
-            people: asset.metadata?.people || [],
-            colors: asset.metadata?.colors || [],
-            platformFits: asset.metadata?.platformFits || [],
-            graphicsSize: asset.metadata?.graphicsSize || "medium",
-            orientation: asset.metadata?.orientation || "landscape",
-            aspectRatio: asset.width && asset.height ? asset.width / asset.height : 1,
-            campaignIds: asset.metadata?.campaignIds || [],
-            eventIds: asset.metadata?.eventIds || [],
-            usageCount: asset.usage_count || 0,
-            favorite: asset.metadata?.favorite || false,
-            source: asset.metadata?.source || "upload",
-            uploadedAt: asset.created_at || new Date().toISOString(),
-            uploadedBy: asset.metadata?.uploadedBy || "unknown",
-            brandId: asset.brand_id || brandId,
-            aiTagsPending: asset.metadata?.aiTagsPending || false,
-            archived: asset.status === "archived" || asset.metadata?.archived || false,
-          }));
+          const mappedAssets: Asset[] = data.assets.map((asset: Record<string, unknown>) => {
+            // Type-safe metadata extraction
+            const metadata = asset.metadata && typeof asset.metadata === "object" ? asset.metadata as Record<string, unknown> : {};
+            const width = typeof asset.width === "number" ? asset.width : (typeof metadata.width === "number" ? metadata.width : 0);
+            const height = typeof asset.height === "number" ? asset.height : (typeof metadata.height === "number" ? metadata.height : 0);
+            
+            return {
+              id: String(asset.id || ""),
+              filename: String(asset.filename || (typeof asset.path === "string" ? asset.path.split("/").pop() : "") || "unknown"),
+              fileType: typeof asset.mime_type === "string" && asset.mime_type.startsWith("video/") ? "video" : "image",
+              fileSize: Number(asset.size_bytes || 0),
+              width: Number(width) || 0,
+              height: Number(height) || 0,
+              thumbnailUrl: String((typeof metadata.thumbnailUrl === "string" ? metadata.thumbnailUrl : asset.path) || ""),
+              storagePath: String(asset.path || ""),
+              tags: Array.isArray(metadata.aiTags) ? metadata.aiTags as string[] : [],
+              category: typeof asset.category === "string" ? asset.category : "images",
+              people: Array.isArray(metadata.people) ? metadata.people as string[] : [],
+              colors: Array.isArray(metadata.colors) ? metadata.colors as string[] : [],
+              platformFits: Array.isArray(metadata.platformFits) ? metadata.platformFits as string[] : [],
+              graphicsSize: typeof metadata.graphicsSize === "string" ? metadata.graphicsSize as GraphicsSize : undefined,
+              orientation: typeof metadata.orientation === "string" ? metadata.orientation as "landscape" | "portrait" | "square" : "landscape",
+              aspectRatio: width && height ? Number(width) / Number(height) : 1,
+              campaignIds: Array.isArray(metadata.campaignIds) ? metadata.campaignIds as string[] : [],
+              eventIds: Array.isArray(metadata.eventIds) ? metadata.eventIds as string[] : [],
+              usageCount: typeof asset.usage_count === "number" ? asset.usage_count : 0,
+              favorite: typeof metadata.favorite === "boolean" ? metadata.favorite : false,
+              source: typeof metadata.source === "string" ? metadata.source : "upload",
+              uploadedAt: typeof asset.created_at === "string" ? asset.created_at : new Date().toISOString(),
+              uploadedBy: typeof metadata.uploadedBy === "string" ? metadata.uploadedBy : "unknown",
+              brandId: typeof asset.brand_id === "string" ? asset.brand_id : brandId || "",
+              aiTagsPending: typeof metadata.aiTagsPending === "boolean" ? metadata.aiTagsPending : false,
+              archived: (typeof asset.status === "string" && asset.status === "archived") || (typeof metadata.archived === "boolean" && metadata.archived) || false,
+            };
+          });
           
           setAssets(mappedAssets);
         } else {
@@ -375,7 +382,7 @@ export default function Library() {
   const selectedAssetData = assets.find((a) => a.id === selectedAssetId);
   const allTags = Array.from(new Set(assets.flatMap((a) => a.tags))).sort();
   const allPeople = Array.from(new Set(assets.flatMap((a) => a.people))).sort();
-  const allGraphicsSizes = Array.from(new Set(assets.map((a) => a.graphicsSize))) as string[];
+  const allGraphicsSizes = Array.from(new Set(assets.map((a) => a.graphicsSize).filter((size): size is GraphicsSize => size !== undefined))) as GraphicsSize[];
 
   return (    
       <FirstVisitTooltip page="library">
@@ -534,34 +541,40 @@ export default function Library() {
                           if (response.ok) {
                             const data = await response.json();
                             if (data.success && data.assets) {
-                              const mappedAssets: Asset[] = data.assets.map((asset: Record<string, unknown>) => ({
-                                id: String(asset.id || ""),
-                                filename: String(asset.filename || (typeof asset.path === "string" ? asset.path.split("/").pop() : "") || "unknown"),
-                                fileType: typeof asset.mime_type === "string" && asset.mime_type.startsWith("video/") ? "video" : "image",
-                                fileSize: Number(asset.size_bytes || 0),
-                                width: (asset.metadata && typeof asset.metadata === "object" && "width" in asset.metadata) ? Number(asset.metadata.width) || 0 : 0,
-                                height: (asset.metadata && typeof asset.metadata === "object" && "height" in asset.metadata) ? Number(asset.metadata.height) || 0 : 0,
-                                thumbnailUrl: String((asset.metadata && typeof asset.metadata === "object" && "thumbnailUrl" in asset.metadata ? asset.metadata.thumbnailUrl : asset.path) || ""),
-                                storagePath: asset.path || "",
-                                tags: asset.metadata?.aiTags || [],
-                                category: asset.category || "images",
-                                people: asset.metadata?.people || [],
-                                colors: asset.metadata?.colors || [],
-                                platformFits: asset.metadata?.platformFits || [],
-                                graphicsSize: asset.metadata?.graphicsSize || "medium",
-                                orientation: asset.metadata?.orientation || "landscape",
-                                aspectRatio: asset.width && asset.height ? asset.width / asset.height : 1,
-                                campaignIds: asset.metadata?.campaignIds || [],
-                                eventIds: asset.metadata?.eventIds || [],
-                                usageCount: asset.usage_count || 0,
-                                favorite: asset.metadata?.favorite || false,
-                                source: asset.metadata?.source || "upload",
-                                uploadedAt: asset.created_at || new Date().toISOString(),
-                                uploadedBy: asset.metadata?.uploadedBy || "unknown",
-                                brandId: asset.brand_id || brandId,
-                                aiTagsPending: asset.metadata?.aiTagsPending || false,
-                                archived: asset.status === "archived" || asset.metadata?.archived || false,
-                              }));
+                              const mappedAssets: Asset[] = data.assets.map((asset: Record<string, unknown>) => {
+                                const metadata = asset.metadata && typeof asset.metadata === "object" ? asset.metadata as Record<string, unknown> : {};
+                                const width = typeof asset.width === "number" ? asset.width : (typeof metadata.width === "number" ? metadata.width : 0);
+                                const height = typeof asset.height === "number" ? asset.height : (typeof metadata.height === "number" ? metadata.height : 0);
+                                
+                                return {
+                                  id: String(asset.id || ""),
+                                  filename: String(asset.filename || (typeof asset.path === "string" ? asset.path.split("/").pop() : "") || "unknown"),
+                                  fileType: typeof asset.mime_type === "string" && asset.mime_type.startsWith("video/") ? "video" : "image",
+                                  fileSize: Number(asset.size_bytes || 0),
+                                  width: Number(width) || 0,
+                                  height: Number(height) || 0,
+                                  thumbnailUrl: String((typeof metadata.thumbnailUrl === "string" ? metadata.thumbnailUrl : asset.path) || ""),
+                                  storagePath: typeof asset.path === "string" ? asset.path : "",
+                                  tags: Array.isArray(metadata.aiTags) ? metadata.aiTags as string[] : [],
+                                  category: typeof asset.category === "string" ? asset.category : "images",
+                                  people: Array.isArray(metadata.people) ? metadata.people as string[] : [],
+                                  colors: Array.isArray(metadata.colors) ? metadata.colors as string[] : [],
+                                  platformFits: Array.isArray(metadata.platformFits) ? metadata.platformFits as PlatformFit[] : [],
+                                  graphicsSize: typeof metadata.graphicsSize === "string" ? metadata.graphicsSize as GraphicsSize : undefined,
+                                  orientation: typeof metadata.orientation === "string" ? metadata.orientation as Orientation : undefined,
+                                  aspectRatio: width && height ? Number(width) / Number(height) : 1,
+                                  campaignIds: Array.isArray(metadata.campaignIds) ? metadata.campaignIds as string[] : [],
+                                  eventIds: Array.isArray(metadata.eventIds) ? metadata.eventIds as string[] : [],
+                                  usageCount: typeof asset.usage_count === "number" ? asset.usage_count : 0,
+                                  favorite: typeof metadata.favorite === "boolean" ? metadata.favorite : false,
+                                  source: typeof metadata.source === "string" ? metadata.source : "upload",
+                                  uploadedAt: typeof asset.created_at === "string" ? asset.created_at : new Date().toISOString(),
+                                  uploadedBy: typeof metadata.uploadedBy === "string" ? metadata.uploadedBy : "unknown",
+                                  brandId: typeof asset.brand_id === "string" ? asset.brand_id : brandId || "",
+                                  aiTagsPending: typeof metadata.aiTagsPending === "boolean" ? metadata.aiTagsPending : false,
+                                  archived: (typeof asset.status === "string" && asset.status === "archived") || (typeof metadata.archived === "boolean" && metadata.archived) || false,
+                                };
+                              });
                               setAssets(mappedAssets);
                               setError(null);
                             }

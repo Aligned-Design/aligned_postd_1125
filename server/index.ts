@@ -47,6 +47,7 @@ import { searchStockImages, getStockImage } from "./routes/stock-images";
 // Import RBAC middleware
 import { authenticateUser, optionalAuthForOnboarding } from "./middleware/security";
 import { requireScope } from "./middleware/requireScope";
+import { validateBrandId } from "./middleware/validate-brand-id";
 
 import publishingRouter from "./routes/publishing-router";
 

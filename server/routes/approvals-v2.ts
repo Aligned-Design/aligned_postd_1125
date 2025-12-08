@@ -13,6 +13,7 @@ import { ErrorCode, HTTP_STATUS } from "../lib/error-responses";
 import { authenticateUser } from "../middleware/security";
 import { requireScope } from "../middleware/requireScope";
 import { validateBrandId } from "../middleware/validate-brand-id";
+import { assertBrandAccess } from "../lib/brand-access";
 import { supabase } from "../lib/supabase";
 
 const router = Router();

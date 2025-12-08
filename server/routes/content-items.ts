@@ -9,6 +9,7 @@ import { Router, RequestHandler } from "express";
 import { supabase } from "../lib/supabase";
 import { authenticateUser } from "../middleware/security";
 import { validateBrandId } from "../middleware/validate-brand-id";
+import { assertBrandAccess } from "../lib/brand-access";
 import { AppError } from "../lib/error-middleware";
 import { ErrorCode, HTTP_STATUS } from "../lib/error-responses";
 

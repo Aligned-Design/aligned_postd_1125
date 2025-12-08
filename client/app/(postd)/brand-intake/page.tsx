@@ -210,20 +210,36 @@ export default function BrandIntake() {
 
       const brandKit = result.brandKit || {};
 
+      // Type-safe extraction with proper type guards
+      const colors = brandKit.colors as { primary?: string; secondary?: string; accent?: string; allColors?: string[] } | undefined;
+      const voiceSummary = brandKit.voice_summary as { tone?: string | string[]; personality?: string | string[] } | undefined;
+      const aboutBlurb = brandKit.about_blurb as string | undefined;
+      const images = brandKit.images as unknown[] | undefined;
+
       // Update form data with imported values from real scraped data
       setFormData((prev) => ({
         ...prev,
-        primaryColor: brandKit.colors?.primary || brandKit.colors?.allColors?.[0] || prev.primaryColor,
-        secondaryColor: brandKit.colors?.secondary || brandKit.colors?.allColors?.[1] || prev.secondaryColor,
-        accentColor: brandKit.colors?.accent || brandKit.colors?.allColors?.[2] || prev.accentColor,
-        toneKeywords: brandKit.voice_summary?.tone || prev.toneKeywords,
-        brandPersonality: brandKit.voice_summary?.personality || prev.brandPersonality,
-        shortDescription: brandKit.about_blurb || prev.shortDescription,
+        primaryColor: (typeof colors?.primary === "string" ? colors.primary : undefined) || 
+                     (Array.isArray(colors?.allColors) && colors.allColors[0] ? colors.allColors[0] : undefined) || 
+                     prev.primaryColor,
+        secondaryColor: (typeof colors?.secondary === "string" ? colors.secondary : undefined) || 
+                       (Array.isArray(colors?.allColors) && colors.allColors[1] ? colors.allColors[1] : undefined) || 
+                       prev.secondaryColor,
+        accentColor: (typeof colors?.accent === "string" ? colors.accent : undefined) || 
+                    (Array.isArray(colors?.allColors) && colors.allColors[2] ? colors.allColors[2] : undefined) || 
+                    prev.accentColor,
+        toneKeywords: Array.isArray(voiceSummary?.tone) ? voiceSummary.tone : 
+                     (typeof voiceSummary?.tone === "string" ? [voiceSummary.tone] : undefined) || 
+                     prev.toneKeywords,
+        brandPersonality: Array.isArray(voiceSummary?.personality) ? voiceSummary.personality : 
+                         (typeof voiceSummary?.personality === "string" ? [voiceSummary.personality] : undefined) || 
+                         prev.brandPersonality,
+        shortDescription: typeof aboutBlurb === "string" ? aboutBlurb : prev.shortDescription,
       }));
 
       toast({
         title: "Import successful!",
-        description: `Found ${brandKit.images?.length || 0} images and ${brandKit.colors?.allColors?.length || 0} colors. Review and adjust as needed.`,
+        description: `Found ${Array.isArray(images) ? images.length : 0} images and ${Array.isArray(colors?.allColors) ? colors.allColors.length : 0} colors. Review and adjust as needed.`,
       });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);

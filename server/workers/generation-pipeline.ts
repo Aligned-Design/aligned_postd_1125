@@ -15,6 +15,7 @@ import {
   DesignInput,
   DesignOutput,
   BrandSafetyConfig,
+  SafetyMode,
 } from "../../client/types/agent-config";
 import { generateWithAI, loadPromptTemplate } from "./ai-generation";
 import { calculateBFS } from "../agents/brand-fidelity-scorer";
@@ -84,11 +85,11 @@ export async function runGenerationPipeline(
     }
 
     const brandKit = brandData?.brand_kit || {};
-    const safetyConfigData = (brandData?.safety_config as BrandSafetyConfig) || {};
+    const safetyConfigData = (brandData?.safety_config as BrandSafetyConfig | null | undefined) || {};
 
     const brandSafety: BrandSafetyConfig = {
-      safety_mode: safetyConfigData.safety_mode || "safe",
-      banned_phrases: safetyConfigData.banned_phrases || [],
+      safety_mode: (safetyConfigData && typeof safetyConfigData === "object" && "safety_mode" in safetyConfigData && typeof safetyConfigData.safety_mode === "string" && ["safe", "bold", "edgy_opt_in"].includes(safetyConfigData.safety_mode)) ? safetyConfigData.safety_mode as SafetyMode : "safe",
+      banned_phrases: (safetyConfigData && typeof safetyConfigData === "object" && "banned_phrases" in safetyConfigData && Array.isArray(safetyConfigData.banned_phrases)) ? safetyConfigData.banned_phrases : [],
       competitor_names: [],
       claims: [],
       required_disclaimers: [],

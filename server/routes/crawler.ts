@@ -77,6 +77,7 @@ import { AppError } from "../lib/error-middleware";
 import { ErrorCode, HTTP_STATUS } from "../lib/error-responses";
 import { authenticateUser } from "../middleware/security";
 import { validateBrandIdFormat } from "../middleware/validate-brand-id";
+import { assertBrandAccess } from "../lib/brand-access";
 import {
   crawlWebsite,
   extractColors,
@@ -216,7 +217,13 @@ router.post("/start", authenticateUser, validateBrandIdFormat, async (req, res, 
     }
 
     // For onboarding, brand_id is optional (will be generated)
-    const finalBrandId = brand_id || `brand_${Date.now()}`;
+    let finalBrandId = brand_id || `brand_${Date.now()}`;
+    
+    // ✅ Use validated brandId from middleware (validates format, allows temp IDs)
+    const validatedBrandId = (req as any).validatedBrandId;
+    if (validatedBrandId) {
+      finalBrandId = validatedBrandId;
+    }
 
     // ✅ DEDUPLICATION: Check for active crawl lock
     // Assign to function-scope lockKey (already declared above)
@@ -266,12 +273,6 @@ router.post("/start", authenticateUser, validateBrandIdFormat, async (req, res, 
       url: normalizedUrl,
       requestId: (req as any).id,
     });
-
-    // ✅ Use validated brandId from middleware (validates format, allows temp IDs)
-    const validatedBrandId = (req as any).validatedBrandId;
-    if (validatedBrandId) {
-      finalBrandId = validatedBrandId;
-    }
     
     // For onboarding (sync mode), skip brand access check (temp IDs allowed)
     // For async mode, verify user has access to brand (UUID only)

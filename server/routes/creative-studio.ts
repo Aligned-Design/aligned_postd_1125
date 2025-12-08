@@ -11,6 +11,7 @@ import { AppError } from "../lib/error-middleware";
 import { ErrorCode, HTTP_STATUS } from "../lib/error-responses";
 import { requireScope } from "../middleware/requireScope";
 import { validateBrandId, validateBrandIdFormat } from "../middleware/validate-brand-id";
+import { assertBrandAccess } from "../lib/brand-access";
 import {
   SaveDesignRequest,
   SaveDesignResponse,
