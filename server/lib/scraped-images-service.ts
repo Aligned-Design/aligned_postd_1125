@@ -135,15 +135,18 @@ export async function persistScrapedImages(
   const logoImages = validImages.filter(img => img.role === "logo");
   
   // ✅ IMPROVED: Filter brand images, excluding logo-style images
+  // ✅ FIX: Be more lenient - accept images with role "other" or undefined, only filter obvious logos
   const brandImages = validImages.filter(img => {
-    // Exclude logos
+    // Exclude logos (explicitly classified as logo)
     if (img.role === "logo") return false;
     
-    // Only include valid brand image roles
-    if (!["hero", "photo", "team", "subject", "other"].includes(img.role || "")) return false;
+    // ✅ FIX: Accept images with valid roles OR undefined/empty role (default to "other")
+    // This ensures images without explicit roles are still included
+    const role = img.role || "other";
+    if (!["hero", "photo", "team", "subject", "other"].includes(role)) return false;
     
-    // ✅ FILTER: Exclude logo-style images from brand images
-    // These might be misclassified or logo variants we don't want in brand images
+    // ✅ FIX: Only filter out obvious logo-style images (very small AND has logo indicators)
+    // Be more lenient - don't filter based on size alone
     const urlLower = img.url.toLowerCase();
     const filenameLower = (img.url.split("/").pop() || "").toLowerCase();
     const altLower = (img.alt || "").toLowerCase();
@@ -155,21 +158,23 @@ export async function persistScrapedImages(
                              urlLower.includes("logo-") ||
                              urlLower.includes("-logo");
     
-    // Check if image is logo-style (small square image)
-    const isSmallSquare = img.width && img.height && 
-      img.width < 400 && img.height < 400 && 
+    // Check if image is very small square (likely icon/logo)
+    const isVerySmallSquare = img.width && img.height && 
+      img.width < 200 && img.height < 200 && 
       Math.abs((img.width / img.height) - 1) < 0.3; // Square-ish (aspect ratio ~1:1)
     
-    // Exclude if it looks like a logo variant (has logo indicator AND is small/square)
-    if (hasLogoIndicator && (isSmallSquare || !img.width || !img.height || img.width < 500 || img.height < 500)) {
+    // ✅ FIX: Only exclude if it's VERY small AND has logo indicators
+    // Don't exclude medium/large images even if they have "logo" in the name (might be brand images)
+    if (hasLogoIndicator && isVerySmallSquare) {
       return false;
     }
     
-    // Exclude very small square images (likely icons/logos even if not classified as such)
-    if (isSmallSquare && img.width && img.height && (img.width * img.height < 50000)) {
-      return false;
+    // ✅ FIX: Only exclude confirmed tiny icons (very small, no dimensions, or extremely small)
+    if (img.width && img.height && (img.width * img.height < 10000)) {
+      return false; // Less than 100x100 pixels
     }
     
+    // Accept all other images (including those without dimensions)
     return true;
   });
   

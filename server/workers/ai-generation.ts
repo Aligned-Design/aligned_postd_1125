@@ -118,13 +118,24 @@ export async function generateWithAI(
 
     // Try fallback provider if it's an API error (not a configuration issue)
     if (isApiError || (error instanceof Error && !error.message.includes("not available"))) {
-      const fallbackProvider = selectedProvider === "openai" ? "claude" : "openai";
+      // ✅ FIX: If OpenAI failed with 429 (quota exceeded), don't try OpenAI again
+      // Only use Claude as fallback when OpenAI fails
+      const isQuotaError = error instanceof Error && (
+        error.message.includes("429") ||
+        error.message.includes("quota") ||
+        (error as any)?.status === 429
+      );
+      
+      // ✅ FIX: If OpenAI failed (especially with quota), always use Claude as fallback
+      // Don't try OpenAI again if it already failed
+      const fallbackProvider = (selectedProvider === "openai" || isQuotaError) ? "claude" : "openai";
 
       try {
         logger.info("Attempting fallback provider", {
           originalProvider: selectedProvider,
           fallbackProvider,
           agentType,
+          isQuotaError,
         });
         
         if (fallbackProvider === "openai") {
@@ -177,6 +188,8 @@ async function generateWithOpenAI(prompt: string, agentType: string, _client?: u
   }
 
   try {
+    // ✅ FIX: Don't retry OpenAI if we're being called as a fallback from a 429 error
+    // This prevents infinite loops when OpenAI quota is exceeded
     // ✅ OPTIMIZATION: Try to separate system and user messages
     // Look for common separators like "## User Request" or "## User Prompt"
     let messages: Array<{ role: "system" | "user"; content: string }>;
