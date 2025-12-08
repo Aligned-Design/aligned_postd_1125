@@ -4,6 +4,7 @@
  * Integrates with error-responses.ts for OWASP-compliant error handling
  */
 
+/// <reference types="express" />
 import type { Request, Response, NextFunction } from "express";
 import { v4 as uuidv4 } from "uuid";
 import { ZodError } from "zod";
