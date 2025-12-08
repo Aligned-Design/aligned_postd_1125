@@ -32,21 +32,23 @@ While waiting, I've proactively fixed all known TypeScript errors found in local
 + }, [state.design, getValidBrandId, requireBrandForAction, toast]);
 ```
 
-### 2. ❗ **studio/page.tsx** - Hoisting Errors (Lines 333)
+### 2. ❗ **studio/page.tsx** - useCallback for Delete/Rotate Handlers
 **Severity**: Build-blocking  
-**Issue**: `useEffect` referenced functions before they were declared  
-**Fix**: Moved `useEffect` for keyboard shortcuts after handler definitions
+**Issue**: `handleDeleteItem` and `handleRotateItem` needed to be wrapped in `useCallback` for proper React hook dependencies  
+**Fix**: Wrapped both handlers in `useCallback` hooks
 
 ```diff
-- // Keyboard shortcuts (before handlers)
-- useEffect(() => {
--   // ... uses handleDeleteItem, handleRotateItem, etc.
-- }, [handleDeleteItem, handleRotateItem, ...]);
-+ // Keyboard shortcuts - moved after handler definitions
-+ // ... handlers defined first ...
-+ useEffect(() => {
-+   // ... uses handleDeleteItem, handleRotateItem, etc.
-+ }, [handleDeleteItem, handleRotateItem, ...]);
+- const handleDeleteItem = () => {
++ const handleDeleteItem = useCallback(() => {
+   // ... function body ...
+- };
++ }, [state.design, state.selectedItemId, setState, toast]);
+
+- const handleRotateItem = () => {
++ const handleRotateItem = useCallback(() => {
+   // ... function body ...
+- };
++ }, [state.design, state.selectedItemId, handleUpdateItem, toast]);
 ```
 
 ### 3. ⚠️ **brand-intake/page.tsx** - Type Errors (Lines 214-226)
@@ -202,7 +204,7 @@ pnpm run build
 ## 📝 Files Modified
 
 ### Client Files
-1. `client/app/(postd)/studio/page.tsx` - Fixed useCallback and hoisting issues
+1. `client/app/(postd)/studio/page.tsx` - Fixed useCallback wrapping for handlers (handleSaveToLibrary, handleSendToQueue, handleDeleteItem, handleRotateItem)
 2. `client/app/(postd)/brand-intake/page.tsx` - Fixed unknown type handling
 3. `client/app/(postd)/events/page.tsx` - Fixed EventStatus type validation
 4. `client/app/(postd)/library/page.tsx` - Fixed metadata type guards
@@ -231,7 +233,7 @@ pnpm run build
 
 1. **Missing imports** - Several routes used `assertBrandAccess` without importing it after middleware refactor
 2. **Type safety** - `unknown` types from API responses not properly guarded
-3. **Hoisting issues** - React hooks referencing functions before declaration
+3. **useCallback wrapping** - React handlers needed proper useCallback wrapping for dependency arrays
 4. **Const reassignment** - Attempted to modify `const` variable
 5. **Type mismatches** - String values not validated against union types
 
