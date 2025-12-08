@@ -1,3 +1,4 @@
+/// <reference types="express" />
 import type { Request, Response, NextFunction } from "express";
 import crypto from "crypto";
 import { AppError } from "../lib/error-middleware";

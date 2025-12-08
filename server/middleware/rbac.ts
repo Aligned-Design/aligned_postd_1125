@@ -1,3 +1,4 @@
+/// <reference types="express" />
 import { Request, Response, NextFunction } from "express";
 import { AppError } from "../lib/error-middleware";
 import { ErrorCode, HTTP_STATUS } from "../lib/error-responses";

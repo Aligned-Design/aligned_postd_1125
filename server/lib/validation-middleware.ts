@@ -4,6 +4,7 @@
  * Provides consistent error handling and type coercion
  */
 
+/// <reference types="express" />
 import type { Request, Response, NextFunction } from "express";
 import { ZodSchema, ZodError } from "zod";
 
