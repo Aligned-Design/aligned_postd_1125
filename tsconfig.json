@@ -48,5 +48,6 @@
     "vite.config.vercel-server.ts",
     "server/types/**/*"
   ],
+  "types": ["express", "node"],
   "exclude": ["node_modules", "dist", "**/*.stories.tsx", "**/*.stories.ts", "client/pages/**/*"]
 }

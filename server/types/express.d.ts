@@ -6,6 +6,8 @@
  * This ensures TypeScript recognizes these properties throughout the codebase.
  */
 
+/// <reference types="express" />
+
 declare global {
   namespace Express {
     interface Request {
