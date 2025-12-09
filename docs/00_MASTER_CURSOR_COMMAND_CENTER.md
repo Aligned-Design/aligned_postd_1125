@@ -557,6 +557,7 @@ When working through integration tasks, reference these documents:
 
 ### Architecture Documents
 - `ARCHITECTURE_QUICK_REFERENCE.md` - System architecture
+- `docs/SYSTEM_ARCHITECTURE_DIAGRAMS.md` - Visual system architecture with Mermaid diagrams
 - `DATABASE-STRUCTURE.md` - Database overview
 - `ROUTING_AUDIT.md` - Routing structure
 - `SECURITY.md` - Security guidelines
@@ -738,9 +739,44 @@ Use this checklist to track integration progress:
 ### Understanding POSTD Architecture
 
 1. **Read** `ARCHITECTURE_QUICK_REFERENCE.md` first
-2. **Study** `supabase/migrations/001_bootstrap_schema.sql`
-3. **Review** `POSTD_PHASE2_AUDIT_REPORT.md` for common issues
-4. **Examine** `server/lib/brand-access.ts` for access patterns
+2. **Review** `docs/SYSTEM_ARCHITECTURE_DIAGRAMS.md` for visual system flows
+3. **Study** `supabase/migrations/001_bootstrap_schema.sql`
+4. **Review** `POSTD_PHASE2_AUDIT_REPORT.md` for common issues
+5. **Examine** `server/lib/brand-access.ts` for access patterns
+
+### New Dev Architecture Walkthrough
+
+**Quick onboarding checklist for new developers:**
+
+1. **Read System Architecture Diagrams**
+   - Open `docs/SYSTEM_ARCHITECTURE_DIAGRAMS.md`
+   - Review High-Level System Diagram (understand major components)
+   - Review Brand Crawler & Media Pipeline (understand onboarding flow)
+   - Review AI Content Generation Flow (understand content creation)
+
+2. **Explore API Surface**
+   - Open `docs/API_SURFACE_MAP.md`
+   - Understand endpoint structure and authentication
+   - Review key endpoints: `/api/crawl/start`, `/api/brand-guide/:id`, `/api/agents/generate/*`
+
+3. **Understand Brand Crawler**
+   - Read `docs/BRAND_CRAWLER_BREAKDOWN.md`
+   - Understand how websites are scraped during onboarding
+   - Learn about logo/image classification and persistence
+
+4. **Run Local End-to-End Flow**
+   - Start dev server: `pnpm dev`
+   - Create a test brand via onboarding
+   - Trigger a crawl: Enter a website URL
+   - Generate content: Use Creative Studio or Content Queue
+   - Verify data in Supabase: Check `brands`, `media_assets`, `content_items` tables
+
+**Time to complete:** ~30-45 minutes
+
+**Next Steps:**
+- Review MVP-specific architecture diagrams in:
+  - `docs/P0_BRAND_GUIDE_SYNC_COMPLETE.md` (Brand Guide MVP)
+  - `POSTD_CREATIVE_STUDIO_AND_SCHEDULER_AUDIT_REPORT.md` (Studio & Scheduler MVPs)
 
 ### Common Issues Reference
 

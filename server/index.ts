@@ -1,18 +1,23 @@
 /**
- * @deprecated This is the legacy server entry point.
+ * ⚠️ DEPRECATED - LEGACY SERVER ENTRY POINT ⚠️
  * 
- * ⚠️ DO NOT USE THIS FILE FOR NEW DEVELOPMENT
+ * This file is kept for backward compatibility only.
+ * 
+ * ⚠️ DO NOT USE THIS FILE FOR NEW DEVELOPMENT ⚠️
  * 
  * Use `server/index-v2.ts` instead, which includes:
  * - Supabase environment validation on startup
  * - Better error handling
  * - Cleaner architecture
  * 
- * This file is kept for backward compatibility only.
- * All new code should use `index-v2.ts`.
+ * Migration:
+ * - Development: Use `pnpm dev` which uses `server/index-v2.ts`
+ * - Production: Use `pnpm start` which uses `dist/server/node-build-v2.mjs`
+ * - Legacy: `pnpm start:legacy` uses this file (NOT RECOMMENDED)
  * 
- * Migration guide: See MIGRATION_GUIDE.md
+ * This file will be removed in a future version.
  * 
+ * @deprecated Use server/index-v2.ts instead
  * @see server/index-v2.ts - Current server implementation
  * @see server/node-build-v2.ts - Production build entry
  */
@@ -45,7 +50,7 @@ import integrationsRouter from "./routes/integrations";
 import { searchStockImages, getStockImage } from "./routes/stock-images";
 
 // Import RBAC middleware
-import { authenticateUser, optionalAuthForOnboarding } from "./middleware/security";
+import { authenticateUser } from "./middleware/security";
 import { requireScope } from "./middleware/requireScope";
 import { validateBrandId } from "./middleware/validate-brand-id";
 
@@ -291,11 +296,7 @@ export function createServer() {
   app.use("/api/approvals", authenticateUser, approvalsRouter);
 
   app.use("/api/client-portal", authenticateUser, clientPortalRouter);
-  // Legacy route removed - all frontend now uses /api/client-portal/*
-  // app.use("/api/client", authenticateUser, clientPortalRouter); // DEPRECATED
   app.get("/api/client-portal/share-links/:token", getShareLinkByToken);
-  // Legacy share link route removed
-  // app.get("/api/client/share-links/:token", getShareLinkByToken); // DEPRECATED
 
   app.use("/api/workflow", authenticateUser, workflowRouter);
 

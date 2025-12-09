@@ -1,4 +1,3 @@
-/// <reference types="express" />
 import { RequestHandler } from "express";
 import { AuthenticatedRequest } from "../types/express";
 import crypto from "crypto";
@@ -66,21 +65,20 @@ export const authenticateUser: RequestHandler = (req, res, next) => {
 };
 
 /**
- * Optional authentication middleware for onboarding routes
- * DEPRECATED: This middleware allowed requests without auth, which bypasses security.
- * All routes should now use authenticateUser middleware.
+ * REMOVED: optionalAuthForOnboarding
  * 
- * This function now requires authentication - it will reject requests without valid tokens.
- * For public routes (like signup/login), they should be explicitly excluded from auth middleware.
+ * This middleware was deprecated and has been removed in High Priority Cleanup (2025-01-20).
+ * All routes must now use authenticateUser middleware.
+ * 
+ * For public routes (like signup/login), they should be explicitly excluded from auth middleware
+ * in the route definition, not by using a permissive middleware.
+ * 
+ * Migration: Replace `optionalAuthForOnboarding` with `authenticateUser` or exclude the route
+ * from authentication middleware entirely.
+ * 
+ * @deprecated Removed - Use authenticateUser instead
+ * @see authenticateUser - Use this for all authenticated routes
  */
-export const optionalAuthForOnboarding: RequestHandler = (req, res, next) => {
-  // ✅ CRITICAL: Require authentication for all routes
-  // This prevents mock/dev users from bypassing auth
-  console.warn("[Auth] optionalAuthForOnboarding is deprecated - requiring real authentication");
-  
-  // Use real authentication middleware
-  authenticateUser(req, res, next);
-};
 
 // Rate limiting configuration
 interface RateLimitConfig {

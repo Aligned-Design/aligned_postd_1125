@@ -3,7 +3,6 @@
  * Enforces permission checks based on canonical RBAC system
  */
 
-/// <reference types="express" />
 import { RequestHandler } from "express";
 import { AuthenticatedRequest } from "../types/express";
 import { AppError } from "../lib/error-middleware";

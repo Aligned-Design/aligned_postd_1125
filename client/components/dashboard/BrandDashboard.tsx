@@ -517,18 +517,58 @@ export function BrandDashboard({ brand, onUpdate }: BrandDashboardProps) {
 
       {/* ✅ NEW: Brand Images Gallery - Display scraped brand images */}
       {(() => {
-        // Get brand images from multiple possible sources
+        // ✅ CRITICAL FIX: Get brand images with strict filtering to exclude logos
         const brandImages: Array<{ id?: string; url: string; filename?: string; metadata?: any }> = [];
+        const seenUrls = new Set<string>(); // Deduplication by URL
         
-        // 1. Check for top-level images array (from API)
+        // 1. Check for top-level images array (from API) - this should already be filtered
         if ((brand as any).images && Array.isArray((brand as any).images)) {
-          brandImages.push(...(brand as any).images);
+          (brand as any).images.forEach((img: any) => {
+            const metadata = img.metadata || {};
+            const role = metadata.role || "";
+            const category = metadata.category || "";
+            const url = img.url || "";
+            
+            // ✅ STRICT: Exclude logos (by role OR category)
+            if (role === "logo" || role === "Logo" || category === "logos") {
+              return; // Skip logos
+            }
+            
+            // ✅ STRICT: Exclude social icons and platform logos
+            if (role === "social_icon" || role === "platform_logo") {
+              return;
+            }
+            
+            // ✅ DEDUPE: Only add if not already seen
+            if (url && !seenUrls.has(url)) {
+              brandImages.push(img);
+              seenUrls.add(url);
+            }
+          });
         }
-        // Also check brandImages alias
+        
+        // Also check brandImages alias (should be same as images, but check anyway)
         if ((brand as any).brandImages && Array.isArray((brand as any).brandImages)) {
           (brand as any).brandImages.forEach((img: any) => {
-            if (!brandImages.some(bi => bi.url === img.url)) {
+            const metadata = img.metadata || {};
+            const role = metadata.role || "";
+            const category = metadata.category || "";
+            const url = img.url || "";
+            
+            // ✅ STRICT: Exclude logos
+            if (role === "logo" || role === "Logo" || category === "logos") {
+              return;
+            }
+            
+            // ✅ STRICT: Exclude social icons and platform logos
+            if (role === "social_icon" || role === "platform_logo") {
+              return;
+            }
+            
+            // ✅ DEDUPE: Only add if not already seen
+            if (url && !seenUrls.has(url)) {
               brandImages.push(img);
+              seenUrls.add(url);
             }
           });
         }
@@ -539,14 +579,21 @@ export function BrandDashboard({ brand, onUpdate }: BrandDashboardProps) {
             const metadata = img.metadata || {};
             const source = img.source || metadata.source || "";
             const role = metadata.role || "";
-            // Include scraped images that are NOT logos
-            return source === "scrape" && role !== "logo" && role !== "Logo";
-          });
-          // Only add if not already in brandImages array
-          scrapedImages.forEach((img: any) => {
-            if (!brandImages.some(bi => bi.url === img.url)) {
+            const category = metadata.category || "";
+            const url = img.url || "";
+            
+            // ✅ STRICT: Only include scraped images that are NOT logos
+            if (source !== "scrape") return false;
+            if (role === "logo" || role === "Logo" || category === "logos") return false;
+            if (role === "social_icon" || role === "platform_logo") return false;
+            
+            // ✅ DEDUPE: Only add if not already seen
+            if (url && !seenUrls.has(url)) {
               brandImages.push(img);
+              seenUrls.add(url);
+              return true;
             }
+            return false;
           });
         }
         

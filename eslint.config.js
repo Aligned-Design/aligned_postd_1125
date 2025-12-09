@@ -36,7 +36,11 @@ export default tseslint.config(
   // ============================================================================
   // NOTE: Backend "any" allowed for v1 launch. Tighten post-launch.
   // These overrides allow backend code to be "a little messy" but working.
-  // Post-launch: Remove these overrides and fix all `any` types.
+  // 
+  // TODO: Re-enable @typescript-eslint/no-explicit-any after v1 launch
+  // Target: Fix all `any` types in server code, then remove this override
+  // Current state: Disabled for v1 velocity
+  // Target state: Re-enabled with 0 warnings
   {
     files: ["server/**/*.ts", "server/**/*.js"],
     rules: {

@@ -1,655 +1,368 @@
-# Repository Health Fixes Applied
+# POSTD Repository Health - Critical Fixes Applied
 
-**Date**: 2025-01-20  
-**Based on**: POSTD_REPO_HEALTH_AND_CONNECTORS_AUDIT.md  
-**Status**: ✅ Critical and High Priority Fixes Completed
+**Date:** 2025-01-20  
+**Pass:** Critical Issues Only (🔴)  
+**Status:** ✅ Complete
 
 ---
 
 ## Summary
 
-This document tracks all fixes applied from the POSTD Repository Health & Connectors Audit. All changes follow POSTD Command Center rules and maintain backward compatibility where needed.
+Applied all 8 critical fixes identified in `POSTD_REPO_HEALTH_AND_CONNECTORS_AUDIT.md` (dated 2025-01-20).
 
 ---
 
-## 🔴 CRITICAL FIXES APPLIED
+## Critical Issues Fixed
 
-### 1. ✅ Created `.env.example` File
+### 1. ✅ CI Hiding Failures
 
-**File Created**: `.env.example`  
-**Status**: Complete  
-**Description**: Created comprehensive environment variables template based on `server/utils/validate-env.ts`
+**Files Modified:**
+- `.github/workflows/ci.yml`
+- `.github/workflows/customer-facing-validation.yml`
 
-**Contents**:
-- All required variables (Supabase, AI providers, application config)
-- All optional variables (OAuth credentials, connectors, monitoring)
-- Organized by service category
-- Includes helpful comments and links to documentation
-- No secrets included (placeholder values only)
+**Changes:**
+- Added clear YAML comments explaining why E2E build/e2e steps are non-blocking (informational only)
+- Made customer-facing validation steps blocking (UI tests, accessibility, typecheck)
+- Kept report generation as non-blocking (informational)
 
-**Impact**: New developers can now easily set up their environment by copying `.env.example` to `.env`
+**Impact:** Critical validation steps now properly block CI, preventing broken code from shipping.
 
 ---
 
-### 2. ✅ Marked Connector Scaffolds with TODO Comments
+### 2. ✅ Missing .env.example
 
-**Files Modified**:
-- `server/connectors/manager.ts` (lines 108-114)
+**Files Created:**
+- `.env.example`
 
-**Changes**:
-- Added clear TODO comments for GBP and Mailchimp connectors
-- Updated error messages to reference scaffold files
-- Added references to connector spec documentation
+**Changes:**
+- Created comprehensive `.env.example` template with all required and optional variables
+- Grouped variables by service (Core, Security, AI, Social Media, etc.)
+- Added clear comments indicating which connectors are implemented vs scaffold
+- Included security variable placeholders with generation instructions
 
-**Before**:
-```typescript
-case 'gbp':
-  // Future work: Import GBPConnector
-  throw new Error('GBP connector not yet implemented');
-```
-
-**After**:
-```typescript
-case 'gbp':
-  // TODO: Implement GBP connector
-  // Scaffold exists at server/connectors/gbp/index.ts but is not implemented
-  // All methods throw "Future work" errors
-  // See CONNECTOR_SPECS_GBP.md for implementation requirements
-  throw new Error('GBP connector not yet implemented. See server/connectors/gbp/index.ts for scaffold.');
-```
-
-**Impact**: Clear documentation of scaffold status, easier for developers to understand what needs implementation
+**Impact:** New developers can now set up environment variables correctly.
 
 ---
 
-### 3. ✅ Fixed Environment Variable Usage in Server Code
+### 3. ✅ Environment Variable Inconsistencies
 
-**File Modified**: `server/connectors/manager.ts`
+**Files Modified:**
+- `server/utils/validate-env.ts`
 
-**Changes**:
-- Replaced `VITE_*` env vars with server-side vars in constructor
-- Updated all connector instantiations to prefer `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`
-- Maintained backward compatibility with `VITE_*` vars as fallback
+**Changes:**
+- Added `SUPABASE_URL` as required server-side environment variable
+- Kept `VITE_SUPABASE_URL` as required client-side variable
+- Updated connection test to prefer `SUPABASE_URL` with fallback
+- Added clear comments distinguishing server-side vs client-side usage
 
-**Before**:
-```typescript
-const url = supabaseUrl || process.env.VITE_SUPABASE_URL || '';
-const key = supabaseKey || process.env.VITE_SUPABASE_ANON_KEY || '';
-```
-
-**After**:
-```typescript
-// Use server-side env vars (not VITE_* which are client-side)
-const url = supabaseUrl || process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
-const key = supabaseKey || process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY || '';
-```
-
-**Impact**: Proper separation of client-side vs server-side environment variables, follows best practices
+**Impact:** Eliminates confusion about which Supabase URL variable to use where.
 
 ---
 
-### 4. ✅ Deprecated Legacy Server Entry Point
+### 4. ✅ Missing Security Environment Variable Validation
 
-**File Modified**: `server/index.ts`
+**Files Modified:**
+- `server/utils/validate-env.ts`
 
-**Changes**:
-- Added comprehensive deprecation notice at top of file
-- Documented why `index-v2.ts` should be used instead
-- Referenced migration guide
+**Changes:**
+- Added `JWT_SECRET` as required with validation (minimum 32 characters, no placeholders)
+- Added `ENCRYPTION_KEY` as required with validation (minimum 32 characters, no placeholders)
+- Added `HMAC_SECRET` as required with validation (minimum 32 characters, no placeholders)
+- All three validate against placeholder values ("change-me", "dev-") in production
 
-**Added**:
-```typescript
-/**
- * @deprecated This is the legacy server entry point.
- * 
- * ⚠️ DO NOT USE THIS FILE FOR NEW DEVELOPMENT
- * 
- * Use `server/index-v2.ts` instead, which includes:
- * - Supabase environment validation on startup
- * - Better error handling
- * - Cleaner architecture
- * 
- * This file is kept for backward compatibility only.
- * All new code should use `index-v2.ts`.
- * 
- * Migration guide: See MIGRATION_GUIDE.md
- * 
- * @see server/index-v2.ts - Current server implementation
- * @see server/node-build-v2.ts - Production build entry
- */
-```
-
-**Impact**: Clear guidance for developers, prevents accidental use of legacy server
+**Impact:** Security-critical variables are now validated, preventing insecure defaults in production.
 
 ---
 
-### 5. ✅ Updated Package.json Start Script
+### 5. ✅ Legacy Server Entry Point
 
-**File Modified**: `package.json`
+**Files Modified:**
+- `server/index.ts`
 
-**Changes**:
-- Updated `start` script to use `node-build-v2.mjs` (current server)
-- Renamed old `start` to `start:legacy` for backward compatibility
-- `start:v2` remains as alias
+**Changes:**
+- Enhanced deprecation banner with clear warnings
+- Added explicit migration instructions
+- Documented which scripts use which entry point
+- Clarified that `start:legacy` is NOT RECOMMENDED
 
-**Before**:
-```json
-"start": "node dist/server/node-build.mjs",
-"start:v2": "NODE_ENV=production node dist/server/node-build-v2.mjs",
-```
-
-**After**:
-```json
-"start": "NODE_ENV=production node dist/server/node-build-v2.mjs",
-"start:legacy": "node dist/server/node-build.mjs",
-"start:v2": "NODE_ENV=production node dist/server/node-build-v2.mjs",
-```
-
-**Impact**: Default `start` command now uses current server, legacy still available if needed
+**Impact:** Developers are clearly warned not to use the legacy entry point.
 
 ---
 
-### 6. ✅ Made Tests Blocking in CI
+### 6. ✅ PNPM Version Mismatch
 
-**File Modified**: `.github/workflows/ci.yml`
+**Files Modified:**
+- `.github/workflows/ci.yml`
+- `.github/workflows/customer-facing-validation.yml`
 
-**Changes**:
-- Removed `continue-on-error: true` from test job
-- Updated status messages to reflect blocking status
-- E2E tests remain non-blocking (as intended)
+**Changes:**
+- Aligned all pnpm versions from 10.20.0 to 10.14.0 (matching `package.json` `packageManager` field)
 
-**Before**:
-```yaml
-- run: pnpm run test:ci
-  continue-on-error: true
-- name: Test Results
-  run: echo "⚠️ Test check completed (non-blocking). See above for details."
-```
-
-**After**:
-```yaml
-- run: pnpm run test:ci
-  continue-on-error: false
-- name: Test Results
-  run: echo "✅ Test check passed"
-```
-
-**Impact**: Test failures will now block CI, preventing broken code from being merged
+**Impact:** CI now uses the same pnpm version as local development, ensuring consistent dependency resolution.
 
 ---
 
-## 🟠 HIGH PRIORITY FIXES APPLIED
+### 7. ✅ Sentry Version Mismatch
 
-### 7. ✅ Updated Old Branding References
+**Files Modified:**
+- `package.json`
 
-**Files Modified**:
-- `server/workers/brand-crawler.ts` - User agent updated
-- `client/pages/onboarding/Screen5BrandSummaryReview.tsx` - localStorage keys
-- `client/pages/onboarding/Screen7ContentGeneration.tsx` - localStorage keys
-- `client/pages/onboarding/Screen8CalendarPreview.tsx` - localStorage keys
-- `client/pages/onboarding/Screen9ConnectAccounts.tsx` - localStorage keys
+**Changes:**
+- Aligned `@sentry/tracing` from `^7.120.4` to `^10.23.0` (matching `@sentry/react`)
 
-**Changes**:
-
-1. **User Agent** (Safe - no backward compatibility needed):
-   - `AlignedAIBot/1.0` → `POSTDBot/1.0`
-
-2. **localStorage Keys** (With backward compatibility):
-   - All `aligned_*` and `aligned:*` keys now check for `postd_*` first
-   - Old keys still supported for existing user sessions
-   - Added TODO comments for future migration
-
-**Example**:
-```typescript
-// Before
-const brandId = localStorage.getItem("aligned_brand_id");
-
-// After
-// TODO: Migrate from "aligned_brand_id" to "postd_brand_id" (keeping backward compatibility)
-const brandId = localStorage.getItem("postd_brand_id") || localStorage.getItem("aligned_brand_id");
-```
-
-**Impact**: 
-- User agent reflects POSTD branding
-- New users will use POSTD keys
-- Existing users won't lose data (backward compatibility maintained)
-- Clear migration path documented
-
-**Note**: Preview URL (`alignedai.com`) left unchanged as it may be an actual domain in use
+**Impact:** Eliminates potential compatibility issues between Sentry packages.
 
 ---
 
-## 📋 FILES MODIFIED
+### 8. ✅ Connector Status Unclear
 
-### Created
-- `.env.example` - Environment variables template
+**Files Modified:**
+- `server/connectors/tiktok/index.ts`
+- `server/connectors/manager.ts`
 
-### Modified
-- `server/connectors/manager.ts` - Fixed env vars, marked scaffolds
-- `server/index.ts` - Added deprecation notice
-- `server/workers/brand-crawler.ts` - Updated user agent
-- `package.json` - Updated start script
-- `.github/workflows/ci.yml` - Made tests blocking
-- `client/pages/onboarding/Screen5BrandSummaryReview.tsx` - Updated localStorage keys
-- `client/pages/onboarding/Screen7ContentGeneration.tsx` - Updated localStorage keys
-- `client/pages/onboarding/Screen8CalendarPreview.tsx` - Updated localStorage keys
-- `client/pages/onboarding/Screen9ConnectAccounts.tsx` - Updated localStorage keys
+**Changes:**
+- Added clear "NOT IMPLEMENTED - SCAFFOLD ONLY" status banner to TikTok connector
+- Updated all TikTok connector methods to throw consistent "NOT_IMPLEMENTED" errors with helpful messages
+- Enhanced ConnectorManager error messages for GBP and Mailchimp connectors
+- Added clear comments in ConnectorManager indicating scaffold status
 
-**Total**: 1 file created, 9 files modified
+**Impact:** Developers get clear, helpful error messages when attempting to use non-implemented connectors, preventing confusion.
 
 ---
 
-## ✅ VERIFICATION
+## Verification
 
-### TypeScript
-- ✅ No new type errors introduced
-- ⚠️ Pre-existing test file type errors remain (not related to these changes)
+### Type Checking
+✅ **PASSED** - `pnpm typecheck` completed with no errors
 
 ### Linting
-- ✅ No linting errors in modified files
+✅ **PASSED** - No linter errors in modified files
 
-### Backward Compatibility
-- ✅ All localStorage changes maintain backward compatibility
-- ✅ Legacy server still available via `start:legacy` script
-- ✅ Environment variable changes include fallbacks
+### Files Modified
+- `.github/workflows/ci.yml`
+- `.github/workflows/customer-facing-validation.yml`
+- `server/utils/validate-env.ts`
+- `server/index.ts`
+- `package.json`
+- `server/connectors/manager.ts`
+- `server/connectors/tiktok/index.ts`
 
-### Documentation
-- ✅ All changes documented with comments
-- ✅ TODO comments added for future migrations
-- ✅ Deprecation notices added where appropriate
-
----
-
-## 🔄 REMAINING TASKS
-
-### High Priority (Not Yet Completed)
-
-1. **Remove Orphaned Pages** (Pending verification)
-   - Need to verify no imports before deletion
-   - Marketing pages, stub pages, legacy auth pages
-   - Estimated: 2-3 hours
-
-2. **Consolidate Duplicate Pages** (Pending)
-   - Dashboard, Analytics, Media, Approvals variants
-   - Need to verify functionality before consolidation
-   - Estimated: 4-5 hours
-
-### Medium Priority
-
-3. **Archive Outdated Documentation**
-   - Move old phase docs to `docs/archive/`
-   - Consolidate duplicate audit reports
-   - Estimated: 2-3 hours
-
-4. **Create Scripts README**
-   - Document active scripts
-   - Mark legacy scripts
-   - Estimated: 1 hour
+### Files Created
+- `.env.example`
 
 ---
 
-## PHASE 2 COMPLETION - Additional Fixes Applied
+## Next Steps
 
-**Date**: 2025-01-20  
-**Status**: ✅ Complete
+The following items from the audit are **NOT** addressed in this pass (High/Medium/Low priority):
 
-### Additional High Priority Fixes
+- High Priority: Orphaned pages cleanup (6,000+ lines)
+- High Priority: Legacy middleware/route removal
+- Medium Priority: Documentation updates
+- Low Priority: Branding updates ("Aligned" → "POSTD")
 
-#### 8. ✅ Updated Test Files to Use Current Server
-
-**Files Modified**:
-- `server/__tests__/collaboration.test.ts` - Updated to use `index-v2.ts`
-- `server/__tests__/api-smoke.test.ts` - Updated to use `index-v2.ts`
-- `server/node-build.ts` - Added deprecation notice
-
-**Changes**:
-- Test files now import from `index-v2.ts` (current server) instead of `index.ts` (legacy)
-- Added deprecation notice to `node-build.ts`
-- Added TODO comments for future migration
-
-**Impact**: Tests now use the current server implementation, ensuring consistency
+These will be addressed in subsequent passes.
 
 ---
 
-#### 9. ✅ Enhanced Scripts README
+## Notes
 
-**File Modified**: `scripts/README.md`
-
-**Changes**:
-- Added comprehensive overview of all script categories
-- Documented non-test scripts (validation, deployment, utilities)
-- Added section for legacy `.js` scripts
-- Organized scripts by category (Testing, Development, Deployment, Validation)
-
-**Impact**: Developers can now easily find and understand all available scripts
+- All changes are surgical and reversible
+- No database schemas, RLS policies, or migrations were modified
+- No large files or subsystems were deleted
+- All changes follow POSTD Command Center guidelines
+- Type checking and linting pass
 
 ---
 
-#### 10. ✅ Documented Environment Variable Usage
-
-**Files Modified**:
-- `server/routes/auth.ts` - Added comments explaining VITE_* usage is for diagnostics only
-- `server/routes/white-label.ts` - Added TODO comment for preview URL
-
-**Changes**:
-- Clarified that `VITE_*` vars in `auth.ts` are only for backward compatibility and diagnostics
-- Added TODO comment for `alignedai.com` URL in white-label route (needs verification before changing)
-
-**Impact**: Clear documentation of env var usage patterns, prevents confusion
+**End of Critical Fixes Pass**
 
 ---
 
-### Orphaned Pages Analysis
+## High Priority Cleanup – Pass 1
 
-**Finding**: The audit mentioned 34+ orphaned pages, but investigation revealed:
-
-1. **Root `client/pages/` directory** contains only 4 files:
-   - `Index.tsx` - ✅ Used (landing page)
-   - `NotFound.tsx` - ✅ Used (404 page)
-   - `Onboarding.tsx` - ✅ Used (onboarding flow)
-   - `Pricing.tsx` - ✅ Used (pricing page)
-
-2. **Legacy pages are already organized**:
-   - `client/pages/_legacy/` - 27 files (already marked as legacy, not imported)
-   - `client/pages/_experiments/` - 2 files (experimental code, not imported)
-
-**Decision**: 
-- ✅ **No pages deleted** - All root-level pages are in use
-- ✅ **Legacy pages already organized** - `_legacy/` and `_experiments/` folders serve as clear organization
-- ⚠️ **Future cleanup**: Legacy/experiment folders can be reviewed later, but they're not causing issues
-
-**Rationale**: The pages are already properly organized. Deleting `_legacy/` and `_experiments/` folders would remove potentially useful reference code. Better to leave them organized than risk deleting something needed.
+**Date:** 2025-01-20  
+**Pass:** High Priority Issues Only (🟠)  
+**Status:** ✅ Complete
 
 ---
 
-### Server Entry Point Verification
+### Summary
 
-**Status**: ✅ **Verified Correct**
-
-**Findings**:
-- ✅ `server/vercel-server.ts` imports from `index-v2.ts`
-- ✅ `server/node-build-v2.ts` imports from `index-v2.ts`
-- ✅ `package.json` `start` script uses `node-build-v2.mjs`
-- ✅ `package.json` `dev:server` uses `index-v2.ts`
-- ⚠️ `server/node-build.ts` (legacy) still exists but is deprecated and only used by `start:legacy`
-
-**Decision**: 
-- ✅ Legacy server files kept with deprecation notices
-- ✅ All active entry points use `index-v2.ts`
-- ✅ No changes needed - system is correctly configured
+Applied high priority fixes identified in `POSTD_REPO_HEALTH_AND_CONNECTORS_AUDIT.md` (dated 2025-01-20).
 
 ---
 
-### Connector & Env Var Health - Final Verification
+### High Priority Issues Fixed
 
-**Status**: ✅ **Complete**
+#### 1. ✅ Customer-Facing Validation Workflow
 
-**Verification**:
-- ✅ Connector manager uses `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` (with VITE_* fallback for compatibility)
-- ✅ All connector instantiations updated
-- ✅ GBP/Mailchimp scaffolds clearly marked with TODO comments
-- ✅ `.env.example` includes all documented variables
-- ✅ `auth.ts` VITE_* usage documented as diagnostics-only
+**Status:** Already Fixed in Critical Pass  
+**Files Modified:** None (already addressed)
 
-**Remaining**:
-- ⚠️ Some test files may still reference legacy patterns (pre-existing, not blocking)
+**Note:** The customer-facing validation workflow was already fixed in the critical pass. All critical steps (UI tests, accessibility, typecheck) are now blocking.
 
 ---
 
-### Branding Consistency - Final Check
+#### 2. ✅ Orphaned Pages Cleanup
 
-**Status**: ✅ **Complete**
+**Status:** Documented (Cautious Approach)  
+**Files Analyzed:** `client/pages/` directory
 
-**Verification**:
-- ✅ User agent: `POSTDBot/1.0` (updated)
-- ✅ localStorage keys: `postd_*` with `aligned_*` backward compatibility (updated)
-- ⚠️ Preview URL: `alignedai.com` left unchanged with TODO comment (needs verification if it's a real domain)
+**Findings:**
+- Only 4 files in root `client/pages/`: `Index.tsx`, `Onboarding.tsx`, `NotFound.tsx`, `Pricing.tsx` - all are actively used
+- `client/pages/_legacy/` contains 27 legacy pages - clearly marked as legacy, no imports found
+- `client/pages/_experiments/` contains 2 experimental pages - clearly marked, no imports found
 
-**Decision**: Preview URL left unchanged as it may be an actual domain in production use. Added TODO comment for future verification.
+**Action Taken:**
+- Documented orphaned pages status
+- Did NOT delete `_legacy/` or `_experiments/` directories as they are clearly marked and may serve as reference
+- Added note in documentation that these are not used
 
----
-
-## 📋 PHASE 2 FILES MODIFIED
-
-### Modified (Additional)
-- `server/__tests__/collaboration.test.ts` - Updated to use index-v2.ts
-- `server/__tests__/api-smoke.test.ts` - Updated to use index-v2.ts
-- `server/node-build.ts` - Added deprecation notice
-- `scripts/README.md` - Enhanced with all script categories
-- `server/routes/auth.ts` - Added env var usage documentation
-- `server/routes/white-label.ts` - Added TODO for preview URL
-
-**Phase 2 Total**: 6 additional files modified
-
-**Grand Total**: 1 file created, 15 files modified
+**Files Documented:**
+- `client/pages/_legacy/*` - 27 files (clearly marked, no imports)
+- `client/pages/_experiments/*` - 2 files (clearly marked, no imports)
 
 ---
 
-## 📝 NOTES
+#### 3. ✅ Legacy Middleware & Route Handlers
 
-1. **localStorage Migration**: The localStorage key updates maintain full backward compatibility. Existing users will continue to work, and new users will use POSTD keys. A future migration script could copy old keys to new keys for all users.
+**Files Modified:**
+- `server/middleware/security.ts`
+- `server/index.ts`
 
-2. **Connector Scaffolds**: GBP and Mailchimp scaffolds remain in the codebase but are clearly marked as TODO. They can be implemented later or removed if not needed.
+**Changes:**
+- Removed `optionalAuthForOnboarding` function (replaced with comment documenting removal)
+- Removed import of `optionalAuthForOnboarding` from `server/index.ts`
+- Verified no remaining usages (only used in legacy `server/index.ts`)
 
-3. **Legacy Server**: The old server entry point is deprecated but kept for backward compatibility. It can be removed in a future cleanup after verifying no production deployments use it.
+**Note on `mockAuth`:**
+- Still used in `server/security-server.ts` (separate server file)
+- `security-server.ts` itself may not be actively used (no references in package.json)
+- Left `mockAuth` in place but documented as deprecated
 
-4. **CI Tests**: Unit tests are now blocking, but E2E tests remain non-blocking. This is intentional as E2E tests may be flaky and shouldn't block all deployments.
-
----
-
-## 🎯 NEXT STEPS
-
-1. **Verify Changes**: Run full test suite and verify CI passes
-2. **Review Orphaned Pages**: Carefully verify which pages can be safely deleted
-3. **Plan Page Consolidation**: Review duplicate pages and plan consolidation
-4. **Archive Documentation**: Move outdated docs to archive folder
-5. **Update Documentation**: Update any docs that reference changed behavior
-
----
-
-## ✅ FINAL VERIFICATION
-
-### Linting
-- ✅ No new linting errors introduced
-- ⚠️ Pre-existing warnings remain (intentional, max-warnings: 500)
-
-### TypeScript
-- ✅ No new type errors introduced
-- ⚠️ Pre-existing test file type errors remain (not related to these changes)
-
-### Build
-- ✅ Build configuration verified
-- ✅ All entry points correctly configured
-
-### Backward Compatibility
-- ✅ All changes maintain backward compatibility
-- ✅ Legacy server still available via `start:legacy`
-- ✅ localStorage keys support both old and new formats
+**Legacy Route:**
+- Enhanced deprecation notice in `server/routes/doc-agent.ts`
+- `/api/ai/doc` is still actively used in `index-v2.ts` and tests, so kept active with clear deprecation notice
+- Updated API surface map to mark as deprecated
 
 ---
 
-## 🎯 DECISIONS & RATIONALE
+#### 4. ✅ Connector Status Documentation
 
-### Pages Not Deleted
+**Files Created:**
+- `docs/CONNECTOR_STATUS.md`
 
-**Decision**: No orphaned pages were deleted from root `client/pages/` directory.
+**Changes:**
+- Created comprehensive connector status documentation
+- Documented all connectors: Meta (✅), LinkedIn (✅), TikTok (❌), GBP (❌), Mailchimp (❌), Twitter/X (❌)
+- Included implementation details, limitations, and migration notes
+- Cross-referenced with connector spec documents
 
-**Rationale**:
-1. Only 4 files exist in root, all are actively used
-2. Legacy pages are already organized in `_legacy/` and `_experiments/` folders
-3. These folders serve as clear organization, not bloat
-4. Risk of deleting useful reference code outweighs benefit
-
-**Future Action**: Review `_legacy/` and `_experiments/` folders in a future cleanup cycle if needed.
-
----
-
-### Legacy Server Kept
-
-**Decision**: `server/index.ts` and `server/node-build.ts` kept with deprecation notices.
-
-**Rationale**:
-1. Some test files may still reference them (though updated where possible)
-2. `start:legacy` script provides backward compatibility
-3. Clear deprecation notices prevent new usage
-4. Safe to remove in future after verifying no production deployments use them
+**Files Modified:**
+- `INFRA_DEPLOYMENT_MANIFEST.json` - Updated connector statuses to reflect reality (Meta & LinkedIn are production ready, not scaffolds)
 
 ---
 
-### Preview URL Not Changed
+#### 5. ✅ Migration Guide for Legacy Server Entry
 
-**Decision**: `alignedai.com` URL in `white-label.ts` left unchanged.
+**Files Created:**
+- `docs/SERVER_INDEX_V1_TO_V2_MIGRATION_GUIDE.md`
 
-**Rationale**:
-1. May be an actual domain in production use
-2. Changing without verification could break functionality
-3. Added TODO comment for future verification
-4. Low priority - doesn't affect core functionality
+**Changes:**
+- Created comprehensive migration guide from `server/index.ts` to `server/index-v2.ts`
+- Documented why index-v2 exists, which scripts use it, and how to migrate
+- Included breaking changes and verification steps
 
----
-
-## 🧭 SUGGESTED NEXT HUMAN REVIEW ITEMS
-
-### High Priority
-1. **Verify Preview URL**: Check if `preview.alignedai.com` is still in use or should be updated to POSTD domain
-2. **Review Legacy Folders**: Decide if `client/pages/_legacy/` and `_experiments/` should be archived or deleted
-3. **Test File Cleanup**: Review and fix pre-existing type errors in test files (not blocking, but should be addressed)
-
-### Medium Priority
-4. **Documentation Archive**: Review phase docs and audit reports, archive truly outdated ones
-5. **Legacy Server Removal**: After verifying no production use, remove `server/index.ts` and `server/node-build.ts`
-6. **localStorage Migration**: Plan and execute migration script to copy `aligned_*` keys to `postd_*` for all users
-
-### Low Priority
-7. **Script Migration**: Migrate legacy `.js` scripts to TypeScript
-8. **ESLint Warnings**: Gradually reduce max-warnings from 500 to 0
-9. **TypeScript Strict Mode**: Enable incrementally post-launch
+**Files Modified:**
+- `server/index.ts` - Updated deprecation banner to reference new migration guide
 
 ---
 
-## PHASE 2 — ALIGNMENT PASS
+#### 6. ✅ ESLint Max Warnings Reduction
 
-**Date**: 2025-01-20  
-**Status**: ✅ Complete
+**Files Modified:**
+- `package.json`
+- `eslint.config.js`
 
-### Small Fixes Applied
+**Changes:**
+- Reduced `--max-warnings` from 400 to 100 (staged tightening)
+- Added TODO comment in `eslint.config.js` explaining backend `any` types override
+- Documented goal: eventually 0 warnings
 
-#### 1. ✅ Fixed Missing Backward Compatibility in localStorage
-
-**File**: `client/pages/onboarding/Screen5BrandSummaryReview.tsx` (line 302)
-
-**Issue**: One instance of `localStorage.getItem("aligned_brand_id")` was missing the backward compatibility check.
-
-**Fix**: Updated to check `postd_brand_id` first, then fall back to `aligned_brand_id`.
-
-**Impact**: Consistent backward compatibility across all localStorage access patterns.
+**Impact:** Lint now fails at 100 warnings instead of 400, encouraging incremental cleanup.
 
 ---
 
-#### 2. ✅ Updated Test File to Use Current Server
+#### 7. ✅ Documentation Updates
 
-**File**: `server/__tests__/routes/content-packages.test.ts`
+**Files Modified:**
+- `docs/API_SURFACE_MAP.md`
+- `INFRA_DEPLOYMENT_MANIFEST.json`
 
-**Issue**: Test file was importing from legacy `../../index` instead of `index-v2.ts`.
-
-**Fix**: Updated import to use `../../index-v2`.
-
-**Impact**: Test now uses current server implementation, ensuring consistency.
-
----
-
-#### 3. ✅ Updated Server README Example
-
-**File**: `server/README.md` (line 352)
-
-**Issue**: Documentation example showed importing from legacy `../index`.
-
-**Fix**: Updated example to show `import { createServer } from '../index-v2'` and proper usage.
-
-**Impact**: Documentation now reflects current best practices.
+**Changes:**
+- Updated API surface map to mark `/api/ai/doc` as deprecated
+- Updated API surface map date and repository name (Aligned-20ai.posted → POSTD)
+- Updated INFRA manifest connector statuses to match reality
+- Added references to `docs/CONNECTOR_STATUS.md`
 
 ---
 
-#### 4. ✅ Fixed User Agent in Vercel Checklist
+#### 8. ✅ Commented-Out Legacy Code Removal
 
-**File**: `VERCEL_ENV_CHECKLIST.md` (line 178)
+**Files Modified:**
+- `server/index.ts`
 
-**Issue**: Documentation still showed old `AlignedAIBot/1.0` user agent.
-
-**Fix**: Updated to `POSTDBot/1.0` to match actual implementation.
-
-**Impact**: Documentation now matches code reality.
-
----
-
-#### 5. ✅ Added Missing TikTok OAuth Env Vars to Validation
-
-**File**: `server/utils/validate-env.ts`
-
-**Issue**: TikTok connector uses `TIKTOK_CLIENT_KEY`, `TIKTOK_CLIENT_SECRET`, and `TIKTOK_REDIRECT_URI` but they weren't validated.
-
-**Fix**: Added validation rules for all three TikTok OAuth environment variables.
-
-**Impact**: Environment validation now covers all TikTok connector requirements.
-
-**Note**: These vars were already in `.env.example`, just missing from validation.
+**Changes:**
+- Removed commented-out legacy route code (lines 299-303)
+- Cleaned up deprecated route comments
 
 ---
 
-### Items Verified But Not Changed
+### Verification
 
-#### 1. Queue Workers Import
+#### Linting
+✅ **PASSED** - `pnpm lint` completed with warnings under 100 threshold
 
-**File**: `server/queue/workers.ts` (line 17)
+#### Type Checking
+✅ **PASSED** - `pnpm typecheck` completed with no errors
 
-**Finding**: Imports from `./index` which is correct (imports from `queue/index.ts`, not server index).
+#### Files Modified
+- `server/middleware/security.ts`
+- `server/index.ts`
+- `server/routes/doc-agent.ts`
+- `package.json`
+- `eslint.config.js`
+- `docs/API_SURFACE_MAP.md`
+- `INFRA_DEPLOYMENT_MANIFEST.json`
 
-**Decision**: ✅ No change needed - this is the correct import.
-
----
-
-#### 2. Legacy Server Files
-
-**Files**: `server/index.ts`, `server/node-build.ts`
-
-**Finding**: Both files have deprecation notices and are only used by `start:legacy` script.
-
-**Decision**: ✅ No change needed - properly deprecated, kept for backward compatibility.
-
----
-
-#### 3. Preview URL
-
-**File**: `server/routes/white-label.ts` (line 143)
-
-**Finding**: `alignedai.com` URL has TODO comment but is left unchanged.
-
-**Decision**: ✅ No change needed - requires verification before changing (may be real domain).
+#### Files Created
+- `docs/CONNECTOR_STATUS.md`
+- `docs/SERVER_INDEX_V1_TO_V2_MIGRATION_GUIDE.md`
 
 ---
 
-### Remaining Questions / TODOs Found
+### Notes
 
-1. **Mailchimp Env Vars**: Mailchimp connector scaffold exists but no env vars are documented or validated. This is acceptable since the connector is not implemented.
-
-2. **Test File Type Errors**: Pre-existing type errors in some test files (e.g., `brand-intelligence-json.test.ts`, `integration-routes.test.ts`). These are not related to the alignment pass and should be addressed separately.
-
-3. **Legacy Page Folders**: `client/pages/_legacy/` and `_experiments/` folders contain 29 files total. These are already organized and not imported, so they're not causing issues. Decision to keep or archive should be made in a future cleanup.
-
----
-
-## 📋 ALIGNMENT PASS FILES MODIFIED
-
-### Modified
-- `client/pages/onboarding/Screen5BrandSummaryReview.tsx` - Fixed missing backward compatibility
-- `server/__tests__/routes/content-packages.test.ts` - Updated to use index-v2.ts
-- `server/README.md` - Updated documentation example
-- `VERCEL_ENV_CHECKLIST.md` - Updated user agent
-- `server/utils/validate-env.ts` - Added TikTok OAuth env var validation
-
-**Total**: 5 files modified
+- **Orphaned Pages:** Took cautious approach - documented but did not delete `_legacy/` and `_experiments/` directories as they are clearly marked and may serve as reference
+- **Legacy Route:** `/api/ai/doc` is still actively used, so kept active with enhanced deprecation notice rather than removing
+- **MockAuth:** Left in place as it's used in `security-server.ts` (separate server file that may not be actively used)
+- All changes are surgical and reversible
+- No database schemas, RLS policies, or migrations were modified
 
 ---
 
-**End of Report**
+### Future Cleanup Notes
 
+The following items were noted but not addressed in this pass:
+
+- **Medium Priority:** Documentation organization (some docs are very long)
+- **Medium Priority:** Duplicate information across docs
+- **Low Priority:** Branding updates ("Aligned" → "POSTD" references)
+- **Low Priority:** Component organization improvements
+
+These will be addressed in subsequent passes.
+
+---
+
+**End of High Priority Cleanup Pass**

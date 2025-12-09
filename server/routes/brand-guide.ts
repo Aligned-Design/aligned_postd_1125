@@ -61,13 +61,18 @@ router.get("/:brandId", authenticateUser, validateBrandId, async (req, res, next
     // This ensures Brand Guide includes images scraped during onboarding
     let scrapedImages: Array<{ id: string; url: string; filename: string; source: string; metadata?: Record<string, unknown> }> = [];
     try {
+      // ✅ FIX: Get all scraped images (no role/category filter here - we'll filter in separation step)
       const scraped = await getScrapedImages(brandId);
       scrapedImages = scraped.map(img => ({
         id: img.id,
         url: img.url,
         filename: img.filename,
         source: "scrape" as const,
-        metadata: img.metadata,
+        metadata: {
+          ...img.metadata,
+          // ✅ ENHANCED: Include category from database if available
+          category: (img.metadata as any)?.category || undefined,
+        },
       }));
       
       // ✅ LOGGING: Brand Guide query with IDs (moved after hasBrandGuide check)
@@ -105,12 +110,16 @@ router.get("/:brandId", authenticateUser, validateBrandId, async (req, res, next
       productsServices: [],
     };
 
-    // ✅ CRITICAL: Separate scraped images into logos and brand images
+    // ✅ CRITICAL FIX: Separate scraped images into logos and brand images
     // This ensures Brand Guide exposes two distinct arrays for onboarding Step 5
+    // ✅ ENHANCED: Also filter by category from media_assets table for extra safety
     const scrapedLogos = scrapedImages
       .filter(img => {
         const role = img.metadata?.role || "";
-        return role === "logo" || role === "Logo";
+        // ✅ STRICT: Only include images with role="logo"
+        // Also check category if available in metadata
+        const category = (img.metadata as any)?.category || "";
+        return (role === "logo" || role === "Logo" || category === "logos");
       })
       .slice(0, 2) // Max 2 logos
       .map(img => ({
@@ -124,8 +133,26 @@ router.get("/:brandId", authenticateUser, validateBrandId, async (req, res, next
     const scrapedBrandImages = scrapedImages
       .filter(img => {
         const role = img.metadata?.role || "";
-        return role !== "logo" && role !== "Logo" && 
-               (role === "hero" || role === "photo" || role === "team" || role === "subject" || role === "other");
+        const category = (img.metadata as any)?.category || "";
+        
+        // ✅ STRICT: Exclude logos (by role OR category)
+        if (role === "logo" || role === "Logo" || category === "logos") {
+          return false;
+        }
+        
+        // ✅ STRICT: Exclude social icons and platform logos
+        if (role === "social_icon" || role === "platform_logo") {
+          return false;
+        }
+        
+        // ✅ STRICT: Only include valid brand image roles
+        // Also check category if available
+        const roleStr = String(role);
+        const categoryStr = String(category || "");
+        const isValidRole = ["hero", "photo", "team", "subject", "other"].includes(roleStr);
+        const isValidCategory = categoryStr === "images" || categoryStr === "";
+        
+        return isValidRole && isValidCategory;
       })
       .slice(0, 15) // Max 15 brand images
       .map(img => ({
@@ -137,7 +164,7 @@ router.get("/:brandId", authenticateUser, validateBrandId, async (req, res, next
       }));
     
     // ✅ FALLBACK: If no logos persisted but logoUrl exists, use that
-    const logoUrl = brand.logo_url || brandKit.logoUrl || visualSummary.logo_urls?.[0] || "";
+    const logoUrl = (brand.logo_url as string) || (brandKit.logoUrl as string) || (visualSummary.logo_urls?.[0] as string) || "";
     if (scrapedLogos.length === 0 && logoUrl && logoUrl.startsWith("http")) {
       console.log(`[BrandGuide] Using logoUrl as fallback logo: ${logoUrl}`);
       scrapedLogos.push({

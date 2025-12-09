@@ -9,7 +9,6 @@
  * for type casting inside middleware functions.
  */
 
-/// <reference types="express" />
 import { Request } from "express";
 
 declare global {

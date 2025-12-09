@@ -29,8 +29,18 @@ interface EnvValidator {
 // Validation rules for environment variables
 const validators: Record<string, EnvValidator> = {
   // Core Services
+  // Server-side: Use SUPABASE_URL (not VITE_SUPABASE_URL)
+  // VITE_* prefix is for client-side code only
+  SUPABASE_URL: {
+    name: "Supabase URL (Server-side)",
+    required: true,
+    validate: (val) => ({
+      valid: val.startsWith("https://") && val.includes("supabase.co"),
+      message: "Should be https://[project].supabase.co",
+    }),
+  },
   VITE_SUPABASE_URL: {
-    name: "Supabase URL",
+    name: "Supabase URL (Client-side)",
     required: true,
     validate: (val) => ({
       valid: val.startsWith("https://") && val.includes("supabase.co"),
@@ -214,37 +224,39 @@ const validators: Record<string, EnvValidator> = {
     }),
   },
 
-  // Social Media - Twitter
-  TWITTER_API_KEY: {
-    name: "Twitter API Key",
+  // Social Media - X (Twitter)
+  // NOTE: We use X_* prefix to match the connector implementation (server/connectors/twitter/implementation.ts)
+  // The connector is named "X" to reflect the platform's rebranding from Twitter to X
+  X_API_KEY: {
+    name: "X (Twitter) API Key",
     required: false,
     validate: (val) => ({
       valid: val.length > 10,
       message: "Should be a valid API key",
     }),
   },
-  TWITTER_API_SECRET: {
-    name: "Twitter API Secret",
+  X_API_SECRET: {
+    name: "X (Twitter) API Secret",
     required: false,
     validate: (val) => ({
       valid: val.length > 10,
       message: "Should be a valid API secret",
     }),
   },
-  TWITTER_BEARER_TOKEN: {
-    name: "Twitter Bearer Token",
+  X_BEARER_TOKEN: {
+    name: "X (Twitter) Bearer Token",
     required: false,
     validate: (val) => ({
       valid: val.startsWith("Bearer ") || val.length > 50,
       message: "Should be a valid bearer token",
     }),
   },
-  TWITTER_ACCOUNT_ID: {
-    name: "Twitter Account ID",
+  X_REDIRECT_URI: {
+    name: "X (Twitter) OAuth Redirect URI",
     required: false,
     validate: (val) => ({
-      valid: /^\d+$/.test(val),
-      message: "Should be a numeric ID",
+      valid: val.startsWith("http://") || val.startsWith("https://"),
+      message: "Should be a valid HTTP(S) URL",
     }),
   },
 
@@ -455,16 +467,19 @@ const validators: Record<string, EnvValidator> = {
       message: "Should be a valid secret string (>20 chars)",
     }),
   },
-  TWITTER_CLIENT_ID: {
-    name: "Twitter OAuth Client ID",
+  // X (Twitter) OAuth - Uses X_* prefix to match connector implementation
+  // NOTE: The connector (server/connectors/twitter/implementation.ts) uses X_CLIENT_ID/X_CLIENT_SECRET
+  // This naming convention aligns with the platform's rebranding from Twitter to X
+  X_CLIENT_ID: {
+    name: "X (Twitter) OAuth Client ID",
     required: false,
     validate: (val) => ({
       valid: val.length > 10,
       message: "Should be a valid client ID",
     }),
   },
-  TWITTER_CLIENT_SECRET: {
-    name: "Twitter OAuth Client Secret",
+  X_CLIENT_SECRET: {
+    name: "X (Twitter) OAuth Client Secret",
     required: false,
     validate: (val) => ({
       valid: val.length > 20,
@@ -486,6 +501,72 @@ const validators: Record<string, EnvValidator> = {
       valid: val.length > 20,
       message: "Should be a valid secret string (>20 chars)",
     }),
+  },
+
+  // Security - CRITICAL for production
+  JWT_SECRET: {
+    name: "JWT Secret",
+    required: true,
+    validate: (val) => {
+      if (val.length < 32) {
+        return {
+          valid: false,
+          message: "JWT_SECRET must be at least 32 characters for security",
+        };
+      }
+      if (val.includes("change-me") || val.includes("dev-")) {
+        return {
+          valid: false,
+          message: "JWT_SECRET appears to be a placeholder. Use a secure random string in production.",
+        };
+      }
+      return {
+        valid: true,
+      };
+    },
+  },
+  ENCRYPTION_KEY: {
+    name: "Encryption Key",
+    required: true,
+    validate: (val) => {
+      // Base64 encoded 32-byte key should be ~44 characters
+      if (val.length < 32) {
+        return {
+          valid: false,
+          message: "ENCRYPTION_KEY must be at least 32 characters (32 bytes for AES-256)",
+        };
+      }
+      if (val.includes("change-me") || val.includes("dev-")) {
+        return {
+          valid: false,
+          message: "ENCRYPTION_KEY appears to be a placeholder. Generate with: openssl rand -base64 32",
+        };
+      }
+      return {
+        valid: true,
+      };
+    },
+  },
+  HMAC_SECRET: {
+    name: "HMAC Secret",
+    required: true,
+    validate: (val) => {
+      if (val.length < 32) {
+        return {
+          valid: false,
+          message: "HMAC_SECRET must be at least 32 characters for security",
+        };
+      }
+      if (val.includes("change-me") || val.includes("dev-")) {
+        return {
+          valid: false,
+          message: "HMAC_SECRET appears to be a placeholder. Use a secure random string in production.",
+        };
+      }
+      return {
+        valid: true,
+      };
+    },
   },
 };
 
@@ -636,8 +717,9 @@ function formatOutput(results: ValidationResult[]): string {
 
 async function testConnections(results: ValidationResult[]): Promise<void> {
   // Test Supabase connection
-  const supabaseUrl = getEnvValue("VITE_SUPABASE_URL");
-  const supabaseKey = getEnvValue("VITE_SUPABASE_ANON_KEY");
+  // Prefer SUPABASE_URL (server-side) but fall back to VITE_SUPABASE_URL for backward compatibility
+  const supabaseUrl = getEnvValue("SUPABASE_URL") || getEnvValue("VITE_SUPABASE_URL");
+  const supabaseKey = getEnvValue("SUPABASE_SERVICE_ROLE_KEY") || getEnvValue("VITE_SUPABASE_ANON_KEY");
 
   if (supabaseUrl && supabaseKey) {
     try {

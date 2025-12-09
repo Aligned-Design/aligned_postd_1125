@@ -35,12 +35,14 @@ describe("Validation Schemas", () => {
 
   describe("PlatformSchema", () => {
     it("should accept valid platforms", async () => {
+      // Platforms as defined in validation-schemas.ts
       const validPlatforms = [
         "instagram",
         "facebook",
         "linkedin",
         "twitter",
-        "google_business",
+        "tiktok",
+        "email",
       ];
       for (const platform of validPlatforms) {
         const result = await PlatformSchema.parseAsync(platform);
@@ -50,7 +52,7 @@ describe("Validation Schemas", () => {
 
     it("should reject invalid platform", async () => {
       try {
-        await PlatformSchema.parseAsync("tiktok");
+        await PlatformSchema.parseAsync("google_business"); // Not in current enum
         expect.fail("Should have thrown");
       } catch (error) {
         expect(error).toBeDefined();

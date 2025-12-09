@@ -30,6 +30,9 @@ app.post('/api/client/unsubscribe', unsubscribeFromEmails);
 app.post('/api/client/settings/resubscribe', resubscribeToEmails);
 app.get('/api/client/settings/verify-unsubscribe', verifyUnsubscribeToken);
 
+// SKIPPED: Route handlers get 500 errors - Supabase client not initialized in isolated test context
+// The handlers import supabase directly but the test Express app doesn't initialize it
+// TODO: Either mock Supabase or convert to full integration tests
 describe.skip('Client Settings API', () => {
   const clientId = 'test-client-123';
   const brandId = 'test-brand-456';

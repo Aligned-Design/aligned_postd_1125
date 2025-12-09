@@ -1609,11 +1609,6 @@ async function extractImages(page: Page, baseUrl: string, brandName?: string): P
           } else if ((inHeaderOrNav && (isSmall || isVerySmall)) || (hasLogoIndicator && isVerySmall)) {
             // Only small images in header/nav or very small with logo indicators
             role = "logo";
-          } else if (
-            // Hero detection: large image near top of page
-            isLarge && img.offsetTop < window.innerHeight * 2
-          ) {
-            role = "hero";
           } else if (hasLogoIndicator && !isSmall) {
             // Has logo indicator but not small - likely a brand image, not a logo
             role = inHeroOrAboveFold ? "hero" : "other";

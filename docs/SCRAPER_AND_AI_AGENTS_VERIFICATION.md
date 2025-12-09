@@ -271,8 +271,10 @@ curl http://localhost:8080/api/onboarding/content-package/brand_test_123
 **Checks**:
 1. Verify Playwright is installed: `npm list playwright`
 2. Check Vercel logs for crawler errors
-3. Verify `optionalAuthForOnboarding` middleware is applied to `/api/crawl` route
+3. Verify `authenticateUser` middleware is applied to `/api/crawl` route (or route is explicitly public)
 4. Check timeout settings (default: 25s)
+
+> **Note:** The `optionalAuthForOnboarding` middleware was removed (2025-01-20). All authenticated routes now use `authenticateUser`.
 
 **Fix**:
 - Increase timeout in `server/routes/crawler.ts` if needed

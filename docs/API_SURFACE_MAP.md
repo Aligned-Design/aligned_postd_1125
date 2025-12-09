@@ -1,11 +1,14 @@
 # API Surface Map
 
-Complete inventory of all API endpoints in the Aligned-20ai.posted codebase.
+Complete inventory of all API endpoints in the POSTD codebase.
 
-**Last Updated:** 2025-01-XX  
+**Last Updated:** 2025-01-20  
 **Server Entry Point:** `server/index-v2.ts` (primary), `server/index.ts` (legacy, deprecated)  
 **Framework:** Express.js with TypeScript  
 **Base URL:** `/api` (development: `http://localhost:8080/api`)
+
+**Related Documentation:**
+- [System Architecture Diagrams](SYSTEM_ARCHITECTURE_DIAGRAMS.md) - Visual system flows showing how APIs integrate with the full system
 
 ---
 

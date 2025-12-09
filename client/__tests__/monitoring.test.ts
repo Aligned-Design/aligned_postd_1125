@@ -12,9 +12,8 @@ import {
   reportMetricsToSentry,
 } from '../utils/monitoring';
 
-// TODO: Re-enable after fixing monitoring test dependencies
-// See docs/TEST_DEBT.md for details
-describe.skip('Monitoring & Error Tracking', () => {
+// Re-enabled: Monitoring tests don't require external infra, just mocks
+describe('Monitoring & Error Tracking', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
@@ -57,8 +56,10 @@ describe.skip('Monitoring & Error Tracking', () => {
     });
 
     it('should register all web vital metrics', () => {
-      const vitals = trackWebVitals();
-      expect(vitals).toBeDefined();
+      // trackWebVitals() is a void function that registers callbacks via web-vitals
+      // It doesn't return anything - it fires and forgets
+      // The mock in vitest.setup.ts handles the registration
+      expect(() => trackWebVitals()).not.toThrow();
     });
   });
 

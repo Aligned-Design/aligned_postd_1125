@@ -91,10 +91,11 @@ function validateSection1(): ValidationSection {
   }
 
   // Check for OAuth credentials in env
+  // NOTE: X_CLIENT_ID (not TWITTER_CLIENT_ID) - matches connector implementation
   const hasOAuthCreds = [
     "FACEBOOK_CLIENT_ID",
     "LINKEDIN_CLIENT_ID",
-    "TWITTER_CLIENT_ID",
+    "X_CLIENT_ID",
     "GOOGLE_CLIENT_ID",
   ].filter((key) => envContent.includes(`${key}=`));
 

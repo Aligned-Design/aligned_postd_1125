@@ -1,4 +1,3 @@
-/// <reference types="express" />
 import { RequestHandler, Request, Response, NextFunction } from "express";
 import { AuthenticatedRequest } from "../types/express";
 import { AppError } from "../lib/error-middleware";

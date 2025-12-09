@@ -33,6 +33,91 @@ This audit confirms the functionality of two critical POSTD systems:
 
 ---
 
+## Architecture (MVP View)
+
+### Creative Studio Flow
+
+```mermaid
+flowchart TD
+    User[User] --> Studio[Creative Studio<br/>/studio]
+    Studio --> Entry{Entry Method}
+    Entry --> |Template| Template[Select Template<br/>18 Starter Templates]
+    Entry --> |Blank| Blank[Blank Canvas]
+    Entry --> |AI Generate| AIGenerate[AI Design Agent<br/>Generate Design]
+    
+    Template --> AdaptBrand[adaptTemplateToBrand<br/>Apply Brand Colors/Fonts]
+    Blank --> Canvas[Canvas Editor<br/>Drag, Resize, Edit]
+    AIGenerate --> Canvas
+    
+    AdaptBrand --> Canvas
+    Canvas --> Edit[Edit Design<br/>Text, Images, Shapes]
+    Edit --> Save[Save Design<br/>POST /api/studio/save]
+    Save --> ContentItems[(content_items Table<br/>type: design<br/>JSONB design data)]
+    
+    Canvas --> Schedule[Schedule Design<br/>POST /api/studio/:id/schedule]
+    Schedule --> PublishingJob[Create Publishing Job<br/>publishing_jobs table]
+    PublishingJob --> PublishingQueue[Publishing Queue<br/>In-Memory + DB]
+    
+    Studio --> |Load Brand| BrandGuide[Brand Guide API<br/>Get Colors, Fonts]
+    BrandGuide --> BrandsTable[(brands Table<br/>brand_kit JSONB)]
+    Studio --> |Image Sourcing| ImageSourcing[Image Sourcing<br/>getScrapedBrandAssets]
+    ImageSourcing --> MediaAssets[(media_assets Table<br/>metadata.source: scrape)]
+    
+    style User fill:#e1f5ff
+    style ContentItems fill:#3ecf8e
+    style BrandsTable fill:#3ecf8e
+    style MediaAssets fill:#3ecf8e
+    style PublishingJob fill:#3ecf8e
+    style AIGenerate fill:#ff6b6b
+```
+
+### Scheduler Flow
+
+```mermaid
+flowchart TD
+    User[User] --> Queue[Content Queue<br/>/content-queue]
+    Queue --> |List Items| QueueAPI[GET /api/content-items<br/>status: draft/pending_review]
+    QueueAPI --> ContentItems[(content_items Table<br/>status, bfs_score)]
+    
+    User --> ReviewQueue[Review Queue<br/>GET /api/agents/review/queue/:brandId]
+    ReviewQueue --> GenerationLogs[(generation_logs Table<br/>bfs_score, approved)]
+    
+    User --> Approve[Approve Content<br/>POST /api/approvals-v2/:approvalId/approve]
+    User --> Reject[Reject Content<br/>POST /api/approvals-v2/:approvalId/reject]
+    
+    Approve --> UpdateStatus[Update Status<br/>draft → approved]
+    Reject --> UpdateStatus2[Update Status<br/>draft → rejected]
+    UpdateStatus --> ContentItems
+    UpdateStatus2 --> ContentItems
+    
+    User --> Schedule[Schedule Post<br/>POST /api/publishing/:brandId/publish<br/>scheduledAt: datetime]
+    Schedule --> Validate[Validate Content<br/>Platform Validators]
+    Validate --> CreateJob[Create Publishing Job<br/>publishing_jobs table]
+    CreateJob --> PublishingQueue[Publishing Queue<br/>In-Memory + DB]
+    
+    PublishingQueue --> CheckSchedule{Scheduled?}
+    CheckSchedule --> |Future| Wait[Wait Until<br/>scheduledAt]
+    CheckSchedule --> |Now| Publish[Publish to Platform<br/>Platform Connector]
+    Wait --> Publish
+    
+    Publish --> |Success| UpdatePublished[Update Status<br/>scheduled → published<br/>platformPostId]
+    Publish --> |Error| Retry{Retry?<br/>retryCount < maxRetries}
+    Retry --> |Yes| Publish
+    Retry --> |No| UpdateFailed[Update Status<br/>scheduled → failed]
+    
+    UpdatePublished --> Platforms[Social Platforms<br/>Instagram, LinkedIn, TikTok]
+    UpdatePublished --> PublishingJobs[(publishing_jobs Table)]
+    UpdateFailed --> PublishingJobs
+    
+    style User fill:#e1f5ff
+    style ContentItems fill:#3ecf8e
+    style PublishingJobs fill:#3ecf8e
+    style GenerationLogs fill:#3ecf8e
+    style Platforms fill:#4ecdc4
+```
+
+---
+
 ## 🎨 PART 1: CREATIVE STUDIO AUDIT
 
 ### 1.1 File Inventory

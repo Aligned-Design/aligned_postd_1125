@@ -55,8 +55,8 @@ case 'x':
 **Current (WRONG):**
 - `INSTAGRAM_CLIENT_ID` → Should be `META_APP_ID`
 - `FACEBOOK_CLIENT_ID` → Should be `META_APP_ID`
-- `TWITTER_CLIENT_ID` → Should be `X_CLIENT_ID`
-- `TWITTER_CLIENT_SECRET` → Should be `X_CLIENT_SECRET`
+- ✅ `X_CLIENT_ID` - Already correct (connector uses this)
+- ✅ `X_CLIENT_SECRET` - Already correct (connector uses this)
 
 **Fix Required:**
 ```typescript

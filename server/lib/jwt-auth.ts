@@ -1,5 +1,4 @@
 import crypto from "crypto";
-/// <reference types="express" />
 import { RequestHandler } from "express";
 import { AuthenticatedRequest } from "../types/express";
 import { AppError } from "./error-middleware";

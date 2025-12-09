@@ -69,11 +69,12 @@ Phase 5 execution has successfully completed 5 out of 9 critical go-live tasks, 
    - Copy CLIENT_ID → `LINKEDIN_CLIENT_ID`
    - Copy CLIENT_SECRET → `LINKEDIN_CLIENT_SECRET`
 
-4. Configure Twitter:
+4. Configure X (Twitter):
    - Visit: https://developer.twitter.com/en/portal/dashboard
    - Create/select app
-   - Copy CLIENT_ID → `TWITTER_CLIENT_ID`
-   - Copy CLIENT_SECRET → `TWITTER_CLIENT_SECRET`
+   - Copy CLIENT_ID → `X_CLIENT_ID`
+   - Copy CLIENT_SECRET → `X_CLIENT_SECRET`
+   - NOTE: We use X_* prefix to match the connector implementation (server/connectors/twitter/implementation.ts)
 
 5. Configure Google:
    - Visit: https://console.cloud.google.com/

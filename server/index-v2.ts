@@ -113,6 +113,7 @@ import { getDashboardData } from "./routes/dashboard";
 import { validateBrandId } from "./middleware/validate-brand-id";
 import debugHealthRouter from "./routes/debug-health";
 import reviewsRouter from "./routes/reviews";
+import studioRouter from "./routes/creative-studio";
 import {
   handleZapierWebhook,
   handleMakeWebhook,
@@ -220,6 +221,7 @@ export function createServer() {
   app.use("/api/onboarding", onboardingRouter);
   app.use("/api/content-plan", contentPlanRouter);
   app.use("/api/content-items", contentItemsRouter);
+  app.use("/api/studio", studioRouter);
   
   // ✅ DEBUG: Health check endpoint (comprehensive system verification)
   app.use("/api/debug", debugHealthRouter);

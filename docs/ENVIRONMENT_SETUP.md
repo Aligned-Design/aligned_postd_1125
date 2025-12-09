@@ -279,13 +279,17 @@ FACEBOOK_ACCESS_TOKEN=[page-access-token]
 
 **Environment Variables**:
 ```
-TWITTER_API_KEY=[api-key]
-TWITTER_API_SECRET=[api-secret]
-TWITTER_BEARER_TOKEN=[bearer-token]
-TWITTER_ACCOUNT_ID=[user-id]
+# NOTE: We use X_* prefix to match the connector implementation (server/connectors/twitter/implementation.ts)
+# The connector is named "X" to reflect the platform's rebranding from Twitter to X
+X_API_KEY=[api-key]
+X_API_SECRET=[api-secret]
+X_BEARER_TOKEN=[bearer-token]
+X_CLIENT_ID=[client-id]
+X_CLIENT_SECRET=[client-secret]
+X_REDIRECT_URI=http://localhost:8080/api/auth/x/callback
 ```
 
-**API Version**: Use Twitter API v2 (more powerful than v1.1)
+**API Version**: Use Twitter/X API v2 (more powerful than v1.1)
 
 **Rate Limits**:
 - Post tweets: 50/day (basic tier)
@@ -543,11 +547,12 @@ INSTAGRAM_ACCESS_TOKEN=[token]
 FACEBOOK_PAGE_ID=[page-id]
 FACEBOOK_ACCESS_TOKEN=[token]
 
-# Social Media - Twitter
-TWITTER_API_KEY=[api-key]
-TWITTER_API_SECRET=[api-secret]
-TWITTER_BEARER_TOKEN=[bearer-token]
-TWITTER_ACCOUNT_ID=[account-id]
+# Social Media - X (Twitter)
+# NOTE: We use X_* prefix to match the connector implementation (server/connectors/twitter/implementation.ts)
+# For OAuth flows, use X_CLIENT_ID and X_CLIENT_SECRET (see OAuth Credentials section above)
+X_API_KEY=[api-key]
+X_API_SECRET=[api-secret]
+X_BEARER_TOKEN=[bearer-token]
 
 # Social Media - TikTok
 TIKTOK_BUSINESS_ACCOUNT_ID=[account-id]

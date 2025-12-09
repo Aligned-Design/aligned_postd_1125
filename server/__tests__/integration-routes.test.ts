@@ -11,16 +11,37 @@ import { listMedia } from "../routes/media";
 import { getClientSettings } from "../routes/client-settings";
 import type { Request, Response } from "express";
 
-// Mock Supabase
+// Mock Supabase - return valid brand data
 vi.mock("../lib/supabase", () => ({
   supabase: {
-    from: vi.fn(() => ({
-      select: vi.fn(() => ({
-        eq: vi.fn(() => ({
-          single: vi.fn(() => Promise.resolve({ data: null, error: null })),
+    from: vi.fn((tableName: string) => {
+      // Return different mocks based on table name
+      if (tableName === "brands") {
+        return {
+          select: vi.fn(() => ({
+            eq: vi.fn(() => ({
+              single: vi.fn(() => Promise.resolve({ 
+                data: { 
+                  id: "test-brand-id", 
+                  name: "Test Brand",
+                  website_url: "https://example.com",
+                  brand_kit: { colors: ["#000000"] }
+                }, 
+                error: null 
+              })),
+            })),
+          })),
+        };
+      }
+      // Default return for other tables
+      return {
+        select: vi.fn(() => ({
+          eq: vi.fn(() => ({
+            single: vi.fn(() => Promise.resolve({ data: null, error: null })),
+          })),
         })),
-      })),
-    })),
+      };
+    }),
   },
 }));
 
@@ -52,6 +73,11 @@ vi.mock("../lib/dbClient", () => ({
   },
 }));
 
+// Mock brand access validation to always pass
+vi.mock("../lib/brand-access", () => ({
+  assertBrandAccess: vi.fn(() => Promise.resolve()),
+}));
+
 describe("Integration Tests - Key Routes", () => {
   let mockReq: Partial<Request>;
   let mockRes: Partial<Response>;
@@ -79,9 +105,9 @@ describe("Integration Tests - Key Routes", () => {
 
       await listMedia(mockReq as Request, mockRes as Response, mockNext);
 
-      expect(mockRes.status).toHaveBeenCalledWith(200);
+      // res.json() is called directly without explicit status(200) - Express defaults to 200
       expect(mockRes.json).toHaveBeenCalled();
-      const jsonCall = (mockRes.json as any).mock.calls[0][0];
+      const jsonCall = (mockRes.json as ReturnType<typeof vi.fn>).mock.calls[0][0];
       expect(jsonCall).toHaveProperty("assets");
       expect(Array.isArray(jsonCall.assets)).toBe(true);
     });

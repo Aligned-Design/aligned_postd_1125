@@ -327,7 +327,8 @@ STRIPE_PUBLIC_KEY=[key]
 META_APP_ID=[id]
 GOOGLE_CLIENT_ID=[id]
 LINKEDIN_CLIENT_ID=[id]
-TWITTER_API_KEY=[key]
+X_API_KEY=[key]
+X_CLIENT_ID=[id]
 ```
 
 ## Development Workflow

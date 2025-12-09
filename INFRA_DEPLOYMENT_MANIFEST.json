@@ -159,39 +159,43 @@
       {
         "platform": "Meta",
         "file": "server/connectors/meta/index.ts",
-        "status": "scaffold - ready to implement",
+        "status": "✅ PRODUCTION READY - Fully implemented",
+        
         "complexity": "⭐⭐⭐⭐",
-        "effort_weeks": "2-3"
+        "effort_weeks": "2-3",
+        "note": "Complete implementation with OAuth, publishing, analytics, webhooks. See docs/CONNECTOR_STATUS.md"
       },
       {
         "platform": "LinkedIn",
         "file": "server/connectors/linkedin/index.ts",
-        "status": "scaffold - ready to implement",
+        "status": "✅ PRODUCTION READY - Fully implemented",
         "complexity": "⭐⭐⭐",
-        "effort_weeks": "2-3"
+        "effort_weeks": "2-3",
+        "note": "Complete implementation with OAuth, publishing, analytics. See docs/CONNECTOR_STATUS.md"
       },
       {
         "platform": "TikTok",
         "file": "server/connectors/tiktok/index.ts",
-        "status": "scaffold - ready to implement",
+        "status": "❌ NOT IMPLEMENTED - Scaffold only",
         "complexity": "⭐⭐⭐⭐⭐",
         "effort_weeks": "3-4",
-        "note": "Most complex - chunked upload + status polling"
+        "note": "Scaffold only - all methods throw errors. See docs/CONNECTOR_STATUS.md"
       },
       {
         "platform": "Google Business Profile",
         "file": "server/connectors/gbp/index.ts",
-        "status": "scaffold - ready to implement",
+        "status": "❌ NOT IMPLEMENTED - Scaffold only",
         "complexity": "⭐⭐⭐",
-        "effort_weeks": "2-3"
+        "effort_weeks": "2-3",
+        "note": "Scaffold only - all methods throw errors. See docs/CONNECTOR_STATUS.md"
       },
       {
         "platform": "Mailchimp",
         "file": "server/connectors/mailchimp/index.ts",
-        "status": "scaffold - ready to implement",
+        "status": "❌ NOT IMPLEMENTED - Scaffold only",
         "complexity": "⭐⭐",
         "effort_weeks": "1-2",
-        "note": "Simplest - API key auth, fewer endpoints"
+        "note": "Scaffold only - all methods throw errors. See docs/CONNECTOR_STATUS.md"
       }
     ],
     "interface_methods": [

@@ -46,9 +46,13 @@ const mockDashboardData = {
   },
 };
 
-vi.mock("@/contexts/BrandContext", () => ({
-  useBrand: () => ({ currentBrand: { id: "brand-1" } }),
-}));
+vi.mock("@/contexts/BrandContext", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/contexts/BrandContext")>();
+  return {
+    ...actual,
+    useBrand: () => ({ currentBrand: { id: "brand-1" } }),
+  };
+});
 
 vi.mock("@/hooks/use-toast", () => ({
   useToast: () => ({
@@ -78,9 +82,10 @@ describe("ClientPortal", () => {
       expect(global.fetch).toHaveBeenCalledWith("/api/client-portal/dashboard");
     });
 
-    // Should display brand name when data loads
+    // Should display brand name when data loads (multiple instances are expected)
     await waitFor(() => {
-      expect(screen.queryByText(/test brand/i)).toBeTruthy();
+      const brandNames = screen.queryAllByText(/test brand/i);
+      expect(brandNames.length).toBeGreaterThan(0);
     });
   });
 

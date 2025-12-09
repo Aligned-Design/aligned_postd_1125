@@ -1,8 +1,13 @@
 /**
  * TikTok Connector
- * Implements OAuth, video publishing with chunked upload, and analytics
- *
- * Features:
+ * 
+ * ⚠️ STATUS: NOT IMPLEMENTED - SCAFFOLD ONLY ⚠️
+ * 
+ * This connector is a placeholder/scaffold. Do not use in production.
+ * All methods throw "NOT_IMPLEMENTED" errors.
+ * 
+ * Planned Features (when implemented):
+ * - OAuth, video publishing with chunked upload, and analytics
  * - Chunked video upload (required for >100MB videos)
  * - Status polling (video processing takes 1-5 minutes)
  * - Native scheduling via status polling workaround
@@ -10,6 +15,8 @@
  *
  * Documentation: https://developers.tiktok.com/
  * Warning: Most complex connector - requires chunked upload + status polling
+ * 
+ * @see CONNECTOR_SPECS_TIKTOK.md for implementation requirements
  */
 
 import BaseConnector, { Account, PublishResult, AnalyticsMetrics, HealthCheckResult, OAuthResult, PublishOptions } from '../base';
@@ -54,7 +61,10 @@ export class TikTokConnector extends BaseConnector {
 
     logger.debug({ code, state }, '[TikTok] Authenticating via OAuth');
 
-    throw new Error('Future work: Implement TikTok OAuth authentication');
+    throw new Error(
+      'TikTok connector is not yet implemented. This is a scaffold placeholder. ' +
+      'See server/connectors/tiktok/index.ts and CONNECTOR_SPECS_TIKTOK.md for implementation requirements.'
+    );
   }
 
   /**
@@ -91,9 +101,8 @@ export class TikTokConnector extends BaseConnector {
     );
     
     throw new Error(
-      'TikTok token refresh not implemented. Tokens expire in 24 hours. ' +
-      'Users must re-authenticate when tokens expire. ' +
-      'See: https://developers.tiktok.com/doc/oauth-get-access-token/'
+      'TikTok connector is not yet implemented. This is a scaffold placeholder. ' +
+      'See server/connectors/tiktok/index.ts and CONNECTOR_SPECS_TIKTOK.md for implementation requirements.'
     );
   }
 
@@ -105,7 +114,10 @@ export class TikTokConnector extends BaseConnector {
 
     logger.debug({ connectionId: this.connectionId }, '[TikTok] Fetching accounts');
 
-    throw new Error('Future work: Implement TikTok account fetching');
+    throw new Error(
+      'TikTok connector is not yet implemented. This is a scaffold placeholder. ' +
+      'See server/connectors/tiktok/index.ts and CONNECTOR_SPECS_TIKTOK.md for implementation requirements.'
+    );
   }
 
   async publish(
@@ -132,7 +144,10 @@ export class TikTokConnector extends BaseConnector {
       '[TikTok] Publishing video (complex chunked upload)'
     );
 
-    throw new Error('Future work: Implement TikTok video publishing with chunked upload');
+    throw new Error(
+      'TikTok connector is not yet implemented. This is a scaffold placeholder. ' +
+      'See server/connectors/tiktok/index.ts and CONNECTOR_SPECS_TIKTOK.md for implementation requirements.'
+    );
   }
 
   async deletePost(accountId: string, postId: string): Promise<void> {
@@ -141,7 +156,10 @@ export class TikTokConnector extends BaseConnector {
 
     logger.debug({ accountId, postId }, '[TikTok] Deleting video');
 
-    throw new Error('Future work: Implement TikTok video deletion');
+    throw new Error(
+      'TikTok connector is not yet implemented. This is a scaffold placeholder. ' +
+      'See server/connectors/tiktok/index.ts and CONNECTOR_SPECS_TIKTOK.md for implementation requirements.'
+    );
   }
 
   async getPostAnalytics(accountId: string, postId: string): Promise<AnalyticsMetrics> {
@@ -151,7 +169,10 @@ export class TikTokConnector extends BaseConnector {
 
     logger.debug({ accountId, postId }, '[TikTok] Fetching video analytics (delayed by 1-3h)');
 
-    throw new Error('Future work: Implement TikTok analytics');
+    throw new Error(
+      'TikTok connector is not yet implemented. This is a scaffold placeholder. ' +
+      'See server/connectors/tiktok/index.ts and CONNECTOR_SPECS_TIKTOK.md for implementation requirements.'
+    );
   }
 
   async healthCheck(): Promise<HealthCheckResult> {
@@ -161,7 +182,10 @@ export class TikTokConnector extends BaseConnector {
 
     logger.debug({ connectionId: this.connectionId }, '[TikTok] Health check');
 
-    throw new Error('Future work: Implement TikTok health check');
+    throw new Error(
+      'TikTok connector is not yet implemented. This is a scaffold placeholder. ' +
+      'See server/connectors/tiktok/index.ts and CONNECTOR_SPECS_TIKTOK.md for implementation requirements.'
+    );
   }
 
   validateWebhookSignature(signature: string, payload: string): boolean {

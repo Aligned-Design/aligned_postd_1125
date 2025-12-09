@@ -127,15 +127,16 @@ LINKEDIN_CLIENT_ID=your-linkedin-client-id-here
 LINKEDIN_CLIENT_SECRET=your-linkedin-client-secret-here
 LINKEDIN_REDIRECT_URI=http://localhost:8080/api/auth/linkedin/callback
 
-# Twitter/X OAuth
+# X (Twitter) OAuth
 # Get from: https://developer.twitter.com/en/portal/dashboard
+# NOTE: We use X_* prefix to match the connector implementation (server/connectors/twitter/implementation.ts)
+# The connector is named "X" to reflect the platform's rebranding from Twitter to X
 X_CLIENT_ID=your-x-client-id-here
 X_CLIENT_SECRET=your-x-client-secret-here
 X_REDIRECT_URI=http://localhost:8080/api/auth/x/callback
-
-# Legacy Twitter (for backward compatibility)
-TWITTER_CLIENT_ID=your-twitter-client-id-here
-TWITTER_CLIENT_SECRET=your-twitter-client-secret-here
+X_API_KEY=your-x-api-key-here
+X_API_SECRET=your-x-api-secret-here
+X_BEARER_TOKEN=your-x-bearer-token-here
 
 # TikTok OAuth
 # Get from: https://developers.tiktok.com
@@ -159,11 +160,12 @@ INSTAGRAM_ACCESS_TOKEN=your-instagram-access-token-here
 FACEBOOK_PAGE_ID=your-facebook-page-id-here
 FACEBOOK_ACCESS_TOKEN=your-facebook-access-token-here
 
-# Twitter/X API
-TWITTER_API_KEY=your-twitter-api-key-here
-TWITTER_API_SECRET=your-twitter-api-secret-here
-TWITTER_BEARER_TOKEN=your-twitter-bearer-token-here
-TWITTER_ACCOUNT_ID=your-twitter-account-id-here
+# X (Twitter) API - Legacy naming (use X_* prefix instead)
+# NOTE: For OAuth, use X_CLIENT_ID/X_CLIENT_SECRET (see OAuth Credentials section above)
+# The following are legacy direct API credentials (not recommended for OAuth flows)
+X_API_KEY=your-x-api-key-here
+X_API_SECRET=your-x-api-secret-here
+X_BEARER_TOKEN=your-x-bearer-token-here
 
 # TikTok Business
 TIKTOK_BUSINESS_ACCOUNT_ID=your-tiktok-business-account-id-here

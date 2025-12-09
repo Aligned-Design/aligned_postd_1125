@@ -88,6 +88,9 @@ export class ConnectorManager {
         break;
 
       case 'tiktok':
+        // ⚠️ NOT IMPLEMENTED: TikTok connector is a scaffold only
+        // All methods throw "NOT_IMPLEMENTED" errors
+        // See CONNECTOR_SPECS_TIKTOK.md for implementation requirements
         connector = new TikTokConnector(this.tenantId, connectionId, {
           vault: this.vault,
           // ✅ Use server-side env vars (VITE_* fallback for backward compatibility)
@@ -116,18 +119,24 @@ export class ConnectorManager {
         break;
 
       case 'gbp':
-        // TODO: Implement GBP connector
+        // ⚠️ NOT IMPLEMENTED: GBP connector is a scaffold only
         // Scaffold exists at server/connectors/gbp/index.ts but is not implemented
         // All methods throw "Future work" errors
         // See CONNECTOR_SPECS_GBP.md for implementation requirements
-        throw new Error('GBP connector not yet implemented. See server/connectors/gbp/index.ts for scaffold.');
+        throw new Error(
+          'GBP connector is not yet implemented. This is a scaffold placeholder. ' +
+          'See server/connectors/gbp/index.ts and CONNECTOR_SPECS_GBP.md for implementation requirements.'
+        );
 
       case 'mailchimp':
-        // TODO: Implement Mailchimp connector
+        // ⚠️ NOT IMPLEMENTED: Mailchimp connector is a scaffold only
         // Scaffold exists at server/connectors/mailchimp/index.ts but is not implemented
         // All methods throw "Future work" errors
         // See CONNECTOR_SPECS_MAILCHIMP.md for implementation requirements
-        throw new Error('Mailchimp connector not yet implemented. See server/connectors/mailchimp/index.ts for scaffold.');
+        throw new Error(
+          'Mailchimp connector is not yet implemented. This is a scaffold placeholder. ' +
+          'See server/connectors/mailchimp/index.ts and CONNECTOR_SPECS_MAILCHIMP.md for implementation requirements.'
+        );
 
       default:
         throw new Error(`Unknown platform: ${platform}`);

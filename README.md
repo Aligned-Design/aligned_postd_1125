@@ -53,9 +53,10 @@ The application will be available at `http://localhost:8080`.
 
 1. **[Product Definition & Guardrails](docs/POSTD_PRODUCT_DEFINITION_AND_GUARDRAILS.md)** - Product purpose, system pillars, and scope boundaries
 2. **[Codebase Architecture Overview](CODEBASE_ARCHITECTURE_OVERVIEW.md)** - High-level architecture and system structure
-3. **[Tech Stack Guide](TECH_STACK_GUIDE.md)** - Complete technology stack reference
-4. **[Setup Guide](docs/SETUP_GUIDE.md)** - Detailed development setup instructions
-5. **[API Contract](POSTD_API_CONTRACT.md)** - Complete API reference documentation
+3. **[System Architecture Diagrams](docs/SYSTEM_ARCHITECTURE_DIAGRAMS.md)** - Visual system architecture with Mermaid diagrams
+4. **[Tech Stack Guide](TECH_STACK_GUIDE.md)** - Complete technology stack reference
+5. **[Setup Guide](docs/SETUP_GUIDE.md)** - Detailed development setup instructions
+6. **[API Contract](POSTD_API_CONTRACT.md)** - Complete API reference documentation
 
 ### Documentation Index
 
@@ -64,6 +65,8 @@ See **[DOCS_INDEX.md](DOCS_INDEX.md)** for a complete map of all documentation f
 ### Key Documentation Categories
 
 - **Architecture**: System design, database schema, routing structure
+  - [System Architecture Diagrams](docs/SYSTEM_ARCHITECTURE_DIAGRAMS.md) - Visual system flows and component relationships
+  - [Final Lock-In Verification Report](docs/audit/FINAL_LOCK_IN_VERIFICATION_REPORT.md) - Repository alignment verification (2025-01-20) - **Baseline alignment complete**
 - **Features**: Brand onboarding, Creative Studio, content generation
 - **API**: Endpoints, authentication, integrations
 - **Development**: Setup guides, coding standards, deployment

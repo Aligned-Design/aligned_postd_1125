@@ -133,6 +133,42 @@
 
 ---
 
+## Architecture (MVP View)
+
+```mermaid
+flowchart TD
+    User[User] --> Onboarding[Onboarding Flow<br/>Screen 3: AI Scrape]
+    Onboarding --> |POST /api/crawl/start| CrawlerAPI[Crawler API]
+    CrawlerAPI --> Crawler[Brand Crawler<br/>Playwright]
+    Crawler --> Extract[Extract Content<br/>Images, Colors, Text]
+    Extract --> AI[AI Generation<br/>Voice, Tone, Keywords]
+    Extract --> Persist[Persist Images<br/>persistScrapedImages]
+    AI --> SaveBrandGuide[Save Brand Guide<br/>brands.brand_kit JSONB]
+    Persist --> MediaAssets[(media_assets<br/>category: logos/images<br/>metadata.source: scrape)]
+    SaveBrandGuide --> BrandsTable[(brands Table<br/>brand_kit JSONB<br/>voice_summary JSONB<br/>visual_summary JSONB)]
+    
+    User --> BrandGuidePage[Brand Guide Page<br/>/brand-guide]
+    BrandGuidePage --> |GET /api/brand-guide/:id| BrandGuideAPI[Brand Guide API]
+    BrandGuideAPI --> |Query WHERE<br/>metadata.source = 'scrape'| MediaAssets
+    BrandGuideAPI --> |Query| BrandsTable
+    BrandGuideAPI --> |Return Separated| BrandGuideData[Brand Guide Data<br/>scrapedLogos[] (max 2)<br/>scrapedBrandImages[] (max 15)]
+    BrandGuideData --> BrandGuidePage
+    
+    User --> Edit[Edit Brand Guide]
+    Edit --> |Auto-save 2s debounce| BrandGuideAPI
+    BrandGuideAPI --> |PATCH| BrandsTable
+    BrandGuideAPI --> |Create Version| VersionHistory[(brand_guide_versions<br/>version, changed_fields)]
+    
+    AIAgent[AI Agent<br/>Doc/Design/Advisor] --> |getBrandProfile| BrandsTable
+    BrandsTable --> AIAgent
+    
+    style User fill:#e1f5ff
+    style BrandsTable fill:#3ecf8e
+    style MediaAssets fill:#3ecf8e
+    style VersionHistory fill:#3ecf8e
+    style AI fill:#ff6b6b
+```
+
 ## 🔄 Data Flow
 
 ### **Onboarding → Brand Guide:**

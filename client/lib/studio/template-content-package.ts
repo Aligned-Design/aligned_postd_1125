@@ -90,7 +90,7 @@ export function createContentPackageFromTemplate(
     },
     designContext: {
       suggestedLayout: design.format,
-      componentPrecedence: design.items
+      componentPrecedence: [...design.items] // Clone to avoid mutating original
         .sort((a, b) => (b.zIndex || 0) - (a.zIndex || 0))
         .slice(0, 5)
         .map((item) => item.type),

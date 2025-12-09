@@ -114,13 +114,17 @@ Add these only if you want to sync analytics from social platforms.
 | `FACEBOOK_PAGE_ID` | `your-facebook-page-id` |
 | `FACEBOOK_ACCESS_TOKEN` | `your-facebook-access-token` |
 
-#### Twitter/X
-| Key | Value |
-|-----|-------|
-| `TWITTER_API_KEY` | `your-twitter-api-key` |
-| `TWITTER_API_SECRET` | `your-twitter-api-secret` |
-| `TWITTER_BEARER_TOKEN` | `your-twitter-bearer-token` |
-| `TWITTER_ACCOUNT_ID` | `your-twitter-account-id` |
+#### X (Twitter)
+| Key | Value | Note |
+|-----|-------|------|
+| `X_API_KEY` | `your-x-api-key` | API key from developer portal |
+| `X_API_SECRET` | `your-x-api-secret` | API secret |
+| `X_BEARER_TOKEN` | `your-x-bearer-token` | Bearer token for API access |
+| `X_CLIENT_ID` | `your-x-client-id` | OAuth 2.0 client ID |
+| `X_CLIENT_SECRET` | `your-x-client-secret` | OAuth 2.0 client secret |
+| `X_REDIRECT_URI` | `https://your-domain.com/api/auth/x/callback` | OAuth callback URL |
+
+> **Note:** We use `X_*` prefix to match the connector implementation and platform rebranding.
 
 #### TikTok
 | Key | Value |

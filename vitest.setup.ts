@@ -1,6 +1,11 @@
 import { afterEach, beforeAll, afterAll, vi, beforeEach } from 'vitest';
+import * as dotenv from 'dotenv';
 
-// Set default test environment variables if not already set
+// Load .env file FIRST before checking/setting defaults
+// This allows real Supabase credentials to be used when available
+dotenv.config();
+
+// Set default test environment variables ONLY if not already set by .env
 // These are used by Supabase client initialization in tests
 // Tests should use TEST_ prefixed env vars in CI, or fallback to localhost for local testing
 if (!process.env.VITE_SUPABASE_URL) {

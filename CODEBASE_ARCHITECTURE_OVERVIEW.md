@@ -1239,7 +1239,8 @@ STRIPE_PUBLIC_KEY: Stripe configuration
 META_APP_ID: Facebook/Instagram OAuth
 GOOGLE_CLIENT_ID: Google OAuth
 LINKEDIN_CLIENT_ID: LinkedIn OAuth
-TWITTER_API_KEY: Twitter API access
+X_API_KEY: X (Twitter) API access
+X_CLIENT_ID: X (Twitter) OAuth client ID
 ```
 
 ### Database Migrations

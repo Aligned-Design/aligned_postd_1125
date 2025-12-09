@@ -14,7 +14,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v2
         with:
-          version: 10.20.0
+          version: 10.14.0
       - uses: actions/setup-node@v4
         with:
           node-version: "24"
@@ -23,17 +23,20 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # NOTE: UI component tests are critical for customer experience
       - name: Run UI Component Tests
         run: pnpm test client/components --run
-        continue-on-error: true
+        continue-on-error: false
 
+      # NOTE: Accessibility checks are critical for customer experience
       - name: Check Accessibility
         run: pnpm test e2e/responsive-ui.spec.ts --run
-        continue-on-error: true
+        continue-on-error: false
 
+      # NOTE: Type checking is critical to prevent runtime errors
       - name: Validate Customer-Facing Types
         run: pnpm typecheck
-        continue-on-error: true
+        continue-on-error: false
 
       - name: Build Customer App
         run: pnpm build
@@ -44,6 +47,7 @@ jobs:
         run: pnpm tsx scripts/validate-customer-experience.ts
         continue-on-error: false
 
+      # NOTE: Report generation is informational only - failures don't block CI
       - name: Generate Customer Experience Report
         run: pnpm tsx scripts/customer-facing-audit.ts
         continue-on-error: true

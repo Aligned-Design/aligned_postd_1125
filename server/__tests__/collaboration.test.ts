@@ -12,8 +12,9 @@ import request from "supertest";
 // See docs/TEST_DEBT.md for details
 import { createServer } from "../index-v2";
 
-// TODO: Re-enable after fixing integration test dependencies
-// See docs/TEST_DEBT.md for details
+// SKIPPED: Routes /api/orchestration/pipeline/execute and /api/ai/sync not registered in index-v2.ts
+// TODO: Register orchestration routes in server/index-v2.ts then remove skip
+// Blocker: Routes return 404 - not implemented in current server
 describe.skip("Collaboration Integration", () => {
   let app: ReturnType<typeof createServer>;
   let authToken: string;

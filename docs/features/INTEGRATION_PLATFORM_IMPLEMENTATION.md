@@ -366,9 +366,10 @@ FACEBOOK_APP_SECRET=your_app_secret
 LINKEDIN_CLIENT_ID=your_client_id
 LINKEDIN_CLIENT_SECRET=your_client_secret
 
-# Twitter/X
-TWITTER_CLIENT_ID=your_client_id
-TWITTER_CLIENT_SECRET=your_client_secret
+# X (Twitter)
+# NOTE: We use X_* prefix to match the connector implementation
+X_CLIENT_ID=your_client_id
+X_CLIENT_SECRET=your_client_secret
 
 # Google Business
 GOOGLE_CLIENT_ID=your_client_id

@@ -131,45 +131,86 @@ export async function persistScrapedImages(
     return true;
   });
   
-  // ✅ SEPARATE: Split into logos and brand images
-  const logoImages = validImages.filter(img => img.role === "logo");
-  
-  // ✅ IMPROVED: Filter brand images, excluding logo-style images
-  // ✅ FIX: Be more lenient - accept images with role "other" or undefined, only filter obvious logos
-  const brandImages = validImages.filter(img => {
-    // Exclude logos (explicitly classified as logo)
-    if (img.role === "logo") return false;
+  // ✅ CRITICAL FIX: SEPARATE logos and brand images with strict filtering
+  // Logos: Only images explicitly classified as "logo"
+  const logoImages = validImages.filter(img => {
+    // ✅ STRICT: Only include images with role === "logo"
+    if (img.role === "logo") return true;
     
-    // ✅ FIX: Accept images with valid roles OR undefined/empty role (default to "other")
-    // This ensures images without explicit roles are still included
-    const role = img.role || "other";
-    if (!["hero", "photo", "team", "subject", "other"].includes(role)) return false;
-    
-    // ✅ FIX: Only filter out obvious logo-style images (very small AND has logo indicators)
-    // Be more lenient - don't filter based on size alone
+    // ✅ SAFETY CHECK: Also catch logo-like images that might have been misclassified
+    // But be conservative - only flag obvious logos
     const urlLower = img.url.toLowerCase();
     const filenameLower = (img.url.split("/").pop() || "").toLowerCase();
     const altLower = (img.alt || "").toLowerCase();
     
-    // Check for logo indicators in filename/alt
-    const hasLogoIndicator = filenameLower.includes("logo") || 
-                             altLower.includes("logo") ||
-                             urlLower.includes("/logo/") ||
-                             urlLower.includes("logo-") ||
-                             urlLower.includes("-logo");
+    // Check for strong logo indicators
+    const hasStrongLogoIndicator = 
+      filenameLower.includes("logo") || 
+      altLower.includes("logo") ||
+      urlLower.includes("/logo/") ||
+      urlLower.includes("logo-") ||
+      urlLower.includes("-logo");
     
-    // Check if image is very small square (likely icon/logo)
-    const isVerySmallSquare = img.width && img.height && 
-      img.width < 200 && img.height < 200 && 
-      Math.abs((img.width / img.height) - 1) < 0.3; // Square-ish (aspect ratio ~1:1)
+    // Check if it's a small square image (likely logo)
+    const isSmallSquare = img.width && img.height && 
+      img.width < 300 && img.height < 300 && 
+      Math.abs((img.width / img.height) - 1) < 0.3; // Square-ish
     
-    // ✅ FIX: Only exclude if it's VERY small AND has logo indicators
-    // Don't exclude medium/large images even if they have "logo" in the name (might be brand images)
-    if (hasLogoIndicator && isVerySmallSquare) {
+    // Only include as logo if it has strong indicators AND is small/square
+    // This prevents large brand images with "logo" in the name from being misclassified
+    if (hasStrongLogoIndicator && isSmallSquare) {
+      console.log(`[ScrapedImages] Reclassifying image as logo (strong indicators + small size): ${img.url.substring(0, 60)}...`);
+      return true;
+    }
+    
+    return false;
+  });
+  
+  // ✅ CRITICAL FIX: Filter brand images - EXCLUDE ALL LOGOS
+  // Brand images should be: hero, photo, team, subject, other (NOT logo, social_icon, platform_logo)
+  const brandImages = validImages.filter(img => {
+    // ✅ STRICT: Exclude logos (explicitly classified or logo-like)
+    if (img.role === "logo") {
       return false;
     }
     
-    // ✅ FIX: Only exclude confirmed tiny icons (very small, no dimensions, or extremely small)
+    // ✅ STRICT: Exclude social icons and platform logos
+    if (img.role === "social_icon" || img.role === "platform_logo") {
+      return false;
+    }
+    
+    // ✅ STRICT: Only accept valid brand image roles
+    const role = img.role || "other";
+    if (!["hero", "photo", "team", "subject", "other"].includes(role)) {
+      return false;
+    }
+    
+    // ✅ SAFETY CHECK: Exclude logo-like images even if role is not "logo"
+    // This is a belt-and-suspenders approach to prevent logos from slipping through
+    const urlLower = img.url.toLowerCase();
+    const filenameLower = (img.url.split("/").pop() || "").toLowerCase();
+    const altLower = (img.alt || "").toLowerCase();
+    
+    // Check for logo indicators
+    const hasLogoIndicator = 
+      filenameLower.includes("logo") || 
+      altLower.includes("logo") ||
+      urlLower.includes("/logo/") ||
+      urlLower.includes("logo-") ||
+      urlLower.includes("-logo");
+    
+    // Check if it's a small square image (likely logo variant)
+    const isSmallSquare = img.width && img.height && 
+      img.width < 250 && img.height < 250 && 
+      Math.abs((img.width / img.height) - 1) < 0.3; // Square-ish
+    
+    // ✅ EXCLUDE: Small square images with logo indicators (likely logo variants)
+    if (hasLogoIndicator && isSmallSquare) {
+      console.log(`[ScrapedImages] Excluding logo-like image from brand images: ${img.url.substring(0, 60)}...`);
+      return false;
+    }
+    
+    // ✅ EXCLUDE: Very tiny images (likely icons/logos)
     if (img.width && img.height && (img.width * img.height < 10000)) {
       return false; // Less than 100x100 pixels
     }
@@ -216,7 +257,19 @@ export async function persistScrapedImages(
   const selectedBrandImages = brandImages.slice(0, 15);
   
   // ✅ COMBINE: Logos first, then brand images
-  const imagesToPersist = [...selectedLogos, ...selectedBrandImages];
+  // ✅ DEDUPLICATION: Remove duplicates by URL before combining
+  const seenUrls = new Set<string>();
+  const deduplicatedLogos = selectedLogos.filter(img => {
+    if (seenUrls.has(img.url)) return false;
+    seenUrls.add(img.url);
+    return true;
+  });
+  const deduplicatedBrandImages = selectedBrandImages.filter(img => {
+    if (seenUrls.has(img.url)) return false;
+    seenUrls.add(img.url);
+    return true;
+  });
+  const imagesToPersist = [...deduplicatedLogos, ...deduplicatedBrandImages];
   
   // ✅ ENHANCED: Log classification breakdown for debugging
   const roleBreakdown = images.reduce((acc, img) => {
@@ -418,32 +471,61 @@ export async function persistScrapedImages(
     const image = finalImagesToPersist[i];
     if (!image) break;
     
-    // Track if this is a logo (logos come first in finalImagesToPersist)
-    const isLogo = fallbackEngaged ? (image.role === "logo") : (i < selectedLogos.length);
+    // ✅ CRITICAL FIX: Determine if this is a logo based on ROLE, not index
+    // This ensures logos are always categorized correctly, even if there are more than 2
+    const isLogo = image.role === "logo";
     
     // Generate hash from URL for duplicate detection (outside try block for error handling)
     const hash = crypto.createHash("sha256").update(image.url).digest("hex");
     
     try {
       
-      // ✅ DETERMINE CATEGORY: Map role to media_assets category
+      // ✅ CRITICAL FIX: DETERMINE CATEGORY based on role, not index
+      // Logos MUST go to category = "logos", everything else to category = "images"
       let category: "logos" | "images" | "graphics" = "images";
-      if (image.role === "logo") {
+      if (isLogo || image.role === "logo") {
+        // ✅ ENFORCE: Any image with role="logo" MUST be category="logos"
         category = "logos";
       } else if (image.role === "hero" || image.role === "photo" || image.role === "team" || image.role === "subject" || image.role === "other") {
         category = "images";
+      } else {
+        // ✅ SAFETY: Default to "images" for unknown roles, but log a warning
+        console.warn(`[ScrapedImages] Unknown role "${image.role}" for image, defaulting to category="images"`, {
+          url: image.url.substring(0, 80),
+          role: image.role,
+        });
+        category = "images";
+      }
+      
+      // ✅ DOUBLE-CHECK: If category is "logos" but role is not "logo", fix it
+      if (category === "logos" && image.role !== "logo") {
+        console.warn(`[ScrapedImages] ⚠️ Category mismatch: category="logos" but role="${image.role}", fixing role`, {
+          url: image.url.substring(0, 80),
+        });
+        // Force role to "logo" to match category
+        image.role = "logo";
+      }
+      
+      // ✅ DOUBLE-CHECK: If role is "logo" but category is not "logos", fix it
+      if (image.role === "logo" && category !== "logos") {
+        console.warn(`[ScrapedImages] ⚠️ Category mismatch: role="logo" but category="${category}", fixing category`, {
+          url: image.url.substring(0, 80),
+        });
+        category = "logos";
       }
 
       // ✅ FIX: Use robust filename derivation helper
       const filename = deriveFilenameFromUrl(image.url);
 
-      // Create metadata with source='scrape'
+      // ✅ CRITICAL FIX: Create metadata with source='scrape' and category
+      // Include category in metadata for easier filtering in API/frontend
       const metadata = {
         source: "scrape" as const,
         width: image.width || undefined,
         height: image.height || undefined,
         alt: image.alt || undefined,
         role: image.role || "other",
+        category: category, // ✅ Include category in metadata for filtering
         scrapedUrl: image.url,
         scrapedAt: new Date().toISOString(),
         ...(fallbackEngaged ? { fallbackSelected: true } : {}), // Mark fallback images
@@ -902,7 +984,8 @@ export async function transferScrapedImages(
  */
 export async function getScrapedImages(
   brandId: string,
-  role?: "logo" | "hero" | "other"
+  role?: "logo" | "hero" | "other",
+  category?: "logos" | "images" | "graphics"
 ): Promise<Array<{
   id: string;
   url: string;
@@ -910,14 +993,19 @@ export async function getScrapedImages(
   metadata?: Record<string, unknown>;
 }>> {
   try {
-    // ✅ RESILIENT QUERY: Try to select metadata (may not exist in all schemas)
+    // ✅ RESILIENT QUERY: Try to select metadata and category (may not exist in all schemas)
     // For scraped images, URL is stored in path column (external URLs)
     // We'll filter for HTTP URLs in JavaScript to identify scraped images
     const query = supabase
       .from("media_assets")
-      .select("id, path, filename, metadata")
+      .select("id, path, filename, metadata, category")
       .eq("brand_id", brandId)
       .eq("status", "active");
+    
+    // ✅ ENHANCED: Filter by category if specified
+    if (category) {
+      query.eq("category", category);
+    }
 
     const { data, error } = await query
       .order("created_at", { ascending: false });
@@ -977,7 +1065,8 @@ export async function getScrapedImages(
       samplePaths: data.slice(0, 3).map((a: any) => a.path?.substring(0, 50)) || [],
     });
     
-    // ✅ FILTER: Scraped images have HTTP URLs in path column (external URLs)
+    // ✅ CRITICAL FIX: Filter scraped images with strict role/category checks
+    // Scraped images have HTTP URLs in path column (external URLs)
     // Uploaded images have Supabase storage paths (bucket names, not HTTP URLs)
     const scrapedImages = data.filter((asset: any) => {
       const path = asset.path || "";
@@ -985,11 +1074,26 @@ export async function getScrapedImages(
       const isScraped = path.startsWith("http://") || path.startsWith("https://");
       if (!isScraped) return false;
       
-      // If role filter is specified, try to infer from filename or path
+      // ✅ ENHANCED: Check category from database (most reliable)
+      const dbCategory = asset.category || "";
+      const metadata = asset.metadata || {};
+      const metadataRole = metadata.role || "";
+      const metadataCategory = metadata.category || "";
+      
+      // ✅ STRICT: If category filter is specified, enforce it
+      if (category) {
+        if (dbCategory !== category && metadataCategory !== category) {
+          return false;
+        }
+      }
+      
+      // ✅ STRICT: If role filter is specified, enforce it
       if (role === "logo") {
-        const filenameLower = (asset.filename || "").toLowerCase();
-        const pathLower = path.toLowerCase();
-        return filenameLower.includes("logo") || pathLower.includes("logo");
+        // Must be logo by role OR category
+        return metadataRole === "logo" || dbCategory === "logos" || metadataCategory === "logos";
+      } else if (role) {
+        // For other roles, check metadata role
+        return metadataRole === role;
       }
       
       return true;
