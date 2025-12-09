@@ -241,8 +241,8 @@ describe("API Smoke Tests", () => {
   });
 
   describe("Orchestration Health", () => {
-    // NOTE: /api/orchestration/health route may not exist
-    it.skip("GET /api/orchestration/health should return status", async () => {
+    // Route now registered via orchestrationRouter in index-v2.ts
+    it("GET /api/orchestration/health should return status", async () => {
       const response = await request(app).get("/api/orchestration/health");
 
       // May require auth, but should return some response
