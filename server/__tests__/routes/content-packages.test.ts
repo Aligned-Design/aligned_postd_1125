@@ -17,9 +17,9 @@ import { ContentPackageStorage } from "../../lib/collaboration-storage";
 import type { ContentPackage } from "@shared/collaboration-artifacts";
 import { createContentPackage } from "@shared/collaboration-artifacts";
 
-// SKIPPED: Routes not registered in index-v2.ts yet
-// TODO: Register content-packages routes in server/index-v2.ts then remove skip
-// Blocker: Route implementation needed before tests can run
+// Routes registered in index-v2.ts ✓
+// SKIP-DB: Tests require proper auth mocking and DB test fixtures
+// TODO: Add vi.mock for authenticateUser or use test-specific auth tokens
 describe.skip("ContentPackage Routes", () => {
   let app: ReturnType<typeof createServer>;
   let authToken: string;

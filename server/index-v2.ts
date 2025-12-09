@@ -114,6 +114,9 @@ import { validateBrandId } from "./middleware/validate-brand-id";
 import debugHealthRouter from "./routes/debug-health";
 import reviewsRouter from "./routes/reviews";
 import studioRouter from "./routes/creative-studio";
+import contentPackagesRouter from "./routes/content-packages";
+import orchestrationRouter from "./routes/orchestration";
+import { getSyncState } from "./routes/ai-sync";
 import {
   handleZapierWebhook,
   handleMakeWebhook,
@@ -190,6 +193,7 @@ export function createServer() {
   app.post("/api/ai/advisor", authenticateUser, getAdvisorInsights);
   app.post("/api/ai/doc", authenticateUser, validateBrandId, generateDocContent); // Validates brandId from request body
   app.post("/api/ai/design", authenticateUser, validateBrandId, generateDesignContent); // Validates brandId from request body
+  app.post("/api/ai/sync", authenticateUser, getSyncState); // Collaboration state endpoint
   
   // Dashboard route (Sprint 1)
   app.post("/api/dashboard", authenticateUser, validateBrandId, getDashboardData); // Validates brandId from request body
@@ -222,6 +226,8 @@ export function createServer() {
   app.use("/api/content-plan", contentPlanRouter);
   app.use("/api/content-items", contentItemsRouter);
   app.use("/api/studio", studioRouter);
+  app.use("/api/content-packages", contentPackagesRouter);
+  app.use("/api/orchestration", orchestrationRouter);
   
   // ✅ DEBUG: Health check endpoint (comprehensive system verification)
   app.use("/api/debug", debugHealthRouter);

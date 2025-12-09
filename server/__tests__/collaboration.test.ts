@@ -12,9 +12,9 @@ import request from "supertest";
 // See docs/TEST_DEBT.md for details
 import { createServer } from "../index-v2";
 
-// SKIPPED: Routes /api/orchestration/pipeline/execute and /api/ai/sync not registered in index-v2.ts
-// TODO: Register orchestration routes in server/index-v2.ts then remove skip
-// Blocker: Routes return 404 - not implemented in current server
+// Routes registered in index-v2.ts - /api/orchestration/* and /api/ai/sync
+// SKIP-DB: Tests use mock auth tokens that don't work with real auth middleware
+// TODO: Implement proper auth mocking (vi.mock authenticateUser) or use real test tokens
 describe.skip("Collaboration Integration", () => {
   let app: ReturnType<typeof createServer>;
   let authToken: string;
