@@ -62,8 +62,8 @@ The application uses OAuth2 for all platform connections. The following environm
 | `META_CLIENT_SECRET` | ❓ Unknown | Meta business OAuth (maps to Facebook) |
 | `LINKEDIN_CLIENT_ID` | ❓ Unknown | LinkedIn OAuth client ID |
 | `LINKEDIN_CLIENT_SECRET` | ❓ Unknown | LinkedIn OAuth client secret |
-| `TWITTER_CLIENT_ID` | ❓ Unknown | Twitter/X OAuth client ID |
-| `TWITTER_CLIENT_SECRET` | ❓ Unknown | Twitter/X OAuth client secret |
+| `X_CLIENT_ID` | ❓ Unknown | X (Twitter) OAuth client ID |
+| `X_CLIENT_SECRET` | ❓ Unknown | X (Twitter) OAuth client secret |
 | `GOOGLE_CLIENT_ID` | ❓ Unknown | Google Business OAuth client ID |
 | `GOOGLE_CLIENT_SECRET` | ❓ Unknown | Google Business OAuth client secret |
 | `TIKTOK_CLIENT_ID` | ❓ Likely missing | TikTok OAuth client ID |
@@ -392,7 +392,7 @@ curl -X GET https://api.aligned.com/api/posts \
   - [ ] FACEBOOK_CLIENT_ID/SECRET (or META_CLIENT_ID/SECRET)
   - [ ] INSTAGRAM_CLIENT_ID/SECRET (often bundled with Facebook)
   - [ ] LINKEDIN_CLIENT_ID/SECRET
-  - [ ] TWITTER_CLIENT_ID/SECRET
+  - [ ] X_CLIENT_ID/SECRET (NOTE: Uses X_* prefix, not TWITTER_*, to match connector implementation)
   - [ ] GOOGLE_CLIENT_ID/SECRET
   - [ ] TIKTOK_CLIENT_ID/SECRET
   - [ ] MAILCHIMP_API_KEY

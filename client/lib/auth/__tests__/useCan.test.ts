@@ -291,17 +291,20 @@ describe("Scope Names Consistency", () => {
  * Critical permission combinations
  */
 describe("Critical Permission Combinations", () => {
-  it("publish:now should require BRAND_MANAGER or higher", () => {
+  it("publish:now should require AGENCY_ADMIN or higher (not BRAND_MANAGER)", () => {
     // Note: BRAND_MANAGER doesn't have publish:now, but AGENCY_ADMIN and above do
+    // SUPERADMIN has wildcard "*" so it implicitly has all permissions (including publish:now)
     const rolesWithPublish = Object.entries(permissionsMap)
       .filter(([_, scopes]) => Array.isArray(scopes) && scopes.includes("publish:now"))
       .map(([role]) => role);
 
     expect(rolesWithPublish).toEqual(
-      expect.arrayContaining(["AGENCY_ADMIN", "ADMIN", "OWNER", "SUPERADMIN"]),
+      expect.arrayContaining(["AGENCY_ADMIN", "ADMIN", "OWNER"]),
     );
     expect(rolesWithPublish).not.toContain("CREATOR");
     expect(rolesWithPublish).not.toContain("BRAND_MANAGER");
+    // SUPERADMIN has "*" wildcard, so it doesn't need explicit "publish:now"
+    expect(permissionsMap.SUPERADMIN).toContain("*");
   });
 
   it("content:approve should NOT be in CREATOR role", () => {
