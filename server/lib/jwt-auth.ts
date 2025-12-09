@@ -1,6 +1,6 @@
 import crypto from "crypto";
 /// <reference types="express" />
-import type { Request, Response, NextFunction } from "express";
+import { Request, Response, NextFunction } from "express";
 import { AppError } from "./error-middleware";
 import { ErrorCode, HTTP_STATUS } from "./error-responses";
 import { Role } from "../middleware/rbac";
