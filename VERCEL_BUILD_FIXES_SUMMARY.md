@@ -247,3 +247,72 @@ pnpm run build
 
 All fixes are production-ready and follow project conventions.
 
+---
+
+## 🔧 Express Type Normalization (2025-01-20)
+
+### Problem
+Vercel's TypeScript check was not recognizing Express type properties (`Request.params`, `Request.query`, `Request.body`, `Response.status`, `NextFunction`, etc.) even though local builds passed. This was causing build failures on Vercel while local typecheck succeeded.
+
+### Solution: RequestHandler Pattern
+All middleware files were normalized to use the `RequestHandler` type pattern for consistency and Vercel compatibility:
+
+1. **Updated `server/types/express.d.ts`**:
+   - Added exported `AuthenticatedRequest` and `BrandScopedRequest` interfaces for type casting
+   - These interfaces extend Express `Request` and can be used for safe property access
+
+2. **Normalized all middleware to use `RequestHandler`**:
+   - Changed from function signatures like `(req: Request, res: Response, next: NextFunction) => void`
+   - To: `const middlewareName: RequestHandler = (req, res, next) => { ... }`
+   - For factory functions: `return ((req, res, next) => { ... }) as RequestHandler;`
+
+3. **Used type casting for extended properties**:
+   - Inside middleware functions, cast `req` to `AuthenticatedRequest` or `BrandScopedRequest` when accessing custom properties
+   - Example: `const aReq = req as AuthenticatedRequest; const userId = aReq.auth?.userId;`
+
+### Files Modified
+- `server/types/express.d.ts` - Added exported interfaces
+- `server/lib/error-middleware.ts` - Normalized to RequestHandler
+- `server/middleware/validate-brand-id.ts` - Normalized to RequestHandler
+- `server/middleware/security.ts` - Normalized to RequestHandler, fixed keyGenerator type
+- `server/lib/jwt-auth.ts` - Normalized to RequestHandler, added type casts for cookie methods
+- `server/lib/validation-middleware.ts` - Normalized to RequestHandler
+- `server/middleware/requireScope.ts` - Normalized to RequestHandler
+- `server/middleware/rbac.ts` - Normalized to RequestHandler
+
+### Pattern to Follow Going Forward
+**All new middleware must follow this pattern:**
+
+```typescript
+import { RequestHandler } from "express";
+import { AuthenticatedRequest } from "../types/express";
+
+// Simple middleware
+export const myMiddleware: RequestHandler = (req, res, next) => {
+  const aReq = req as AuthenticatedRequest;
+  // Access aReq.auth, aReq.user, etc.
+  next();
+};
+
+// Factory middleware
+export function myFactoryMiddleware(config: Config) {
+  return ((req, res, next) => {
+    const aReq = req as AuthenticatedRequest;
+    // Logic here
+    next();
+  }) as RequestHandler;
+}
+```
+
+### Why This Works
+- `RequestHandler` is a well-defined Express type that Vercel's TypeScript check recognizes
+- Type casting inside functions avoids complex generic type parameters that confuse Vercel
+- Explicit interfaces (`AuthenticatedRequest`, `BrandScopedRequest`) provide type safety without breaking Vercel's type resolution
+
+### Verification
+✅ `pnpm run typecheck` - **0 errors**  
+✅ `npx tsc -p tsconfig.json --noEmit` - **0 errors**  
+✅ `pnpm run build` - **All builds successful**
+
+**Note**: Vercel's TypeScript check is sensitive to Express type patterns. Always use `RequestHandler` for middleware and cast to extended interfaces inside the function body rather than using complex generics in function signatures.
+

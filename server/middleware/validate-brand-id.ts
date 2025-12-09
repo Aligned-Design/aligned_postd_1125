@@ -10,7 +10,7 @@
  */
 
 /// <reference types="express" />
-import { Request, Response, NextFunction } from "express";
+import { RequestHandler } from "express";
 import { AppError } from "../lib/error-middleware";
 import { ErrorCode, HTTP_STATUS } from "../lib/error-responses";
 import { assertBrandAccess } from "../lib/brand-access";
@@ -36,11 +36,7 @@ const TEMP_BRAND_ID_REGEX = /^brand_\d+$/;
  * 
  * For temporary brand IDs (during onboarding), access check is skipped
  */
-export function validateBrandId(
-  req: Request,
-  res: Response,
-  next: NextFunction
-): void {
+export const validateBrandId: RequestHandler = (req, res, next) => {
   try {
     // Extract brand_id from params, query, or body
     const brandId = 
@@ -117,11 +113,7 @@ export function validateBrandId(
  * Validate brand_id format only (no access check)
  * Useful for routes that need format validation but handle access differently
  */
-export function validateBrandIdFormat(
-  req: Request,
-  res: Response,
-  next: NextFunction
-): void {
+export const validateBrandIdFormat: RequestHandler = (req, res, next) => {
   try {
     const brandId = 
       (req.params as Record<string, string>).brandId ||
@@ -171,5 +163,5 @@ export function validateBrandIdFormat(
       );
     }
   }
-}
+};
 

@@ -5,7 +5,7 @@
  */
 
 /// <reference types="express" />
-import { Request, Response, NextFunction } from "express";
+import { RequestHandler } from "express";
 import { ZodSchema, ZodError } from "zod";
 
 /**
@@ -26,7 +26,7 @@ interface ValidationError {
  * @returns Express middleware function
  */
 export function validateBody(schema: ZodSchema) {
-  return async (req: Request, res: Response, next: NextFunction) => {
+  return (async (req, res, next) => {
     try {
       const validated = await schema.parseAsync(req.body);
       req.body = validated;
@@ -45,7 +45,7 @@ export function validateBody(schema: ZodSchema) {
       }
       next(error);
     }
-  };
+  }) as RequestHandler;
 }
 
 /**
@@ -54,7 +54,7 @@ export function validateBody(schema: ZodSchema) {
  * @returns Express middleware function
  */
 export function validateQuery(schema: ZodSchema) {
-  return async (req: Request, res: Response, next: NextFunction) => {
+  return (async (req, res, next) => {
     try {
       const validated = await schema.parseAsync(req.query);
       req.query = validated as any;
@@ -73,7 +73,7 @@ export function validateQuery(schema: ZodSchema) {
       }
       next(error);
     }
-  };
+  }) as RequestHandler;
 }
 
 /**
@@ -82,7 +82,7 @@ export function validateQuery(schema: ZodSchema) {
  * @returns Express middleware function
  */
 export function validateParams(schema: ZodSchema) {
-  return async (req: Request, res: Response, next: NextFunction) => {
+  return (async (req, res, next) => {
     try {
       const validated = await schema.parseAsync(req.params);
       req.params = validated as any;
@@ -101,7 +101,7 @@ export function validateParams(schema: ZodSchema) {
       }
       next(error);
     }
-  };
+  }) as RequestHandler;
 }
 
 /**
@@ -114,7 +114,7 @@ export function validateRequest(validators: {
   query?: ZodSchema;
   params?: ZodSchema;
 }) {
-  return async (req: Request, res: Response, next: NextFunction) => {
+  return (async (req, res, next) => {
     const errors: ValidationError["errors"] = [];
 
     // Validate body
@@ -181,7 +181,7 @@ export function validateRequest(validators: {
     }
 
     next();
-  };
+  }) as RequestHandler;
 }
 
 /**

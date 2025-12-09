@@ -4,7 +4,8 @@
  */
 
 /// <reference types="express" />
-import { Request, Response, NextFunction } from "express";
+import { RequestHandler } from "express";
+import { AuthenticatedRequest } from "../types/express";
 import { AppError } from "../lib/error-middleware";
 import { ErrorCode, HTTP_STATUS } from "../lib/error-responses";
 import permissionsMap from "../../config/permissions.json";
@@ -25,10 +26,11 @@ export type Scope = string; // String type to allow flexibility
 export function requireScope(scopes: Scope | Scope[]) {
   const requiredScopes = Array.isArray(scopes) ? scopes : [scopes];
 
-  return (req: Request, res: Response, next: NextFunction) => {
+  return ((req, res, next) => {
+    const aReq = req as AuthenticatedRequest;
     try {
       // Get user from request (set by authenticateUser middleware)
-      const user = req.user || req.auth;
+      const user = aReq.user || aReq.auth;
 
       if (!user) {
         throw new AppError(
@@ -92,7 +94,7 @@ export function requireScope(scopes: Scope | Scope[]) {
     } catch (error) {
       next(error);
     }
-  };
+  }) as RequestHandler;
 }
 
 /**
@@ -106,9 +108,10 @@ export function requireScope(scopes: Scope | Scope[]) {
  * router.post('/admin-action', requireAllScopes(['billing:manage', 'user:manage']), handler);
  */
 export function requireAllScopes(scopes: Scope[]) {
-  return (req: Request, res: Response, next: NextFunction) => {
+  return ((req, res, next) => {
+    const aReq = req as AuthenticatedRequest;
     try {
-      const user = req.user || req.auth;
+      const user = aReq.user || aReq.auth;
 
       if (!user) {
         throw new AppError(
@@ -163,7 +166,7 @@ export function requireAllScopes(scopes: Scope[]) {
     } catch (error) {
       next(error);
     }
-  };
+  }) as RequestHandler;
 }
 
 /**

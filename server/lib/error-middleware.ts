@@ -5,7 +5,7 @@
  */
 
 /// <reference types="express" />
-import { Request, Response, NextFunction } from "express";
+import { Request, Response, NextFunction, RequestHandler } from "express";
 import { v4 as uuidv4 } from "uuid";
 import { ZodError } from "zod";
 import {
@@ -22,11 +22,11 @@ import {
 /**
  * Request ID middleware - adds unique request ID for tracing
  */
-export function addRequestId(req: Request, _res: Response, next: NextFunction): void {
+export const addRequestId: RequestHandler = (req, _res, next) => {
   const requestId = req.get("X-Request-ID") || uuidv4();
   req.id = requestId;
   next();
-}
+};
 
 /**
  * Custom error class for application errors
@@ -62,6 +62,9 @@ function isZodError(error: unknown): error is ZodError {
 /**
  * Central error handler middleware
  * Must be registered last in middleware stack
+ * 
+ * Note: Error handlers have a different signature (err, req, res, next)
+ * so we can't use RequestHandler here. This is the standard Express error handler pattern.
  */
 export function errorHandler(
   err: unknown,
@@ -168,7 +171,7 @@ export function asyncHandler(
 /**
  * Not found handler (should be registered after all routes)
  */
-export function notFoundHandler(req: Request, res: Response): void {
+export const notFoundHandler: RequestHandler = (req, res) => {
   const error = new AppError(
     ErrorCode.NOT_FOUND,
     `Route not found: ${req.method} ${req.path}`,
@@ -177,7 +180,7 @@ export function notFoundHandler(req: Request, res: Response): void {
   );
 
   errorHandler(error, req, res, () => {});
-}
+};
 
 /**
  * Validation error helper

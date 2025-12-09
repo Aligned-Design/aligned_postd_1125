@@ -1,5 +1,6 @@
 /// <reference types="express" />
-import { Request, Response, NextFunction } from "express";
+import { RequestHandler, Request, Response, NextFunction } from "express";
+import { AuthenticatedRequest } from "../types/express";
 import { AppError } from "../lib/error-middleware";
 import { ErrorCode, HTTP_STATUS } from "../lib/error-responses";
 
@@ -191,12 +192,9 @@ export function hasAllPermissions(
 /**
  * Middleware: Require authentication
  */
-export function requireAuth(
-  req: Request,
-  _res: Response,
-  next: NextFunction,
-): void {
-  const auth = req.auth;
+export const requireAuth: RequestHandler = (req, _res, next) => {
+  const aReq = req as AuthenticatedRequest;
+  const auth = aReq.auth;
 
   if (!auth || !auth.userId) {
     throw new AppError(
@@ -214,8 +212,9 @@ export function requireAuth(
  * Middleware: Require specific role
  */
 export function requireRole(...roles: Role[]) {
-  return (req: Request, _res: Response, next: NextFunction): void => {
-    const auth = req.auth;
+  return ((req, _res, next) => {
+    const aReq = req as AuthenticatedRequest;
+    const auth = aReq.auth;
 
     if (!auth || !auth.role) {
       throw new AppError(
@@ -237,7 +236,7 @@ export function requireRole(...roles: Role[]) {
     }
 
     next();
-  };
+  }) as RequestHandler;
 }
 
 /**
@@ -277,16 +276,13 @@ export function requirePermission(...permissions: Permission[]) {
 /**
  * Middleware: Require brand access
  */
-export function requireBrandAccess(
-  req: Request,
-  _res: Response,
-  next: NextFunction,
-): void {
-  const auth = req.auth;
+export const requireBrandAccess: RequestHandler = (req, _res, next) => {
+  const aReq = req as AuthenticatedRequest;
+  const auth = aReq.auth;
   const brandId =
-    (req.params as Record<string, string>).brandId ||
-    (req.body as Record<string, any>).brandId ||
-    (req.query as Record<string, any>).brandId;
+    (aReq.params as Record<string, string>).brandId ||
+    (aReq.body as Record<string, any>).brandId ||
+    (aReq.query as Record<string, any>).brandId;
 
   if (!auth || !auth.userId) {
     throw new AppError(
@@ -322,17 +318,18 @@ export function requireBrandAccess(
   }
 
   next();
-}
+};
 
 /**
  * Middleware: Require ownership (user can only access their own resources)
  */
 export function requireOwnership(userIdField: string = "userId") {
-  return (req: Request, _res: Response, next: NextFunction): void => {
-    const auth = req.auth;
-    const params = req.params as Record<string, string>;
-    const body = req.body as Record<string, any>;
-    const query = req.query as Record<string, any>;
+  return ((req, _res, next) => {
+    const aReq = req as AuthenticatedRequest;
+    const auth = aReq.auth;
+    const params = (aReq.params as Record<string, string>);
+    const body = (aReq.body as Record<string, any>);
+    const query = (aReq.query as Record<string, any>);
     const resourceUserId =
       params[userIdField] || body[userIdField] || query[userIdField];
 
@@ -362,7 +359,7 @@ export function requireOwnership(userIdField: string = "userId") {
     }
 
     next();
-  };
+  }) as RequestHandler;
 }
 
 /**
@@ -391,4 +388,4 @@ export function mockAuth(
   
   // Reject the request - no mock auth allowed
   throw new Error("Mock authentication is disabled. Use real Supabase Auth.");
-}
+};

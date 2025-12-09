@@ -1,6 +1,7 @@
 import crypto from "crypto";
 /// <reference types="express" />
-import { Request, Response, NextFunction } from "express";
+import { RequestHandler } from "express";
+import { AuthenticatedRequest } from "../types/express";
 import { AppError } from "./error-middleware";
 import { ErrorCode, HTTP_STATUS } from "./error-responses";
 import { Role } from "../middleware/rbac";
@@ -211,9 +212,10 @@ export function refreshAccessToken(refreshToken: string): TokenPair {
 /**
  * Middleware: Verify JWT token from header
  */
-export function jwtAuth(req: Request, res: Response, next: NextFunction) {
+export const jwtAuth: RequestHandler = (req, res, next) => {
+  const aReq = req as AuthenticatedRequest;
   try {
-    const authHeader = req.headers.authorization;
+    const authHeader = aReq.headers.authorization;
 
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
       throw new AppError(
@@ -237,7 +239,7 @@ export function jwtAuth(req: Request, res: Response, next: NextFunction) {
     }
 
     // Attach user info to request
-    req.auth = {
+    aReq.auth = {
       userId: payload.userId,
       email: payload.email,
       role: payload.role as Role,
@@ -269,7 +271,7 @@ export function jwtAuth(req: Request, res: Response, next: NextFunction) {
  * Set refresh token as httpOnly cookie
  */
 export function setRefreshTokenCookie(res: Response, refreshToken: string) {
-  res.cookie("refreshToken", refreshToken, {
+  (res as any).cookie("refreshToken", refreshToken, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "strict",
@@ -282,7 +284,7 @@ export function setRefreshTokenCookie(res: Response, refreshToken: string) {
  * Clear refresh token cookie
  */
 export function clearRefreshTokenCookie(res: Response) {
-  res.clearCookie("refreshToken", {
+  (res as any).clearCookie("refreshToken", {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "strict",
@@ -293,7 +295,7 @@ export function clearRefreshTokenCookie(res: Response) {
 /**
  * Extract user from request (for authenticated routes)
  */
-export function getUserFromRequest(req: Request): {
+export function getUserFromRequest(req: AuthenticatedRequest): {
   userId: string;
   email: string;
   role: Role;

@@ -1,5 +1,6 @@
 /// <reference types="express" />
-import { Request, Response, NextFunction } from "express";
+import { RequestHandler } from "express";
+import { AuthenticatedRequest } from "../types/express";
 import crypto from "crypto";
 import { AppError } from "../lib/error-middleware";
 import { ErrorCode, HTTP_STATUS } from "../lib/error-responses";
@@ -11,20 +12,17 @@ import { jwtAuth } from "../lib/jwt-auth";
  * Attaches req.auth with userId, email, role, brandIds
  * Also sets req.user for backward compatibility
  */
-export function authenticateUser(
-  req: Request,
-  res: Response,
-  next: NextFunction,
-) {
+export const authenticateUser: RequestHandler = (req, res, next) => {
+  const aReq = req as AuthenticatedRequest;
   try {
     jwtAuth(req, res, () => {
       // Normalize req.user for backward compatibility
-      const auth = req.auth;
+      const auth = aReq.auth;
       if (auth) {
         // ✅ CRITICAL: Extract tenantId from JWT payload
         const tenantId = auth.tenantId || auth.workspaceId || null;
         
-        req.user = {
+        aReq.user = {
           id: auth.userId,
           email: auth.email,
           role: auth.role,
@@ -37,7 +35,7 @@ export function authenticateUser(
         };
         
         // Also add to auth object for consistency
-        req.auth = {
+        aReq.auth = {
           ...auth,
           tenantId: tenantId,
           workspaceId: tenantId,
@@ -45,7 +43,7 @@ export function authenticateUser(
       }
 
       // Log auth context for debugging (remove in production if sensitive)
-      const user = req.user;
+      const user = aReq.user;
       if (user) {
         console.log("[Auth] Request authenticated", {
           userId: user.id,
@@ -65,7 +63,7 @@ export function authenticateUser(
   } catch (error) {
     next(error);
   }
-}
+};
 
 /**
  * Optional authentication middleware for onboarding routes
@@ -75,24 +73,20 @@ export function authenticateUser(
  * This function now requires authentication - it will reject requests without valid tokens.
  * For public routes (like signup/login), they should be explicitly excluded from auth middleware.
  */
-export function optionalAuthForOnboarding(
-  req: Request,
-  res: Response,
-  next: NextFunction,
-) {
+export const optionalAuthForOnboarding: RequestHandler = (req, res, next) => {
   // ✅ CRITICAL: Require authentication for all routes
   // This prevents mock/dev users from bypassing auth
   console.warn("[Auth] optionalAuthForOnboarding is deprecated - requiring real authentication");
   
   // Use real authentication middleware
   authenticateUser(req, res, next);
-}
+};
 
 // Rate limiting configuration
 interface RateLimitConfig {
   windowMs: number;
   maxRequests: number;
-  keyGenerator?: (req: Request) => string;
+  keyGenerator?: (req: AuthenticatedRequest) => string;
   skipSuccessfulRequests?: boolean;
   skipFailedRequests?: boolean;
 }
@@ -136,8 +130,9 @@ export function rateLimit(config: RateLimitConfig) {
     skipFailedRequests = false,
   } = config;
 
-  return (req: Request, res: Response, next: NextFunction) => {
-    const key = keyGenerator(req);
+  return ((req, res, next) => {
+    const aReq = req as AuthenticatedRequest;
+    const key = keyGenerator(aReq);
     const now = Date.now();
 
     if (!rateLimitStore[key] || rateLimitStore[key].resetTime < now) {
@@ -183,17 +178,13 @@ export function rateLimit(config: RateLimitConfig) {
     }
 
     next();
-  };
+  }) as RequestHandler;
 }
 
 /**
  * XSS Protection - Sanitize input
  */
-export function sanitizeInput(
-  req: Request,
-  _res: Response,
-  next: NextFunction,
-) {
+export const sanitizeInput: RequestHandler = (req, _res, next) => {
   const sanitize = (obj: any): any => {
     if (typeof obj === "string") {
       // Remove script tags and potentially dangerous content
@@ -252,11 +243,7 @@ export function generateCsrfToken(): string {
   return token;
 }
 
-export function verifyCsrfToken(
-  req: Request,
-  _res: Response,
-  next: NextFunction,
-) {
+export const verifyCsrfToken: RequestHandler = (req, _res, next) => {
   // Skip CSRF check for GET, HEAD, OPTIONS
   if (["GET", "HEAD", "OPTIONS"].includes(req.method)) {
     return next();
@@ -306,7 +293,7 @@ export function setAllowlist(ips: string[]) {
   ips.forEach((ip) => allowedIPs.add(ip));
 }
 
-export function ipFilter(req: Request, _res: Response, next: NextFunction) {
+export const ipFilter: RequestHandler = (req, _res, next) => {
   const ip = req.ip || req.socket.remoteAddress || "unknown";
 
   if (blockedIPs.has(ip)) {
@@ -330,13 +317,13 @@ export function ipFilter(req: Request, _res: Response, next: NextFunction) {
   }
 
   next();
-}
+};
 
 /**
  * Request size limiter
  */
 export function requestSizeLimit(maxSizeBytes: number) {
-  return (req: Request, _res: Response, next: NextFunction) => {
+  return ((req, _res, next) => {
     const contentLength = parseInt(req.headers["content-length"] || "0", 10);
 
     if (contentLength > maxSizeBytes) {
@@ -350,7 +337,7 @@ export function requestSizeLimit(maxSizeBytes: number) {
     }
 
     next();
-  };
+  }) as RequestHandler;
 }
 
 /**

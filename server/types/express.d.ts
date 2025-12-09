@@ -4,9 +4,13 @@
  * 
  * Note: This file uses declaration merging to extend Express types via global namespace.
  * This ensures TypeScript recognizes these properties throughout the codebase.
+ * 
+ * For Vercel compatibility, we also export explicit interfaces that can be used
+ * for type casting inside middleware functions.
  */
 
 /// <reference types="express" />
+import { Request } from "express";
 
 declare global {
   namespace Express {
@@ -32,9 +36,41 @@ declare global {
         scopes?: string[];
       };
       validatedState?: string;
+      validatedBrandId?: string;
     }
   }
 }
 
-// Export empty object to make this a module
-export {};
+/**
+ * AuthenticatedRequest - Request with authentication context
+ * Use this interface for type casting inside middleware that requires auth
+ */
+export interface AuthenticatedRequest extends Request {
+  auth?: {
+    userId: string;
+    email: string;
+    role: string;
+    brandIds?: string[];
+    tenantId?: string;
+    workspaceId?: string;
+    scopes?: string[];
+  };
+  user?: {
+    id: string;
+    email: string;
+    role: string;
+    brandId?: string;
+    brandIds?: string[];
+    tenantId?: string;
+    workspaceId?: string;
+    scopes?: string[];
+  };
+}
+
+/**
+ * BrandScopedRequest - Request with validated brand ID
+ * Use this interface for type casting inside middleware that requires brand context
+ */
+export interface BrandScopedRequest extends AuthenticatedRequest {
+  validatedBrandId?: string;
+}
