@@ -28,6 +28,7 @@
     "noFallthroughCasesInSwitch": false,
     "strictNullChecks": false,
     "typeRoots": ["./node_modules/@types", "./server/types"],
+    "types": ["node", "express"],
 
     "baseUrl": ".",
     "paths": {
