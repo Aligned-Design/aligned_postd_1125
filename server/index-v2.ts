@@ -225,9 +225,9 @@ export function createServer() {
   app.use("/api/onboarding", onboardingRouter);
   app.use("/api/content-plan", contentPlanRouter);
   app.use("/api/content-items", contentItemsRouter);
-  app.use("/api/studio", studioRouter);
-  app.use("/api/content-packages", contentPackagesRouter);
-  app.use("/api/orchestration", orchestrationRouter);
+  app.use("/api/studio", authenticateUser, studioRouter);
+  app.use("/api/content-packages", authenticateUser, contentPackagesRouter);
+  app.use("/api/orchestration", authenticateUser, orchestrationRouter);
   
   // ✅ DEBUG: Health check endpoint (comprehensive system verification)
   app.use("/api/debug", debugHealthRouter);

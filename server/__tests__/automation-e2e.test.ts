@@ -321,10 +321,11 @@ class AutomationPipeline {
 
 // ==================== TEST SUITE ====================
 
-// SKIPPED: Full E2E automation pipeline tests require extensive mocking setup
-// TODO: Convert to integration tests with proper DB fixtures
-// Blocker: Complex mock infrastructure needed
-describe.skip("Automation Pipeline E2E Tests", () => {
+// SKIP-E2E: Full automation pipeline E2E tests require AI providers + complex state management
+// These tests exercise the complete content generation → approval → publishing flow
+// Blocker: AI provider mocks, scheduling infrastructure, publishing integrations
+// Future: Run in dedicated E2E pipeline with mocked AI responses
+describe.skip("Automation Pipeline E2E Tests [SKIP-E2E]", () => {
   let pipeline: AutomationPipeline;
 
   beforeEach(() => {

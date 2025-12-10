@@ -27,10 +27,11 @@ beforeAll(() => {
   request = require('supertest')(app);
 });
 
-// SKIPPED: Route handlers require proper DB setup and return unexpected formats
-// The handlers expect Supabase context that isn't set up in this isolated test
-// TODO: Convert to integration tests that use the full server stack
-describe.skip('Brand Intelligence API - JSON Responses', () => {
+// SKIP-ROUTES: Brand intelligence routes are not registered in server/index-v2.ts
+// These endpoints (/api/brand-intelligence/:brandId, /api/brand-intelligence/feedback) are not active
+// The route handlers exist in routes/brand-intelligence.ts but are not mounted to the server
+// To re-enable: register brandIntelligenceRouter in index-v2.ts and update tests with auth helper
+describe.skip('Brand Intelligence API - JSON Responses [SKIP-ROUTES]', () => {
   describe('GET /api/brand-intelligence/:brandId', () => {
     it('should return JSON with correct Content-Type header', async () => {
       const response = await request

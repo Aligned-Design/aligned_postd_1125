@@ -14,12 +14,16 @@ import { describe, it, expect, beforeAll } from "vitest";
 import request from "supertest";
 // Updated to use current server implementation (index-v2.ts)
 import { createServer } from "../index-v2";
+import { generateTestToken, TEST_BRAND_ID } from "./helpers/auth";
 
 describe("API Smoke Tests", () => {
   let app: ReturnType<typeof createServer>;
+  let authToken: string;
 
   beforeAll(() => {
     app = createServer();
+    // Generate a real JWT token using the shared auth helper
+    authToken = generateTestToken();
   });
 
   describe("Health Check Endpoints", () => {
@@ -199,34 +203,29 @@ describe("API Smoke Tests", () => {
 
   describe("Request Validation", () => {
     it("POST /api/dashboard should validate brandId format", async () => {
-      // Mock auth token (in real test, would use actual token)
-      const mockToken = "mock-token";
-
       const response = await request(app)
         .post("/api/dashboard")
-        .set("Authorization", `Bearer ${mockToken}`)
+        .set("Authorization", `Bearer ${authToken}`)
         .send({
           brandId: "invalid-uuid",
           timeRange: "30d",
         });
 
-      // Should fail validation (422) or auth (401)
-      expect([400, 401, 422]).toContain(response.status);
+      // Should fail validation (auth passes with real token)
+      expect([400, 422]).toContain(response.status);
     });
 
     it("POST /api/dashboard should validate timeRange enum", async () => {
-      const mockToken = "mock-token";
-
       const response = await request(app)
         .post("/api/dashboard")
-        .set("Authorization", `Bearer ${mockToken}`)
+        .set("Authorization", `Bearer ${authToken}`)
         .send({
-          brandId: "550e8400-e29b-41d4-a716-446655440000",
+          brandId: TEST_BRAND_ID,
           timeRange: "invalid-range",
         });
 
-      // Should fail validation
-      expect([400, 401, 422]).toContain(response.status);
+      // Should fail validation (400/422) or brand not found (404)
+      expect([400, 404, 422]).toContain(response.status);
     });
   });
 
@@ -364,37 +363,31 @@ describe("API Smoke Tests", () => {
 
   describe("V2 Endpoints - Validation", () => {
     it("GET /api/analytics/overview should validate query parameters", async () => {
-      const mockToken = "mock-token";
-
       const response = await request(app)
         .get("/api/analytics/overview?days=invalid")
-        .set("Authorization", `Bearer ${mockToken}`);
+        .set("Authorization", `Bearer ${authToken}`);
 
-      // Should fail validation (400) or auth (401)
-      expect([400, 401]).toContain(response.status);
+      // Should fail validation (auth passes with real token)
+      expect([400, 422]).toContain(response.status);
     });
 
     it("GET /api/approvals/pending should validate query parameters", async () => {
-      const mockToken = "mock-token";
-
       const response = await request(app)
         .get("/api/approvals/pending?limit=invalid")
-        .set("Authorization", `Bearer ${mockToken}`);
+        .set("Authorization", `Bearer ${authToken}`);
 
-      // Should fail validation (400) or auth (401)
-      expect([400, 401]).toContain(response.status);
+      // Should fail validation (auth passes with real token)
+      expect([400, 422]).toContain(response.status);
     });
 
     it("POST /api/approvals/:approvalId/reject should validate request body", async () => {
-      const mockToken = "mock-token";
-
       const response = await request(app)
-        .post("/api/approvals/550e8400-e29b-41d4-a716-446655440000/reject")
-        .set("Authorization", `Bearer ${mockToken}`)
+        .post(`/api/approvals/${TEST_BRAND_ID}/reject`)
+        .set("Authorization", `Bearer ${authToken}`)
         .send({}); // Missing required 'reason' field
 
-      // Should fail validation (400) or auth (401)
-      expect([400, 401]).toContain(response.status);
+      // Should fail validation (auth passes with real token)
+      expect([400, 422]).toContain(response.status);
     });
   });
 
@@ -421,12 +414,78 @@ describe("API Smoke Tests", () => {
     it("POST /api/webhooks/make should validate request body", async () => {
       const response = await request(app)
         .post("/api/webhooks/make")
-        .set("x-brand-id", "550e8400-e29b-41d4-a716-446655440000")
+        .set("x-brand-id", TEST_BRAND_ID)
         .send({}); // Missing required 'event' field
 
       // Should fail validation
       expect([400, 422]).toContain(response.status);
       expect(response.body).toHaveProperty("error");
+    });
+  });
+
+  describe("Authenticated Endpoint Access", () => {
+    it("GET /api/brands should work with valid auth token", async () => {
+      const response = await request(app)
+        .get("/api/brands")
+        .set("Authorization", `Bearer ${authToken}`);
+
+      // Should not return 401 with valid auth
+      expect(response.status).not.toBe(401);
+      // Should be 200 or 500 (if DB not connected)
+      expect([200, 500, 502, 503]).toContain(response.status);
+    });
+
+    it("POST /api/dashboard should work with valid auth token", async () => {
+      const response = await request(app)
+        .post("/api/dashboard")
+        .set("Authorization", `Bearer ${authToken}`)
+        .send({
+          brandId: TEST_BRAND_ID,
+          timeRange: "30d",
+        });
+
+      // Should not return 401 with valid auth
+      expect(response.status).not.toBe(401);
+    });
+
+    it("GET /api/analytics/overview should work with valid auth token", async () => {
+      const response = await request(app)
+        .get(`/api/analytics/overview?brandId=${TEST_BRAND_ID}`)
+        .set("Authorization", `Bearer ${authToken}`);
+
+      // Should not return 401 with valid auth
+      expect(response.status).not.toBe(401);
+    });
+
+    it("GET /api/approvals/pending should work with valid auth token", async () => {
+      const response = await request(app)
+        .get(`/api/approvals/pending?brandId=${TEST_BRAND_ID}`)
+        .set("Authorization", `Bearer ${authToken}`);
+
+      // Should not return 401 with valid auth
+      expect(response.status).not.toBe(401);
+    });
+
+    it("GET /api/media should work with valid auth token", async () => {
+      const response = await request(app)
+        .get(`/api/media?brandId=${TEST_BRAND_ID}`)
+        .set("Authorization", `Bearer ${authToken}`);
+
+      // Should not return 401 with valid auth
+      expect(response.status).not.toBe(401);
+    });
+
+    it("GET /api/auth/me should return user info with valid auth token", async () => {
+      const response = await request(app)
+        .get("/api/auth/me")
+        .set("Authorization", `Bearer ${authToken}`);
+
+      // Should not return 401 with valid auth
+      expect(response.status).not.toBe(401);
+      
+      if (response.status === 200) {
+        expect(response.body).toHaveProperty("user");
+      }
     });
   });
 });

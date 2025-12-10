@@ -34,8 +34,10 @@ describe("requireScope Middleware", () => {
     } as any;
   });
 
-  // TODO: Convert deprecated done() callback tests to async/await
-  describe.skip("Single Scope Checks (Deprecated done() callbacks)", () => {
+  // SKIP-LEGACY: These tests use deprecated done() callback pattern from Jest/Mocha
+  // The async/await versions above provide equivalent coverage
+  // Future: Remove once we're confident async versions are comprehensive
+  describe.skip("Single Scope Checks [SKIP-LEGACY]", () => {
     it.skip("should allow user with required scope", (done: () => void) => {
       const middleware = requireScope("content:create");
 
@@ -92,8 +94,8 @@ describe("requireScope Middleware", () => {
     });
   });
 
-  // TODO: Convert deprecated done() callback tests to async/await
-  describe.skip("All Scopes Check (Deprecated done() callbacks)", () => {
+  // SKIP-LEGACY: Uses deprecated done() callback pattern
+  describe.skip("All Scopes Check [SKIP-LEGACY]", () => {
     it("should allow user with all required scopes", (done: () => void) => {
       req.user = { id: "user-123", email: "test@example.com", role: "AGENCY_ADMIN" };
       const middleware = requireAllScopes([
@@ -130,8 +132,8 @@ describe("requireScope Middleware", () => {
     });
   });
 
-  // TODO: Convert deprecated done() callback tests to async/await
-  describe.skip("Role-Based Scenarios (Deprecated done() callbacks)", () => {
+  // SKIP-LEGACY: Uses deprecated done() callback pattern
+  describe.skip("Role-Based Scenarios [SKIP-LEGACY]", () => {
     it("CREATOR should be able to create and edit content but not approve", (done: () => void) => {
       req.user = { id: "user-123", email: "test@example.com", role: "CREATOR" };
 
@@ -212,8 +214,8 @@ describe("requireScope Middleware", () => {
     });
   });
 
-  // TODO: Convert deprecated done() callback tests to async/await
-  describe.skip("Error Messages (Deprecated done() callbacks)", () => {
+  // SKIP-LEGACY: Uses deprecated done() callback pattern
+  describe.skip("Error Messages [SKIP-LEGACY]", () => {
     it("should include helpful error details", (done: () => void) => {
       req.user = { id: "user-123", email: "test@example.com", role: "VIEWER" };
       const middleware = requireScope("content:approve");

@@ -451,7 +451,9 @@ export async function runCopyAgentTests(): Promise<{
   return { passed, failed, total };
 }
 
-// TODO: Convert custom test runner to Vitest describe/it blocks
-describe.skip("Copy Agent Integration Tests (Custom Runner)", () => {
-  it.todo("TODO: Convert custom test runner to Vitest format - run via: npx tsx server/scripts/run-copy-tests.ts");
+// SKIP-E2E: Copy Agent tests require AI provider (Anthropic/OpenAI) integration
+// The custom test runner above can be executed via: npx tsx server/scripts/run-copy-tests.ts
+// Future: Run in dedicated AI pipeline with rate limiting and cost controls
+describe.skip("Copy Agent Integration Tests [SKIP-E2E]", () => {
+  it.todo("Convert to Vitest format or run via: npx tsx server/scripts/run-copy-tests.ts");
 });

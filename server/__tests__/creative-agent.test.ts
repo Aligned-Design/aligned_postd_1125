@@ -739,7 +739,9 @@ async function testEndToEndWorkflow(): Promise<TestResult> {
   }
 }
 
-// TODO: Convert custom test runner to Vitest describe/it blocks
-describe.skip("Creative Agent Integration Tests (Custom Runner)", () => {
-  it.todo("TODO: Convert custom test runner to Vitest format");
+// SKIP-E2E: Creative Agent tests require AI provider (Anthropic/OpenAI) integration
+// The custom test runner above exercises image analysis, visual recommendations, etc.
+// Future: Run in dedicated AI pipeline with rate limiting and cost controls
+describe.skip("Creative Agent Integration Tests [SKIP-E2E]", () => {
+  it.todo("Convert to Vitest format - requires AI provider mocking");
 });

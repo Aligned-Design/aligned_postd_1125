@@ -508,7 +508,10 @@ export async function runPipelineOrchestratorTests(): Promise<{
   return { passed, failed, total };
 }
 
-// TODO: Convert custom test runner to Vitest describe/it blocks
-describe.skip("Pipeline Orchestrator Integration Tests (Custom Runner)", () => {
-  it.todo("TODO: Convert custom test runner to Vitest format - run via: npx tsx server/scripts/run-orchestrator-tests.ts");
+// SKIP-E2E: Pipeline Orchestrator tests require AI providers + multi-agent coordination
+// The custom test runner above exercises the full content generation pipeline
+// Can be run manually via: npx tsx server/scripts/run-orchestrator-tests.ts
+// Future: Run in dedicated AI pipeline with rate limiting and cost controls
+describe.skip("Pipeline Orchestrator Integration Tests [SKIP-E2E]", () => {
+  it.todo("Convert to Vitest format or run via: npx tsx server/scripts/run-orchestrator-tests.ts");
 });

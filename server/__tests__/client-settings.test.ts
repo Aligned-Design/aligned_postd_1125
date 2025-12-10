@@ -30,10 +30,11 @@ app.post('/api/client/unsubscribe', unsubscribeFromEmails);
 app.post('/api/client/settings/resubscribe', resubscribeToEmails);
 app.get('/api/client/settings/verify-unsubscribe', verifyUnsubscribeToken);
 
-// SKIPPED: Route handlers get 500 errors - Supabase client not initialized in isolated test context
-// The handlers import supabase directly but the test Express app doesn't initialize it
-// TODO: Either mock Supabase or convert to full integration tests
-describe.skip('Client Settings API', () => {
+// SKIP-ROUTES: Client portal routes are commented out in server/index-v2.ts (line 237)
+// These endpoints (/api/client/settings, /api/client/unsubscribe, etc.) are not currently active
+// The route handlers exist but are not registered in the main server
+// To re-enable: uncomment clientPortalRouter in index-v2.ts and update tests with auth helper
+describe.skip('Client Settings API [SKIP-ROUTES]', () => {
   const clientId = 'test-client-123';
   const brandId = 'test-brand-456';
   const userId = 'test-user-789';
