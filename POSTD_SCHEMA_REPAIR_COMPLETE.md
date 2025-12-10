@@ -43,7 +43,7 @@ All references to `brand_safety_configs` have been eliminated and the Doc Agent 
 
 ### New Files
 - `supabase/migrations/012_fix_brand_safety_configs_ghost.sql` - Drop table migration
-- `supabase/migrations/013_force_postgrest_schema_reload.sql` - Cache reload migration
+- `supabase/migrations/015_force_postgrest_schema_reload.sql` - Cache reload migration
 - `scripts/diagnostics/test-supabase-schema.ts` - Diagnostic utility
 - `docs/BRAND_SAFETY_SCHEMA_NOTES.md` - Schema design documentation
 - `docs/BRAND_SAFETY_SCHEMA_FIX.md` - Fix application guide
@@ -68,7 +68,7 @@ All references to `brand_safety_configs` have been eliminated and the Doc Agent 
 
 1. **Apply Migrations** (in Supabase Dashboard SQL Editor):
    - Run `supabase/migrations/012_fix_brand_safety_configs_ghost.sql`
-   - Run `supabase/migrations/013_force_postgrest_schema_reload.sql`
+   - Run `supabase/migrations/015_force_postgrest_schema_reload.sql`
 
 2. **Reload PostgREST Schema**:
    - Supabase Dashboard → Settings → API → Reload Schema

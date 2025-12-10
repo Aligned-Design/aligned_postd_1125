@@ -112,7 +112,7 @@ From `POSTD_REPO_HEALTH_STATUS.md`:
 | 005 | `005_finalize_brand_id_uuid_migration.sql` | Add FK constraints, update RLS to use `brand_id_uuid` | ⚠️ **Important** | Step 2 of migration. Updates RLS policies, adds FKs. **VERIFY THIS IS APPLIED**. |
 | 006 | `006_drop_legacy_brand_id_text_columns.sql` | Drop deprecated `brand_id` TEXT columns | 🔴 **Potentially Dangerous** | Step 3 of migration. **IRREVERSIBLE**. Only apply after code migration complete. **VERIFY STATUS**. |
 | 007 | `007_add_media_assets_status_and_rls.sql` | Add `status` column to `media_assets`, add INSERT/UPDATE RLS | ⚠️ **Important** | Code expects `status` column. Adds RLS policies for INSERT/UPDATE. |
-| 008 | `008_content_planning_schema_clarification.sql` | Documentation-only migration | ✅ **Safe** | No schema changes. Documents canonical tables (auto_plans, scheduled_content). |
+| 014 | `014_content_planning_schema_clarification.sql` | Documentation-only migration | ✅ **Safe** | No schema changes. Documents canonical tables (auto_plans, scheduled_content). |
 | 009 | `009_consolidate_brand_guide_fields.sql` | Merge voice_summary, visual_summary, tone_keywords into brand_kit | ⚠️ **Important** | Data migration. Merges legacy fields into brand_kit JSONB. Additive only. |
 | 010 | `20250130_brand_guide_versions_patch.sql` | Patch for brand_guide_versions (backward compatibility) | ✅ **Safe** | Idempotent. Only creates table if it doesn't exist. |
 

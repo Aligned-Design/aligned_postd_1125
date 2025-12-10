@@ -40,7 +40,7 @@ This verification confirms that the critical P0 and P1 fixes from the coherence 
   - Calls `autoPlanGenerator.generateMonthlyPlan()` to generate plan data
   - Inserts/updates `auto_plans` table with `brand_id`, `tenant_id`, `month`, `plan_data`, `confidence`
   - Uses `auto_plans` as the canonical table (not `monthly_content_plans`)
-- **Migration**: `supabase/migrations/008_content_planning_schema_clarification.sql` explicitly documents that `auto_plans` is canonical and `monthly_content_plans` (from archived migration) is obsolete
+- **Migration**: `supabase/migrations/014_content_planning_schema_clarification.sql` explicitly documents that `auto_plans` is canonical and `monthly_content_plans` (from archived migration) is obsolete
 
 **Verification**:
 - ✅ `auto_plans` table exists in bootstrap schema
@@ -260,7 +260,7 @@ This verification confirms that the critical P0 and P1 fixes from the coherence 
   - `005_finalize_brand_id_uuid_migration.sql` (FKs, RLS updates)
   - `006_drop_legacy_brand_id_text_columns.sql` (drops TEXT columns)
   - `007_add_media_assets_status_and_rls.sql`
-  - `008_content_planning_schema_clarification.sql` (documentation)
+  - `014_content_planning_schema_clarification.sql` (documentation)
   - `009_consolidate_brand_guide_fields.sql` (data migration)
 - **Archived Migrations**: `supabase/migrations/archived/20250118_create_content_calendar_tables.sql` contains `monthly_content_plans` but is archived (not active)
 

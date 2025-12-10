@@ -40,32 +40,17 @@ export function initializeSentry() {
               (typeof env.SENTRY_DSN === "string" ? env.SENTRY_DSN : null) ||
               "https://your-sentry-dsn@sentry.io/project-id";
 
-  // ✅ FIX: Build integrations array using Sentry v10+ API
-  const integrations: Sentry.Integration[] = [];
-  
-  // BrowserTracing integration (Sentry v8+ uses browserTracingIntegration)
-  try {
-    integrations.push(Sentry.browserTracingIntegration({
-      tracePropagationTargets: ["localhost", /^/],
-    }));
-  } catch (e) {
-    console.warn("Failed to initialize BrowserTracing:", e);
-  }
-  
-  // Replay integration (Sentry v8+ uses replayIntegration)
-  try {
-    integrations.push(Sentry.replayIntegration({
-      maskAllText: true,
-      blockAllMedia: true,
-    }));
-  } catch (e) {
-    console.warn("Failed to initialize Replay:", e);
-  }
-
   Sentry.init({
     dsn,
     environment: NODE_ENV as string,
-    integrations: integrations as Parameters<typeof Sentry.init>[0]["integrations"],
+    // ✅ FIX: Use Sentry v8+ function-based integrations
+    integrations: [
+      Sentry.browserTracingIntegration(),
+      Sentry.replayIntegration({
+        maskAllText: true,
+        blockAllMedia: true,
+      }),
+    ],
     maxBreadcrumbs: 50,
     attachStacktrace: true,
     tracesSampleRate: isProduction ? 0.1 : 1.0,

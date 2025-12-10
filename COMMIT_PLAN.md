@@ -14,7 +14,7 @@ Complete fix for `brand_safety_configs` ghost table references:
 ### Commit 1: Schema Fix Migration
 ```bash
 git add supabase/migrations/012_fix_brand_safety_configs_ghost.sql \
-  supabase/migrations/013_force_postgrest_schema_reload.sql \
+  supabase/migrations/015_force_postgrest_schema_reload.sql \
   docs/BRAND_SAFETY_SCHEMA_NOTES.md \
   docs/BRAND_SAFETY_SCHEMA_FIX.md \
   docs/SUPABASE_TABLES_REQUIRED.md
@@ -67,7 +67,7 @@ After committing:
    ```bash
    # In Supabase Dashboard SQL Editor, run:
    # - supabase/migrations/012_fix_brand_safety_configs_ghost.sql
-   # - supabase/migrations/013_force_postgrest_schema_reload.sql
+   # - supabase/migrations/015_force_postgrest_schema_reload.sql
    ```
 
 2. **Reload PostgREST schema:**
@@ -99,7 +99,7 @@ After committing:
 
 ### New Files
 - `supabase/migrations/012_fix_brand_safety_configs_ghost.sql` - Drop table migration
-- `supabase/migrations/013_force_postgrest_schema_reload.sql` - Force cache reload
+- `supabase/migrations/015_force_postgrest_schema_reload.sql` - Force cache reload
 - `scripts/diagnostics/test-supabase-schema.ts` - Diagnostic utility
 - `docs/BRAND_SAFETY_SCHEMA_NOTES.md` - Schema design docs
 - `docs/BRAND_SAFETY_SCHEMA_FIX.md` - Fix application guide

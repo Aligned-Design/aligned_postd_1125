@@ -360,4 +360,196 @@ router.delete(
   }) as RequestHandler
 );
 
+/**
+ * GET /api/media/excluded
+ * Get excluded (hidden) media assets for a brand
+ * 
+ * **Auth:** Required (authenticateUser)
+ * **Scope:** content:view
+ * **Query:** brandId (UUID, required)
+ */
+router.get(
+  "/excluded",
+  authenticateUser,
+  requireScope("content:view"),
+  validateBrandId,
+  (async (req, res, next) => {
+    try {
+      const brandId = (req as any).validatedBrandId ?? (req.query.brandId as string);
+      if (!brandId) {
+        throw new AppError(
+          ErrorCode.MISSING_REQUIRED_FIELD,
+          "brandId is required",
+          HTTP_STATUS.BAD_REQUEST,
+          "warning"
+        );
+      }
+
+      // Get excluded images using the scraped-images-service
+      const { getScrapedImages } = await import("../lib/scraped-images-service");
+      
+      // Fetch ALL images including excluded, then filter to only excluded
+      const allImages = await getScrapedImages(brandId, undefined, undefined, true); // includeExcluded = true
+      const excludedImages = allImages.filter(img => img.excluded === true);
+
+      res.json({
+        items: excludedImages.map(img => ({
+          id: img.id,
+          url: img.url,
+          filename: img.filename,
+          metadata: img.metadata,
+          excluded: true,
+        })),
+        total: excludedImages.length,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }) as RequestHandler
+);
+
+/**
+ * POST /api/media/:assetId/exclude
+ * Exclude an asset from the brand (soft delete)
+ * Sets excluded = true for the specified asset
+ * 
+ * **Auth:** Required (authenticateUser)
+ * **Scope:** content:manage
+ * **Params:** assetId (UUID)
+ */
+router.post(
+  "/:assetId/exclude",
+  authenticateUser,
+  requireScope("content:manage"),
+  (async (req, res, next) => {
+    try {
+      // ✅ VALIDATION: Validate assetId parameter
+      let assetId: string;
+      try {
+        const validated = AssetIdParamSchema.parse(req.params);
+        assetId = validated.assetId;
+      } catch (validationError) {
+        if (validationError instanceof z.ZodError) {
+          throw new AppError(
+            ErrorCode.VALIDATION_ERROR,
+            "Invalid asset ID format",
+            HTTP_STATUS.BAD_REQUEST,
+            "warning",
+            { validationErrors: validationError.errors }
+          );
+        }
+        throw validationError;
+      }
+
+      // Get asset to verify brand access
+      const asset = await mediaDB.getMediaAsset(assetId);
+
+      if (!asset) {
+        throw new AppError(
+          ErrorCode.NOT_FOUND,
+          "Asset not found",
+          HTTP_STATUS.NOT_FOUND,
+          "info"
+        );
+      }
+
+      // ✅ Verify brand access
+      await assertBrandAccess(req, asset.brand_id, true, true);
+
+      // ✅ Import and call excludeAsset from scraped-images-service
+      const { excludeAsset } = await import("../lib/scraped-images-service");
+      const success = await excludeAsset(assetId, asset.brand_id);
+
+      if (!success) {
+        throw new AppError(
+          ErrorCode.DATABASE_ERROR,
+          "Failed to exclude asset",
+          HTTP_STATUS.INTERNAL_SERVER_ERROR,
+          "error"
+        );
+      }
+
+      res.json({
+        assetId,
+        excluded: true,
+        excludedAt: new Date().toISOString(),
+      });
+    } catch (error) {
+      next(error);
+    }
+  }) as RequestHandler
+);
+
+/**
+ * POST /api/media/:assetId/restore
+ * Restore an excluded asset (un-exclude)
+ * Sets excluded = false for the specified asset
+ * 
+ * **Auth:** Required (authenticateUser)
+ * **Scope:** content:manage
+ * **Params:** assetId (UUID)
+ */
+router.post(
+  "/:assetId/restore",
+  authenticateUser,
+  requireScope("content:manage"),
+  (async (req, res, next) => {
+    try {
+      // ✅ VALIDATION: Validate assetId parameter
+      let assetId: string;
+      try {
+        const validated = AssetIdParamSchema.parse(req.params);
+        assetId = validated.assetId;
+      } catch (validationError) {
+        if (validationError instanceof z.ZodError) {
+          throw new AppError(
+            ErrorCode.VALIDATION_ERROR,
+            "Invalid asset ID format",
+            HTTP_STATUS.BAD_REQUEST,
+            "warning",
+            { validationErrors: validationError.errors }
+          );
+        }
+        throw validationError;
+      }
+
+      // Get asset to verify brand access
+      const asset = await mediaDB.getMediaAsset(assetId);
+
+      if (!asset) {
+        throw new AppError(
+          ErrorCode.NOT_FOUND,
+          "Asset not found",
+          HTTP_STATUS.NOT_FOUND,
+          "info"
+        );
+      }
+
+      // ✅ Verify brand access
+      await assertBrandAccess(req, asset.brand_id, true, true);
+
+      // ✅ Import and call restoreAsset from scraped-images-service
+      const { restoreAsset } = await import("../lib/scraped-images-service");
+      const success = await restoreAsset(assetId, asset.brand_id);
+
+      if (!success) {
+        throw new AppError(
+          ErrorCode.DATABASE_ERROR,
+          "Failed to restore asset",
+          HTTP_STATUS.INTERNAL_SERVER_ERROR,
+          "error"
+        );
+      }
+
+      res.json({
+        assetId,
+        excluded: false,
+        restoredAt: new Date().toISOString(),
+      });
+    } catch (error) {
+      next(error);
+    }
+  }) as RequestHandler
+);
+
 export default router;

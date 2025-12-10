@@ -107,7 +107,7 @@ Tests that **run when DB credentials are available**.
 
 ## RLS Guarantee Summary
 
-After applying `013_enforce_rls_hardening.sql`:
+After applying `016_enforce_rls_hardening.sql`:
 
 ```
 ┌────────────────────────┬─────────────────────────────────────────────────────┐
@@ -139,7 +139,7 @@ After applying `013_enforce_rls_hardening.sql`:
 
 | Purpose | File |
 |---------|------|
-| RLS hardening migration | [`supabase/migrations/013_enforce_rls_hardening.sql`](../supabase/migrations/013_enforce_rls_hardening.sql) |
+| RLS hardening migration | [`supabase/migrations/016_enforce_rls_hardening.sql`](../supabase/migrations/016_enforce_rls_hardening.sql) |
 | Test auth helper | [`server/__tests__/helpers/auth.ts`](../server/__tests__/helpers/auth.ts) |
 | RLS isolation tests | [`server/__tests__/rls-multi-tenant-isolation.test.ts`](../server/__tests__/rls-multi-tenant-isolation.test.ts) |
 | Bootstrap schema | [`supabase/migrations/001_bootstrap_schema.sql`](../supabase/migrations/001_bootstrap_schema.sql) |
@@ -218,7 +218,7 @@ SUPABASE_SERVICE_ROLE_KEY=xxx
 ```
 
 ### "RLS tests show data visible to anon"
-The RLS hardening migration hasn't been applied. Run `013_enforce_rls_hardening.sql` in Supabase SQL Editor.
+The RLS hardening migration hasn't been applied. Run `016_enforce_rls_hardening.sql` in Supabase SQL Editor.
 
 ### "401 Unauthorized on authenticated routes"
 Use `generateTestToken()` from `server/__tests__/helpers/auth.ts` to create valid JWT tokens.

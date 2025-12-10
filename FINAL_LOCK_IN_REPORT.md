@@ -6,7 +6,7 @@
 
 1. **fix(db): remove legacy brand_safety_configs table and align to brands.safety_config**
    - `supabase/migrations/012_fix_brand_safety_configs_ghost.sql`
-   - `supabase/migrations/013_force_postgrest_schema_reload.sql`
+   - `supabase/migrations/015_force_postgrest_schema_reload.sql`
    - Schema documentation updates
    - Fix summary documentation
 

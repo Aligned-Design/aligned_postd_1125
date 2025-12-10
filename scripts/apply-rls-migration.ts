@@ -31,7 +31,7 @@ async function applyMigration() {
   console.log('');
 
   // Read the migration file
-  const migrationPath = path.join(__dirname, '../supabase/migrations/013_enforce_rls_hardening.sql');
+  const migrationPath = path.join(__dirname, '../supabase/migrations/016_enforce_rls_hardening.sql');
   const migrationSQL = fs.readFileSync(migrationPath, 'utf-8');
   
   // Split by major steps (each DROP/CREATE block)
@@ -573,7 +573,7 @@ async function applyMigration() {
         if (error.code === 'PGRST202') {
           console.log(`⚠️  Step ${stepNum}: exec_sql RPC not available - need to run SQL directly in Supabase console`);
           console.log('');
-          console.log('Please copy the contents of supabase/migrations/013_enforce_rls_hardening.sql');
+          console.log('Please copy the contents of supabase/migrations/016_enforce_rls_hardening.sql');
           console.log('and execute in Supabase SQL Editor: https://supabase.com/dashboard/project/nsrlgwimixkgwlqrpbxq/sql');
           process.exit(1);
         }
@@ -599,7 +599,7 @@ async function applyMigration() {
   if (failCount > 0) {
     console.log('');
     console.log('⚠️  Some steps failed. You may need to run the migration manually.');
-    console.log('   Copy supabase/migrations/013_enforce_rls_hardening.sql to Supabase SQL Editor.');
+    console.log('   Copy supabase/migrations/016_enforce_rls_hardening.sql to Supabase SQL Editor.');
   }
 }
 

@@ -470,7 +470,7 @@ export interface BrandGuide {
 - Adds comments marking legacy fields
 - Safe to run multiple times (idempotent)
 
-**✅ Content Planning Clarification** (`supabase/migrations/008_content_planning_schema_clarification.sql`)
+**✅ Content Planning Clarification** (`supabase/migrations/014_content_planning_schema_clarification.sql`)
 - Documents `auto_plans` as canonical
 - Notes `monthly_content_plans` is archived
 

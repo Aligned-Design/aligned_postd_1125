@@ -11,13 +11,20 @@
  * - "Looks Great → Continue"
  */
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { Edit, CheckCircle2, Sparkles, X } from "lucide-react";
+import { Edit, CheckCircle2, Sparkles, X, RefreshCw } from "lucide-react";
 import { OnboardingProgress } from "@/components/onboarding/OnboardingProgress";
 import { useConfetti } from "@/hooks/useConfetti";
 import { saveBrandGuideFromOnboarding } from "@/lib/onboarding-brand-sync";
 import { logInfo, logWarning, logError } from "@/lib/logger";
+import { apiPost } from "@/lib/api";
+
+// ✅ NEW: Image type with ID for exclude functionality
+interface BrandImage {
+  id: string;
+  url: string;
+}
 
 export default function Screen5BrandSummaryReview() {
   const { brandSnapshot, setBrandSnapshot, setOnboardingStep } = useAuth();
@@ -25,10 +32,51 @@ export default function Screen5BrandSummaryReview() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingField, setEditingField] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");
-  // ✅ SINGLE SOURCE OF TRUTH: Only use brand guide API, no local state for images
-  const [logoImages, setLogoImages] = useState<string[]>([]);
-  const [otherImages, setOtherImages] = useState<string[]>([]);
+  // ✅ UPDATED: Store full image objects (with IDs) for exclude functionality
+  const [logoImages, setLogoImages] = useState<BrandImage[]>([]);
+  const [otherImages, setOtherImages] = useState<BrandImage[]>([]);
   const [brandGuideStory, setBrandGuideStory] = useState<string | null>(null);
+  // ✅ NEW: Track excluded images for immediate UI feedback
+  const [excludedImageIds, setExcludedImageIds] = useState<Set<string>>(new Set());
+  const [isExcluding, setIsExcluding] = useState<string | null>(null);
+  const [excludeError, setExcludeError] = useState<string | null>(null);
+
+  // ✅ NEW: Handler for excluding an image
+  const handleExcludeImage = useCallback(async (assetId: string, imageUrl: string) => {
+    if (!assetId || isExcluding) return;
+    
+    setIsExcluding(assetId);
+    setExcludeError(null);
+    
+    try {
+      // Optimistically update UI
+      setExcludedImageIds(prev => new Set([...prev, assetId]));
+      
+      // Call API to persist the exclusion
+      await apiPost(`/api/media/${assetId}/exclude`, {});
+      
+      logInfo("Image excluded", { step: "exclude_image", assetId, url: imageUrl.substring(0, 50) });
+    } catch (error) {
+      // Rollback optimistic update on error
+      setExcludedImageIds(prev => {
+        const next = new Set(prev);
+        next.delete(assetId);
+        return next;
+      });
+      
+      const errorMessage = error instanceof Error ? error.message : "Failed to remove image";
+      setExcludeError(errorMessage);
+      logError("Failed to exclude image", error instanceof Error ? error : new Error(errorMessage), {
+        step: "exclude_image",
+        assetId,
+      });
+      
+      // Clear error after 3 seconds
+      setTimeout(() => setExcludeError(null), 3000);
+    } finally {
+      setIsExcluding(null);
+    }
+  }, [isExcluding]);
 
   // Fire confetti on load
   useEffect(() => {
@@ -109,12 +157,13 @@ export default function Screen5BrandSummaryReview() {
         }
         
         // ✅ CRITICAL FIX: Read from separate logos and images arrays (primary source)
+        // ✅ UPDATED: Keep full objects with IDs for exclude functionality
         // Brand Guide now exposes logos (≤2) and images/brandImages (≤15) arrays
         if (brandGuide?.logos && Array.isArray(brandGuide.logos)) {
-          const logos = brandGuide.logos
+          const logos: BrandImage[] = brandGuide.logos
             .filter((img: any) => img.url && typeof img.url === "string" && img.url.startsWith("http"))
-            .map((img: any) => img.url)
-            .filter(Boolean);
+            .map((img: any) => ({ id: img.id || "", url: img.url }))
+            .filter((img: BrandImage) => img.url);
           
           if (import.meta.env.DEV) {
             logInfo("Found logos from brand guide", {
@@ -129,12 +178,13 @@ export default function Screen5BrandSummaryReview() {
         }
         
         // ✅ Read brand images from images or brandImages array
+        // ✅ UPDATED: Keep full objects with IDs for exclude functionality
         const brandImagesArray = brandGuide?.images || brandGuide?.brandImages;
         if (brandImagesArray && Array.isArray(brandImagesArray)) {
-          const images = brandImagesArray
+          const images: BrandImage[] = brandImagesArray
             .filter((img: any) => img.url && typeof img.url === "string" && img.url.startsWith("http"))
-            .map((img: any) => img.url)
-            .filter(Boolean);
+            .map((img: any) => ({ id: img.id || "", url: img.url }))
+            .filter((img: BrandImage) => img.url);
           
           if (import.meta.env.DEV) {
             logInfo("Found brand images from brand guide", {
@@ -149,6 +199,7 @@ export default function Screen5BrandSummaryReview() {
         }
         
         // ✅ FALLBACK: If logos/images arrays are empty, try approvedAssets.uploadedPhotos (backward compatibility)
+        // ✅ UPDATED: Keep full objects with IDs for exclude functionality
         if ((!brandGuide?.logos || brandGuide.logos.length === 0) && 
             (!brandGuide?.images || brandGuide.images.length === 0) &&
             brandGuide?.approvedAssets?.uploadedPhotos) {
@@ -159,22 +210,22 @@ export default function Screen5BrandSummaryReview() {
           const allScrapedImages = brandGuide.approvedAssets.uploadedPhotos
             .filter((img: any) => img.source === "scrape" && img.url && typeof img.url === "string" && img.url.startsWith("http"));
           
-          const logos = allScrapedImages
+          const logos: BrandImage[] = allScrapedImages
             .filter((img: any) => {
               const role = img.metadata?.role || "";
               return role === "logo" || role === "Logo";
             })
-            .map((img: any) => img.url)
-            .filter(Boolean)
+            .map((img: any) => ({ id: img.id || "", url: img.url }))
+            .filter((img: BrandImage) => img.url)
             .slice(0, 2); // Max 2 logos
           
-          const otherImgs = allScrapedImages
+          const otherImgs: BrandImage[] = allScrapedImages
             .filter((img: any) => {
               const role = img.metadata?.role || "";
               return role !== "logo" && role !== "Logo";
             })
-            .map((img: any) => img.url)
-            .filter(Boolean)
+            .map((img: any) => ({ id: img.id || "", url: img.url }))
+            .filter((img: BrandImage) => img.url)
             .slice(0, 15); // Max 15 brand images
           
           if (logos.length > 0) {
@@ -202,7 +253,8 @@ export default function Screen5BrandSummaryReview() {
           if (import.meta.env.DEV) {
             logInfo("Using logoUrl as final fallback", { step: "fetch_images" });
           }
-          setLogoImages([brandGuide.logoUrl]);
+          // ✅ UPDATED: Use BrandImage format (with fallback ID)
+          setLogoImages([{ id: "fallback-logo", url: brandGuide.logoUrl }]);
         }
       } catch (error) {
         logError("Error fetching brand guide images", error instanceof Error ? error : new Error(String(error)), {
@@ -484,26 +536,31 @@ export default function Screen5BrandSummaryReview() {
             <div className="flex items-center justify-between mb-4">
               <div>
                 <h2 className="text-lg font-black text-slate-900">Logos</h2>
-                {logoImages.length > 0 && (
+                {logoImages.filter(img => !excludedImageIds.has(img.id)).length > 0 && (
                   <p className="text-xs text-slate-500 mt-1 flex items-center gap-1">
                     <Sparkles className="w-3 h-3" />
                     Auto-detected from your website
                   </p>
                 )}
               </div>
-              <span className="text-xs text-slate-500">
-                {logoImages.length > 0 ? `${logoImages.length} logo${logoImages.length !== 1 ? 's' : ''}` : "No logos found"}
-              </span>
+              <div className="flex items-center gap-2">
+                {excludeError && <span className="text-xs text-red-500 animate-pulse">{excludeError}</span>}
+                <span className="text-xs text-slate-500">
+                  {logoImages.filter(img => !excludedImageIds.has(img.id)).length > 0 
+                    ? `${logoImages.filter(img => !excludedImageIds.has(img.id)).length} logo${logoImages.filter(img => !excludedImageIds.has(img.id)).length !== 1 ? 's' : ''}` 
+                    : "No logos found"}
+                </span>
+              </div>
             </div>
-            {logoImages.length > 0 ? (
+            {logoImages.filter(img => !excludedImageIds.has(img.id)).length > 0 ? (
               <div className="grid grid-cols-3 gap-3">
-                {logoImages.map((imageUrl, index) => (
+                {logoImages.filter(img => !excludedImageIds.has(img.id)).map((image, index) => (
                   <div
-                    key={index}
-                    className="aspect-square rounded-lg overflow-hidden border-2 border-slate-200 bg-slate-100 flex items-center justify-center"
+                    key={image.id || index}
+                    className="relative aspect-square rounded-lg overflow-hidden border-2 border-slate-200 bg-slate-100 flex items-center justify-center group"
                   >
                     <img
-                      src={imageUrl}
+                      src={image.url}
                       alt={`Logo ${index + 1}`}
                       className="w-full h-full object-contain p-2"
                       onError={(e) => {
@@ -516,6 +573,24 @@ export default function Screen5BrandSummaryReview() {
                         (e.target as HTMLImageElement).style.display = "none";
                       }}
                     />
+                    {/* ✅ NEW: X button to remove logo */}
+                    {image.id && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleExcludeImage(image.id, image.url);
+                        }}
+                        disabled={isExcluding === image.id}
+                        className="absolute top-1 right-1 w-6 h-6 bg-black/50 hover:bg-red-500 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                        title="Remove from brand"
+                      >
+                        {isExcluding === image.id ? (
+                          <RefreshCw className="w-3 h-3 text-white animate-spin" />
+                        ) : (
+                          <X className="w-3 h-3 text-white" />
+                        )}
+                      </button>
+                    )}
                   </div>
                 ))}
               </div>
@@ -533,7 +608,7 @@ export default function Screen5BrandSummaryReview() {
           <div className="flex items-center justify-between mb-4">
             <div>
               <h2 className="text-lg font-black text-slate-900">Brand Images</h2>
-              {otherImages.length > 0 && (
+              {otherImages.filter(img => !excludedImageIds.has(img.id)).length > 0 && (
                 <p className="text-xs text-slate-500 mt-1 flex items-center gap-1">
                   <Sparkles className="w-3 h-3" />
                   Auto-detected from your website
@@ -541,30 +616,50 @@ export default function Screen5BrandSummaryReview() {
               )}
             </div>
             <span className="text-xs text-slate-500">
-              {otherImages.length > 0 ? `${otherImages.length} image${otherImages.length !== 1 ? 's' : ''}` : "No images found"}
+              {otherImages.filter(img => !excludedImageIds.has(img.id)).length > 0 
+                ? `${otherImages.filter(img => !excludedImageIds.has(img.id)).length} image${otherImages.filter(img => !excludedImageIds.has(img.id)).length !== 1 ? 's' : ''}` 
+                : "No images found"}
             </span>
           </div>
-          {otherImages.length > 0 ? (
+          {otherImages.filter(img => !excludedImageIds.has(img.id)).length > 0 ? (
             <div className="grid grid-cols-3 gap-3">
-              {otherImages.map((imageUrl, index) => (
+              {otherImages.filter(img => !excludedImageIds.has(img.id)).map((image, index) => (
                 <div
-                  key={index}
-                  className="aspect-square rounded-lg overflow-hidden border-2 border-slate-200 bg-slate-100"
+                  key={image.id || index}
+                  className="relative aspect-square rounded-lg overflow-hidden border-2 border-slate-200 bg-slate-100 group"
                 >
                   <img
-                    src={imageUrl}
+                    src={image.url}
                     alt={`Brand image ${index + 1}`}
                     className="w-full h-full object-cover"
-                      onError={(e) => {
-                        if (import.meta.env.DEV) {
-                          logError(`Failed to load image ${index + 1}`, new Error("Image load failed"), {
-                            step: "image_load",
-                            imageIndex: index + 1,
-                          });
-                        }
-                        (e.target as HTMLImageElement).style.display = "none";
-                      }}
+                    onError={(e) => {
+                      if (import.meta.env.DEV) {
+                        logError(`Failed to load image ${index + 1}`, new Error("Image load failed"), {
+                          step: "image_load",
+                          imageIndex: index + 1,
+                        });
+                      }
+                      (e.target as HTMLImageElement).style.display = "none";
+                    }}
                   />
+                  {/* ✅ NEW: X button to remove image */}
+                  {image.id && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleExcludeImage(image.id, image.url);
+                      }}
+                      disabled={isExcluding === image.id}
+                      className="absolute top-1 right-1 w-6 h-6 bg-black/50 hover:bg-red-500 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                      title="Remove from brand"
+                    >
+                      {isExcluding === image.id ? (
+                        <RefreshCw className="w-3 h-3 text-white animate-spin" />
+                      ) : (
+                        <X className="w-3 h-3 text-white" />
+                      )}
+                    </button>
+                  )}
                 </div>
               ))}
             </div>

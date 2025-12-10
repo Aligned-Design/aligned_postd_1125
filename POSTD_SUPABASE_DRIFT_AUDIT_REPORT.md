@@ -50,7 +50,7 @@ The POSTD database uses a **consolidated bootstrap migration** approach:
 | 005 | `005_finalize_brand_id_uuid_migration.sql` | Complete UUID migration | ⚠️ **Cleanup/Retrofit** | **Policy Updates** | Adds FK constraints, updates RLS policies to use `brand_id_uuid`. Drops old policies. Safe (policies only). |
 | 006 | `006_drop_legacy_brand_id_text_columns.sql` | Drop deprecated TEXT columns | ❌ **HIGH RISK** | **Destructive** | **DROPS COLUMNS** from 10 tables. **IRREVERSIBLE**. Only run after code migration complete. |
 | 007 | `007_add_media_assets_status_and_rls.sql` | Add status column + RLS to `media_assets` | ✅ **Stable** | **Additive** | Adds `status TEXT` column, INSERT/UPDATE RLS policies. Safe (additive). |
-| 008 | `008_content_planning_schema_clarification.sql` | Documentation only | ✅ **Stable** | **No Changes** | Documentation migration. No schema changes. Safe. |
+| 014 | `014_content_planning_schema_clarification.sql` | Documentation only | ✅ **Stable** | **No Changes** | Documentation migration. No schema changes. Safe. |
 | 009 | `009_consolidate_brand_guide_fields.sql` | Merge legacy fields into `brand_kit` | ⚠️ **Data Migration** | **Data Transform** | Merges `voice_summary`, `visual_summary`, `tone_keywords` into `brand_kit` JSONB. Safe (additive merge). |
 | 20250130 | `20250130_brand_guide_versions_patch.sql` | Patch for existing DBs | ✅ **Stable** | **Idempotent** | Creates `brand_guide_versions` if missing (for DBs created before migration 002). Safe. |
 
@@ -234,7 +234,7 @@ brandId: data.brand_id_uuid || data.brand_id // Prefer UUID, fallback to TEXT
 - [ ] Run `002_create_brand_guide_versions.sql` (idempotent)
 - [ ] Run `004_activate_generation_logs_table.sql` (idempotent)
 - [ ] Run `007_add_media_assets_status_and_rls.sql` (additive)
-- [ ] Run `008_content_planning_schema_clarification.sql` (documentation only)
+- [ ] Run `014_content_planning_schema_clarification.sql` (documentation only)
 - [ ] Run `20250130_brand_guide_versions_patch.sql` (idempotent)
 
 #### Step 3: Apply Data Migrations (If Needed)

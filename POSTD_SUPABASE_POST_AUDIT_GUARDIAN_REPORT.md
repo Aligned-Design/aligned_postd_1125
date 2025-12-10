@@ -48,7 +48,7 @@ All critical issues from the previous audit have been resolved:
 | 005 | `005_finalize_brand_id_uuid_migration.sql` | Complete UUID migration | ✅ **Required** | ⚠️ Medium | **YES** | Adds FK constraints, updates RLS policies to use `brand_id_uuid`. **Prerequisite for 006, 010**. |
 | 006 | `006_drop_legacy_brand_id_text_columns.sql` | Drop deprecated TEXT columns | ⚠️ **Conditional** | ❌ **HIGH RISK** | **YES** | **DROPS COLUMNS** from 10 tables. **IRREVERSIBLE**. Only apply after: 003, 005, 010 applied + code verified + backup taken. **Has safety checks**. |
 | 007 | `007_add_media_assets_status_and_rls.sql` | Add status column + RLS | ✅ **Required** | ✅ Safe | No | Adds `status TEXT` column, INSERT/UPDATE RLS policies. Code requires this. Additive only. |
-| 008 | `008_content_planning_schema_clarification.sql` | Documentation only | ✅ **Optional** | ✅ Safe | No | Documentation migration. No schema changes. Safe to skip if desired. |
+| 014 | `014_content_planning_schema_clarification.sql` | Documentation only | ✅ **Optional** | ✅ Safe | No | Documentation migration. No schema changes. Safe to skip if desired. |
 | 009 | `009_consolidate_brand_guide_fields.sql` | Merge legacy fields into `brand_kit` | ✅ **Required** | ⚠️ Medium | No | Merges `voice_summary`, `visual_summary`, `tone_keywords` into `brand_kit` JSONB. Data migration. Safe (additive merge). |
 | 010 | `010_ensure_rls_policies_use_brand_id_uuid.sql` | RLS policy safety check | ✅ **Required** | ✅ Safe | **YES** | Ensures all RLS policies use `brand_id_uuid`. **Prerequisite for 006**. Idempotent. |
 | 011 | `011_add_missing_tables_and_columns.sql` | Add missing tables/columns/view | ✅ **Required** | ✅ Safe | No | Creates `approval_requests`, `advisor_cache`, adds `user_preferences.brand_id`, `brands.safety_config`, creates `tenants_view`. All idempotent. |
@@ -294,7 +294,7 @@ AND (qual LIKE '%is_brand_member_text%' OR qual LIKE '%brand_id%' AND qual NOT L
 10. **011_add_missing_tables_and_columns.sql** — Add `approval_requests`, `advisor_cache`, etc.
 
 #### Phase 5: Documentation
-11. **008_content_planning_schema_clarification.sql** — Documentation only (optional)
+11. **014_content_planning_schema_clarification.sql** — Documentation only (optional)
 
 #### Phase 6: Final Cleanup (Apply Last, During Maintenance Window)
 12. **006_drop_legacy_brand_id_text_columns.sql** — **DESTRUCTIVE** — Drop legacy columns
@@ -786,7 +786,7 @@ WHERE routine_schema = 'public' AND routine_name = 'is_brand_member_text';
 - [x] 011_add_missing_tables_and_columns.sql
 - [x] 20250130_brand_guide_versions_patch.sql
 - [ ] 006_drop_legacy_brand_id_text_columns.sql (Apply after verification)
-- [ ] 008_content_planning_schema_clarification.sql (Optional - documentation only)
+- [ ] 014_content_planning_schema_clarification.sql (Optional - documentation only)
 
 ### Post-Application Verification
 

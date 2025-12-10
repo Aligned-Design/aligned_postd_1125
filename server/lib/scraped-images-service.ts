@@ -47,6 +47,46 @@ function deriveFilenameFromUrl(imageUrl: string): string {
   }
 }
 
+/**
+ * Infer MIME type from filename extension
+ * Falls back to "image/jpeg" if extension is unknown
+ * 
+ * ✅ Added 2025-12-10: Better MIME type handling for scraped images
+ */
+function inferMimeType(filename: string): string {
+  try {
+    const ext = filename.split(".").pop()?.toLowerCase();
+    if (!ext) return "image/jpeg";
+    
+    switch (ext) {
+      case "png":
+        return "image/png";
+      case "webp":
+        return "image/webp";
+      case "svg":
+        return "image/svg+xml";
+      case "gif":
+        return "image/gif";
+      case "jpg":
+      case "jpeg":
+        return "image/jpeg";
+      case "ico":
+        return "image/x-icon";
+      case "bmp":
+        return "image/bmp";
+      case "tiff":
+      case "tif":
+        return "image/tiff";
+      case "avif":
+        return "image/avif";
+      default:
+        return "image/jpeg"; // Safe fallback
+    }
+  } catch {
+    return "image/jpeg";
+  }
+}
+
 export interface CrawledImage {
   url: string;
   alt?: string;
@@ -166,56 +206,31 @@ export async function persistScrapedImages(
     return false;
   });
   
-  // ✅ CRITICAL FIX: Filter brand images - EXCLUDE ALL LOGOS
-  // Brand images should be: hero, photo, team, subject, other (NOT logo, social_icon, platform_logo)
+  // ✅ CRITICAL FIX (2025-12-10): More lenient brand image filtering
+  // NEW RULE: When in doubt, INCLUDE as brand image - user can remove via X button
+  // Brand images: All valid images EXCEPT tiny icons, social icons, platform logos
+  // LOGOS ARE NOW INCLUDED in brand images - they can be displayed and user can remove them
   const brandImages = validImages.filter(img => {
-    // ✅ STRICT: Exclude logos (explicitly classified or logo-like)
-    if (img.role === "logo") {
-      return false;
-    }
-    
-    // ✅ STRICT: Exclude social icons and platform logos
+    // ✅ ONLY STRICT EXCLUSION: Social icons and platform logos (never useful as brand content)
     if (img.role === "social_icon" || img.role === "platform_logo") {
       return false;
     }
     
-    // ✅ STRICT: Only accept valid brand image roles
-    const role = img.role || "other";
-    if (!["hero", "photo", "team", "subject", "other"].includes(role)) {
-      return false;
+    // ✅ EXCLUDE: Very tiny images (< 50x50 pixels) - definitely icons
+    if (img.width && img.height && (img.width * img.height < 2500)) {
+      console.log(`[ScrapedImages] Excluding tiny image (< 50x50): ${img.url.substring(0, 60)}...`);
+      return false; // Less than 50x50 pixels
     }
     
-    // ✅ SAFETY CHECK: Exclude logo-like images even if role is not "logo"
-    // This is a belt-and-suspenders approach to prevent logos from slipping through
-    const urlLower = img.url.toLowerCase();
-    const filenameLower = (img.url.split("/").pop() || "").toLowerCase();
-    const altLower = (img.alt || "").toLowerCase();
-    
-    // Check for logo indicators
-    const hasLogoIndicator = 
-      filenameLower.includes("logo") || 
-      altLower.includes("logo") ||
-      urlLower.includes("/logo/") ||
-      urlLower.includes("logo-") ||
-      urlLower.includes("-logo");
-    
-    // Check if it's a small square image (likely logo variant)
-    const isSmallSquare = img.width && img.height && 
-      img.width < 250 && img.height < 250 && 
-      Math.abs((img.width / img.height) - 1) < 0.3; // Square-ish
-    
-    // ✅ EXCLUDE: Small square images with logo indicators (likely logo variants)
-    if (hasLogoIndicator && isSmallSquare) {
-      console.log(`[ScrapedImages] Excluding logo-like image from brand images: ${img.url.substring(0, 60)}...`);
-      return false;
+    // ✅ NEW: Include logo-role images in brand images (user can decide to keep or remove)
+    // Previously these were excluded, but user may want to see them
+    if (img.role === "logo") {
+      console.log(`[ScrapedImages] Including logo in brand images (user can remove via X): ${img.url.substring(0, 60)}...`);
+      // Logo will also be in logoImages, but we include in brandImages for user control
     }
     
-    // ✅ EXCLUDE: Very tiny images (likely icons/logos)
-    if (img.width && img.height && (img.width * img.height < 10000)) {
-      return false; // Less than 100x100 pixels
-    }
-    
-    // Accept all other images (including those without dimensions)
+    // ✅ Accept all other images - when in doubt, keep it
+    // This includes: hero, photo, team, subject, other, partner_logo, and uncertain roles
     return true;
   });
   
@@ -536,11 +551,13 @@ export async function persistScrapedImages(
       // This is acceptable for scraped images as they're reference URLs
       // ✅ FIX: Store URL in path column (media_assets table doesn't have url column)
       // The path column will contain the actual image URL for scraped images
+      // ✅ FIX (2025-12-10): Infer MIME type from filename instead of hardcoding "image/jpeg"
+      const mimeType = inferMimeType(filename);
       const assetRecord = await mediaDB.createMediaAsset(
         brandId,
         finalTenantId,
         filename,
-        "image/jpeg", // Default MIME type
+        mimeType, // ✅ Inferred from filename extension
         image.url, // ✅ Store actual URL in path column (for scraped images, path = URL)
         0, // File size unknown for external URLs
         hash,
@@ -985,26 +1002,34 @@ export async function transferScrapedImages(
 export async function getScrapedImages(
   brandId: string,
   role?: "logo" | "hero" | "other",
-  category?: "logos" | "images" | "graphics"
+  category?: "logos" | "images" | "graphics",
+  includeExcluded?: boolean // Optional: include excluded assets (default: false)
 ): Promise<Array<{
   id: string;
   url: string;
   filename: string;
   metadata?: Record<string, unknown>;
+  excluded?: boolean;
 }>> {
   try {
-    // ✅ RESILIENT QUERY: Try to select metadata and category (may not exist in all schemas)
+    // ✅ RESILIENT QUERY: Try to select metadata, category, and excluded (may not exist in all schemas)
     // For scraped images, URL is stored in path column (external URLs)
     // We'll filter for HTTP URLs in JavaScript to identify scraped images
     const query = supabase
       .from("media_assets")
-      .select("id, path, filename, metadata, category")
+      .select("id, path, filename, metadata, category, excluded")
       .eq("brand_id", brandId)
       .eq("status", "active");
     
     // ✅ ENHANCED: Filter by category if specified
     if (category) {
       query.eq("category", category);
+    }
+    
+    // ✅ NEW: Filter out excluded assets by default (unless includeExcluded is true)
+    if (!includeExcluded) {
+      // Handle both false and null/undefined (backward compatibility with old data)
+      query.or("excluded.is.null,excluded.eq.false");
     }
 
     const { data, error } = await query
@@ -1110,6 +1135,7 @@ export async function getScrapedImages(
       url: asset.path || "", // For scraped images, path IS the URL
       filename: asset.filename,
       metadata: asset.metadata || undefined, // Include metadata if available
+      excluded: asset.excluded || false, // Include excluded flag
     }));
   } catch (error) {
     console.error("[ScrapedImages] Error getting scraped images:", error);
@@ -1119,6 +1145,70 @@ export async function getScrapedImages(
       error: error instanceof Error ? error.message : String(error),
     });
     return [];
+  }
+}
+
+/**
+ * Exclude an asset from the brand (soft delete)
+ * Sets excluded = true for the specified asset
+ * 
+ * @param assetId - The asset ID to exclude
+ * @param brandId - The brand ID (for validation)
+ * @returns true if successful, false if failed
+ */
+export async function excludeAsset(
+  assetId: string,
+  brandId: string
+): Promise<boolean> {
+  try {
+    const { error } = await supabase
+      .from("media_assets")
+      .update({ excluded: true, updated_at: new Date().toISOString() })
+      .eq("id", assetId)
+      .eq("brand_id", brandId);
+    
+    if (error) {
+      console.error("[ScrapedImages] Error excluding asset:", error);
+      return false;
+    }
+    
+    console.log(`[ScrapedImages] ✅ Asset excluded: ${assetId} for brand ${brandId}`);
+    return true;
+  } catch (error) {
+    console.error("[ScrapedImages] Error excluding asset:", error);
+    return false;
+  }
+}
+
+/**
+ * Restore an excluded asset (un-exclude)
+ * Sets excluded = false for the specified asset
+ * 
+ * @param assetId - The asset ID to restore
+ * @param brandId - The brand ID (for validation)
+ * @returns true if successful, false if failed
+ */
+export async function restoreAsset(
+  assetId: string,
+  brandId: string
+): Promise<boolean> {
+  try {
+    const { error } = await supabase
+      .from("media_assets")
+      .update({ excluded: false, updated_at: new Date().toISOString() })
+      .eq("id", assetId)
+      .eq("brand_id", brandId);
+    
+    if (error) {
+      console.error("[ScrapedImages] Error restoring asset:", error);
+      return false;
+    }
+    
+    console.log(`[ScrapedImages] ✅ Asset restored: ${assetId} for brand ${brandId}`);
+    return true;
+  } catch (error) {
+    console.error("[ScrapedImages] Error restoring asset:", error);
+    return false;
   }
 }
 

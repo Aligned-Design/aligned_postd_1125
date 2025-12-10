@@ -21,7 +21,7 @@ Applied P0 and P1 fixes to align the Supabase schema and backend logic with the 
 ### What Changed
 
 **Migration Created**:
-- `supabase/migrations/008_content_planning_schema_clarification.sql` - Documentation-only migration
+- `supabase/migrations/014_content_planning_schema_clarification.sql` - Documentation-only migration
 
 **Key Decisions**:
 - **Decided not to revive archived `monthly_content_plans` table**
@@ -166,7 +166,7 @@ Applied P0 and P1 fixes to align the Supabase schema and backend logic with the 
 ## Summary of Files Changed
 
 ### Migrations Created
-1. `supabase/migrations/008_content_planning_schema_clarification.sql` - Content planning documentation
+1. `supabase/migrations/014_content_planning_schema_clarification.sql` - Content planning documentation
 2. `supabase/migrations/009_consolidate_brand_guide_fields.sql` - Brand Guide consolidation
 
 ### Services Created
@@ -220,7 +220,7 @@ When applying migrations, use this order:
 5. `005_finalize_brand_id_uuid_migration.sql` - FK constraints, RLS updates
 6. `006_drop_legacy_brand_id_text_columns.sql` - Drop TEXT columns (after code is updated)
 7. `007_add_media_assets_status_and_rls.sql` - Media assets RLS
-8. `008_content_planning_schema_clarification.sql` - Documentation (no schema changes)
+8. `014_content_planning_schema_clarification.sql` - Documentation (no schema changes)
 9. `009_consolidate_brand_guide_fields.sql` - Brand Guide consolidation
 
 ---

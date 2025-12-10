@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { BrandGuide } from "@/types/brandGuide";
-import { ArrowRight, Sparkles, RefreshCw, Check, X, TrendingUp, Calendar } from "lucide-react";
+import { ArrowRight, Sparkles, RefreshCw, Check, X, TrendingUp, Calendar, Eye, EyeOff, RotateCcw } from "lucide-react";
+import { apiPost, apiGet } from "@/lib/api";
 
 interface BrandDashboardProps {
   brand: BrandGuide;
@@ -13,6 +14,120 @@ export function BrandDashboard({ brand, onUpdate }: BrandDashboardProps) {
   const [isRegenerating, setIsRegenerating] = useState(false);
   const [editingField, setEditingField] = useState<EditingField>(null);
   const [editValue, setEditValue] = useState("");
+  // ✅ NEW: Track excluded images locally for immediate UI feedback
+  const [excludedImageIds, setExcludedImageIds] = useState<Set<string>>(new Set());
+  const [isExcluding, setIsExcluding] = useState<string | null>(null); // Track which image is being excluded
+  const [excludeError, setExcludeError] = useState<string | null>(null);
+  
+  // ✅ NEW: State for "Show Hidden / Restore" feature
+  const [showHiddenImages, setShowHiddenImages] = useState(false);
+  const [hiddenImages, setHiddenImages] = useState<Array<{ id: string; url: string; filename?: string; metadata?: any }>>([]);
+  const [isLoadingHidden, setIsLoadingHidden] = useState(false);
+  const [isRestoring, setIsRestoring] = useState<string | null>(null);
+  const [restoredImageIds, setRestoredImageIds] = useState<Set<string>>(new Set()); // Track locally restored images
+
+  // ✅ NEW: Handler for excluding an image from the brand
+  const handleExcludeImage = useCallback(async (assetId: string, imageUrl: string) => {
+    if (!assetId || isExcluding) return;
+    
+    setIsExcluding(assetId);
+    setExcludeError(null);
+    
+    try {
+      // Optimistically update UI
+      setExcludedImageIds(prev => new Set([...prev, assetId]));
+      
+      // Call API to persist the exclusion
+      await apiPost(`/api/media/${assetId}/exclude`, {});
+      
+      console.log(`[BrandDashboard] ✅ Image excluded: ${imageUrl.substring(0, 50)}...`);
+    } catch (error) {
+      // Rollback optimistic update on error
+      setExcludedImageIds(prev => {
+        const next = new Set(prev);
+        next.delete(assetId);
+        return next;
+      });
+      
+      const errorMessage = error instanceof Error ? error.message : "Failed to remove image";
+      setExcludeError(errorMessage);
+      console.error("[BrandDashboard] Error excluding image:", error);
+      
+      // Clear error after 3 seconds
+      setTimeout(() => setExcludeError(null), 3000);
+    } finally {
+      setIsExcluding(null);
+    }
+  }, [isExcluding]);
+
+  // ✅ NEW: Fetch hidden images when toggle is enabled
+  const fetchHiddenImages = useCallback(async () => {
+    if (!brand.brandId && !brand.id) return;
+    
+    setIsLoadingHidden(true);
+    try {
+      const brandId = brand.brandId || brand.id;
+      const response = await apiGet<{ items: Array<{ id: string; url: string; filename?: string; metadata?: any }> }>(
+        `/api/media/excluded?brandId=${brandId}`
+      );
+      setHiddenImages(response.items || []);
+    } catch (error) {
+      console.error("[BrandDashboard] Error fetching hidden images:", error);
+      setHiddenImages([]);
+    } finally {
+      setIsLoadingHidden(false);
+    }
+  }, [brand.brandId, brand.id]);
+
+  // ✅ NEW: Handler for restoring a hidden image
+  const handleRestoreImage = useCallback(async (assetId: string, imageUrl: string) => {
+    if (!assetId || isRestoring) return;
+    
+    setIsRestoring(assetId);
+    
+    try {
+      // Optimistically update UI - mark as restored locally
+      setRestoredImageIds(prev => new Set([...prev, assetId]));
+      
+      // Also remove from locally excluded if present
+      setExcludedImageIds(prev => {
+        const next = new Set(prev);
+        next.delete(assetId);
+        return next;
+      });
+      
+      // Call API to restore
+      await apiPost(`/api/media/${assetId}/restore`, {});
+      
+      console.log(`[BrandDashboard] ✅ Image restored: ${imageUrl.substring(0, 50)}...`);
+      
+      // Remove from hidden images list
+      setHiddenImages(prev => prev.filter(img => img.id !== assetId));
+    } catch (error) {
+      // Rollback optimistic update on error
+      setRestoredImageIds(prev => {
+        const next = new Set(prev);
+        next.delete(assetId);
+        return next;
+      });
+      
+      const errorMessage = error instanceof Error ? error.message : "Failed to restore image";
+      setExcludeError(errorMessage);
+      console.error("[BrandDashboard] Error restoring image:", error);
+      
+      // Clear error after 3 seconds
+      setTimeout(() => setExcludeError(null), 3000);
+    } finally {
+      setIsRestoring(null);
+    }
+  }, [isRestoring]);
+
+  // ✅ NEW: Fetch hidden images when showHiddenImages is toggled on
+  useEffect(() => {
+    if (showHiddenImages) {
+      fetchHiddenImages();
+    }
+  }, [showHiddenImages, fetchHiddenImages]);
 
   const handleRegenerate = () => {
     setIsRegenerating(true);
@@ -515,27 +630,27 @@ export function BrandDashboard({ brand, onUpdate }: BrandDashboardProps) {
         )}
       </div>
 
-      {/* ✅ NEW: Brand Images Gallery - Display scraped brand images */}
+      {/* ✅ NEW: Brand Images Gallery - Display scraped brand images with X to remove */}
       {(() => {
-        // ✅ CRITICAL FIX: Get brand images with strict filtering to exclude logos
+        // ✅ UPDATED (2025-12-10): More lenient filtering - include logos, let user remove via X
         const brandImages: Array<{ id?: string; url: string; filename?: string; metadata?: any }> = [];
         const seenUrls = new Set<string>(); // Deduplication by URL
         
-        // 1. Check for top-level images array (from API) - this should already be filtered
+        // 1. Check for top-level images array (from API)
         if ((brand as any).images && Array.isArray((brand as any).images)) {
           (brand as any).images.forEach((img: any) => {
             const metadata = img.metadata || {};
             const role = metadata.role || "";
-            const category = metadata.category || "";
             const url = img.url || "";
+            const id = img.id || "";
             
-            // ✅ STRICT: Exclude logos (by role OR category)
-            if (role === "logo" || role === "Logo" || category === "logos") {
-              return; // Skip logos
+            // ✅ ONLY filter social icons and platform logos (never useful)
+            if (role === "social_icon" || role === "platform_logo") {
+              return;
             }
             
-            // ✅ STRICT: Exclude social icons and platform logos
-            if (role === "social_icon" || role === "platform_logo") {
+            // ✅ Skip if excluded locally
+            if (id && excludedImageIds.has(id)) {
               return;
             }
             
@@ -547,21 +662,21 @@ export function BrandDashboard({ brand, onUpdate }: BrandDashboardProps) {
           });
         }
         
-        // Also check brandImages alias (should be same as images, but check anyway)
+        // Also check brandImages alias
         if ((brand as any).brandImages && Array.isArray((brand as any).brandImages)) {
           (brand as any).brandImages.forEach((img: any) => {
             const metadata = img.metadata || {};
             const role = metadata.role || "";
-            const category = metadata.category || "";
             const url = img.url || "";
+            const id = img.id || "";
             
-            // ✅ STRICT: Exclude logos
-            if (role === "logo" || role === "Logo" || category === "logos") {
+            // ✅ ONLY filter social icons and platform logos
+            if (role === "social_icon" || role === "platform_logo") {
               return;
             }
             
-            // ✅ STRICT: Exclude social icons and platform logos
-            if (role === "social_icon" || role === "platform_logo") {
+            // ✅ Skip if excluded locally
+            if (id && excludedImageIds.has(id)) {
               return;
             }
             
@@ -573,27 +688,33 @@ export function BrandDashboard({ brand, onUpdate }: BrandDashboardProps) {
           });
         }
         
-        // 2. Check approvedAssets.uploadedPhotos (filtered by source='scrape' and role!=='logo')
+        // 2. Check approvedAssets.uploadedPhotos (filtered by source='scrape')
         if (brand.approvedAssets?.uploadedPhotos) {
-          const scrapedImages = brand.approvedAssets.uploadedPhotos.filter((img: any) => {
+          brand.approvedAssets.uploadedPhotos.forEach((img: any) => {
             const metadata = img.metadata || {};
             const source = img.source || metadata.source || "";
             const role = metadata.role || "";
-            const category = metadata.category || "";
             const url = img.url || "";
+            const id = img.id || "";
             
-            // ✅ STRICT: Only include scraped images that are NOT logos
-            if (source !== "scrape") return false;
-            if (role === "logo" || role === "Logo" || category === "logos") return false;
-            if (role === "social_icon" || role === "platform_logo") return false;
+            // Only include scraped images
+            if (source !== "scrape") return;
+            
+            // ✅ ONLY filter social icons and platform logos
+            if (role === "social_icon" || role === "platform_logo") {
+              return;
+            }
+            
+            // ✅ Skip if excluded locally
+            if (id && excludedImageIds.has(id)) {
+              return;
+            }
             
             // ✅ DEDUPE: Only add if not already seen
             if (url && !seenUrls.has(url)) {
               brandImages.push(img);
               seenUrls.add(url);
-              return true;
             }
-            return false;
           });
         }
         
@@ -602,14 +723,52 @@ export function BrandDashboard({ brand, onUpdate }: BrandDashboardProps) {
           return null;
         }
         
+        // Calculate hidden count (locally excluded + server excluded)
+        const locallyExcludedCount = excludedImageIds.size;
+        const serverExcludedCount = hiddenImages.filter(img => !restoredImageIds.has(img.id)).length;
+        const totalHiddenCount = showHiddenImages ? serverExcludedCount : (locallyExcludedCount + serverExcludedCount);
+        
         return (
           <div className="bg-white/50 backdrop-blur-xl rounded-xl border border-white/60 p-6">
-            <h3 className="text-lg font-black text-slate-900 mb-4">Brand Images</h3>
-            <p className="text-xs text-slate-600 mb-4">
-              {brandImages.length} image{brandImages.length !== 1 ? 's' : ''} scraped from your website
-            </p>
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h3 className="text-lg font-black text-slate-900">Brand Images</h3>
+                <p className="text-xs text-slate-600">
+                  {brandImages.length} image{brandImages.length !== 1 ? 's' : ''} scraped from your website
+                </p>
+              </div>
+              <div className="flex items-center gap-3">
+                {excludeError && (
+                  <span className="text-xs text-red-500 animate-pulse">{excludeError}</span>
+                )}
+                {/* ✅ NEW: Show Hidden toggle button */}
+                <button
+                  onClick={() => setShowHiddenImages(!showHiddenImages)}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
+                    showHiddenImages 
+                      ? "bg-amber-100 text-amber-700 hover:bg-amber-200" 
+                      : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                  }`}
+                  title={showHiddenImages ? "Hide removed images" : "Show removed images"}
+                >
+                  {showHiddenImages ? (
+                    <>
+                      <EyeOff className="w-3.5 h-3.5" />
+                      Hide removed
+                    </>
+                  ) : (
+                    <>
+                      <Eye className="w-3.5 h-3.5" />
+                      Show removed {totalHiddenCount > 0 && `(${totalHiddenCount})`}
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+            
+            {/* Active Brand Images Grid */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              {brandImages.slice(0, 12).map((img, idx) => (
+              {brandImages.slice(0, 15).map((img, idx) => (
                 <div
                   key={img.id || idx}
                   className="relative aspect-square bg-slate-100 rounded-lg overflow-hidden border border-slate-200 hover:border-indigo-400 transition-colors group"
@@ -620,14 +779,97 @@ export function BrandDashboard({ brand, onUpdate }: BrandDashboardProps) {
                     className="w-full h-full object-cover"
                     loading="lazy"
                   />
-                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
+                  {/* ✅ X button to remove image from brand */}
+                  {img.id && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleExcludeImage(img.id!, img.url);
+                      }}
+                      disabled={isExcluding === img.id}
+                      className="absolute top-1 right-1 w-6 h-6 bg-black/50 hover:bg-red-500 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                      title="Remove from brand images"
+                    >
+                      {isExcluding === img.id ? (
+                        <RefreshCw className="w-3 h-3 text-white animate-spin" />
+                      ) : (
+                        <X className="w-3 h-3 text-white" />
+                      )}
+                    </button>
+                  )}
+                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors pointer-events-none" />
                 </div>
               ))}
             </div>
-            {brandImages.length > 12 && (
+            {brandImages.length > 15 && (
               <p className="text-xs text-slate-500 text-center mt-4">
-                Showing 12 of {brandImages.length} images
+                Showing 15 of {brandImages.length} images
               </p>
+            )}
+            
+            {/* ✅ NEW: Hidden/Removed Images Section */}
+            {showHiddenImages && (
+              <div className="mt-6 pt-4 border-t border-slate-200">
+                <div className="flex items-center gap-2 mb-3">
+                  <EyeOff className="w-4 h-4 text-slate-400" />
+                  <h4 className="text-sm font-bold text-slate-700">Removed Images</h4>
+                  {isLoadingHidden && (
+                    <RefreshCw className="w-3 h-3 text-slate-400 animate-spin" />
+                  )}
+                </div>
+                
+                {isLoadingHidden ? (
+                  <div className="flex items-center justify-center py-8">
+                    <RefreshCw className="w-5 h-5 text-slate-400 animate-spin" />
+                    <span className="ml-2 text-sm text-slate-500">Loading hidden images...</span>
+                  </div>
+                ) : hiddenImages.filter(img => !restoredImageIds.has(img.id)).length === 0 ? (
+                  <p className="text-xs text-slate-500 text-center py-4 bg-slate-50 rounded-lg">
+                    No hidden images. Images you remove will appear here.
+                  </p>
+                ) : (
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    {hiddenImages
+                      .filter(img => !restoredImageIds.has(img.id))
+                      .map((img, idx) => (
+                        <div
+                          key={img.id || idx}
+                          className="relative aspect-square bg-slate-100 rounded-lg overflow-hidden border border-dashed border-slate-300 group"
+                        >
+                          <img
+                            src={img.url}
+                            alt={img.filename || `Hidden image ${idx + 1}`}
+                            className="w-full h-full object-cover opacity-50 grayscale"
+                            loading="lazy"
+                          />
+                          {/* Restore button */}
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleRestoreImage(img.id, img.url);
+                            }}
+                            disabled={isRestoring === img.id}
+                            className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity"
+                            title="Restore this image"
+                          >
+                            {isRestoring === img.id ? (
+                              <RefreshCw className="w-5 h-5 text-white animate-spin" />
+                            ) : (
+                              <div className="flex flex-col items-center gap-1">
+                                <RotateCcw className="w-5 h-5 text-white" />
+                                <span className="text-xs font-bold text-white">Restore</span>
+                              </div>
+                            )}
+                          </button>
+                          {/* Hidden badge */}
+                          <div className="absolute top-1 left-1 px-1.5 py-0.5 bg-slate-800/70 rounded text-[10px] font-bold text-white">
+                            Hidden
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                )}
+              </div>
             )}
           </div>
         );

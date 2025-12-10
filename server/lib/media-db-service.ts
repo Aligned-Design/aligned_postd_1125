@@ -27,6 +27,7 @@ export interface MediaAssetRecord {
   usage_count: number;
   created_at: string;
   updated_at: string;
+  excluded?: boolean; // ✅ NEW: Added in migration 008 for soft-delete/hide functionality
 }
 
 /**
@@ -251,6 +252,9 @@ export class MediaDBService {
 
   /**
    * List media assets for a brand with pagination and filtering
+   * 
+   * ✅ CRITICAL: By default, excluded assets are NOT returned.
+   * Pass includeExcluded: true to include them (admin/debug views only).
    */
   async listMediaAssets(
     brandId: string,
@@ -261,18 +265,27 @@ export class MediaDBService {
       offset?: number;
       sortBy?: "created_at" | "usage_count" | "filename";
       sortOrder?: "asc" | "desc";
+      includeExcluded?: boolean; // ✅ NEW: Explicitly include excluded assets (default: false)
     }
   ): Promise<{ assets: MediaAssetRecord[]; total: number }> {
     const limit = filters?.limit || 50;
     const offset = filters?.offset || 0;
     const sortBy = filters?.sortBy || "created_at";
     const sortOrder = filters?.sortOrder || "desc";
+    const includeExcluded = filters?.includeExcluded || false;
 
     // ✅ FIX: Column is size_bytes not file_size in production schema
     let query = supabase
       .from("media_assets")
-      .select("id, brand_id, tenant_id, category, filename, mime_type, path, size_bytes, hash, metadata, usage_count, used_in, created_at, updated_at", { count: "exact" })
+      .select("id, brand_id, tenant_id, category, filename, mime_type, path, size_bytes, hash, metadata, usage_count, used_in, created_at, updated_at, excluded", { count: "exact" })
       .eq("brand_id", brandId);
+
+    // ✅ CRITICAL: Filter out excluded assets by default
+    // This ensures normal views (dashboards, galleries) don't show excluded images
+    if (!includeExcluded) {
+      // Handle both false and null/undefined (backward compatibility with data before migration 008)
+      query = query.or("excluded.is.null,excluded.eq.false");
+    }
 
     if (filters?.category) {
       query = query.eq("category", filters.category);

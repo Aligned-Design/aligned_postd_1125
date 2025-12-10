@@ -36,7 +36,7 @@
 | 005 | `005_finalize_brand_id_uuid_migration.sql` | ✅ Yes | Complete UUID migration | ✅ Yes | Adds FK constraints, updates RLS policies to use `brand_id_uuid`. Replaces `is_brand_member_text()` usage. |
 | 006 | `006_drop_legacy_brand_id_text_columns.sql` | ✅ Yes | Drop deprecated TEXT columns | ✅ Yes | **DESTRUCTIVE** - Has safety checks. Drops `brand_id TEXT` columns and `is_brand_member_text()` function. |
 | 007 | `007_add_media_assets_status_and_rls.sql` | ✅ Yes | Add status column + RLS | ✅ Yes | Adds `status TEXT DEFAULT 'active'` and INSERT/UPDATE RLS policies. |
-| 008 | `008_content_planning_schema_clarification.sql` | ✅ Yes | Documentation only | ✅ Yes | No schema changes. Documents canonical tables. |
+| 014 | `014_content_planning_schema_clarification.sql` | ✅ Yes | Documentation only | ✅ Yes | No schema changes. Documents canonical tables. |
 | 009 | `009_consolidate_brand_guide_fields.sql` | ✅ Yes | Merge legacy fields into `brand_kit` | ✅ Yes | Merges `voice_summary`, `visual_summary`, `tone_keywords` into `brand_kit` JSONB. Additive merge. |
 | 010 | `010_ensure_rls_policies_use_brand_id_uuid.sql` | ✅ Yes | RLS policy safety check | ✅ Yes | Ensures all persistence table RLS policies use `brand_id_uuid`. Drops and recreates policies. |
 | 011 | `011_add_missing_tables_and_columns.sql` | ✅ Yes | Add missing tables/columns/view | ✅ Yes | Creates `approval_requests`, `advisor_cache`, adds `user_preferences.brand_id`, `brands.safety_config`, creates `tenants_view`. |
