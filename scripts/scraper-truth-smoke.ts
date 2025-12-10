@@ -506,9 +506,203 @@ async function runBrandTests(config: BrandTestConfig): Promise<BrandTestSummary>
     }
 
     // -------------------------------------------------------------------------
-    // TEST 8: Source Metadata
+    // TEST 8: Colors Should Not Be Placeholder/Icon Fills
+    // ✅ NEW 2025-12-10: Verify colors are not pure black/white/gray/brown/beige
     // -------------------------------------------------------------------------
-    console.log(`\n📋 [${label}] Step 8: Checking source metadata...`);
+    console.log(`\n📋 [${label}] Step 8: Checking color quality...`);
+    
+    const placeholderColorPatterns = (color: string): { isPlaceholder: boolean; reason?: string } => {
+      const hex = color.startsWith("#") ? color : `#${color}`;
+      const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+      if (!result) return { isPlaceholder: false };
+      
+      const r = parseInt(result[1], 16);
+      const g = parseInt(result[2], 16);
+      const b = parseInt(result[3], 16);
+      
+      const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+      const saturation = Math.max(r, g, b) - Math.min(r, g, b);
+      
+      // Pure black or near-black
+      if (brightness < 15) {
+        return { isPlaceholder: true, reason: `near-black (brightness: ${brightness.toFixed(0)})` };
+      }
+      
+      // Pure white or near-white
+      if (brightness > 245) {
+        return { isPlaceholder: true, reason: `near-white (brightness: ${brightness.toFixed(0)})` };
+      }
+      
+      // Generic gray (low saturation, mid-brightness)
+      if (saturation < 20 && brightness > 50 && brightness < 200) {
+        return { isPlaceholder: true, reason: `gray (saturation: ${saturation})` };
+      }
+      
+      // Brown/beige icon fills (common in icon packs)
+      const isBrownBeige = r > g && g > b && 
+        (r - b) > 30 && (r - b) < 100 &&
+        g > 80 && g < 180 && b > 60 && b < 150;
+      
+      if (isBrownBeige) {
+        return { isPlaceholder: true, reason: `brown/beige icon fill` };
+      }
+      
+      return { isPlaceholder: false };
+    };
+    
+    const placeholderColors = uniqueColors.filter(c => placeholderColorPatterns(c).isPlaceholder);
+    
+    if (placeholderColors.length > 0 && placeholderColors.length === uniqueColors.length) {
+      // All colors are placeholder colors - this is a problem
+      results.push({
+        name: "Color Quality",
+        passed: false,
+        message: `All colors are placeholder/icon fills: ${placeholderColors.map(c => `${c} (${placeholderColorPatterns(c).reason})`).join(", ")}`,
+        details: { placeholderColors, allColors: uniqueColors },
+        critical: true,
+      });
+      console.log(`   ❌ CRITICAL: All colors appear to be placeholder fills`);
+    } else if (placeholderColors.length > 0) {
+      results.push({
+        name: "Color Quality",
+        passed: true, // Pass with warning if only some are placeholder
+        message: `${placeholderColors.length} placeholder color(s) detected (may need review)`,
+        details: { placeholderColors, goodColors: uniqueColors.filter(c => !placeholderColorPatterns(c).isPlaceholder) },
+        critical: false,
+      });
+      console.log(`   ⚠️ Warning: ${placeholderColors.length} placeholder color(s) detected`);
+    } else if (uniqueColors.length > 0) {
+      results.push({
+        name: "Color Quality",
+        passed: true,
+        message: "All colors appear to be legitimate brand colors",
+        critical: false,
+      });
+      console.log(`   ✅ Colors appear to be legitimate brand colors`);
+    }
+    
+    // -------------------------------------------------------------------------
+    // TEST 9: Logos Should Not Be Generic Icons
+    // ✅ NEW 2025-12-10: Verify logos don't contain generic icon patterns
+    // -------------------------------------------------------------------------
+    console.log(`\n📋 [${label}] Step 9: Checking logo quality...`);
+    
+    const genericIconPatterns = [
+      "envelope", "mail", "email", "globe", "world", "phone", "call",
+      "arrow", "chevron", "hamburger", "menu", "search", "user", "person",
+      "home", "star", "heart", "share", "download", "upload", "play", "pause",
+      "cart", "shopping", "lock", "bell", "calendar", "clock", "location", "map"
+    ];
+    
+    const suspiciousLogos = logos.filter((logo) => {
+      const path = (logo.path as string) || "";
+      const filename = path.split("/").pop()?.toLowerCase() || "";
+      const metadata = (logo.metadata as Record<string, unknown>) || {};
+      const alt = ((metadata.alt as string) || "").toLowerCase();
+      
+      // Check if filename or alt contains generic icon patterns
+      return genericIconPatterns.some(pattern => 
+        filename.includes(pattern) || alt.includes(pattern)
+      );
+    });
+    
+    if (suspiciousLogos.length > 0) {
+      results.push({
+        name: "Logo Quality",
+        passed: false,
+        message: `${suspiciousLogos.length} logo(s) appear to be generic icons, not brand logos`,
+        details: {
+          suspiciousLogos: suspiciousLogos.map(l => ({
+            id: l.id,
+            path: (l.path as string || "").substring(0, 80),
+            metadata: l.metadata,
+          })),
+        },
+        critical: true,
+      });
+      console.log(`   ❌ CRITICAL: ${suspiciousLogos.length} logo(s) appear to be generic icons`);
+      suspiciousLogos.slice(0, 2).forEach(l => {
+        const path = (l.path as string) || "";
+        console.log(`      - ${path.substring(0, 60)}...`);
+      });
+    } else if (logos.length > 0) {
+      results.push({
+        name: "Logo Quality",
+        passed: true,
+        message: "Logos appear to be legitimate brand logos",
+        critical: false,
+      });
+      console.log(`   ✅ Logos appear to be legitimate brand logos`);
+    }
+    
+    // -------------------------------------------------------------------------
+    // TEST 10: Brand Images Should Not Include Solid Colors or Tiny Icons
+    // ✅ NEW 2025-12-10: Verify brand images are real photos
+    // -------------------------------------------------------------------------
+    console.log(`\n📋 [${label}] Step 10: Checking brand image quality...`);
+    
+    const suspiciousBrandImages = brandImages.filter((img) => {
+      const path = (img.path as string) || "";
+      const filename = path.split("/").pop()?.toLowerCase() || "";
+      const metadata = (img.metadata as Record<string, unknown>) || {};
+      const width = (metadata.width as number) || 0;
+      const height = (metadata.height as number) || 0;
+      const role = (metadata.role as string) || "";
+      
+      // Check for tiny images that shouldn't be brand images
+      if (width && height && width < 100 && height < 100) {
+        return true;
+      }
+      
+      // Check for placeholder/solid color patterns in filename
+      const placeholderPatterns = ["placeholder", "blank", "spacer", "pixel", "1x1", "transparent"];
+      if (placeholderPatterns.some(p => filename.includes(p))) {
+        return true;
+      }
+      
+      // Check for icon pack paths
+      const iconPaths = ["/icons/", "/icon/", "/assets/icons", "/fontawesome", "/feather"];
+      if (iconPaths.some(p => path.toLowerCase().includes(p))) {
+        return true;
+      }
+      
+      // Check if role suggests it shouldn't be a brand image
+      if (role === "social_icon" || role === "platform_logo" || role === "ui_icon") {
+        return true;
+      }
+      
+      return false;
+    });
+    
+    if (suspiciousBrandImages.length > 0) {
+      results.push({
+        name: "Brand Image Quality",
+        passed: false,
+        message: `${suspiciousBrandImages.length} brand image(s) appear to be icons or placeholders`,
+        details: {
+          suspiciousImages: suspiciousBrandImages.slice(0, 5).map(img => ({
+            id: img.id,
+            path: (img.path as string || "").substring(0, 80),
+            metadata: img.metadata,
+          })),
+        },
+        critical: true,
+      });
+      console.log(`   ❌ CRITICAL: ${suspiciousBrandImages.length} brand image(s) appear to be icons/placeholders`);
+    } else if (brandImages.length > 0) {
+      results.push({
+        name: "Brand Image Quality",
+        passed: true,
+        message: "Brand images appear to be legitimate photos/graphics",
+        critical: false,
+      });
+      console.log(`   ✅ Brand images appear to be legitimate photos`);
+    }
+
+    // -------------------------------------------------------------------------
+    // TEST 11: Source Metadata
+    // -------------------------------------------------------------------------
+    console.log(`\n📋 [${label}] Step 11: Checking source metadata...`);
 
     const scrapedWithSource = scrapedImages.filter((a) => {
       const metadata = (a.metadata as Record<string, unknown>) || {};
@@ -536,9 +730,9 @@ async function runBrandTests(config: BrandTestConfig): Promise<BrandTestSummary>
   }
 
   // -------------------------------------------------------------------------
-  // TEST 9: Identity Fields Present
+  // TEST 12: Identity Fields Present
   // -------------------------------------------------------------------------
-  console.log(`\n📋 [${label}] Step 9: Checking identity fields...`);
+  console.log(`\n📋 [${label}] Step 12: Checking identity fields...`);
 
   if (hasBrandKit) {
     // Pass voice_summary column as second param (stored in separate column, not in brand_kit)

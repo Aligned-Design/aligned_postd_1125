@@ -232,7 +232,7 @@ async function generateWithOpenAI(prompt: string, agentType: string, _client?: u
       model,
       messages,
       temperature: getTemperature(agentType),
-      max_tokens: getMaxTokens(agentType),
+      max_completion_tokens: getMaxTokens(agentType),
       presence_penalty: 0.1,
       frequency_penalty: 0.1
     });

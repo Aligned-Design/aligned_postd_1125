@@ -71,12 +71,12 @@ export const openai = new Proxy({} as OpenAI, {
  * Default text generation model
  * 
  * Used for most content generation tasks (brand copy, social posts, etc.)
- * Can be overridden via OPENAI_MODEL_TEXT environment variable.
+ * Can be overridden via OPENAI_MODEL or OPENAI_MODEL_TEXT environment variable.
  * 
  * Default: "gpt-5-mini" (cost-effective, fast)
  */
 export const DEFAULT_OPENAI_MODEL =
-  process.env.OPENAI_MODEL_TEXT ?? "gpt-5-mini";
+  process.env.OPENAI_MODEL ?? process.env.OPENAI_MODEL_TEXT ?? "gpt-5-mini";
 
 /**
  * High-performance model for complex reasoning tasks
@@ -95,7 +95,7 @@ export const ADVANCED_OPENAI_MODEL =
  * Used for non-critical background processing where cost/speed matters.
  * Can be overridden via OPENAI_MODEL_CHEAP environment variable.
  * 
- * Default: "gpt-5-nano" (same as default, but can be set to nano if available)
+ * Default: "gpt-5-nano" (fast and cost-effective)
  */
 export const CHEAP_OPENAI_MODEL =
   process.env.OPENAI_MODEL_CHEAP ?? "gpt-5-nano";
@@ -200,7 +200,7 @@ export async function generateWithChatCompletions(
         content: msg.content,
       })),
       temperature: options?.temperature ?? 0.7,
-      max_tokens: options?.maxTokens ?? 1000,
+      max_completion_tokens: options?.maxTokens ?? 1000,
     });
 
     const content = response.choices[0]?.message?.content;

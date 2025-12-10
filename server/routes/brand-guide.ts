@@ -130,19 +130,24 @@ router.get("/:brandId", authenticateUser, validateBrandId, async (req, res, next
         metadata: img.metadata,
       }));
     
-    // ✅ UPDATED (2025-12-10): More lenient brand image filtering
-    // NEW RULE: Include all images EXCEPT social_icon and platform_logo
+    // ✅ UPDATED (2025-12-10): Balanced brand image filtering
+    // RULE: Include legitimate brand photos, exclude icons and tiny images
     // Logos CAN be included - user can remove via X button if unwanted
     const scrapedBrandImages = scrapedImages
       .filter(img => {
         const role = img.metadata?.role || "";
         
-        // ✅ ONLY filter social icons and platform logos (never useful as brand content)
-        if (role === "social_icon" || role === "platform_logo") {
+        // ✅ Filter social icons, platform logos, and UI icons (never useful as brand content)
+        if (role === "social_icon" || role === "platform_logo" || role === "ui_icon") {
           return false;
         }
         
-        // ✅ Include everything else - logos, hero, photo, team, subject, other, partner_logo, etc.
+        // ✅ FIX: Also filter partner_logo (vendor badges, not brand content)
+        if (role === "partner_logo") {
+          return false;
+        }
+        
+        // ✅ Include everything else - logos, hero, photo, team, subject, other
         // User can use X button to remove any unwanted images
         return true;
       })

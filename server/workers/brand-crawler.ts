@@ -63,20 +63,33 @@ async function launchBrowser(): Promise<Browser> {
 
 // Environment configuration
 // OpenAI API key check - use isOpenAIConfigured() from shared client instead
-const CRAWL_MAX_PAGES = parseInt(process.env.CRAWL_MAX_PAGES || "50", 10);
-const CRAWL_TIMEOUT_MS = parseInt(process.env.CRAWL_TIMEOUT_MS || "60000", 10); // 60 seconds default
+// ✅ FIX 2025-12-10: Reduce limits on Vercel to avoid 55s timeout
+// Vercel serverless functions have a hard 55-60s limit
+// Local dev can use longer timeouts and more pages
+const VERCEL_MAX_PAGES = 10; // Reduced from 50 to fit in Vercel timeout
+const VERCEL_TIMEOUT_MS = 15000; // 15 seconds per page (max)
+const VERCEL_MAX_DEPTH = 2; // Reduced from 3
+
+const LOCAL_MAX_PAGES = parseInt(process.env.CRAWL_MAX_PAGES || "50", 10);
+const LOCAL_TIMEOUT_MS = parseInt(process.env.CRAWL_TIMEOUT_MS || "60000", 10); // 60 seconds default
+const LOCAL_MAX_DEPTH = 3;
+
+// Use Vercel-safe limits on Vercel, full limits locally
+const CRAWL_MAX_PAGES = isVercel ? VERCEL_MAX_PAGES : LOCAL_MAX_PAGES;
+const CRAWL_TIMEOUT_MS = isVercel ? VERCEL_TIMEOUT_MS : LOCAL_TIMEOUT_MS;
+const MAX_DEPTH = isVercel ? VERCEL_MAX_DEPTH : LOCAL_MAX_DEPTH;
+
 const CRAWL_USER_AGENT = process.env.CRAWL_USER_AGENT || "POSTDBot/1.0";
-const MAX_DEPTH = 3;
-const CRAWL_DELAY_MS = 1000;
-const MAX_RETRIES = 3;
-const RETRY_DELAY_MS = 1000;
+const CRAWL_DELAY_MS = isVercel ? 500 : 1000; // Faster delay on Vercel
+const MAX_RETRIES = isVercel ? 2 : 3; // Fewer retries on Vercel
+const RETRY_DELAY_MS = isVercel ? 500 : 1000;
 
 interface CrawledImage {
   url: string;
   alt?: string;
   width?: number;
   height?: number;
-  role: "logo" | "team" | "subject" | "hero" | "photo" | "social_icon" | "platform_logo" | "partner_logo" | "other";
+  role: "logo" | "team" | "subject" | "hero" | "photo" | "social_icon" | "platform_logo" | "partner_logo" | "ui_icon" | "other";
   pageType?: "main" | "team" | "about" | "other";
   filename?: string;
   priority?: number; // Calculated priority score
@@ -532,7 +545,13 @@ function calculateBrandMatchScore(
 }
 
 /**
- * Enhanced logo detection - checks filename, URL path, alt text, and brand name
+ * ✅ ENHANCED: Logo detection with negative weights for icons
+ * 
+ * FIX 2025-12-10: Added exclusion rules for:
+ * - Generic icons (envelope, globe, phone, etc.)
+ * - SVG icons with thick strokes
+ * - UI illustrations
+ * - Icons from icon packs (typically uniform size and style)
  */
 function isLogo(
   img: { url: string; alt?: string; width?: number; height?: number },
@@ -542,8 +561,66 @@ function isLogo(
   const filename = extractFilename(img.url);
   const urlLower = img.url.toLowerCase();
   const altLower = img.alt?.toLowerCase() || "";
-  const pathname = new URL(img.url).pathname.toLowerCase();
+  let pathname = "";
+  try {
+    pathname = new URL(img.url).pathname.toLowerCase();
+  } catch {
+    pathname = urlLower;
+  }
   
+  // ✅ FIX: NEGATIVE INDICATORS - these are NOT logos
+  const genericIconPatterns = [
+    "envelope", "mail", "email", "globe", "world", "phone", "call", "contact",
+    "arrow", "chevron", "caret", "hamburger", "menu", "search", "magnify",
+    "user", "person", "avatar", "profile", "account", "settings", "cog", "gear",
+    "home", "house", "star", "heart", "like", "share", "download", "upload",
+    "play", "pause", "stop", "next", "prev", "forward", "back", "close", "x-mark",
+    "check", "checkmark", "tick", "cross", "plus", "minus", "add", "remove",
+    "cart", "shopping", "bag", "basket", "lock", "unlock", "key", "shield",
+    "bell", "notification", "alert", "warning", "info", "help", "question",
+    "calendar", "clock", "time", "date", "location", "map", "pin", "marker",
+    "link", "chain", "external", "new-window", "copy", "clipboard", "edit", "pencil",
+    "trash", "delete", "bin", "folder", "file", "document", "pdf", "image",
+    "camera", "video", "mic", "microphone", "speaker", "volume", "mute",
+    "wifi", "signal", "battery", "power", "refresh", "sync", "loading", "spinner"
+  ];
+  
+  // Check if filename/alt/url contains generic icon patterns
+  const hasGenericIconPattern = genericIconPatterns.some(pattern => 
+    filename.includes(pattern) || 
+    altLower.includes(pattern) || 
+    urlLower.includes(pattern)
+  );
+  
+  // ✅ FIX: Exclude if it matches generic icon patterns (unless it ALSO contains "logo")
+  const hasLogoIndicator = filename.includes("logo") || 
+    altLower.includes("logo") || 
+    urlLower.includes("logo") ||
+    pathname.includes("/logo");
+  
+  if (hasGenericIconPattern && !hasLogoIndicator) {
+    if (process.env.DEBUG_LOGO_DETECT === "true") {
+      console.log(`[LogoDetect] Excluded generic icon: ${img.url.substring(0, 80)}...`);
+    }
+    return false;
+  }
+  
+  // ✅ FIX: Exclude very square icons (1:1 ratio) that are small (< 100px)
+  // Real logos are rarely perfect squares at small sizes
+  if (img.width && img.height && img.width === img.height && img.width < 100) {
+    // Check if it's an icon path (common icon directories)
+    const iconPathPatterns = ["/icons/", "/icon/", "/assets/icons", "/img/icons", "/images/icons"];
+    const isInIconPath = iconPathPatterns.some(p => urlLower.includes(p));
+    
+    if (isInIconPath && !hasLogoIndicator) {
+      if (process.env.DEBUG_LOGO_DETECT === "true") {
+        console.log(`[LogoDetect] Excluded square icon from icon path: ${img.url.substring(0, 80)}...`);
+      }
+      return false;
+    }
+  }
+  
+  // ✅ POSITIVE INDICATORS - these ARE logos
   // Check filename for "logo" or brand name
   const brandNameLower = brandName?.toLowerCase().replace(/\s+/g, "-") || "";
   if (brandNameLower && (filename.includes(brandNameLower) || filename.includes(brandName?.toLowerCase().replace(/\s+/g, "") || ""))) {
@@ -565,6 +642,16 @@ function isLogo(
     return true;
   }
   
+  // ✅ NEW: Check for brand-related keywords that indicate a logo
+  const logoKeywords = ["brand", "brandmark", "logotype", "wordmark", "symbol", "sig", "signature"];
+  const hasLogoKeyword = logoKeywords.some(keyword => 
+    filename.includes(keyword) || altLower.includes(keyword)
+  );
+  
+  if (hasLogoKeyword) {
+    return true;
+  }
+  
   // Existing checks: parent classes, header position, size
   // These are handled in the page.evaluate() function
   
@@ -582,6 +669,12 @@ function isLogo(
  *   are NOT automatically classified as platform_logo
  * - Only small icons/badges (<= 96x96) with explicit platform branding are filtered
  * - This ensures legitimate brand images (hero banners, photos) are preserved
+ * 
+ * ✅ FIX 2025-12-10: Added detection for:
+ * - Generic UI icons (envelope, globe, phone, etc.)
+ * - SVG icon pack graphics
+ * - Illustrations and decorative elements
+ * - Solid color backgrounds that shouldn't be saved as images
  * 
  * ✅ NEW: Uses context fields (inHeaderOrNav, inAffiliateOrPartnerSection, etc.) for better classification
  */
@@ -601,11 +694,70 @@ function categorizeImage(
   pageUrl: string,
   pageType: "main" | "team" | "about" | "other",
   brandName?: string
-): "logo" | "team" | "subject" | "hero" | "photo" | "social_icon" | "platform_logo" | "partner_logo" | "other" {
+): "logo" | "team" | "subject" | "hero" | "photo" | "social_icon" | "platform_logo" | "partner_logo" | "ui_icon" | "other" {
   const altLower = img.alt?.toLowerCase() || "";
   const urlLower = img.url.toLowerCase();
   const filenameLower = img.url.split("/").pop()?.toLowerCase() || "";
-  const pathname = new URL(img.url).pathname.toLowerCase();
+  let pathname = "";
+  try {
+    pathname = new URL(img.url).pathname.toLowerCase();
+  } catch {
+    pathname = urlLower;
+  }
+  
+  // ✅ FIX: Detect UI icons and illustrations FIRST (before social icons)
+  // These should be excluded from brand images
+  const uiIconPatterns = [
+    "envelope", "mail", "email", "globe", "world", "phone", "call", "contact",
+    "arrow", "chevron", "caret", "hamburger", "menu", "search", "magnify",
+    "user", "person", "avatar", "profile", "account", "settings", "cog", "gear",
+    "home", "house", "star", "heart", "like", "share", "download", "upload",
+    "play", "pause", "stop", "next", "prev", "forward", "back", "close", "x-mark",
+    "check", "checkmark", "tick", "cross", "plus", "minus", "add", "remove",
+    "cart", "shopping", "bag", "basket", "lock", "unlock", "key", "shield",
+    "bell", "notification", "alert", "warning", "info", "help", "question",
+    "calendar", "clock", "time", "date", "location", "map", "pin", "marker",
+    "link", "chain", "external", "new-window", "copy", "clipboard", "edit", "pencil",
+    "trash", "delete", "bin", "folder", "file", "document", "pdf",
+    "camera", "video", "mic", "microphone", "speaker", "volume", "mute",
+    "wifi", "signal", "battery", "power", "refresh", "sync", "loading", "spinner"
+  ];
+  
+  // ✅ FIX: Check for UI icon patterns
+  const hasUiIconPattern = uiIconPatterns.some(pattern => 
+    filenameLower.includes(pattern) || 
+    altLower.includes(pattern) || 
+    pathname.includes(`/${pattern}`) ||
+    pathname.includes(`-${pattern}`) ||
+    pathname.includes(`_${pattern}`)
+  );
+  
+  // ✅ FIX: Detect icon pack directories (common patterns)
+  const iconPathPatterns = [
+    "/icons/", "/icon/", "/assets/icons", "/img/icons", "/images/icons",
+    "/iconpack/", "/icon-pack/", "/ui-icons/", "/ui/icons",
+    "/fontawesome", "/feather", "/heroicons", "/lucide", "/bootstrap-icons"
+  ];
+  const isInIconPath = iconPathPatterns.some(p => urlLower.includes(p));
+  
+  // ✅ FIX: If it's a small image (< 150x150) in an icon path or with icon pattern, mark as ui_icon
+  const isSmallIcon = img.width && img.height && img.width < 150 && img.height < 150;
+  
+  if ((hasUiIconPattern || isInIconPath) && isSmallIcon) {
+    // Only exclude if it doesn't have strong logo indicators
+    const hasLogoIndicator = filenameLower.includes("logo") || altLower.includes("logo");
+    if (!hasLogoIndicator) {
+      if (process.env.DEBUG_IMAGE_CLASSIFICATION === "true") {
+        console.log(`[ImageCategorizer] Classified as ui_icon: ${img.url.substring(0, 80)}...`, {
+          hasUiIconPattern,
+          isInIconPath,
+          isSmallIcon,
+          dimensions: `${img.width}x${img.height}`,
+        });
+      }
+      return "ui_icon";
+    }
+  }
   
   // ✅ CRITICAL: Filter out social icons and platform logos FIRST (before other categorization)
   // Social icons: facebook, instagram, linkedin, x-logo, twitter, tiktok, etc.
@@ -2461,7 +2613,14 @@ export async function extractColors(url: string): Promise<ColorPalette> {
 }
 
 /**
- * ✅ NEW: Filter brand colors - remove near-duplicates and photo colors
+ * ✅ ENHANCED: Filter brand colors - remove near-duplicates, photo colors, and placeholder fills
+ * 
+ * FIX 2025-12-10: Added filtering for:
+ * - Pure black (#000000) and near-black (< 15 brightness)
+ * - Pure white (#FFFFFF) and near-white (> 240 brightness)
+ * - Common placeholder/icon pack colors (browns, beiges from icon fills)
+ * - Solid gray colors that are likely background fills
+ * - Photo colors (skin tones, sky blue, clothing)
  */
 function filterBrandColors(colors: string[]): string[] {
   const filtered: string[] = [];
@@ -2477,6 +2636,57 @@ function filterBrandColors(colors: string[]): string[] {
       Math.pow(rgb1.g - rgb2.g, 2) +
       Math.pow(rgb1.b - rgb2.b, 2)
     );
+  };
+  
+  // ✅ NEW: Check if color is a placeholder/icon fill color (browns, beiges, generic fills)
+  const isPlaceholderColor = (hex: string): boolean => {
+    const rgb = hexToRgb(hex);
+    if (!rgb) return false;
+    
+    // Calculate brightness (0-255)
+    const brightness = (rgb.r * 299 + rgb.g * 587 + rgb.b * 114) / 1000;
+    
+    // ✅ FIX: Filter pure black and near-black (< 15 brightness)
+    if (brightness < 15) {
+      if (process.env.DEBUG_COLOR_EXTRACT === "true") {
+        console.log(`[ColorExtract] Filtered near-black: ${hex} (brightness: ${brightness.toFixed(1)})`);
+      }
+      return true;
+    }
+    
+    // ✅ FIX: Filter pure white and near-white (> 245 brightness)
+    if (brightness > 245) {
+      if (process.env.DEBUG_COLOR_EXTRACT === "true") {
+        console.log(`[ColorExtract] Filtered near-white: ${hex} (brightness: ${brightness.toFixed(1)})`);
+      }
+      return true;
+    }
+    
+    // ✅ FIX: Filter generic brown/beige icon fills (common in icon packs)
+    // Brown/beige: R > G > B, with warm tones
+    const isBrownBeige = rgb.r > rgb.g && rgb.g > rgb.b && 
+      rgb.r - rgb.b > 30 && rgb.r - rgb.b < 100 &&
+      rgb.g > 80 && rgb.g < 180 && rgb.b > 60 && rgb.b < 150;
+    
+    if (isBrownBeige) {
+      if (process.env.DEBUG_COLOR_EXTRACT === "true") {
+        console.log(`[ColorExtract] Filtered brown/beige icon fill: ${hex}`);
+      }
+      return true;
+    }
+    
+    // ✅ FIX: Filter generic grays (low saturation, not a brand color)
+    const saturation = Math.max(rgb.r, rgb.g, rgb.b) - Math.min(rgb.r, rgb.g, rgb.b);
+    const isGray = saturation < 20 && brightness > 50 && brightness < 200;
+    
+    if (isGray) {
+      if (process.env.DEBUG_COLOR_EXTRACT === "true") {
+        console.log(`[ColorExtract] Filtered gray: ${hex} (saturation: ${saturation})`);
+      }
+      return true;
+    }
+    
+    return false;
   };
   
   // Helper to check if color is likely a skin tone or photo color
@@ -2498,10 +2708,15 @@ function filterBrandColors(colors: string[]): string[] {
   };
   
   for (const color of colors) {
-    const normalized = color.startsWith("#") ? color : `#${color}`;
+    const normalized = color.startsWith("#") ? color.toUpperCase() : `#${color.toUpperCase()}`;
     
-    // Skip if too similar to existing color (within 10 units for better deduplication)
-    const tooSimilar = filtered.some(existing => colorDistance(normalized, existing) < 10);
+    // ✅ FIX: Skip placeholder/icon fill colors FIRST (before checking count)
+    if (isPlaceholderColor(normalized)) {
+      continue;
+    }
+    
+    // Skip if too similar to existing color (within 15 units for better deduplication)
+    const tooSimilar = filtered.some(existing => colorDistance(normalized, existing) < 15);
     if (tooSimilar) continue;
     
     // Skip photo colors (unless we have very few colors)

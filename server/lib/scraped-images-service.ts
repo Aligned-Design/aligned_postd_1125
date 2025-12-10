@@ -92,7 +92,7 @@ export interface CrawledImage {
   alt?: string;
   width?: number;
   height?: number;
-  role?: "logo" | "team" | "subject" | "hero" | "photo" | "social_icon" | "platform_logo" | "other";
+  role?: "logo" | "team" | "subject" | "hero" | "photo" | "social_icon" | "platform_logo" | "ui_icon" | "partner_logo" | "other";
 }
 
 /**
@@ -151,13 +151,94 @@ export async function persistScrapedImages(
   // This prevents a single validation failure from blocking all image persistence
 
   // ✅ CRITICAL: Filter and classify images according to hard rules
-  // 1. Filter out social_icon and platform_logo (completely ignore)
-  // 2. Separate logos (max 2) from brand images (max 15)
-  // 3. Sort and prioritize before persistence
+  // 1. Filter out social_icon, platform_logo, ui_icon (completely ignore)
+  // 2. Filter out solid color blocks, placeholders, and tiny images
+  // 3. Separate logos (max 2) from brand images (max 15)
+  // 4. Sort and prioritize before persistence
+  
+  // ✅ FIX 2025-12-10: Helper to detect solid color placeholder images
+  const isSolidColorPlaceholder = (img: CrawledImage): boolean => {
+    const urlLower = img.url.toLowerCase();
+    const filenameLower = (img.url.split("/").pop() || "").toLowerCase();
+    
+    // Check for placeholder patterns in URL
+    const placeholderPatterns = [
+      "placeholder", "blank", "empty", "spacer", "pixel", "1x1", "transparent",
+      "dummy", "loading", "skeleton"
+    ];
+    
+    if (placeholderPatterns.some(p => urlLower.includes(p) || filenameLower.includes(p))) {
+      return true;
+    }
+    
+    // Check for 1x1 or very small dimensions (likely tracking pixels or spacers)
+    if (img.width && img.height) {
+      if (img.width <= 2 && img.height <= 2) {
+        return true;
+      }
+    }
+    
+    // Check for data URIs that are likely solid colors or gradients
+    if (img.url.startsWith("data:image/svg+xml") && img.url.length < 500) {
+      // Very short SVG data URIs are likely simple shapes/colors
+      return true;
+    }
+    
+    return false;
+  };
+  
+  // ✅ FIX 2025-12-10: Helper to detect UI icons and icon pack graphics
+  const isUiIconOrGraphic = (img: CrawledImage): boolean => {
+    const urlLower = img.url.toLowerCase();
+    const filenameLower = (img.url.split("/").pop() || "").toLowerCase();
+    const altLower = (img.alt || "").toLowerCase();
+    
+    // Known icon patterns
+    const iconPatterns = [
+      "envelope", "mail", "email", "globe", "world", "phone", "call", "contact",
+      "arrow", "chevron", "caret", "hamburger", "menu", "search", "magnify",
+      "user", "person", "avatar", "profile", "account", "settings", "cog", "gear",
+      "home", "house", "star", "heart", "like", "share", "download", "upload",
+      "play", "pause", "stop", "next", "prev", "forward", "back", "close",
+      "check", "checkmark", "tick", "cross", "plus", "minus", "add", "remove",
+      "cart", "shopping", "bag", "basket", "lock", "unlock", "key", "shield",
+      "bell", "notification", "alert", "warning", "info", "help", "question",
+      "calendar", "clock", "time", "date", "location", "map", "pin", "marker"
+    ];
+    
+    // Icon pack directories
+    const iconPathPatterns = [
+      "/icons/", "/icon/", "/assets/icons", "/img/icons", "/images/icons",
+      "/iconpack/", "/icon-pack/", "/ui-icons/", "/ui/icons",
+      "/fontawesome", "/feather", "/heroicons", "/lucide", "/bootstrap-icons"
+    ];
+    
+    const hasIconPattern = iconPatterns.some(p => 
+      filenameLower.includes(p) || altLower.includes(p)
+    );
+    
+    const isInIconPath = iconPathPatterns.some(p => urlLower.includes(p));
+    
+    // Small images (< 150px) with icon patterns are UI icons
+    if (hasIconPattern && img.width && img.height && img.width < 150 && img.height < 150) {
+      // Don't filter if it has "logo" in the name
+      const hasLogoIndicator = filenameLower.includes("logo") || altLower.includes("logo");
+      if (!hasLogoIndicator) {
+        return true;
+      }
+    }
+    
+    // Any small image in an icon pack path
+    if (isInIconPath && img.width && img.height && img.width < 200 && img.height < 200) {
+      return true;
+    }
+    
+    return false;
+  };
   
   const validImages = images.filter(img => {
-    // ✅ FILTER: Ignore social_icon and platform_logo completely
-    if (img.role === "social_icon" || img.role === "platform_logo") {
+    // ✅ FILTER: Ignore social_icon, platform_logo, and ui_icon completely
+    if (img.role === "social_icon" || img.role === "platform_logo" || img.role === "ui_icon") {
       console.log(`[ScrapedImages] Filtering out ${img.role}: ${img.url.substring(0, 60)}...`);
       return false;
     }
@@ -165,6 +246,18 @@ export async function persistScrapedImages(
     // ✅ VALIDATION: Ensure image URL is valid
     if (!img.url || !img.url.startsWith("http")) {
       console.warn(`[ScrapedImages] Skipping invalid image URL: ${img.url}`);
+      return false;
+    }
+    
+    // ✅ FIX: Filter out solid color placeholders
+    if (isSolidColorPlaceholder(img)) {
+      console.log(`[ScrapedImages] Filtering out placeholder/solid color: ${img.url.substring(0, 60)}...`);
+      return false;
+    }
+    
+    // ✅ FIX: Filter out UI icons and icon pack graphics
+    if (isUiIconOrGraphic(img)) {
+      console.log(`[ScrapedImages] Filtering out UI icon/graphic: ${img.url.substring(0, 60)}...`);
       return false;
     }
     
@@ -206,20 +299,37 @@ export async function persistScrapedImages(
     return false;
   });
   
-  // ✅ CRITICAL FIX (2025-12-10): More lenient brand image filtering
-  // NEW RULE: When in doubt, INCLUDE as brand image - user can remove via X button
-  // Brand images: All valid images EXCEPT tiny icons, social icons, platform logos
-  // LOGOS ARE NOW INCLUDED in brand images - they can be displayed and user can remove them
+  // ✅ CRITICAL FIX (2025-12-10): Balanced brand image filtering
+  // RULE: Include legitimate brand photos, exclude icons and tiny images
+  // Logos CAN be included - user can remove via X button
   const brandImages = validImages.filter(img => {
-    // ✅ ONLY STRICT EXCLUSION: Social icons and platform logos (never useful as brand content)
-    if (img.role === "social_icon" || img.role === "platform_logo") {
+    // ✅ STRICT EXCLUSION: Social icons, platform logos, and UI icons (never useful as brand content)
+    if (img.role === "social_icon" || img.role === "platform_logo" || img.role === "ui_icon") {
       return false;
     }
     
-    // ✅ EXCLUDE: Very tiny images (< 50x50 pixels) - definitely icons
+    // ✅ FIX: Exclude very tiny images (< 50x50 pixels) - definitely icons
     if (img.width && img.height && (img.width * img.height < 2500)) {
       console.log(`[ScrapedImages] Excluding tiny image (< 50x50): ${img.url.substring(0, 60)}...`);
-      return false; // Less than 50x50 pixels
+      return false;
+    }
+    
+    // ✅ FIX: Exclude small square images that are likely icons (unless they're logos)
+    // Square images < 100x100 are typically icons
+    if (img.width && img.height && 
+        img.width === img.height && 
+        img.width < 100 && 
+        img.role !== "logo") {
+      console.log(`[ScrapedImages] Excluding small square icon: ${img.url.substring(0, 60)}...`);
+      return false;
+    }
+    
+    // ✅ FIX: Exclude images with very small area (< 10000px, ~100x100) unless logos
+    if (img.width && img.height && 
+        (img.width * img.height < 10000) && 
+        img.role !== "logo") {
+      console.log(`[ScrapedImages] Excluding small image (area < 10000px): ${img.url.substring(0, 60)}...`);
+      return false;
     }
     
     // ✅ NEW: Include logo-role images in brand images (user can decide to keep or remove)
@@ -229,8 +339,7 @@ export async function persistScrapedImages(
       // Logo will also be in logoImages, but we include in brandImages for user control
     }
     
-    // ✅ Accept all other images - when in doubt, keep it
-    // This includes: hero, photo, team, subject, other, partner_logo, and uncertain roles
+    // ✅ Accept legitimate brand images: hero, photo, team, subject, other
     return true;
   });
   

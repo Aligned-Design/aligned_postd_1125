@@ -457,7 +457,7 @@ describe("Token Logging and Provider Tracking", () => {
       tokens_in: 150,
       tokens_out: 45,
       provider: "openai",
-      model: "gpt-4o-mini",
+      model: "gpt-5-mini",
       duration_ms: 2340,
       regeneration_count: 0,
     };
@@ -487,7 +487,7 @@ describe("Token Logging and Provider Tracking", () => {
   it("Should track provider used (OpenAI or Claude)", () => {
     const openaiLog = {
       provider: "openai",
-      model: "gpt-4o-mini",
+      model: "gpt-5-mini",
     };
 
     const claudeLog = {
@@ -502,7 +502,7 @@ describe("Token Logging and Provider Tracking", () => {
   it("Should track model name for billing/analytics", () => {
     const logEntry = {
       provider: "openai",
-      model: "gpt-4o-mini",
+      model: "gpt-5-mini",
       tokens_in: 150,
       tokens_out: 45,
     };
@@ -795,7 +795,7 @@ describe("Agent Integration Tests", () => {
       tokens_in: 150,
       tokens_out: 45,
       provider: "openai",
-      model: "gpt-4o-mini",
+      model: "gpt-5-mini",
       regeneration_count: 0,
       error: undefined,
     };
