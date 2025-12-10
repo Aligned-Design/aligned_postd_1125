@@ -4,7 +4,6 @@
  */
 
 import * as Sentry from "@sentry/react";
-import { BrowserTracing } from "@sentry/tracing";
 import { onCLS, onFCP, onLCP, onTTFB } from "web-vitals";
 
 // Initialize Sentry for error tracking and performance monitoring
@@ -41,33 +40,26 @@ export function initializeSentry() {
               (typeof env.SENTRY_DSN === "string" ? env.SENTRY_DSN : null) ||
               "https://your-sentry-dsn@sentry.io/project-id";
 
-  // ✅ FIX: Build integrations array with proper type handling
-  const integrations: unknown[] = [];
+  // ✅ FIX: Build integrations array using Sentry v10+ API
+  const integrations: Sentry.Integration[] = [];
   
-  // BrowserTracing integration (if available)
+  // BrowserTracing integration (Sentry v8+ uses browserTracingIntegration)
   try {
-    const browserTracing = new BrowserTracing({
-      tracingOrigins: ["localhost", /^/],
+    integrations.push(Sentry.browserTracingIntegration({
       tracePropagationTargets: ["localhost", /^/],
-    });
-    integrations.push(browserTracing);
+    }));
   } catch (e) {
     console.warn("Failed to initialize BrowserTracing:", e);
   }
   
-  // Replay integration (if available)
-  if (typeof Sentry !== "undefined" && 
-      "Replay" in Sentry && 
-      typeof (Sentry as Record<string, unknown>).Replay === "function") {
-    try {
-      const Replay = (Sentry as Record<string, unknown>).Replay as new (options: { maskAllText: boolean; blockAllMedia: boolean }) => unknown;
-      integrations.push(new Replay({
-        maskAllText: true,
-        blockAllMedia: true,
-      }));
-    } catch (e) {
-      console.warn("Failed to initialize Replay:", e);
-    }
+  // Replay integration (Sentry v8+ uses replayIntegration)
+  try {
+    integrations.push(Sentry.replayIntegration({
+      maskAllText: true,
+      blockAllMedia: true,
+    }));
+  } catch (e) {
+    console.warn("Failed to initialize Replay:", e);
   }
 
   Sentry.init({

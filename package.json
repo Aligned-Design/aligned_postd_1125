@@ -54,7 +54,6 @@
     "@anthropic-ai/sdk": "^0.68.0",
     "@sendgrid/mail": "^8.1.6",
     "@sentry/react": "^10.23.0",
-    "@sentry/tracing": "^10.23.0",
     "@sparticuz/chromium": "^141.0.0",
     "@supabase/supabase-js": "^2.80.0",
     "@testing-library/react": "^16.3.0",

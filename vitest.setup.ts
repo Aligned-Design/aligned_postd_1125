@@ -178,10 +178,6 @@ vi.mock('@sentry/react', async () => {
   };
 });
 
-vi.mock('@sentry/tracing', () => ({
-  BrowserTracing: vi.fn(() => ({})),
-}));
-
 // Suppress console errors in tests
 const originalError = console.error;
 beforeAll(() => {
