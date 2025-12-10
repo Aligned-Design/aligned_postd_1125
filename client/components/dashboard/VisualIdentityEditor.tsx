@@ -25,10 +25,19 @@ const GOOGLE_FONTS = [
   { name: "Quicksand", family: "Quicksand" },
 ];
 
-// Mock color extraction from logo
-function extractColorsFromImage(): string[] {
-  const mockColors = ["#292661", "#a3e635", "#12b76a", "#f59e0b", "#ef4444"]; // primary-dark, lime-400, success, amber-600, red-500 (design tokens)
-  return mockColors.slice(0, 3);
+/**
+ * Get colors from brand data - uses actual scraped/stored colors
+ * Colors are extracted during website crawling and stored in brand_kit.colors
+ */
+function getBrandColors(brand: BrandGuide): string[] {
+  // Priority: primaryColors from brand_kit > visualIdentity.colors > colorPalette
+  const colors = brand.primaryColors || 
+                 brand.visualIdentity?.colors || 
+                 brand.colorPalette || 
+                 [];
+  
+  // Filter to valid HEX colors only
+  return colors.filter((c: string) => /^#[0-9A-Fa-f]{6}$/.test(c)).slice(0, 6);
 }
 
 export function VisualIdentityEditor({ brand, onUpdate }: VisualIdentityEditorProps) {
@@ -84,11 +93,22 @@ export function VisualIdentityEditor({ brand, onUpdate }: VisualIdentityEditorPr
   const handleExtractColors = () => {
     if (!logoPreview) return;
     setIsExtracting(true);
+    
+    // Use actual brand colors (extracted during website crawl)
+    // If no scraped colors exist, use a fallback
     setTimeout(() => {
-      const extractedColors = extractColorsFromImage();
-      onUpdate({ primaryColors: extractedColors });
+      const existingColors = getBrandColors(brand);
+      
+      if (existingColors.length > 0) {
+        // Use colors that were extracted during website scraping
+        onUpdate({ primaryColors: existingColors.slice(0, 3) });
+      } else {
+        // Fallback: prompt user to complete website scraping
+        // For now, just set a single neutral color
+        onUpdate({ primaryColors: ["#1f2937"] }); // slate-800
+      }
       setIsExtracting(false);
-    }, 1500);
+    }, 500);
   };
 
   const handleColorChange = (index: number, color: string, isPrimary: boolean) => {
@@ -132,7 +152,11 @@ export function VisualIdentityEditor({ brand, onUpdate }: VisualIdentityEditorPr
               className="flex items-center gap-2 px-3 py-2 rounded-lg bg-teal-100 text-teal-700 hover:bg-teal-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-bold text-sm"
             >
               <Sparkles className="w-4 h-4" />
-              {isExtracting ? "Extracting..." : "Extract Colors"}
+              {isExtracting 
+                ? "Applying..." 
+                : getBrandColors(brand).length > 0 
+                  ? "Apply Brand Colors" 
+                  : "Extract Colors"}
             </button>
           )}
         </div>
@@ -165,7 +189,9 @@ export function VisualIdentityEditor({ brand, onUpdate }: VisualIdentityEditorPr
 
         {logoPreview && (
           <p className="text-xs text-slate-600 bg-indigo-50 p-3 rounded-lg">
-            💡 Tip: Click "Extract Colors" to automatically detect colors from your logo and populate the primary colors below.
+            💡 Tip: {getBrandColors(brand).length > 0 
+              ? "Your brand colors were automatically extracted from your website. Click 'Extract Colors' to apply them to your palette."
+              : "Click 'Extract Colors' to populate colors. For best results, complete website scraping during onboarding."}
           </p>
         )}
       </div>

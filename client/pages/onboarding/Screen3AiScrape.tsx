@@ -7,11 +7,13 @@
 
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { Sparkles, CheckCircle2, Loader2, Palette, Image, MessageSquare, Package, Globe } from "lucide-react";
+import { Sparkles, CheckCircle2, Loader2, Palette, Image, MessageSquare, Package, Globe, Calendar } from "lucide-react";
 import { OnboardingProgress } from "@/components/onboarding/OnboardingProgress";
 import { useConfetti } from "@/hooks/useConfetti";
 import { saveBrandGuideFromOnboarding } from "@/lib/onboarding-brand-sync";
 import { logInfo, logWarning, logError } from "@/lib/logger";
+import { isFeatureEnabled } from "@/lib/featureFlags";
+import type { OnboardingRunAllResponse } from "@shared/api";
 
 interface ScrapeProgress {
   step: string;
@@ -59,6 +61,10 @@ export default function Screen3AiScrape() {
   const [steps, setSteps] = useState<ScrapeProgress[]>(SCRAPE_STEPS);
   const [isComplete, setIsComplete] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  
+  // Auto-workflow state (generates first week of content after scrape)
+  const [isGeneratingContent, setIsGeneratingContent] = useState(false);
+  const [contentGenerationError, setContentGenerationError] = useState<string | null>(null);
 
   useEffect(() => {
     if (import.meta.env.DEV) {
@@ -305,6 +311,21 @@ export default function Screen3AiScrape() {
         });
         // Continue anyway - don't block onboarding
       }
+      
+      // ✅ AUTO-WORKFLOW: If feature flag is enabled, run onboarding workflow to generate first week
+      // Also check if workflow was already triggered (double-execution prevention)
+      const workflowAlreadyCompleted = localStorage.getItem(`postd:onboarding:${brandId}:workflow_completed`) === "true";
+      const workflowInProgress = localStorage.getItem(`postd:onboarding:${brandId}:workflow_in_progress`) === "true";
+      
+      if (isFeatureEnabled("onboarding_auto_run_workflow") && !workflowAlreadyCompleted && !workflowInProgress) {
+        console.log("[OnboardingWorkflow] brandId=" + brandId + " triggered");
+        logInfo("Auto-workflow enabled, generating first week of content", { step: "auto_workflow_start", brandId });
+        await runOnboardingWorkflow(brandId);
+      } else if (workflowAlreadyCompleted) {
+        console.log("[OnboardingWorkflow] brandId=" + brandId + " skipped (already completed)");
+      } else if (workflowInProgress) {
+        console.log("[OnboardingWorkflow] brandId=" + brandId + " skipped (in progress)");
+      }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Scraping failed";
       logError("Scraping error", err instanceof Error ? err : new Error(errorMessage), {
@@ -339,6 +360,90 @@ export default function Screen3AiScrape() {
     };
 
     setBrandSnapshot(brandSnapshot);
+  };
+
+  /**
+   * Auto-run onboarding workflow (generates first week of content)
+   * Called after successful scrape if feature flag is enabled
+   * 
+   * Double-execution prevention:
+   * - Sets `workflow_in_progress` flag at start
+   * - Clears flag on completion or error
+   * - Screen7 checks `workflow_completed` before calling content-plan API
+   */
+  const runOnboardingWorkflow = async (brandId: string) => {
+    const startTime = Date.now();
+    
+    // ✅ Double-execution prevention: set in-progress flag
+    localStorage.setItem(`postd:onboarding:${brandId}:workflow_in_progress`, "true");
+    
+    try {
+      setIsGeneratingContent(true);
+      setContentGenerationError(null);
+      
+      logInfo("Starting onboarding workflow", { step: "workflow_started", brandId });
+      
+      // Get workspaceId from user context
+      const workspaceId = (user as any)?.workspaceId || (user as any)?.tenantId || localStorage.getItem("aligned_workspace_id");
+      
+      // Use centralized API utility for authenticated requests
+      const { apiPost } = await import("@/lib/api");
+      
+      const result = await apiPost<OnboardingRunAllResponse>("/api/orchestration/onboarding/run-all", {
+        brandId,
+        workspaceId,
+        websiteUrl: user?.website,
+        industry: user?.industry,
+      });
+      
+      const durationMs = Date.now() - startTime;
+      
+      if (result.success && result.status === "completed") {
+        logInfo("Onboarding workflow completed", {
+          step: "workflow_complete",
+          brandId,
+          stepsCompleted: result.steps?.filter((s) => s.status === "completed").length || 0,
+        });
+        
+        // Store workflow result for later screens (e.g., skip Screen7 if content already generated)
+        // NOTE: Keys are brand-specific to support multi-brand / agency onboarding
+        localStorage.setItem(`postd:onboarding:${brandId}:workflow_completed`, "true");
+        localStorage.setItem(`postd:onboarding:${brandId}:workflow_result`, JSON.stringify({
+          completedAt: result.completedAt,
+          stepsCompleted: result.steps?.map((s) => s.id) || [],
+        }));
+        
+        // ✅ Diagnostic logging (DEV only via console, always via structured log)
+        console.log(`[OnboardingWorkflow] completed in ${durationMs} ms`);
+        console.log(`[OnboardingWorkflow] result keys set: workflow_completed & workflow_result`);
+        
+        return true;
+      } else {
+        // Workflow failed but we don't block onboarding
+        logWarning("Onboarding workflow failed or incomplete", {
+          step: "workflow_incomplete",
+          brandId,
+          status: result.status,
+          errors: result.errors,
+        });
+        console.warn(`[OnboardingWorkflow] failed after ${durationMs} ms`, { status: result.status, errors: result.errors });
+        setContentGenerationError("We couldn't auto-generate your first week. You can still continue and create content manually.");
+        return false;
+      }
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      const durationMs = Date.now() - startTime;
+      logError("Onboarding workflow error", err instanceof Error ? err : new Error(errorMessage), {
+        step: "workflow_error",
+      });
+      console.error(`[OnboardingWorkflow] error after ${durationMs} ms:`, errorMessage);
+      setContentGenerationError("We couldn't auto-generate your first week. You can still continue and create content manually.");
+      return false;
+    } finally {
+      setIsGeneratingContent(false);
+      // ✅ Clear in-progress flag
+      localStorage.removeItem(`postd:onboarding:${brandId}:workflow_in_progress`);
+    }
   };
 
   const extractBrandNameFromUrl = (url: string): string => {
@@ -448,6 +553,38 @@ export default function Screen3AiScrape() {
           ))}
         </div>
 
+        {/* Content Generation State (Auto-workflow) */}
+        {isGeneratingContent && (
+          <div className="mt-6 p-4 bg-indigo-50 border border-indigo-200 rounded-lg">
+            <div className="flex items-center gap-3">
+              <div className="flex-shrink-0">
+                <Calendar className="w-5 h-5 text-indigo-600 animate-pulse" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-indigo-900 mb-1">
+                  ✨ Generating your first week of content...
+                </p>
+                <p className="text-xs text-indigo-700">
+                  Our AI is creating social posts, emails, and more tailored to your brand. This takes 1-2 minutes.
+                </p>
+              </div>
+              <Loader2 className="w-5 h-5 text-indigo-600 animate-spin ml-auto" />
+            </div>
+          </div>
+        )}
+
+        {/* Content Generation Error (non-blocking) */}
+        {contentGenerationError && !isGeneratingContent && (
+          <div className="mt-6 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+            <p className="text-sm font-semibold text-amber-900 mb-1">
+              ℹ️ Content generation note
+            </p>
+            <p className="text-xs text-amber-800">
+              {contentGenerationError}
+            </p>
+          </div>
+        )}
+
         {/* Error Message */}
         {error && (
           <div className="mt-6 p-4 bg-amber-50 border border-amber-200 rounded-lg">
@@ -461,13 +598,21 @@ export default function Screen3AiScrape() {
         )}
 
         {/* Completion Message */}
-        {isComplete && (
+        {isComplete && !isGeneratingContent && (
           <div className="mt-6 p-4 bg-green-50 border border-green-200 rounded-lg text-center">
             <p className="text-lg font-bold text-green-900 mb-1">
               🎉 We've automatically detected your brand assets!
             </p>
             <p className="text-sm text-green-700">
-              Your logos, images, colors, and brand voice are ready. Taking you to review...
+              Your logos, images, colors, and brand voice are ready.
+              {(() => {
+                // Check brand-specific key for multi-brand/agency support
+                const brandId = localStorage.getItem("postd_brand_id") || localStorage.getItem("aligned_brand_id");
+                return brandId && localStorage.getItem(`postd:onboarding:${brandId}:workflow_completed`) === "true";
+              })() && (
+                <> We've also generated your first week of content!</>
+              )}
+              {" "}Taking you to review...
             </p>
           </div>
         )}

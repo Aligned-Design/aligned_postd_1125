@@ -128,8 +128,8 @@ export default function Screen8CalendarPreview() {
         }
         
         // Try localStorage as last resort
-        // TODO: Migrate from "aligned:onboarding:content_package" to "postd:onboarding:content_package"
-        const savedPackage = localStorage.getItem("postd:onboarding:content_package") || localStorage.getItem("aligned:onboarding:content_package");
+        // NOTE: Keys are brand-specific to support multi-brand / agency onboarding
+        const savedPackage = localStorage.getItem(`postd:onboarding:${brandId}:content_package`);
         if (savedPackage) {
           try {
             const parsed = JSON.parse(savedPackage);
@@ -370,22 +370,28 @@ export default function Screen8CalendarPreview() {
   const handleSkipConnect = () => {
     setShowConnectCTA(false);
     // Mark as skipped, continue to dashboard
-    // TODO: Migrate from "aligned:onboarding:connect_skipped" to "postd:onboarding:connect_skipped"
-    localStorage.setItem("postd:onboarding:connect_skipped", "true");
-    localStorage.setItem("aligned:onboarding:connect_skipped", "true"); // Backward compatibility
+    // NOTE: Keys are brand-specific to support multi-brand / agency onboarding
+    const brandId = localStorage.getItem("postd_brand_id") || localStorage.getItem("aligned_brand_id");
+    if (brandId) {
+      localStorage.setItem(`postd:onboarding:${brandId}:connect_skipped`, "true");
+    }
     setOnboardingStep(10);
   };
 
   const handleRegenerateWeek = async () => {
-    // TODO: Migrate from "aligned:weekly_focus" to "postd:weekly_focus"
-    const weeklyFocus = (user as any)?.weeklyFocus || localStorage.getItem("postd:weekly_focus") || localStorage.getItem("aligned:weekly_focus") || "brand_awareness";
+    // Get brandId first (required for brand-specific keys)
+    const brandId = localStorage.getItem("postd_brand_id") || localStorage.getItem("aligned_brand_id");
+    if (!brandId) {
+      logError("Cannot regenerate: brandId not found", new Error("Missing brandId"), { step: "regenerate_content" });
+      return;
+    }
+    
+    // Get weekly focus (brand-specific key)
+    const weeklyFocus = (user as any)?.weeklyFocus || localStorage.getItem(`postd:onboarding:${brandId}:weekly_focus`) || "brand_awareness";
     if (!weeklyFocus || !brandSnapshot) return;
     
     setIsRegenerating(true);
     try {
-      // TODO: Migrate from "aligned_brand_id" to "postd_brand_id" (keeping backward compatibility)
-      const brandId = localStorage.getItem("postd_brand_id") || localStorage.getItem("aligned_brand_id") || `brand_${Date.now()}`;
-      
       const response = await fetch("/api/onboarding/regenerate-week", {
         method: "POST",
         headers: {
@@ -417,10 +423,9 @@ export default function Screen8CalendarPreview() {
         }));
         setContentItems(items);
         
-        // Save to localStorage
-        // TODO: Migrate from "aligned:onboarding:content_package" to "postd:onboarding:content_package"
-        localStorage.setItem("postd:onboarding:content_package", JSON.stringify(result.contentPackage));
-        localStorage.setItem("aligned:onboarding:content_package", JSON.stringify(result.contentPackage)); // Backward compatibility
+        // Save to localStorage (brand-specific key)
+        localStorage.setItem(`postd:onboarding:${brandId}:content_package`, JSON.stringify(result.contentPackage));
+        console.log("[OnboardingWorkflow] Regenerated content stored for brandId=" + brandId);
       }
     } catch (error) {
       logError("Failed to regenerate content", error instanceof Error ? error : new Error(String(error)), {

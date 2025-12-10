@@ -11,6 +11,7 @@ export default defineConfig({
       formats: ["es"],
     },
     outDir: "dist/server",
+    emptyOutDir: false, // Preserve node-build-v2.mjs from the server build
     target: "node24",
     ssr: true,
     rollupOptions: {

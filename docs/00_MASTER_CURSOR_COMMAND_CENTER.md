@@ -1,7 +1,7 @@
 # 🚀 POSTD — CURSOR COMMAND CENTER
 
 > **Status:** ✅ Active – This is an active engineering playbook for Cursor agents working on POSTD.  
-> **Last Updated:** 2025-01-20
+> **Last Updated:** 2025-12-10
 
 **The Complete Engineering Playbook for Cursor Agents Working on POSTD**
 
@@ -95,6 +95,22 @@ Every agent, generator, or scraper MUST:
 - Use tone, pillars, rules, visual identity
 - Avoid phrases listed in `voiceAndTone.avoidPhrases`
 - Follow BFS evaluation rules
+
+## 6A. AGENT & ORCHESTRATION RULES
+
+Before editing ANY agent (Doc, Design, Advisor, Planner, Orchestrator, BFS, Linter), orchestration logic, or content-planning flows, Cursor MUST:
+
+- **Read** `docs/architecture/POSTD_AGENT_ORCHESTRATION_AND_HANDOFF.md` — this is the single source of truth for how agents collaborate and hand off work
+- Understand the **Agent Catalog** (which agents exist, their inputs/outputs, code locations)
+- Respect the **handoff contracts** (how data flows between agents)
+- Use the shared **collaboration artifacts** (StrategyBrief, ContentPackage, BrandHistory)
+- Follow the current **orchestration model** (manual calls vs. orchestrated pipelines)
+
+NEVER:
+
+- Invent new agents without explicit approval
+- Break existing handoff patterns documented in that file
+- Skip reading the orchestration doc when modifying agent code
 
 ## 7. DOCUMENTATION RULES
 
@@ -562,6 +578,9 @@ When working through integration tasks, reference these documents:
 - `ROUTING_AUDIT.md` - Routing structure
 - `SECURITY.md` - Security guidelines
 
+### Agent & Orchestration Documentation
+- `docs/architecture/POSTD_AGENT_ORCHESTRATION_AND_HANDOFF.md` - **Single source of truth for agent collaboration**: Agent Catalog, handoff contracts, shared Brand Guide + collaboration artifacts, current orchestration model. **Required reading before modifying any agent or orchestration code.**
+
 ### API Documentation
 - `API_DOCUMENTATION.md` - API overview
 - `API_INTEGRATION_STRATEGY.md` - Integration strategy
@@ -729,6 +748,7 @@ Use this checklist to track integration progress:
 - ✅ Doc Agent contract normalized (brand_id + input object)
 - ✅ Fallback logic for PostgREST schema cache errors
 - ✅ Diagnostic utility for schema health checks
+- 📖 See `docs/architecture/POSTD_AGENT_ORCHESTRATION_AND_HANDOFF.md` for full agent catalog and handoff contracts
 
 ---
 
@@ -743,6 +763,7 @@ Use this checklist to track integration progress:
 3. **Study** `supabase/migrations/001_bootstrap_schema.sql`
 4. **Review** `POSTD_PHASE2_AUDIT_REPORT.md` for common issues
 5. **Examine** `server/lib/brand-access.ts` for access patterns
+6. **For AI Agents:** Read `docs/architecture/POSTD_AGENT_ORCHESTRATION_AND_HANDOFF.md` before modifying any agent, orchestration, or content-planning code
 
 ### New Dev Architecture Walkthrough
 
@@ -976,7 +997,7 @@ Rules:
 
 ---
 
-**Last Updated:** 2025-01-20  
-**Version:** 2.0  
+**Last Updated:** 2025-12-10  
+**Version:** 2.1  
 **Maintained By:** POSTD Engineering Team
 

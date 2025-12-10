@@ -23,6 +23,9 @@ import {
   AlertCircle,
   ChevronLeft,
   Loader2,
+  Sparkles,
+  Calendar,
+  FileText,
 } from "lucide-react";
 
 const statusConfig: Record<
@@ -520,10 +523,42 @@ export default function ContentQueue() {
       {/* Content - only show if not loading and no error */}
       {!loading && !error && (
         <>
-          {/* Status Overview Banner */}
-          <StatusOverviewBanner navigateToQueue={true} />
+          {/* Empty State - No posts yet */}
+          {posts.length === 0 && (
+            <div className="bg-white/50 backdrop-blur-xl rounded-2xl p-12 text-center border border-white/60 mb-8">
+              <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-gradient-to-br from-indigo-100 to-purple-100 flex items-center justify-center">
+                <FileText className="w-10 h-10 text-indigo-600" />
+              </div>
+              <h3 className="text-2xl font-black text-slate-900 mb-3">
+                No content yet for this brand
+              </h3>
+              <p className="text-slate-600 font-medium mb-6 max-w-md mx-auto">
+                Create your first piece of content with AI Studio, or import your content plan to get started.
+              </p>
+              <div className="flex flex-wrap items-center justify-center gap-3">
+                <button
+                  onClick={() => navigate("/studio")}
+                  className="inline-flex items-center gap-2 px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-black rounded-lg shadow-lg hover:shadow-xl transition-all"
+                >
+                  <Sparkles className="w-5 h-5" />
+                  Open AI Studio
+                </button>
+                <button
+                  onClick={() => navigate("/calendar")}
+                  className="inline-flex items-center gap-2 px-6 py-3 bg-white/80 hover:bg-white text-slate-700 font-bold rounded-lg border border-slate-200 hover:border-indigo-300 transition-all"
+                >
+                  <Calendar className="w-5 h-5" />
+                  View Calendar
+                </button>
+              </div>
+            </div>
+          )}
 
-          {/* Filter Controls & Status Actions */}
+          {/* Status Overview Banner - only show if we have posts */}
+          {posts.length > 0 && <StatusOverviewBanner navigateToQueue={true} />}
+
+          {/* Filter Controls & Status Actions - only show if we have posts */}
+          {posts.length > 0 && (
           <div className="mb-8 flex flex-wrap items-center gap-3">
             <button
               onClick={() => setShowFilters(!showFilters)}
@@ -576,9 +611,10 @@ export default function ContentQueue() {
               </button>
             )}
           </div>
+          )}
 
-          {/* Filter Panel */}
-          {showFilters && (
+          {/* Filter Panel - only show if we have posts */}
+          {posts.length > 0 && showFilters && (
             <div className="mb-8 p-4 rounded-lg bg-white/50 backdrop-blur-xl border border-white/60 space-y-4 animate-[slideDown_200ms_ease-out]">
               {/* Brand Filter */}
               <div>
@@ -675,8 +711,8 @@ export default function ContentQueue() {
             </div>
           )}
 
-          {/* Carousel View */}
-          {viewMode === "carousel" && (
+          {/* Carousel View - only show if we have posts */}
+          {posts.length > 0 && viewMode === "carousel" && (
             <div className="mb-12">
               <PostCarousel
                 posts={filteredPosts.slice(0, 10)}
@@ -689,8 +725,8 @@ export default function ContentQueue() {
             </div>
           )}
 
-          {/* Section Carousels or Filtered Grid View */}
-          {viewMode === "grid" && (
+          {/* Section Carousels or Filtered Grid View - only show if we have posts */}
+          {posts.length > 0 && viewMode === "grid" && (
             <div className="mb-12">
               {statusFilter ? (
                 // Filtered status view: show as grid
@@ -701,15 +737,32 @@ export default function ContentQueue() {
                     ))}
                   </div>
                 ) : (
-                  <div className="text-center py-12">
-                    <AlertCircle className="w-12 h-12 text-slate-400 mx-auto mb-3" />
-                    <h3 className="text-lg font-bold text-slate-900 mb-1">
-                      No posts found
+                  <div className="bg-white/50 backdrop-blur-xl rounded-2xl p-10 text-center border border-white/60">
+                    <div className="w-14 h-14 mx-auto mb-4 rounded-full bg-indigo-50 flex items-center justify-center">
+                      <Calendar className="w-7 h-7 text-indigo-400" />
+                    </div>
+                    <h3 className="text-lg font-bold text-slate-900 mb-2">
+                      No {getStatusLabel(statusFilter).toLowerCase()} posts
                     </h3>
-                    <p className="text-slate-600">
-                      No posts in {getStatusLabel(statusFilter).toLowerCase()}{" "}
-                      status.
+                    <p className="text-slate-600 mb-4 max-w-sm mx-auto">
+                      {statusFilter === "draft" 
+                        ? "Create your first draft in the AI Studio."
+                        : statusFilter === "scheduled"
+                        ? "You have no scheduled posts this week. Check drafts ready to schedule."
+                        : statusFilter === "reviewing"
+                        ? "No posts pending approval. Great job staying on top of reviews!"
+                        : `No posts currently in ${getStatusLabel(statusFilter).toLowerCase()} status.`
+                      }
                     </p>
+                    {(statusFilter === "draft" || statusFilter === "scheduled") && (
+                      <button
+                        onClick={() => navigate("/studio")}
+                        className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm rounded-lg transition-all"
+                      >
+                        <Sparkles className="w-4 h-4" />
+                        Create Content
+                      </button>
+                    )}
                   </div>
                 )
               ) : (

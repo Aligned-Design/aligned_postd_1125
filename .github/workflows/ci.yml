@@ -97,6 +97,45 @@ jobs:
       - name: E2E Results
         run: echo "⚠️ E2E tests completed (non-blocking). See artifacts for screenshots and videos."
 
+  # Brand Health Check - Optional, runs when BRAND_TEST_ID secret is configured
+  # This verifies the scraper and content pipeline work with real brand data
+  brand-health:
+    name: Brand Health Check
+    runs-on: ubuntu-latest
+    # Only run if the secret is configured (set BRAND_TEST_ID in repo secrets)
+    if: ${{ vars.BRAND_TEST_ID != '' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v2
+        with:
+          version: 10.14.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'pnpm'
+      - run: pnpm install --frozen-lockfile
+      
+      # Scraper smoke test - verifies brand kit, colors, images, no duplicates
+      - name: Scraper Health Check
+        run: pnpm scraper:smoke
+        continue-on-error: true
+        env:
+          SCRAPER_TEST_BRAND_ID_1: ${{ vars.BRAND_TEST_ID }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+      
+      # Brand experience smoke - verifies content pipeline, queue, media assets
+      - name: Brand Experience Check
+        run: pnpm brand-experience:smoke
+        continue-on-error: true
+        env:
+          BRAND_EXPERIENCE_TEST_BRAND_ID: ${{ vars.BRAND_TEST_ID }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+      
+      - name: Brand Health Results
+        run: echo "⚠️ Brand health checks completed (non-blocking). Review logs for any issues."
+
   build:
     name: Build
     runs-on: ubuntu-latest
@@ -121,7 +160,7 @@ jobs:
   status:
     name: CI Status
     runs-on: ubuntu-latest
-    needs: [lint, typecheck, test, e2e, build]
+    needs: [lint, typecheck, test, e2e, build, brand-health]
     if: always()
     steps:
       - name: Check CI Status
@@ -144,3 +183,4 @@ jobs:
           echo "Typecheck: ${{ needs.typecheck.result }}"
           echo "Tests: ${{ needs.test.result }}"
           echo "E2E: ${{ needs.e2e.result }} (non-blocking)"
+          echo "Brand Health: ${{ needs.brand-health.result }} (non-blocking, optional)"

@@ -420,6 +420,79 @@ export interface DashboardChartData {
 }
 
 // ============================================================================
+// ONBOARDING ORCHESTRATION TYPES
+// ============================================================================
+
+/**
+ * Request for POST /api/orchestration/onboarding/run-all
+ */
+export interface OnboardingRunAllRequest {
+  brandId: string;
+  workspaceId?: string;
+  websiteUrl?: string;
+  industry?: string;
+  goals?: string[];
+  regenerate?: boolean;
+}
+
+/**
+ * Individual step in onboarding workflow
+ */
+export interface OnboardingStep {
+  id: string;
+  name: string;
+  status: "pending" | "in_progress" | "completed" | "failed";
+  startedAt?: string;
+  completedAt?: string;
+  error?: string;
+  result?: unknown;
+}
+
+/**
+ * Response from POST /api/orchestration/onboarding/run-all
+ */
+export interface OnboardingRunAllResponse {
+  success: boolean;
+  workspaceId?: string;
+  brandId: string;
+  status: "started" | "completed" | "failed";
+  steps: OnboardingStep[];
+  startedAt: string;
+  completedAt?: string;
+  errors: Array<{ step: string; error: string; timestamp: string }>;
+}
+
+/**
+ * Response from POST /api/crawl/start (sync mode)
+ */
+export interface CrawlerSyncResponse {
+  success: boolean;
+  status: "completed" | "fallback" | "error";
+  brandKit?: {
+    colors?: {
+      primary?: string;
+      secondary?: string;
+      accent?: string;
+      allColors?: string[];
+      primaryColors?: string[];
+    };
+    voice_summary?: {
+      tone?: string | string[];
+      style?: string;
+      audience?: string;
+      avoid?: string[];
+      personality?: string | string[];
+    };
+    about_blurb?: string;
+    keyword_themes?: string[];
+    headlines?: string[];
+    images?: Array<{ url: string; category?: string }>;
+    logoUrl?: string;
+  };
+  error?: string;
+}
+
+// ============================================================================
 // CLIENT PORTAL TYPES
 // ============================================================================
 // NOTE: ClientDashboardData and related types have been moved to @shared/client-portal

@@ -10,6 +10,100 @@ import type { BrandGuide } from "@shared/brand-guide";
 import { normalizeBrandGuide } from "@shared/brand-guide";
 
 /**
+ * ✅ R06 FIX: Brand Guide Completeness Validation
+ * 
+ * Checks if a Brand Guide has the critical fields needed for AI content generation.
+ * Returns a list of missing fields so users can be informed about incomplete guides.
+ * 
+ * @param guide - The Brand Guide to validate (or null if not found)
+ * @returns { isComplete: boolean, missingFields: string[] }
+ */
+export interface BrandGuideCompletenessResult {
+  isComplete: boolean;
+  missingFields: string[];
+  completenessScore: number; // 0-100
+}
+
+export function validateBrandGuideCompleteness(guide: BrandGuide | null): BrandGuideCompletenessResult {
+  if (!guide) {
+    return {
+      isComplete: false,
+      missingFields: ["entire brand guide"],
+      completenessScore: 0,
+    };
+  }
+
+  const missing: string[] = [];
+  let totalFields = 0;
+  let completedFields = 0;
+
+  // Critical: Voice & Tone - tone keywords
+  totalFields++;
+  if (!guide.voiceAndTone?.tone?.length) {
+    missing.push("voiceAndTone.tone");
+  } else {
+    completedFields++;
+  }
+
+  // Critical: Visual Identity - brand colors
+  totalFields++;
+  if (!guide.visualIdentity?.colors?.length) {
+    missing.push("visualIdentity.colors");
+  } else {
+    completedFields++;
+  }
+
+  // Important: Identity - business type
+  totalFields++;
+  if (!guide.identity?.businessType) {
+    missing.push("identity.businessType");
+  } else {
+    completedFields++;
+  }
+
+  // Important: Identity - industry
+  totalFields++;
+  if (!guide.identity?.industry) {
+    missing.push("identity.industry");
+  } else {
+    completedFields++;
+  }
+
+  // Recommended: Voice description
+  totalFields++;
+  if (!guide.voiceAndTone?.voiceDescription) {
+    missing.push("voiceAndTone.voiceDescription");
+  } else {
+    completedFields++;
+  }
+
+  // Recommended: Target audience
+  totalFields++;
+  if (!guide.identity?.targetAudience) {
+    missing.push("identity.targetAudience");
+  } else {
+    completedFields++;
+  }
+
+  // Recommended: Industry keywords
+  totalFields++;
+  if (!guide.identity?.industryKeywords?.length) {
+    missing.push("identity.industryKeywords");
+  } else {
+    completedFields++;
+  }
+
+  // Calculate completeness score
+  const completenessScore = Math.round((completedFields / totalFields) * 100);
+
+  return {
+    isComplete: missing.length === 0,
+    missingFields: missing,
+    completenessScore,
+  };
+}
+
+/**
  * Get current Brand Guide for a brand
  */
 export async function getCurrentBrandGuide(brandId: string): Promise<BrandGuide | null> {

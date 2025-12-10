@@ -114,6 +114,10 @@ See **[CODEBASE_ARCHITECTURE_OVERVIEW.md](CODEBASE_ARCHITECTURE_OVERVIEW.md)** f
 | `pnpm format.fix` | Auto-fix code formatting |
 | `pnpm validate:env` | Validate environment variables |
 | `pnpm verify:supabase` | Test Supabase connection |
+| `pnpm scraper:smoke` | Scraper + brand kit health check (requires env vars) |
+| `pnpm brand-experience:smoke` | Content pipeline E2E verification |
+| `pnpm backfill:brand-kit` | Backfill missing brand_kit/colors for existing brands |
+| `pnpm brands:list` | List brands in database |
 
 ### Development Workflow
 
@@ -131,9 +135,21 @@ See **[CODEBASE_ARCHITECTURE_OVERVIEW.md](CODEBASE_ARCHITECTURE_OVERVIEW.md)** f
    pnpm lint
    ```
 
-4. **Commit changes** with descriptive commit messages
+4. **Brand health check** (before PR):
+   ```bash
+   # Get a real brand ID
+   pnpm brands:list
+   
+   # Run scraper health
+   SCRAPER_TEST_BRAND_ID_1=<uuid> pnpm scraper:smoke
+   
+   # Run content pipeline check
+   BRAND_EXPERIENCE_TEST_BRAND_ID=<uuid> pnpm brand-experience:smoke
+   ```
 
-5. **Open a Pull Request** for review
+5. **Commit changes** with descriptive commit messages
+
+6. **Open a Pull Request** for review (see PR template for checklist)
 
 See **[CONTRIBUTING.md](CONTRIBUTING.md)** for detailed contribution guidelines.
 

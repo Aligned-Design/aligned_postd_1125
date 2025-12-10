@@ -2,15 +2,18 @@ import { defineConfig } from "vite";
 import path from "path";
 
 // Server build configuration
+// ✅ Uses v2 entry point (server/node-build-v2.ts) which imports from index-v2.ts
+// This is the production server build that `pnpm start` uses
 export default defineConfig({
   build: {
     lib: {
-      entry: path.resolve(__dirname, "server/node-build.ts"),
+      entry: path.resolve(__dirname, "server/node-build-v2.ts"),
       name: "server",
-      fileName: "production",
+      fileName: "node-build-v2",
       formats: ["es"],
     },
     outDir: "dist/server",
+    emptyOutDir: false, // Preserve static files from client build
     target: "node24",
     ssr: true,
     rollupOptions: {

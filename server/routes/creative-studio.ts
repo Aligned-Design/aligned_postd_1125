@@ -130,66 +130,57 @@ studioRouter.post(
       // Update designData with validated brandId
       designData.brandId = brandId;
 
-      // Future work: Create creative_designs table migration
-      // The creative_designs table does not exist in the current schema
-      // For now, using content_items table as fallback with mock data structure
-      
-      // Try to use content_items table as fallback, otherwise return mock
-      const designId = randomUUID();
-      const now = new Date().toISOString();
-      
-      // Attempt to save to content_items if it exists, otherwise mock
-      try {
-        const { data: contentItem, error: contentError } = await supabase
-          .from("content_items")
-          .insert({
-            brand_id: designData.brandId,
-            title: designData.name || "Untitled Design",
-            type: "creative_studio",
-            content: {
-              format: designData.format,
-              width: designData.width,
-              height: designData.height,
-              items: designData.items,
-              backgroundColor: designData.backgroundColor,
-            },
-            status: designData.savedToLibrary ? "saved" : "draft",
-            created_by: userId,
-          })
-          .select()
-          .single();
+      // ✅ R04 FIX: Removed mock fallback - DB errors now return proper error response
+      // Save to content_items table
+      const { data: contentItem, error: contentError } = await supabase
+        .from("content_items")
+        .insert({
+          brand_id: designData.brandId,
+          title: designData.name || "Untitled Design",
+          type: "creative_studio",
+          content: {
+            format: designData.format,
+            width: designData.width,
+            height: designData.height,
+            items: designData.items,
+            backgroundColor: designData.backgroundColor,
+          },
+          status: designData.savedToLibrary ? "saved" : "draft",
+          created_by: userId,
+        })
+        .select()
+        .single();
 
-        if (!contentError && contentItem) {
-          const response: SaveDesignResponse = {
-            success: true,
-            design: {
-              id: contentItem.id,
-              name: designData.name || "Untitled Design",
-              format: designData.format,
-              width: designData.width,
-              height: designData.height,
-              brandId: designData.brandId,
-              campaignId: designData.campaignId,
-              items: designData.items,
-              backgroundColor: designData.backgroundColor || "#FFFFFF",
-              createdAt: contentItem.created_at,
-              updatedAt: contentItem.updated_at,
-              savedToLibrary: designData.savedToLibrary || false,
-              libraryAssetId: designData.libraryAssetId,
-            },
-          };
-          return res.status(HTTP_STATUS.CREATED).json(response);
-        }
-      } catch (err) {
-        // Fall through to mock response
-        console.log("Content items table not available, using mock response");
+      // ✅ R04 FIX: Return proper error if DB operation fails
+      if (contentError) {
+        console.error("[CreativeStudio] Failed to save design:", contentError.message);
+        throw new AppError(
+          ErrorCode.DATABASE_ERROR,
+          "Failed to save design to database",
+          HTTP_STATUS.INTERNAL_SERVER_ERROR,
+          "error",
+          { originalError: contentError.message },
+          "Your design could not be saved. Please try again."
+        );
       }
 
-      // Safe mock response (matches expected structure)
-      const mockResponse: SaveDesignResponse = {
+      if (!contentItem) {
+        console.error("[CreativeStudio] Save returned no data");
+        throw new AppError(
+          ErrorCode.DATABASE_ERROR,
+          "Failed to save design - no data returned",
+          HTTP_STATUS.INTERNAL_SERVER_ERROR,
+          "error",
+          undefined,
+          "Your design could not be saved. Please try again."
+        );
+      }
+
+      // Success - return the saved design
+      const response: SaveDesignResponse = {
         success: true,
         design: {
-          id: designId,
+          id: contentItem.id,
           name: designData.name || "Untitled Design",
           format: designData.format,
           width: designData.width,
@@ -198,13 +189,13 @@ studioRouter.post(
           campaignId: designData.campaignId,
           items: designData.items,
           backgroundColor: designData.backgroundColor || "#FFFFFF",
-          createdAt: now,
-          updatedAt: now,
+          createdAt: contentItem.created_at,
+          updatedAt: contentItem.updated_at,
           savedToLibrary: designData.savedToLibrary || false,
           libraryAssetId: designData.libraryAssetId,
         },
       };
-      res.status(HTTP_STATUS.CREATED).json(mockResponse);
+      res.status(HTTP_STATUS.CREATED).json(response);
     } catch (error) {
       next(error);
     }
@@ -239,117 +230,120 @@ studioRouter.put(
       const updateData = updateDesignSchema.parse({ ...req.body, id: designId }) as UpdateDesignRequest;
       const userBrandIds = authReq.user?.brandIds || authReq.auth?.brandIds || [];
 
-      // Try to update in content_items if it exists
-      try {
-        const { data: existingItem, error: fetchError } = await supabase
-          .from("content_items")
-          .select("brand_id, id")
-          .eq("id", designId)
-          .single();
+      // ✅ R04 FIX: Removed mock fallback - DB errors now return proper error response
+      // Fetch existing item to verify it exists and get brand_id
+      const { data: existingItem, error: fetchError } = await supabase
+        .from("content_items")
+        .select("brand_id, id")
+        .eq("id", designId)
+        .single();
 
-        if (!fetchError && existingItem) {
-          // ✅ Brand access verified via validateBrandId middleware (if brandId in params/query)
-          // For PUT /:id, we verify access by checking the existing item's brand_id
-          const brandId = existingItem.brand_id;
-          
-          // Verify user has access to this brand
-          const authReq = req as AuthenticatedRequest;
-          const userId = authReq.user?.id || authReq.auth?.userId;
-          if (userId) {
-            const { data: membership } = await supabase
-              .from("brand_members")
-              .select("id")
-              .eq("brand_id", brandId)
-              .eq("user_id", userId)
-              .single();
-            
-            if (!membership) {
-              throw new AppError(
-                ErrorCode.FORBIDDEN,
-                "Access denied to this brand",
-                HTTP_STATUS.FORBIDDEN,
-                "warning"
-              );
-            }
-          }
-
-          // Build update payload
-          const bodyUpdate: Record<string, any> = {};
-          if (updateData.name !== undefined) bodyUpdate.title = updateData.name;
-          if (updateData.items !== undefined || updateData.backgroundColor !== undefined) {
-            // Fetch existing content to merge updates
-            const { data: existingContentItem } = await supabase
-              .from("content_items")
-              .select("content")
-              .eq("id", designId)
-              .single();
-            
-            const existingContent = (existingContentItem as any)?.content || {};
-            bodyUpdate.content = {
-              ...existingContent,
-              format: updateData.format || existingContent.format,
-              width: updateData.width || existingContent.width,
-              height: updateData.height || existingContent.height,
-              items: updateData.items || existingContent.items,
-              backgroundColor: updateData.backgroundColor || existingContent.backgroundColor,
-            };
-          }
-
-          const { data: updatedItem, error: updateError } = await supabase
-            .from("content_items")
-            .update(bodyUpdate)
-            .eq("id", designId)
-            .select()
-            .single();
-
-          if (!updateError && updatedItem) {
-            const contentData = (updatedItem as any).content || {};
-            const response: UpdateDesignResponse = {
-              success: true,
-              design: {
-                id: updatedItem.id,
-                name: updatedItem.title,
-                format: (contentData.format || updateData.format || "social_square") as CreativeStudioDesign["format"],
-                width: contentData.width || updateData.width || 1080,
-                height: contentData.height || updateData.height || 1080,
-                brandId: updatedItem.brand_id,
-                campaignId: null,
-                items: (contentData.items || []) as CanvasItem[],
-                backgroundColor: contentData.backgroundColor || "#FFFFFF",
-                createdAt: updatedItem.created_at,
-                updatedAt: updatedItem.updated_at,
-                savedToLibrary: updatedItem.status === "saved",
-                libraryAssetId: null,
-              },
-            };
-            return res.status(HTTP_STATUS.OK).json(response);
-          }
-        }
-      } catch (err) {
-        // Fall through to mock response
-        console.log("Content items update not available, using mock response");
+      if (fetchError || !existingItem) {
+        throw new AppError(
+          ErrorCode.NOT_FOUND,
+          "Design not found",
+          HTTP_STATUS.NOT_FOUND,
+          "warning",
+        );
       }
 
-      // Safe mock response
-      const mockResponse: UpdateDesignResponse = {
+      // ✅ Brand access verified via existing item's brand_id
+      const brandId = existingItem.brand_id;
+      
+      // Verify user has access to this brand
+      if (userId) {
+        const { data: membership } = await supabase
+          .from("brand_members")
+          .select("id")
+          .eq("brand_id", brandId)
+          .eq("user_id", userId)
+          .single();
+        
+        if (!membership) {
+          throw new AppError(
+            ErrorCode.FORBIDDEN,
+            "Access denied to this brand",
+            HTTP_STATUS.FORBIDDEN,
+            "warning"
+          );
+        }
+      }
+
+      // Build update payload
+      const bodyUpdate: Record<string, any> = {};
+      if (updateData.name !== undefined) bodyUpdate.title = updateData.name;
+      if (updateData.items !== undefined || updateData.backgroundColor !== undefined) {
+        // Fetch existing content to merge updates
+        const { data: existingContentItem } = await supabase
+          .from("content_items")
+          .select("content")
+          .eq("id", designId)
+          .single();
+        
+        const existingContent = (existingContentItem as any)?.content || {};
+        bodyUpdate.content = {
+          ...existingContent,
+          format: updateData.format || existingContent.format,
+          width: updateData.width || existingContent.width,
+          height: updateData.height || existingContent.height,
+          items: updateData.items || existingContent.items,
+          backgroundColor: updateData.backgroundColor || existingContent.backgroundColor,
+        };
+      }
+
+      const { data: updatedItem, error: updateError } = await supabase
+        .from("content_items")
+        .update(bodyUpdate)
+        .eq("id", designId)
+        .select()
+        .single();
+
+      // ✅ R04 FIX: Return proper error if update fails
+      if (updateError) {
+        console.error("[CreativeStudio] Failed to update design:", updateError.message);
+        throw new AppError(
+          ErrorCode.DATABASE_ERROR,
+          "Failed to update design",
+          HTTP_STATUS.INTERNAL_SERVER_ERROR,
+          "error",
+          { originalError: updateError.message },
+          "Your design could not be updated. Please try again."
+        );
+      }
+
+      if (!updatedItem) {
+        console.error("[CreativeStudio] Update returned no data");
+        throw new AppError(
+          ErrorCode.DATABASE_ERROR,
+          "Failed to update design - no data returned",
+          HTTP_STATUS.INTERNAL_SERVER_ERROR,
+          "error",
+          undefined,
+          "Your design could not be updated. Please try again."
+        );
+      }
+
+      // Success - return the updated design
+      const contentData = (updatedItem as any).content || {};
+      const response: UpdateDesignResponse = {
         success: true,
         design: {
-          id: designId,
-          name: updateData.name || "Updated Design",
-          format: (updateData.format || "social_square") as CreativeStudioDesign["format"],
-          width: updateData.width || 1080,
-          height: updateData.height || 1080,
-          brandId: userBrandIds[0] || "",
+          id: updatedItem.id,
+          name: updatedItem.title,
+          format: (contentData.format || updateData.format || "social_square") as CreativeStudioDesign["format"],
+          width: contentData.width || updateData.width || 1080,
+          height: contentData.height || updateData.height || 1080,
+          brandId: updatedItem.brand_id,
           campaignId: null,
-          items: (updateData.items || []) as CanvasItem[],
-          backgroundColor: updateData.backgroundColor || "#FFFFFF",
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-          savedToLibrary: updateData.savedToLibrary || false,
-          libraryAssetId: updateData.libraryAssetId,
+          items: (contentData.items || []) as CanvasItem[],
+          backgroundColor: contentData.backgroundColor || "#FFFFFF",
+          createdAt: updatedItem.created_at,
+          updatedAt: updatedItem.updated_at,
+          savedToLibrary: updatedItem.status === "saved",
+          libraryAssetId: null,
         },
       };
-      res.status(HTTP_STATUS.OK).json(mockResponse);
+      res.status(HTTP_STATUS.OK).json(response);
     } catch (error) {
       next(error);
     }

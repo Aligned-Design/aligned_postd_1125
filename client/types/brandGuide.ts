@@ -95,28 +95,35 @@ export const TONE_OPTIONS = [
   "Warm",
 ];
 
-// ✅ FIX: Add required nested structure to INITIAL_BRAND_GUIDE
+/**
+ * INITIAL_BRAND_GUIDE - Generic template for new brand guides
+ * 
+ * ⚠️ TEMPLATE ONLY: This is used as a starting template when users skip the wizard.
+ * The brandName and brandId are always overridden with real values before saving.
+ * 
+ * DO NOT use specific brand names here - keep it generic.
+ */
 export const INITIAL_BRAND_GUIDE: BrandGuide = {
   // Required nested structure
   identity: {
-    name: "Hobby Lobby",
+    name: "", // Overridden with real brand name
     businessType: undefined,
     industryKeywords: [],
     competitors: undefined,
     sampleHeadlines: undefined,
   },
   voiceAndTone: {
-    tone: ["Warm", "Encouraging", "Accessible", "Inspirational", "Community-Focused"],
-    friendlinessLevel: 80,
-    formalityLevel: 40,
-    confidenceLevel: 75,
-    voiceDescription: "We speak like a friendly craft mentor—approachable, encouraging, and genuinely enthusiastic about creativity.",
+    tone: ["Professional", "Friendly", "Trustworthy"],
+    friendlinessLevel: 70,
+    formalityLevel: 50,
+    confidenceLevel: 70,
+    voiceDescription: "We communicate in a professional yet approachable manner, building trust with our audience.",
   },
   visualIdentity: {
-    colors: ["#C41E3A", "#FFD700", "#2E5090", "#F5E6D3"],
+    colors: ["#3B82F6", "#10B981", "#6366F1", "#F59E0B"],
     typography: {
-      heading: "Poppins",
-      body: "Poppins",
+      heading: "Inter",
+      body: "Inter",
       source: "google",
     },
     photographyStyle: {
@@ -131,47 +138,47 @@ export const INITIAL_BRAND_GUIDE: BrandGuide = {
     guardrails: [],
   },
   // Legacy flat fields
-  id: "brand-1",
-  brandName: "Hobby Lobby",
-  brandId: "brand-1",
+  id: "", // Overridden with real brand ID
+  brandName: "", // Overridden with real brand name
+  brandId: "", // Overridden with real brand ID
   purpose:
-    "To inspire families to discover their creative potential and pursue their passions through high-quality arts, crafts, and home décor products. We believe creativity strengthens families and communities.",
+    "We exist to provide exceptional value and service to our customers, helping them achieve their goals through our products and expertise.",
   mission:
-    "Hobby Lobby provides affordable, accessible craft supplies and home décor to enable people of all ages to create meaningful projects. We support makers by offering quality products, expert guidance, and a welcoming community.",
+    "To deliver outstanding solutions that meet our customers' needs while building lasting relationships based on trust and quality.",
   vision:
-    "To be the world's most trusted resource for creative inspiration and supplies, where every customer feels empowered to make something beautiful for themselves and their loved ones.",
-  summaryReviewedByAI: true,
-  tone: ["Warm", "Encouraging", "Accessible", "Inspirational", "Community-Focused"],
-  friendlinessLevel: 80,
-  formalityLevel: 40,
-  confidenceLevel: 75,
+    "To be the leading provider in our industry, known for innovation, integrity, and customer satisfaction.",
+  summaryReviewedByAI: false,
+  tone: ["Professional", "Friendly", "Trustworthy"],
+  friendlinessLevel: 70,
+  formalityLevel: 50,
+  confidenceLevel: 70,
   voiceDescription:
-    "We speak like a friendly craft mentor—approachable, encouraging, and genuinely enthusiastic about creativity. Our tone celebrates every skill level, from beginners to experienced makers. We use inclusive language, share inspiration freely, and make crafting feel fun and achievable for everyone.",
+    "We communicate in a professional yet approachable manner. Our tone is confident but not arrogant, helpful without being condescending. We aim to be clear and direct while maintaining warmth and authenticity.",
   aiToneSuggestions: [
-    "Celebrate every creative attempt, big or small",
-    "Use encouraging language that builds confidence, not intimidation",
-    "Share project ideas and inspiration naturally, like a friend",
-    "Focus on joy and self-expression, not perfection",
+    "Be clear and direct in all communications",
+    "Show expertise without being condescending",
+    "Build trust through consistency and honesty",
+    "Focus on customer needs and outcomes",
   ],
   logoUrl: "",
-  fontFamily: "Poppins",
+  fontFamily: "Inter",
   fontSource: "google",
   customFontUrl: undefined,
-  primaryColors: ["#C41E3A", "#FFD700"],
+  primaryColors: ["#3B82F6", "#10B981"],
   // legacy single value for backward compatibility
-  primaryColor: "#C41E3A",
-  secondaryColor: "#2E5090",
-  colorPalette: ["#C41E3A", "#FFD700", "#2E5090", "#F5E6D3"],
-  secondaryColors: ["#2E5090", "#F5E6D3"],
+  primaryColor: "#3B82F6",
+  secondaryColor: "#6366F1",
+  colorPalette: ["#3B82F6", "#10B981", "#6366F1", "#F59E0B"],
+  secondaryColors: ["#6366F1", "#F59E0B"],
   visualNotes:
-    "Classic red (#C41E3A) conveys passion and creativity; gold accents add warmth and approachability. Pair with cream backgrounds for comfort and nostalgia. Use Poppins for friendly, rounded typography. Incorporate imagery of diverse families creating together.",
+    "Use the primary blue for key actions and headers. Green accents convey trust and success. Purple adds sophistication. Keep layouts clean and professional.",
   personas: [],
   goals: [],
   guardrails: [],
   createdAt: new Date().toISOString(),
   updatedAt: new Date().toISOString(),
-  completionPercentage: 85,
-  setupMethod: "ai_generated",
+  completionPercentage: 50, // Lower since it's just a template
+  setupMethod: "template", // Changed from "ai_generated" to "template"
   version: 1,
 };
 

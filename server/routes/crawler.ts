@@ -86,6 +86,7 @@ import {
   extractIndustryFromContent,
 } from "../workers/brand-crawler";
 import { persistScrapedImages, transferScrapedImages } from "../lib/scraped-images-service";
+import { runOnboardingWorkflow, type OnboardingResult } from "../lib/onboarding-orchestrator";
 import {
   CrawlerSuggestion,
   FieldChange,
@@ -361,11 +362,83 @@ router.post("/start", authenticateUser, validateBrandIdFormat, async (req, res, 
           console.log("[Crawler] Crawl lock released (success)", { lockKey });
         }
         
-        // ✅ RESPONSE: Return success with valid HTTP status
+        // ✅ ONBOARDING TRIGGER: If brandId is a real UUID, trigger onboarding workflow
+        // This runs asynchronously so the scrape response is returned quickly.
+        // Onboarding generates 8 content items to the Queue (5 social, 1 blog, 1 email, 1 GBP).
+        let onboardingTriggered = false;
+        let onboardingJobId: string | undefined;
+        let onboardingStatus: "triggered" | "skipped_temp_id" | "skipped_no_tenant" = "skipped_temp_id";
+        
+        const isRealUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(finalBrandId);
+        
+        if (isRealUUID && tenantId) {
+          onboardingTriggered = true;
+          onboardingStatus = "triggered";
+          onboardingJobId = `onboarding-${Date.now()}-${finalBrandId.substring(0, 8)}`;
+          
+          console.log("[Crawler] Triggering onboarding workflow after successful scrape", {
+            brandId: finalBrandId,
+            tenantId,
+            onboardingJobId,
+            requestId: (req as any).id,
+          });
+          
+          // Run onboarding asynchronously (don't await - response should be fast)
+          // The onboarding workflow will generate content items to the Queue
+          runOnboardingWorkflow({
+            workspaceId: tenantId,
+            brandId: finalBrandId,
+            websiteUrl: finalUrl,
+          })
+            .then((onboardingResult) => {
+              const contentPlanningStep = onboardingResult.steps.find(s => s.id === "content-planning");
+              const itemsGenerated = (contentPlanningStep?.result as any)?.itemsCount || 0;
+              
+              console.log("[Crawler] ✅ Onboarding workflow completed", {
+                brandId: finalBrandId,
+                onboardingJobId,
+                status: onboardingResult.status,
+                itemsGenerated,
+                stepsCompleted: onboardingResult.steps.filter(s => s.status === "completed").length,
+                stepsFailed: onboardingResult.steps.filter(s => s.status === "failed").length,
+              });
+            })
+            .catch((onboardingError) => {
+              console.error("[Crawler] ⚠️ Onboarding workflow failed (scrape was still successful)", {
+                brandId: finalBrandId,
+                onboardingJobId,
+                error: onboardingError instanceof Error ? onboardingError.message : String(onboardingError),
+              });
+              // Note: Scrape was successful, onboarding failure doesn't affect response
+            });
+        } else if (isRealUUID && !tenantId) {
+          onboardingStatus = "skipped_no_tenant";
+          console.warn("[Crawler] Skipping onboarding - no tenantId for real brand UUID", {
+            brandId: finalBrandId,
+            requestId: (req as any).id,
+          });
+        } else {
+          console.log("[Crawler] Skipping onboarding - temporary brand ID", {
+            brandId: finalBrandId,
+            requestId: (req as any).id,
+          });
+        }
+        
+        // ✅ RESPONSE: Return success with valid HTTP status and onboarding info
         return res.status(HTTP_STATUS.OK).json({
           success: true,
           brandKit: result.brandKit,
           status: "completed",
+          onboarding: {
+            triggered: onboardingTriggered,
+            status: onboardingStatus,
+            jobId: onboardingJobId,
+            message: onboardingTriggered 
+              ? "Onboarding workflow started in background. Content will appear in Queue shortly."
+              : isRealUUID 
+                ? "Onboarding skipped - tenant ID not available."
+                : "Onboarding skipped - temporary brand ID. Will run after brand is created.",
+          },
         });
       } catch (error) {
         // ✅ RELEASE LOCK: Clean up after error

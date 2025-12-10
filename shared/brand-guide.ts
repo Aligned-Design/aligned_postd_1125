@@ -160,7 +160,7 @@ export interface BrandGuide {
   createdAt: string;
   updatedAt: string;
   version: number;
-  setupMethod?: "ai_generated" | "detailed";
+  setupMethod?: "ai_generated" | "detailed" | "template";
 }
 
 /**

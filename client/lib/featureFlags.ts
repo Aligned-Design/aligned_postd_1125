@@ -11,6 +11,7 @@ export interface FeatureFlags {
   studio_align_tools: boolean; // Advanced alignment & snap-to-grid
   ai_copy_v1: boolean; // AI content generator
   ai_palette_v1: boolean; // AI palette generator
+  onboarding_auto_run_workflow: boolean; // Auto-trigger orchestration after scrape
 }
 
 const DEFAULT_FLAGS: FeatureFlags = {
@@ -18,6 +19,7 @@ const DEFAULT_FLAGS: FeatureFlags = {
   studio_align_tools: false,
   ai_copy_v1: false,
   ai_palette_v1: false,
+  onboarding_auto_run_workflow: false, // Enable via VITE_FEATURE_ONBOARDING_AUTO_RUN_WORKFLOW=true
 };
 
 /**
@@ -39,6 +41,9 @@ export function getFeatureFlags(): FeatureFlags {
   }
   if (import.meta.env.VITE_FEATURE_AI_PALETTE_V1 !== undefined) {
     flags.ai_palette_v1 = import.meta.env.VITE_FEATURE_AI_PALETTE_V1 === "true";
+  }
+  if (import.meta.env.VITE_FEATURE_ONBOARDING_AUTO_RUN_WORKFLOW !== undefined) {
+    flags.onboarding_auto_run_workflow = import.meta.env.VITE_FEATURE_ONBOARDING_AUTO_RUN_WORKFLOW === "true";
   }
 
   // Check localStorage

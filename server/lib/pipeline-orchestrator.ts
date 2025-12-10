@@ -64,7 +64,17 @@ export class PipelineOrchestrator {
     this.brandId = brandId;
     this.cycleId = `cycle_${Date.now()}`;
     this.requestId = uuidv4();
-    this.persistenceService = new PersistenceService({ enabled: false }); // Enable DB in production
+    
+    // ✅ R01 FIX: Use environment variable to control persistence
+    // Set PIPELINE_PERSISTENCE_ENABLED=true in production to enable database storage
+    const persistenceEnabled = process.env.PIPELINE_PERSISTENCE_ENABLED === "true";
+    this.persistenceService = new PersistenceService({ enabled: persistenceEnabled });
+    
+    // ✅ R01 FIX: Log warning when persistence is disabled for visibility
+    if (!persistenceEnabled) {
+      console.warn("[Orchestrator] ⚠️ Persistence DISABLED – pipeline outputs will not be saved to DB");
+    }
+    
     this.performanceTracker = new PerformanceTrackingJob(brandId);
 
     this.cycle = {
