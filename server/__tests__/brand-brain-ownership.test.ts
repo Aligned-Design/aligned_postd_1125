@@ -495,7 +495,7 @@ describe("Brand Brain Ownership Tests", () => {
       assertPassOrWarn("Tone", toneCheck);
 
       // Assert: Visuals check is pass or warn (if present)
-      const visualsCheck = result.checks.find((c) => c.category === "visuals" || c.name.toLowerCase().includes("visual"));
+      const visualsCheck = result.checks.find((c) => c.category === "visual" || c.name.toLowerCase().includes("visual"));
       if (visualsCheck) {
         assertPassOrWarn("Visuals", visualsCheck);
       } else {

@@ -330,7 +330,7 @@ export class ConnectionsDBService {
         data?.filter((d: PlatformConnectionRecord) => d.status === "connected" || d.status === "active").length || 0,
       expired: data?.filter((d: PlatformConnectionRecord) => d.status === "expired").length || 0,
       revoked: data?.filter((d: PlatformConnectionRecord) => d.status === "revoked").length || 0,
-      platforms: [...new Set(data?.map((d: PlatformConnectionRecord) => d.platform) || [])],
+      platforms: [...new Set(data?.map((d: PlatformConnectionRecord) => d.platform) || [])] as string[],
     };
 
     return stats;

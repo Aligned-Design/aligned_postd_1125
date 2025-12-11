@@ -11,10 +11,9 @@
  * - GET /api/brand-brain/:brandId/events - Get event log
  */
 
-import { Router, Request, Response } from "express";
+import { Router, RequestHandler } from "express";
 import { z } from "zod";
 import {
-  brandBrain,
   getBrandContextPack,
   evaluateContent,
   registerOutcome,
@@ -82,35 +81,39 @@ const registerOutcomeSchema = z.object({
  * Get Brand Context Pack for use by other agents.
  * This is the primary endpoint for agents to fetch brand context.
  */
-router.get("/:brandId/context", async (req: Request, res: Response) => {
+const getContext: RequestHandler = async (req, res) => {
   try {
     const { brandId } = req.params;
 
     if (!brandId) {
-      return res.status(400).json({ error: "Brand ID is required" });
+      res.status(400).json({ error: "Brand ID is required" });
+      return;
     }
 
     const contextPack = await getBrandContextPack(brandId);
 
     if (!contextPack) {
-      return res.status(404).json({
+      res.status(404).json({
         error: "Brand context not found",
         message: "Brand Brain state could not be created. Ensure brand has a valid Brand Guide.",
       });
+      return;
     }
 
-    return res.json({
+    res.json({
       success: true,
       data: contextPack,
     });
   } catch (error) {
     console.error("[BrandBrain API] Error getting context:", error);
-    return res.status(500).json({
+    res.status(500).json({
       error: "Failed to get brand context",
       message: error instanceof Error ? error.message : String(error),
     });
   }
-});
+};
+
+router.get("/:brandId/context", getContext);
 
 /**
  * POST /api/brand-brain/:brandId/evaluate
@@ -118,38 +121,42 @@ router.get("/:brandId/context", async (req: Request, res: Response) => {
  * Evaluate content for brand alignment.
  * Returns BFS-like score, checks, and recommendations.
  */
-router.post("/:brandId/evaluate", async (req: Request, res: Response) => {
+const evaluateContentHandler: RequestHandler = async (req, res) => {
   try {
     const { brandId } = req.params;
 
     if (!brandId) {
-      return res.status(400).json({ error: "Brand ID is required" });
+      res.status(400).json({ error: "Brand ID is required" });
+      return;
     }
 
     // Validate request body
     const parseResult = evaluateContentSchema.safeParse(req.body);
     if (!parseResult.success) {
-      return res.status(400).json({
+      res.status(400).json({
         error: "Invalid request body",
         details: parseResult.error.issues,
       });
+      return;
     }
 
-    const input: ContentEvaluationInput = parseResult.data;
+    const input = parseResult.data as ContentEvaluationInput;
     const result = await evaluateContent(brandId, input);
 
-    return res.json({
+    res.json({
       success: true,
       data: result,
     });
   } catch (error) {
     console.error("[BrandBrain API] Error evaluating content:", error);
-    return res.status(500).json({
+    res.status(500).json({
       error: "Failed to evaluate content",
       message: error instanceof Error ? error.message : String(error),
     });
   }
-});
+};
+
+router.post("/:brandId/evaluate", evaluateContentHandler);
 
 /**
  * POST /api/brand-brain/:brandId/outcome
@@ -157,38 +164,42 @@ router.post("/:brandId/evaluate", async (req: Request, res: Response) => {
  * Register content outcome for learning.
  * Called by analytics or after user feedback.
  */
-router.post("/:brandId/outcome", async (req: Request, res: Response) => {
+const registerOutcomeHandler: RequestHandler = async (req, res) => {
   try {
     const { brandId } = req.params;
 
     if (!brandId) {
-      return res.status(400).json({ error: "Brand ID is required" });
+      res.status(400).json({ error: "Brand ID is required" });
+      return;
     }
 
     // Validate request body
     const parseResult = registerOutcomeSchema.safeParse(req.body);
     if (!parseResult.success) {
-      return res.status(400).json({
+      res.status(400).json({
         error: "Invalid request body",
         details: parseResult.error.issues,
       });
+      return;
     }
 
-    const input: OutcomeRegistrationInput = parseResult.data;
+    const input = parseResult.data as OutcomeRegistrationInput;
     await registerOutcome(brandId, input);
 
-    return res.json({
+    res.json({
       success: true,
       message: "Outcome registered successfully",
     });
   } catch (error) {
     console.error("[BrandBrain API] Error registering outcome:", error);
-    return res.status(500).json({
+    res.status(500).json({
       error: "Failed to register outcome",
       message: error instanceof Error ? error.message : String(error),
     });
   }
-});
+};
+
+router.post("/:brandId/outcome", registerOutcomeHandler);
 
 /**
  * POST /api/brand-brain/:brandId/refresh
@@ -196,28 +207,31 @@ router.post("/:brandId/outcome", async (req: Request, res: Response) => {
  * Refresh Brand Brain state from Brand Guide.
  * Called after brand guide updates.
  */
-router.post("/:brandId/refresh", async (req: Request, res: Response) => {
+const refreshHandler: RequestHandler = async (req, res) => {
   try {
     const { brandId } = req.params;
 
     if (!brandId) {
-      return res.status(400).json({ error: "Brand ID is required" });
+      res.status(400).json({ error: "Brand ID is required" });
+      return;
     }
 
     await refreshBrandBrainState(brandId);
 
-    return res.json({
+    res.json({
       success: true,
       message: "Brand Brain state refreshed from Brand Guide",
     });
   } catch (error) {
     console.error("[BrandBrain API] Error refreshing state:", error);
-    return res.status(500).json({
+    res.status(500).json({
       error: "Failed to refresh state",
       message: error instanceof Error ? error.message : String(error),
     });
   }
-});
+};
+
+router.post("/:brandId/refresh", refreshHandler);
 
 /**
  * GET /api/brand-brain/:brandId/state
@@ -225,12 +239,13 @@ router.post("/:brandId/refresh", async (req: Request, res: Response) => {
  * Get current Brand Brain state.
  * Useful for debugging and admin views.
  */
-router.get("/:brandId/state", async (req: Request, res: Response) => {
+const getState: RequestHandler = async (req, res) => {
   try {
     const { brandId } = req.params;
 
     if (!brandId) {
-      return res.status(400).json({ error: "Brand ID is required" });
+      res.status(400).json({ error: "Brand ID is required" });
+      return;
     }
 
     const { data, error } = await supabase
@@ -241,23 +256,26 @@ router.get("/:brandId/state", async (req: Request, res: Response) => {
 
     if (error) {
       if (error.code === "PGRST116") {
-        return res.status(404).json({ error: "Brand Brain state not found" });
+        res.status(404).json({ error: "Brand Brain state not found" });
+        return;
       }
       throw error;
     }
 
-    return res.json({
+    res.json({
       success: true,
       data,
     });
   } catch (error) {
     console.error("[BrandBrain API] Error getting state:", error);
-    return res.status(500).json({
+    res.status(500).json({
       error: "Failed to get state",
       message: error instanceof Error ? error.message : String(error),
     });
   }
-});
+};
+
+router.get("/:brandId/state", getState);
 
 /**
  * GET /api/brand-brain/:brandId/examples
@@ -265,13 +283,14 @@ router.get("/:brandId/state", async (req: Request, res: Response) => {
  * Get learning examples for a brand.
  * Supports filtering by type and channel.
  */
-router.get("/:brandId/examples", async (req: Request, res: Response) => {
+const getExamples: RequestHandler = async (req, res) => {
   try {
     const { brandId } = req.params;
     const { type, channel, limit = "20" } = req.query;
 
     if (!brandId) {
-      return res.status(400).json({ error: "Brand ID is required" });
+      res.status(400).json({ error: "Brand ID is required" });
+      return;
     }
 
     let query = supabase
@@ -295,19 +314,21 @@ router.get("/:brandId/examples", async (req: Request, res: Response) => {
       throw error;
     }
 
-    return res.json({
+    res.json({
       success: true,
       data,
       count: data?.length || 0,
     });
   } catch (error) {
     console.error("[BrandBrain API] Error getting examples:", error);
-    return res.status(500).json({
+    res.status(500).json({
       error: "Failed to get examples",
       message: error instanceof Error ? error.message : String(error),
     });
   }
-});
+};
+
+router.get("/:brandId/examples", getExamples);
 
 /**
  * GET /api/brand-brain/:brandId/events
@@ -315,13 +336,14 @@ router.get("/:brandId/examples", async (req: Request, res: Response) => {
  * Get event log for a brand.
  * Supports filtering by type and pagination.
  */
-router.get("/:brandId/events", async (req: Request, res: Response) => {
+const getEvents: RequestHandler = async (req, res) => {
   try {
     const { brandId } = req.params;
     const { type, limit = "50", offset = "0" } = req.query;
 
     if (!brandId) {
-      return res.status(400).json({ error: "Brand ID is required" });
+      res.status(400).json({ error: "Brand ID is required" });
+      return;
     }
 
     let query = supabase
@@ -341,7 +363,7 @@ router.get("/:brandId/events", async (req: Request, res: Response) => {
       throw error;
     }
 
-    return res.json({
+    res.json({
       success: true,
       data,
       count,
@@ -353,31 +375,35 @@ router.get("/:brandId/events", async (req: Request, res: Response) => {
     });
   } catch (error) {
     console.error("[BrandBrain API] Error getting events:", error);
-    return res.status(500).json({
+    res.status(500).json({
       error: "Failed to get events",
       message: error instanceof Error ? error.message : String(error),
     });
   }
-});
+};
+
+router.get("/:brandId/events", getEvents);
 
 /**
  * POST /api/brand-brain/:brandId/examples
  *
  * Add a manual example.
  */
-router.post("/:brandId/examples", async (req: Request, res: Response) => {
+const addExample: RequestHandler = async (req, res) => {
   try {
     const { brandId } = req.params;
     const { exampleType, channel, content, notes } = req.body;
 
     if (!brandId) {
-      return res.status(400).json({ error: "Brand ID is required" });
+      res.status(400).json({ error: "Brand ID is required" });
+      return;
     }
 
     if (!exampleType || !channel || !content?.body) {
-      return res.status(400).json({
+      res.status(400).json({
         error: "Missing required fields: exampleType, channel, content.body",
       });
+      return;
     }
 
     const { data, error } = await supabase
@@ -397,30 +423,33 @@ router.post("/:brandId/examples", async (req: Request, res: Response) => {
       throw error;
     }
 
-    return res.json({
+    res.json({
       success: true,
       data,
     });
   } catch (error) {
     console.error("[BrandBrain API] Error adding example:", error);
-    return res.status(500).json({
+    res.status(500).json({
       error: "Failed to add example",
       message: error instanceof Error ? error.message : String(error),
     });
   }
-});
+};
+
+router.post("/:brandId/examples", addExample);
 
 /**
  * DELETE /api/brand-brain/:brandId/examples/:exampleId
  *
  * Delete an example.
  */
-router.delete("/:brandId/examples/:exampleId", async (req: Request, res: Response) => {
+const deleteExample: RequestHandler = async (req, res) => {
   try {
     const { brandId, exampleId } = req.params;
 
     if (!brandId || !exampleId) {
-      return res.status(400).json({ error: "Brand ID and Example ID are required" });
+      res.status(400).json({ error: "Brand ID and Example ID are required" });
+      return;
     }
 
     const { error } = await supabase
@@ -433,18 +462,19 @@ router.delete("/:brandId/examples/:exampleId", async (req: Request, res: Respons
       throw error;
     }
 
-    return res.json({
+    res.json({
       success: true,
       message: "Example deleted",
     });
   } catch (error) {
     console.error("[BrandBrain API] Error deleting example:", error);
-    return res.status(500).json({
+    res.status(500).json({
       error: "Failed to delete example",
       message: error instanceof Error ? error.message : String(error),
     });
   }
-});
+};
+
+router.delete("/:brandId/examples/:exampleId", deleteExample);
 
 export default router;
-

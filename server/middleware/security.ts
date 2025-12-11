@@ -1,5 +1,5 @@
-import { RequestHandler, Request, Response, NextFunction } from "express";
-import { AuthenticatedRequest } from "../types/express.d";
+import type { RequestHandler, Request, Response, NextFunction } from "express";
+import type { AuthenticatedRequest } from "../types/express.d";
 import crypto from "crypto";
 import { AppError } from "../lib/error-middleware";
 import { ErrorCode, HTTP_STATUS } from "../lib/error-responses";
@@ -11,10 +11,10 @@ import { jwtAuth } from "../lib/jwt-auth";
  * Attaches req.auth with userId, email, role, brandIds
  * Also sets req.user for backward compatibility
  */
-export const authenticateUser: RequestHandler = (req: Request, res: Response, next: NextFunction) => {
+export const authenticateUser: RequestHandler = (req, res, next) => {
   const aReq = req as AuthenticatedRequest;
   try {
-    (jwtAuth as RequestHandler)(req, res, () => {
+    jwtAuth(req, res, () => {
       // Normalize req.user for backward compatibility
       const auth = aReq.auth;
       if (auth) {
@@ -51,10 +51,10 @@ export const authenticateUser: RequestHandler = (req: Request, res: Response, ne
           brandIds: user.brandIds,
           scopes: user.scopes || [],
           role: user.role,
-          path: req.path || req.url,
+          path: aReq.path || aReq.url,
         });
       } else {
-        console.warn("[Auth] No user context found for path:", req.path || req.url);
+        console.warn("[Auth] No user context found for path:", aReq.path || aReq.url);
       }
 
       next();

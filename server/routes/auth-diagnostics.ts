@@ -11,6 +11,13 @@ import { supabase } from "../lib/supabase";
 import { AppError } from "../lib/error-middleware";
 import { ErrorCode, HTTP_STATUS } from "../lib/error-responses";
 
+// Type assertion helper for Supabase Auth admin methods
+const supabaseAuthAdmin = supabase.auth as typeof supabase.auth & {
+  admin: {
+    listUsers: () => Promise<{ data: { users: unknown[] } | null; error: unknown }>;
+  };
+};
+
 const router = ExpressRouter();
 
 /**
@@ -56,7 +63,7 @@ router.get("/diagnostics", (async (req, res, next) => {
       // Note: admin.listUsers() might not be available in all Supabase versions
       // If it fails, we'll test with a simple auth operation instead
       try {
-        const { data: users, error: authError } = await supabase.auth.admin.listUsers();
+        const { data: users, error: authError } = await supabaseAuthAdmin.admin.listUsers();
         diagnostics.tests.authService = {
           success: !authError,
           error: authError?.message || null,

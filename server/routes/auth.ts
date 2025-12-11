@@ -13,6 +13,17 @@ import { ErrorCode, HTTP_STATUS } from "../lib/error-responses";
 import { generateTokenPair, verifyToken } from "../lib/jwt-auth";
 import { Role } from "../middleware/rbac";
 
+// Type assertion helper for Supabase Auth methods
+// These methods exist at runtime but TypeScript may not see them due to type declaration issues
+const supabaseAuth = supabase.auth as typeof supabase.auth & {
+  admin: {
+    createUser: (options: { email: string; password: string; email_confirm?: boolean; user_metadata?: Record<string, unknown> }) => Promise<{ data: { user: unknown } | null; error: unknown }>;
+    updateUserById: (userId: string, options: { user_metadata?: Record<string, unknown> }) => Promise<{ data: unknown; error: unknown }>;
+  };
+  signInWithPassword: (options: { email: string; password: string }) => Promise<{ data: { user: unknown; session: unknown }; error: unknown }>;
+  resetPasswordForEmail: (email: string, options?: { redirectTo?: string }) => Promise<{ data: unknown; error: unknown }>;
+};
+
 const router = ExpressRouter();
 
 /**
@@ -116,7 +127,7 @@ router.post("/signup", (async (req, res, next) => {
     // ✅ STEP 4: Create user in Supabase Auth
     // ✅ CRITICAL: Use Admin API for user creation (service role key required)
     // signUp() is for client-side with anon key, admin.createUser() is for server-side
-    console.log("[Auth] 🔐 Calling supabase.auth.admin.createUser", {
+    console.log("[Auth] 🔐 Calling supabaseAuth.admin.createUser", {
       email: email,
       hasPassword: !!password,
       emailConfirm: true,
@@ -124,7 +135,7 @@ router.post("/signup", (async (req, res, next) => {
 
     let authData, authError;
     try {
-      const result = await supabase.auth.admin.createUser({
+      const result = await supabaseAuth.admin.createUser({
         email,
         password,
         email_confirm: true, // ✅ Auto-confirm email (bypasses email confirmation requirement)
@@ -371,7 +382,7 @@ router.post("/signup", (async (req, res, next) => {
       tenantId: tenantId,
     });
 
-    const { error: metadataError } = await supabase.auth.admin.updateUserById(
+    const { error: metadataError } = await supabaseAuth.admin.updateUserById(
       userId,
       {
         user_metadata: {
@@ -474,7 +485,7 @@ router.post("/login", (async (req, res, next) => {
       hasServiceKey: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
     });
 
-    const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+    const { data: authData, error: authError } = await supabaseAuth.signInWithPassword({
       email,
       password,
     });
@@ -767,7 +778,7 @@ router.post("/forgot-password", (async (req, res, next) => {
     });
 
     // ✅ Use Supabase Auth to send password reset email
-    const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
+    const { error: resetError } = await supabaseAuth.resetPasswordForEmail(email, {
       redirectTo: `${process.env.VITE_APP_URL || process.env.VERCEL_URL || "http://localhost:5173"}/reset-password`,
     });
 

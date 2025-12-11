@@ -9,10 +9,11 @@
  * for type casting inside middleware functions.
  */
 
-import { Request, Response, NextFunction, ParamsDictionary } from "express";
-import { ParsedQs } from "qs";
-import { Socket } from "net";
-import { IncomingHttpHeaders } from "http";
+import type { Request as ExpressRequest, Response as ExpressResponse, NextFunction as ExpressNextFunction } from "express";
+import type { ParamsDictionary } from "express-serve-static-core";
+import type { ParsedQs } from "qs";
+import type { Socket } from "net";
+import type { IncomingHttpHeaders } from "http";
 
 declare global {
   namespace Express {
@@ -77,7 +78,7 @@ export interface UserContext {
  * Includes all standard Express Request properties to ensure compatibility
  * when casting from Request to AuthenticatedRequest.
  */
-export interface AuthenticatedRequest extends Request {
+export interface AuthenticatedRequest extends ExpressRequest {
   // Custom auth properties
   id?: string;
   auth?: AuthContext;
@@ -88,7 +89,7 @@ export interface AuthenticatedRequest extends Request {
   // Standard Express Request properties (re-declared for Vercel compatibility)
   params: ParamsDictionary;
   query: ParsedQs;
-  body: any;
+  body: unknown;
   headers: IncomingHttpHeaders;
   ip?: string;
   socket: Socket;
@@ -103,5 +104,6 @@ export interface BrandScopedRequest extends AuthenticatedRequest {
 }
 
 // Re-export Express types for convenience
-// Note: These are type-only re-exports for TypeScript
-export type { Request, Response, NextFunction } from "express";
+export type Request = ExpressRequest;
+export type Response = ExpressResponse;
+export type NextFunction = ExpressNextFunction;

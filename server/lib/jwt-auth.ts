@@ -1,6 +1,6 @@
 import crypto from "crypto";
-import { RequestHandler, Request, Response, NextFunction } from "express";
-import { AuthenticatedRequest } from "../types/express.d";
+import type { RequestHandler } from "express";
+import type { AuthenticatedRequest } from "../types/express.d";
 import { AppError } from "./error-middleware";
 import { ErrorCode, HTTP_STATUS } from "./error-responses";
 import { Role } from "../middleware/rbac";
@@ -211,7 +211,7 @@ export function refreshAccessToken(refreshToken: string): TokenPair {
 /**
  * Middleware: Verify JWT token from header
  */
-export const jwtAuth: RequestHandler = (req: Request, res: Response, next: NextFunction) => {
+export const jwtAuth: RequestHandler = (req, res, next) => {
   const aReq = req as AuthenticatedRequest;
   try {
     const authHeader = req.headers.authorization;

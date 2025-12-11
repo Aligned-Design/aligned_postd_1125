@@ -167,7 +167,12 @@ export class CopyAgent {
           toneKeywords = this.brandContext.voiceRules.keyMessages;
         }
         if (this.brandContext.voiceRules.tone.length > 0) {
-          toneDescriptor = this.brandContext.voiceRules.tone[0];
+          // Map Brand Brain tone to valid StrategyBrief tone type
+          const validTones = ["professional", "casual", "energetic", "friendly", "authoritative", "mixed"] as const;
+          const brandTone = this.brandContext.voiceRules.tone[0];
+          if (validTones.includes(brandTone as typeof validTones[number])) {
+            toneDescriptor = brandTone as typeof validTones[number];
+          }
         }
       }
 
@@ -499,29 +504,52 @@ export async function generateCopyFromBrandContext(
   }
 
   // Build a minimal strategy from Brand Context
+  // Map tone to valid union type
+  const toneValue = context.voiceRules.tone[0] || "professional";
+  const validTones = ["professional", "casual", "energetic", "friendly", "authoritative", "mixed"] as const;
+  const mappedTone = validTones.includes(toneValue as typeof validTones[number])
+    ? (toneValue as typeof validTones[number])
+    : "professional";
+
   const strategy: StrategyBrief = {
+    id: `strategy-${brandId}-${Date.now()}`,
+    brandId,
+    version: "1.0.0",
+    updatedAt: new Date().toISOString(),
     positioning: {
       tagline: context.positioning?.tagline || context.brandName,
       missionStatement: context.positioning?.missionStatement || context.brandSummary.description,
       targetAudience: {
-        demographics: {},
+        demographics: "General audience",
         psychographics: [],
+        painPoints: [],
         aspirations: context.brandSummary.values,
       },
     },
     voice: {
-      tone: context.voiceRules.tone[0] || "professional",
+      tone: mappedTone,
+      personality: [],
       keyMessages: context.voiceRules.keyMessages.length > 0
         ? context.voiceRules.keyMessages
         : context.voiceRules.brandPhrases,
+      avoidPhrases: context.voiceRules.avoidPhrases || [],
     },
     visual: {
       primaryColor: context.visualRules.colors[0] || "#000000",
       secondaryColor: context.visualRules.colors[1] || "#ffffff",
+      accentColor: context.visualRules.colors[2] || "#A76CF5",
+      fontPairing: {
+        heading: "Poppins",
+        body: "Inter",
+      },
+      imagery: {
+        style: "mixed",
+        subjects: [],
+      },
     },
     competitive: {
       uniqueValueProposition: context.brandSummary.uvp || context.brandSummary.description,
-      differentiators: context.brandSummary.differentiators,
+      differentiation: context.brandSummary.differentiators || [],
     },
   };
 
