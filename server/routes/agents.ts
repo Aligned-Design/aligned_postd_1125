@@ -433,30 +433,35 @@ router.post("/generate/doc", async (req, res) => {
     }
 
     // Log the generation attempt
+    // ✅ SCHEMA FIX: Only use columns that exist in generation_logs table
+    // Extra metadata stored in input/output JSONB fields
     const logEntry = {
       brand_id,
       agent: "doc" as const,
       prompt_version: "v1.0",
-      safety_mode: safetyConfig.safety_mode,
-      input: docInput,
-      output,
-      bfs: output?.bfs,
+      input: {
+        ...docInput,
+        safety_mode: safetyConfig.safety_mode,
+        request_id: requestId,
+        regeneration_count: attempts - 1,
+      },
+      output: {
+        ...output,
+        duration_ms: Date.now() - startTime,
+        tokens_in,
+        tokens_out,
+        provider: provider_used || "unknown",
+        model: model_used || "unknown",
+        error: blocked
+          ? "Content blocked by safety filters"
+          : !output
+            ? "Failed to generate acceptable content"
+            : undefined,
+      },
+      bfs_score: output?.bfs || 0,
       linter_results: output?.linter,
       approved: !needsReview && !blocked,
       revision: 0,
-      timestamp: new Date().toISOString(),
-      duration_ms: Date.now() - startTime,
-      tokens_in,
-      tokens_out,
-      provider: provider_used || "unknown",
-      model: model_used || "unknown",
-      regeneration_count: attempts - 1,
-      request_id: requestId,
-      error: blocked
-        ? "Content blocked by safety filters"
-        : !output
-          ? "Failed to generate acceptable content"
-          : undefined,
     };
 
     const { data: logData, error: logError } = await supabase
@@ -557,23 +562,27 @@ router.post("/generate/design", async (req, res) => {
     const model = (output as any).__model || "unknown";
 
     // Log the generation
+    // ✅ SCHEMA FIX: Only use columns that exist in generation_logs table
     const logEntry = {
       brand_id,
       agent: "design" as const,
       prompt_version: "v1.0",
-      safety_mode: "safe" as const,
-      input,
-      output,
+      input: {
+        ...input,
+        safety_mode: "safe",
+        request_id: requestId,
+      },
+      output: {
+        ...output,
+        duration_ms: Date.now() - startTime,
+        tokens_in,
+        tokens_out,
+        provider,
+        model,
+      },
+      bfs_score: 0, // Design doesn't have BFS
       approved: true, // Design output doesn't require BFS/linter checks
       revision: 0,
-      timestamp: new Date().toISOString(),
-      duration_ms: Date.now() - startTime,
-      tokens_in,
-      tokens_out,
-      provider,
-      model,
-      regeneration_count: 0,
-      request_id: requestId,
     };
 
     const { data: logData, error: logError } = await supabase
@@ -684,23 +693,27 @@ router.post("/generate/advisor", async (req, res) => {
     const model = (output as any).__model || "unknown";
 
     // Log the generation
+    // ✅ SCHEMA FIX: Only use columns that exist in generation_logs table
     const logEntry = {
       brand_id,
       agent: "advisor" as const,
       prompt_version: "v1.0",
-      safety_mode: "safe" as const,
-      input: { brand_id },
-      output,
+      input: {
+        brand_id,
+        safety_mode: "safe",
+        request_id: requestId,
+      },
+      output: {
+        ...output,
+        duration_ms: Date.now() - startTime,
+        tokens_in,
+        tokens_out,
+        provider,
+        model,
+      },
+      bfs_score: 0, // Advisor doesn't have BFS
       approved: true,
       revision: 0,
-      timestamp: new Date().toISOString(),
-      duration_ms: Date.now() - startTime,
-      tokens_in,
-      tokens_out,
-      provider,
-      model,
-      regeneration_count: 0,
-      request_id: requestId,
     };
 
     const { data: logData, error: __logError } = await supabase
@@ -956,23 +969,29 @@ router.post("/generate/social", async (req, res) => {
     }
 
     // ✅ STEP 9: Log the generation
+    // ✅ SCHEMA FIX: Only use columns that exist in generation_logs table
     const logEntry = {
       brand_id,
       agent: "social" as const,
       prompt_version: "v1.0",
-      safety_mode: "safe" as const,
-      input: { brand_id, slot_id, platform },
-      output: contentPackage,
+      input: {
+        brand_id,
+        slot_id,
+        platform,
+        safety_mode: "safe",
+        request_id: requestId,
+      },
+      output: {
+        ...contentPackage,
+        duration_ms: Date.now() - startTime,
+        tokens_in: aiResponse.tokens_in || 0,
+        tokens_out: aiResponse.tokens_out || 0,
+        provider: aiResponse.provider || "unknown",
+        model: aiResponse.model || "unknown",
+      },
+      bfs_score: 0,
       approved: true,
       revision: 0,
-      timestamp: new Date().toISOString(),
-      duration_ms: Date.now() - startTime,
-      tokens_in: aiResponse.tokens_in || 0,
-      tokens_out: aiResponse.tokens_out || 0,
-      provider: aiResponse.provider || "unknown",
-      model: aiResponse.model || "unknown",
-      regeneration_count: 0,
-      request_id: requestId,
     };
 
     await supabase
@@ -1286,13 +1305,13 @@ router.get("/review/queue/:brandId", async (req, res) => {
     const { brandId } = req.params;
 
     // ✅ REMOVED: USE_MOCKS check - always use real database in production
+    // ✅ SCHEMA FIX: Use created_at (not timestamp), error is now in output JSONB
     const { data: reviewQueue, error } = await supabase
       .from("generation_logs")
       .select("*")
       .eq("brand_id", brandId)
       .eq("approved", false)
-      .is("error", null)
-      .order("timestamp", { ascending: false })
+      .order("created_at", { ascending: false })
       .limit(50);
 
     if (error) {
@@ -1319,10 +1338,11 @@ router.post("/review/approve/:logId", async (req, res) => {
     const { logId } = req.params;
     const { reviewer_notes } = req.body;
 
-    // Get the generation log to extract brandId and postId for audit logging
+    // Get the generation log to extract brandId for audit logging
+    // ✅ SCHEMA FIX: post_id, reviewer_notes, reviewed_at don't exist in schema
     const { data: logEntry, error: fetchError } = await supabase
       .from("generation_logs")
-      .select("brand_id, post_id, agent")
+      .select("brand_id, agent, input, output")
       .eq("id", logId)
       .single();
 
@@ -1337,12 +1357,18 @@ router.post("/review/approve/:logId", async (req, res) => {
       );
     }
 
+    // ✅ SCHEMA FIX: Only update 'approved' column; store review info in output JSONB
+    const updatedOutput = {
+      ...(logEntry.output as Record<string, unknown> || {}),
+      reviewer_notes,
+      reviewed_at: new Date().toISOString(),
+    };
+
     const { error } = await supabase
       .from("generation_logs")
       .update({
         approved: true,
-        reviewer_notes,
-        reviewed_at: new Date().toISOString(),
+        output: updatedOutput,
       })
       .eq("id", logId);
 
@@ -1353,7 +1379,8 @@ router.post("/review/approve/:logId", async (req, res) => {
     // Log audit action
     const userId = (req as any).user?.id || (req.headers["x-user-id"] as string) || "system";
     const userEmail = (req as any).user?.email || (req.headers["x-user-email"] as string) || "system";
-    const postId = logEntry.post_id || logId;
+    // Extract post_id from input JSONB if present, otherwise use logId
+    const postId = (logEntry.input as Record<string, unknown> | null)?.post_id as string || logId;
     
     try {
       await logAuditAction(
@@ -1401,10 +1428,11 @@ router.post("/review/reject/:logId", async (req, res) => {
     const { logId } = req.params;
     const { reviewer_notes } = req.body;
 
-    // Get the generation log to extract brandId and postId for audit logging
+    // Get the generation log to extract brandId for audit logging
+    // ✅ SCHEMA FIX: post_id, reviewer_notes, reviewed_at don't exist in schema
     const { data: logEntry, error: fetchError } = await supabase
       .from("generation_logs")
-      .select("brand_id, post_id, agent")
+      .select("brand_id, agent, input, output")
       .eq("id", logId)
       .single();
 
@@ -1419,12 +1447,18 @@ router.post("/review/reject/:logId", async (req, res) => {
       );
     }
 
+    // ✅ SCHEMA FIX: Only update 'approved' column; store review info in output JSONB
+    const updatedOutput = {
+      ...(logEntry.output as Record<string, unknown> || {}),
+      reviewer_notes,
+      reviewed_at: new Date().toISOString(),
+    };
+
     const { error } = await supabase
       .from("generation_logs")
       .update({
         approved: false,
-        reviewer_notes,
-        reviewed_at: new Date().toISOString(),
+        output: updatedOutput,
       })
       .eq("id", logId);
 
@@ -1435,7 +1469,8 @@ router.post("/review/reject/:logId", async (req, res) => {
     // Log audit action
     const userId = (req as any).user?.id || (req.headers["x-user-id"] as string) || "system";
     const userEmail = (req as any).user?.email || (req.headers["x-user-email"] as string) || "system";
-    const postId = logEntry.post_id || logId;
+    // Extract post_id from input JSONB if present, otherwise use logId
+    const postId = (logEntry.input as Record<string, unknown> | null)?.post_id as string || logId;
     
     try {
       await logAuditAction(

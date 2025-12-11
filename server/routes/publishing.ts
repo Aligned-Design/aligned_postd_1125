@@ -239,10 +239,12 @@ export const publishContent: RequestHandler = async (req, res) => {
       const targetId = contentId || postId;
       
       // Check generation_logs for AI-generated content
+      // ✅ SCHEMA FIX: post_id doesn't exist in generation_logs; use id only
+      // Note: If post_id tracking is needed, it should be stored in input JSONB
       const { data: generationLog, error: logError } = await supabase
         .from("generation_logs")
         .select("id, approved, brand_id, agent")
-        .or(`post_id.eq.${targetId},id.eq.${targetId}`)
+        .eq("id", targetId)
         .eq("brand_id", brandId)
         .single();
 
