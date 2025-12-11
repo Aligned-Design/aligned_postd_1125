@@ -130,7 +130,7 @@ This audit verified and hardened AI provider usage (OpenAI + Anthropic), fallbac
 - ✅ Also handles case where all items are filtered as placeholders
 
 **Fallback Behavior**:
-- Returns 8 content items (5 social, 1 blog, 1 email, 1 GBP)
+- Returns 7 content items (5 social, 1 email, 1 GBP)
 - Uses brand name and industry from brand guide/profile
 - Scheduled across 7 days
 - All items marked as "draft" status

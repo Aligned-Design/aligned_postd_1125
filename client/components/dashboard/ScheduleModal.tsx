@@ -1,21 +1,35 @@
 import { useState, useMemo } from "react";
-import { Calendar, Clock, X, AlertCircle, Settings } from "lucide-react";
+import { Calendar, Clock, X, AlertCircle, Settings, Eye, EyeOff } from "lucide-react";
 import { useRescheduleContent } from "@/hooks/useRescheduleContent";
 import { usePlatformConnections } from "@/hooks/usePlatformConnections";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { DualPlatformPreview } from "@/components/content/SocialPostPreview";
 
 interface ScheduleModalProps {
   currentSchedule?: { date: string; time: string; autoPublish?: boolean };
   onConfirm: (date: string, time: string, autoPublish: boolean, platforms: string[]) => void;
   onClose: () => void;
+  /** Optional content to show in preview */
+  content?: {
+    caption?: string;
+    hashtags?: string[];
+    imageUrl?: string;
+    brandName?: string;
+  };
+  /** 
+   * Content type being scheduled (e.g., "instagram_reel", "instagram_feed", "facebook")
+   * Used to show appropriate preview layout (e.g., Reels shows 9:16 aspect ratio)
+   */
+  contentType?: "facebook" | "instagram_feed" | "instagram_reel";
 }
 
-export function ScheduleModal({ currentSchedule, onConfirm, onClose }: ScheduleModalProps) {
+export function ScheduleModal({ currentSchedule, onConfirm, onClose, content, contentType }: ScheduleModalProps) {
   const [date, setDate] = useState(currentSchedule?.date || "");
   const [time, setTime] = useState(currentSchedule?.time || "12:00");
   const [autoPublish, setAutoPublish] = useState(currentSchedule?.autoPublish || false);
   const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>(["Instagram", "Facebook"]);
+  const [showPreview, setShowPreview] = useState(false);
   const { checkSchedule } = useRescheduleContent();
   const { platforms: platformConnections, hasAnyConnection, isLoading: connectionsLoading } = usePlatformConnections();
 
@@ -82,23 +96,31 @@ export function ScheduleModal({ currentSchedule, onConfirm, onClose }: ScheduleM
         <p className="text-sm text-slate-500 mb-6">Set when and where to publish your content</p>
 
         {/* No Platforms Connected Warning */}
-        {!connectionsLoading && !hasAnyConnection && autoPublish && (
-          <Alert className="mb-4 border-amber-200 bg-amber-50">
-            <AlertCircle className="h-4 w-4 text-amber-600" />
-            <AlertDescription className="text-sm text-amber-800">
+        {!connectionsLoading && !hasAnyConnection && (
+          <Alert className={autoPublish ? "mb-4 border-red-300 bg-red-50" : "mb-4 border-amber-200 bg-amber-50"}>
+            <AlertCircle className={autoPublish ? "h-4 w-4 text-red-600" : "h-4 w-4 text-amber-600"} />
+            <AlertDescription className={autoPublish ? "text-sm text-red-800" : "text-sm text-amber-800"}>
               <div className="space-y-2">
-                <p className="font-semibold">You don't have any social accounts connected yet.</p>
-                <p>Connect at least one platform in Settings to start publishing automatically.</p>
+                <p className="font-semibold">
+                  {autoPublish 
+                    ? "⚠️ You don't have any connected social accounts." 
+                    : "No social accounts connected yet."}
+                </p>
+                <p>
+                  {autoPublish
+                    ? "Connect Facebook or Instagram before scheduling this design for auto-publish."
+                    : "Connect at least one platform in Settings to enable automatic publishing."}
+                </p>
                 <Button
-                  variant="outline"
+                  variant={autoPublish ? "default" : "outline"}
                   size="sm"
                   onClick={() => {
                     window.location.href = "/linked-accounts";
                   }}
-                  className="mt-2"
+                  className={autoPublish ? "mt-2 bg-red-600 hover:bg-red-700 text-white" : "mt-2"}
                 >
                   <Settings className="w-4 h-4 mr-2" />
-                  Go to Settings
+                  Connect Social Accounts
                 </Button>
               </div>
             </AlertDescription>
@@ -192,6 +214,52 @@ export function ScheduleModal({ currentSchedule, onConfirm, onClose }: ScheduleM
               {scheduleSuggestion}
             </AlertDescription>
           </Alert>
+        )}
+
+        {/* Content Preview */}
+        {content?.caption && (
+          <div className="mb-4">
+            <button
+              type="button"
+              onClick={() => setShowPreview(!showPreview)}
+              className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-slate-50 text-slate-700 rounded-lg font-semibold text-sm hover:bg-slate-100 transition-colors"
+            >
+              {showPreview ? (
+                <>
+                  <EyeOff className="w-4 h-4" />
+                  Hide Preview
+                </>
+              ) : (
+                <>
+                  <Eye className="w-4 h-4" />
+                  Preview How Posts Will Look
+                </>
+              )}
+            </button>
+            
+            {showPreview && (
+              <div className="mt-3 max-h-[400px] overflow-y-auto">
+                <DualPlatformPreview
+                  caption={content.caption}
+                  hashtags={content.hashtags}
+                  imageUrl={content.imageUrl}
+                  brandName={content.brandName}
+                  platforms={
+                    // If scheduling a specific content type (e.g., a Reel), show that preview
+                    // Otherwise, map selected platforms to preview types
+                    contentType 
+                      ? [contentType]
+                      : selectedPlatforms
+                          .filter(p => ["Instagram", "Facebook"].includes(p))
+                          .map(p => p === "Instagram" 
+                            ? (contentType === "instagram_reel" ? "instagram_reel" : "instagram_feed") 
+                            : "facebook"
+                          ) as Array<"facebook" | "instagram_feed" | "instagram_reel">
+                  }
+                />
+              </div>
+            )}
+          </div>
         )}
 
         {/* Auto-publish Toggle */}

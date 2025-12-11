@@ -1,6 +1,6 @@
 import crypto from "crypto";
-import { RequestHandler } from "express";
-import { AuthenticatedRequest } from "../types/express";
+import { RequestHandler, Request, Response, NextFunction } from "express";
+import { AuthenticatedRequest } from "../types/express.d";
 import { AppError } from "./error-middleware";
 import { ErrorCode, HTTP_STATUS } from "./error-responses";
 import { Role } from "../middleware/rbac";
@@ -211,10 +211,10 @@ export function refreshAccessToken(refreshToken: string): TokenPair {
 /**
  * Middleware: Verify JWT token from header
  */
-export const jwtAuth: RequestHandler = (req, res, next) => {
+export const jwtAuth: RequestHandler = (req: Request, res: Response, next: NextFunction) => {
   const aReq = req as AuthenticatedRequest;
   try {
-    const authHeader = aReq.headers.authorization;
+    const authHeader = req.headers.authorization;
 
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
       throw new AppError(

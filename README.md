@@ -58,6 +58,15 @@ The application will be available at `http://localhost:8080`.
 5. **[Setup Guide](docs/SETUP_GUIDE.md)** - Detailed development setup instructions
 6. **[API Contract](POSTD_API_CONTRACT.md)** - Complete API reference documentation
 
+### For Client-Facing Teams
+
+If you work with POSTD clients (sales, success, support), start here:
+
+1. **[Client Onboarding Overview](docs/CLIENT_ONBOARDING_OVERVIEW.md)** - High-level journey overview, personas, and success metrics
+2. **[Client First 30 Days Playbook](docs/CLIENT_FIRST_30_DAYS_PLAYBOOK.md)** - Day-by-day experience guide for client success
+3. **[Client Onboarding Checklist](docs/CLIENT_ONBOARDING_CHECKLIST.md)** - Step-by-step completion criteria and escalation triggers
+4. **[Brand Guide Lifecycle](docs/BRAND_GUIDE_LIFECYCLE.md)** - How the Brand Guide is created, updated, and maintained
+
 ### Documentation Index
 
 See **[DOCS_INDEX.md](DOCS_INDEX.md)** for a complete map of all documentation files organized by category.

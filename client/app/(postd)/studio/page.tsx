@@ -32,6 +32,7 @@ import { useUser } from "@/contexts/UserContext";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { useBrand } from "@/contexts/BrandContext";
 import { useBrandGuide } from "@/hooks/useBrandGuide";
+import { usePlatformConnections } from "@/hooks/usePlatformConnections";
 import { generateCaptions } from "@/lib/generateCaption";
 import { isFeatureEnabled } from "@/lib/featureFlags";
 import { ElementSidebar } from "@/components/dashboard/ElementSidebar";
@@ -62,6 +63,44 @@ import type {
 import { FORMAT_PRESETS } from "@shared/creative-studio";
 
 const AUTOSAVE_DELAY = 3000; // 3 seconds
+
+/**
+ * Derive contentType for ScheduleModal preview based on design format and platforms
+ * - story_portrait format (9:16) → instagram_reel (Reels/Stories)
+ * - Instagram platform with square format → instagram_feed
+ * - Facebook platform → facebook
+ */
+function deriveContentType(
+  format: DesignFormat | undefined,
+  platforms: string[] | undefined
+): "facebook" | "instagram_feed" | "instagram_reel" | undefined {
+  // If story/vertical format, this is likely a Reel
+  if (format === "story_portrait") {
+    return "instagram_reel";
+  }
+  
+  // Check platforms array for the primary platform
+  const primaryPlatform = platforms?.[0]?.toLowerCase();
+  
+  if (primaryPlatform === "instagram" || primaryPlatform === "instagram_feed") {
+    return "instagram_feed";
+  }
+  
+  if (primaryPlatform === "facebook") {
+    return "facebook";
+  }
+  
+  // If platforms includes "All" or multiple platforms, default based on format
+  if (platforms?.includes("All") || (platforms && platforms.length > 1)) {
+    // For square-ish formats, prefer IG Feed preview
+    if (format === "social_square") {
+      return "instagram_feed";
+    }
+  }
+  
+  // Default: undefined (ScheduleModal will use its default behavior)
+  return undefined;
+}
 
 /**
  * Calculate zoom level to fit canvas on screen
@@ -96,6 +135,9 @@ export default function CreativeStudio() {
   const { brandGuide: brand, hasBrandGuide, isLoading: isBrandKitLoading } = useBrandGuide();
   const { user } = useUser();
   const { currentWorkspace } = useWorkspace();
+  
+  // Platform connections - check if social accounts are connected
+  const { hasAnyConnection, platforms: platformConnections, isLoading: connectionsLoading } = usePlatformConnections();
 
   // Canvas State
   const [state, setState] = useState<CreativeStudioState>({
@@ -901,6 +943,35 @@ const handleAddElement = (elementType: string, defaultProps: Record<string, unkn
       existingDrafts.push(draft);
       safeSetJSON("creativeStudio_drafts", existingDrafts);
 
+      // Also queue the design as a draft (autoPublish: false skips connection validation)
+      // This allows users without connected accounts to save designs for later publishing
+      const designId = savedDesign.id;
+      try {
+        const now = new Date();
+        now.setDate(now.getDate() + 7); // Default to 7 days in future for drafts
+        const scheduledDate = now.toISOString().split("T")[0];
+        const scheduledTime = "12:00";
+        
+        const platforms = state.design.scheduledPlatforms || 
+          (state.design.format === "story_portrait" ? ["Instagram"] : ["Instagram", "Facebook"]);
+        
+        const scheduleRequestBody: ScheduleDesignRequest = {
+          scheduledDate,
+          scheduledTime,
+          scheduledPlatforms: platforms,
+          autoPublish: false, // Draft mode - no connection validation required
+        };
+        
+        await fetch(`/api/studio/${designId}/schedule`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(scheduleRequestBody),
+        });
+        // Ignore schedule errors for drafts - the design is saved, queue is optional
+      } catch (scheduleErr) {
+        console.warn("[SaveAsDraft] Could not queue draft:", scheduleErr);
+      }
+
       setState((prev) => {
         if (!prev.design) return prev;
         // Convert unknown[] items to CanvasItem[] by preserving existing items structure
@@ -917,12 +988,22 @@ const handleAddElement = (elementType: string, defaultProps: Record<string, unkn
       });
 
       setHasUnsavedChanges(false);
-      toast({
-        title: "📝 Saved as Draft",
-        description: `${savedDesign.name || "Design"} · Ready for editing`,
-      });
+      
+      // Show appropriate message based on connection status
+      if (!hasAnyConnection) {
+        toast({
+          title: "💾 Saved as Draft",
+          description: `${savedDesign.name || "Design"} saved. You can schedule this later once social accounts are connected.`,
+          duration: 6000,
+        });
+      } else {
+        toast({
+          title: "📝 Saved as Draft",
+          description: `${savedDesign.name || "Design"} · Ready for editing`,
+        });
+      }
 
-      logTelemetry("save_as_draft", { designId: savedDesign.id, timestamp: new Date().toISOString() });
+      logTelemetry("save_as_draft", { designId: savedDesign.id, timestamp: new Date().toISOString(), hasConnection: hasAnyConnection });
     } catch (error) {
       logError("Failed to save draft", error instanceof Error ? error : new Error(String(error)));
       toast({
@@ -960,21 +1041,124 @@ const handleAddElement = (elementType: string, defaultProps: Record<string, unkn
     logTelemetry("save_create_variant", { originalId: state.design.id, variantId: variant.id });
   };
 
-  const handleSendToQueue = useCallback(() => {
+  const handleSendToQueue = useCallback(async () => {
     if (!state.design) return;
 
-    setState((prev) => ({
-      ...prev,
-      design: prev.design ? { ...prev.design, lastSaveAction: "sendToQueue" } : null,
-    }));
+    // ✅ Check if brand has any connected social accounts
+    if (!connectionsLoading && !hasAnyConnection) {
+      toast({
+        title: "⚠️ No Social Accounts Connected",
+        description: "You don't have any connected social accounts. Connect Facebook or Instagram in Settings → Linked Accounts before publishing this design.",
+        variant: "destructive",
+        duration: 8000, // Longer duration for important message
+      });
+      logWarning("publish_blocked_no_accounts", { designId: state.design.id });
+      return;
+    }
 
-    toast({
-      title: "📤 Sent to Queue",
-      description: `${state.design.name} · In review status · View in Content Queue`,
-    });
+    // Get brandId for the design
+    const brandId = state.design.brandId || currentBrand?.id;
+    if (!brandId) {
+      toast({
+        title: "⚠️ Brand Required",
+        description: "Please select a brand before publishing.",
+        variant: "destructive",
+      });
+      return;
+    }
 
-    logTelemetry("send_to_queue", { designId: state.design.id });
-  }, [state.design, setState, toast]);
+    setIsSaving(true);
+    try {
+      // Ensure design is saved first
+      let designId = state.design.id;
+      if (!designId || designId.startsWith("design-") || designId.startsWith("text-") || designId.startsWith("shape-") || designId.startsWith("image-")) {
+        // Save design first
+        const saveRequestBody: SaveDesignRequest = {
+          name: state.design.name,
+          format: state.design.format,
+          width: state.design.width,
+          height: state.design.height,
+          brandId: brandId,
+          campaignId: state.design.campaignId,
+          items: state.design.items,
+          backgroundColor: state.design.backgroundColor,
+          savedToLibrary: false,
+        };
+        
+        const saveResponse = await fetch("/api/studio/save", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(saveRequestBody),
+        });
+
+        if (!saveResponse.ok) {
+          throw new Error("Failed to save design before publishing");
+        }
+
+        const saveData: SaveDesignResponse = await saveResponse.json();
+        designId = saveData.design.id;
+      }
+
+      // Schedule for immediate publishing (now + 1 minute)
+      const now = new Date();
+      now.setMinutes(now.getMinutes() + 1);
+      const scheduledDate = now.toISOString().split("T")[0]; // YYYY-MM-DD
+      const scheduledTime = now.toTimeString().slice(0, 5); // HH:mm
+      
+      // Determine platforms based on design format
+      const platforms = state.design.scheduledPlatforms || 
+        (state.design.format === "story_portrait" ? ["Instagram"] : ["Instagram", "Facebook"]);
+      
+      const scheduleRequestBody: ScheduleDesignRequest = {
+        scheduledDate,
+        scheduledTime,
+        scheduledPlatforms: platforms,
+        autoPublish: true, // This triggers the connection validation
+      };
+      
+      const scheduleResponse = await fetch(`/api/studio/${designId}/schedule`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(scheduleRequestBody),
+      });
+
+      if (!scheduleResponse.ok) {
+        const error = await scheduleResponse.json().catch(() => ({ message: "Failed to publish" }));
+        // Check if it's a connection error
+        if (error.userMessage?.includes("connected social accounts") || error.message?.includes("connected")) {
+          toast({
+            title: "⚠️ No Social Accounts Connected",
+            description: error.userMessage || "You don't have any connected social accounts. Connect Facebook or Instagram in Settings → Linked Accounts before publishing.",
+            variant: "destructive",
+            duration: 8000,
+          });
+          return;
+        }
+        throw new Error(error.userMessage || error.message || "Failed to publish design");
+      }
+
+      setState((prev) => ({
+        ...prev,
+        design: prev.design ? { ...prev.design, id: designId, lastSaveAction: "sendToQueue" } : null,
+      }));
+
+      toast({
+        title: "📤 Sent to Queue",
+        description: `${state.design.name} · Scheduled for publishing · View in Content Queue`,
+      });
+
+      logTelemetry("send_to_queue", { designId });
+    } catch (error) {
+      logError("Failed to publish design", error instanceof Error ? error : new Error(String(error)));
+      toast({
+        title: "⚠️ Publish Failed",
+        description: error instanceof Error ? error.message : "Failed to publish design. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  }, [state.design, setState, toast, hasAnyConnection, connectionsLoading, currentBrand]);
 
   const handleSendPublishNow = () => {
     if (!state.design) return;
@@ -2218,6 +2402,11 @@ const handleAddElement = (elementType: string, defaultProps: Record<string, unkn
             isMakingOnBrand={isMakingOnBrand}
             showMakeOnBrand={(state.startMode === "template" || state.startMode === "upload") && !!state.design && hasBrandGuide}
             userRole={user?.role}
+            platformConnections={{
+              facebook: platformConnections.facebook?.connected || platformConnections.meta?.connected || false,
+              instagram: platformConnections.instagram?.connected || platformConnections.meta?.connected || false,
+            }}
+            connectionsLoading={connectionsLoading}
           />
 
           {/* Main Editor Area - Canvas is Hero */}
@@ -2547,6 +2736,7 @@ const handleAddElement = (elementType: string, defaultProps: Record<string, unkn
               }}
               onConfirm={handleConfirmSchedule}
               onClose={() => setShowScheduleModal(false)}
+              contentType={deriveContentType(state.design.format, state.design.scheduledPlatforms)}
             />
           )}
 
@@ -2729,6 +2919,7 @@ const handleAddElement = (elementType: string, defaultProps: Record<string, unkn
           }}
           onConfirm={handleConfirmSchedule}
           onClose={() => setShowScheduleModal(false)}
+          contentType={deriveContentType(state.design.format, state.design.scheduledPlatforms)}
         />
       )}
 

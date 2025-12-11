@@ -121,7 +121,7 @@
   5. Understanding your audience
   6. Generating brand profile
 - Each step shows: icon, status (pending/processing/complete), progress bar
-- Completion message: "✨ Brand profile generated! Taking you to review..."
+- Completion message: "✨ Brand Guide generated! Taking you to review..."
 
 **Emotional Response**: 🎉 **EXCITED, MAGICAL**
 - This is the "wow" moment
@@ -164,7 +164,7 @@
   - Industry terms
   - Do's and Don'ts
 - Two buttons at bottom:
-  - "Edit Brand Profile" (outline)
+  - "Edit Brand Guide" (outline)
   - "Looks Great → Continue" (primary gradient)
 
 **Emotional Response**: 😊 **Impressed, but slightly overwhelmed**
@@ -174,7 +174,7 @@
 - Two buttons create decision paralysis: "Do I edit or continue?"
 
 **Friction Points:**
-- 🔴 **"Edit Brand Profile" button** — Where does this go? What can I edit?
+- 🔴 **"Edit Brand Guide" button** — Where does this go? What can I edit?
 - 🔴 **Too much information at once** — Brand DNA card is dense
 - ⚠️ **"Regenerate With AI"** — When would I use this? What changes?
 - ⚠️ **No preview of what editing looks like** — User doesn't know if it's easy or hard
@@ -284,7 +284,7 @@
 2. **Make "Create Your First Post" the hero** — Large, prominent button at top
 3. **Add progressive disclosure** — "Once you create content, you'll see insights here"
 4. **Remove empty state messages** — Don't show "No data" everywhere
-5. **Add onboarding checklist** — "✓ Brand profile complete → Create first post → Connect platforms"
+5. **Add onboarding checklist** — "✓ Brand Guide complete → Create first post → Connect platforms"
 6. **Make welcome card non-dismissible** — Or add "Show me around" button before dismissing
 
 ---
@@ -690,7 +690,7 @@ Excitement Level
 
 #### Quick Wins (1-2 hours each)
 1. ✅ Auto-format website URL
-2. ✅ Change "Edit Brand Profile" to "Make Quick Edits"
+2. ✅ Change "Edit Brand Guide" to "Make Quick Edits"
 3. ✅ Add "You can change anything later" message to Brand Snapshot
 4. ✅ Hide empty dashboard widgets on first visit
 5. ✅ Make "Create Your First Post" more prominent
@@ -716,7 +716,7 @@ Excitement Level
 
 ### Microcopy Improvements
 
-**Current**: "Edit Brand Profile"  
+**Current**: "Edit Brand Guide"  
 **Better**: "Make Quick Edits" or "Customize Your Brand"
 
 **Current**: "Brand Guide"  
@@ -806,4 +806,16 @@ Excitement Level
 - **Enjoy Using It**: ⭐⭐ (2/5) — Onboarding is fun, rest feels like work
 
 **With these fixes, the experience would go from "This is overwhelming" to "I can do this!"**
+
+---
+
+## Follow-Up Execution Docs
+
+The recommendations in this audit have been addressed in the following operational documentation:
+
+- **[Client Onboarding Overview](CLIENT_ONBOARDING_OVERVIEW.md)** — High-level journey overview, personas, and success metrics
+- **[Client First 30 Days Playbook](CLIENT_FIRST_30_DAYS_PLAYBOOK.md)** — Day-by-day experience guide implementing many of the recommendations above
+- **[Client Onboarding Checklist](CLIENT_ONBOARDING_CHECKLIST.md)** — Step-by-step completion criteria with escalation triggers
+- **[Brand Guide Lifecycle](BRAND_GUIDE_LIFECYCLE.md)** — Addresses Brand Guide complexity concerns
+- **[UX Improvements Strategic Plan](UX_IMPROVEMENTS_STRATEGIC_PLAN.md)** — Detailed implementation plan for UI/UX changes
 

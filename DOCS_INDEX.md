@@ -76,6 +76,24 @@ These documents are the **canonical truth** for the system:
 
 ## 📁 DOCUMENTATION BY CATEGORY
 
+### 👤 Client Experience & Onboarding
+
+| Document | Path | Purpose | Category | Notes |
+|----------|------|---------|----------|-------|
+| Client Onboarding Overview | `docs/CLIENT_ONBOARDING_OVERVIEW.md` | High-level journey overview | ✅ ACTIVE | For success/product teams |
+| Client First 30 Days Playbook | `docs/CLIENT_FIRST_30_DAYS_PLAYBOOK.md` | Day-by-day experience guide | ✅ ACTIVE | For success teams |
+| Client Onboarding Checklist | `docs/CLIENT_ONBOARDING_CHECKLIST.md` | Step-by-step completion criteria | ✅ ACTIVE | For success/ops teams |
+| Brand Guide Lifecycle | `docs/BRAND_GUIDE_LIFECYCLE.md` | Brand Guide creation & maintenance | ✅ ACTIVE | For all teams |
+| MVP Client Journeys | `docs/MVP_CLIENT_JOURNEYS.md` | Technical user journey specs | ✅ ACTIVE | For engineering |
+| MVP Client Journeys Flow Map | `docs/MVP_CLIENT_JOURNEYS_FLOW_MAP.md` | Routes, APIs, and data flow | ✅ ACTIVE | For engineering |
+| MVP Client Acceptance Checklists | `docs/MVP_CLIENT_ACCEPTANCE_CHECKLISTS.md` | Client acceptance criteria | ✅ ACTIVE | For QA/testing |
+| Customer Journey UX Audit | `docs/CUSTOMER_JOURNEY_UX_AUDIT.md` | UX friction points analysis | 🟡 SUPPORTING | Historical audit |
+| Trial Workflow Guide | `docs/TRIAL_WORKFLOW_GUIDE.md` | Trial-specific flows | ✅ ACTIVE | For all teams |
+| Onboarding Brand Guide Flow | `docs/ONBOARDING_BRAND_GUIDE_FLOW.md` | Technical onboarding flow | ✅ ACTIVE | For engineering |
+| Client Email Templates | `docs/templates/CLIENT_EMAIL_TEMPLATES.md` | Email templates for client comms | ✅ ACTIVE | For success/marketing |
+
+---
+
 ### 🏗️ Architecture & System Design
 
 | Document | Path | Purpose | Category | Notes |

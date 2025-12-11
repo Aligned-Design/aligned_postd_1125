@@ -375,3 +375,13 @@ Each journey is successful if:
 - ✅ Visual feedback clear (loading states, success messages, error handling)
 - ✅ Data persists (refresh page, data still there)
 
+---
+
+## Related Documentation
+
+- **[Client Onboarding Overview](CLIENT_ONBOARDING_OVERVIEW.md)** — High-level journey overview for success teams
+- **[Client Onboarding Checklist](CLIENT_ONBOARDING_CHECKLIST.md)** — Step-by-step completion criteria
+- **[Client First 30 Days Playbook](CLIENT_FIRST_30_DAYS_PLAYBOOK.md)** — Day-by-day experience guide
+- **[Brand Guide Lifecycle](BRAND_GUIDE_LIFECYCLE.md)** — How Brand Guide evolves over time
+- **[Trial Workflow Guide](TRIAL_WORKFLOW_GUIDE.md)** — Trial-specific flows and limits
+

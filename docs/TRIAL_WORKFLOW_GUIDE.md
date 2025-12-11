@@ -22,6 +22,41 @@ This document describes the complete 7-Day Guided Trial workflow implementation 
 
 ---
 
+## Trial Journey Milestones
+
+These are the key client-visible milestones during a trial:
+
+| Day | Milestone | What Client Should Experience |
+|-----|-----------|------------------------------|
+| **Day 0** | Signup + Brand Scrape | Brand Guide preview, excitement about AI extraction, "This gets my brand!" moment |
+| **Day 1** | Content Plan Generated | 7-day content calendar ready, "wow" moment at AI-generated content |
+| **Day 2-3** | First Approval Cycle | Review and approve first content piece, feel of control |
+| **Day 4-5** | First Post Published | See post live on platform, confetti celebration, proof of value |
+| **Day 5** | 1st Post Counter Update | Trial banner shows "1 of 2 posts used" |
+| **Day 6** | Trial Mid-Point | Reminder of remaining time, upgrade consideration |
+| **Day 7** | Trial Expiration | Upgrade prompt with value summary, "Here's what you accomplished" |
+
+### Trial Success Criteria
+
+A successful trial means the user:
+- ✅ Completed onboarding (Brand Guide created)
+- ✅ Connected at least 1 platform
+- ✅ Published at least 1 post
+- ✅ Understands the value proposition
+- ✅ Ready to upgrade or has clear objections
+
+### Trial Intervention Points
+
+| Day | Trigger | Action |
+|-----|---------|--------|
+| Day 1 | No platform connected | Send platform connection guide |
+| Day 3 | No content approved | Send "Ready to approve?" email |
+| Day 5 | Only 1 post used | Send "Use your second post" prompt |
+| Day 6 | Trial expiring soon | High-priority upgrade outreach |
+| Day 7 | Trial expired without upgrade | Send win-back offer |
+
+---
+
 ## File Structure
 
 ### Frontend Components

@@ -4,11 +4,14 @@
  * POST /api/agents/generate/doc - Generate content with Doc Agent
  * POST /api/agents/generate/design - Generate visuals with Design Agent
  * POST /api/agents/generate/advisor - Generate insights with Advisor Agent
+ * POST /api/agents/generate/social - Generate social content for FB/IG (feed + Reels)
  * GET /api/agents/bfs/calculate - Calculate Brand Fidelity Score
  * GET /api/agents/templates/:agent/:version - Get prompt template
  * POST /api/agents/review/approve/:logId - Approve flagged content
  * POST /api/agents/review/reject/:logId - Reject flagged content
  * GET /api/agents/review/queue/:brandId - Get review queue
+ * PATCH /api/agents/drafts/:draftId - Update a content draft
+ * GET /api/agents/drafts/slot/:slotId - Get draft for a slot
  */
 
 import { Router } from "express";
@@ -32,13 +35,22 @@ import {
 import { parseBrandKit } from "../types/guards";
 import { calculateBFS } from "../agents/brand-fidelity-scorer";
 import { lintContent, autoFixContent } from "../agents/content-linter";
-import { generateWithAI, loadPromptTemplate } from "../workers/ai-generation";
+import { generateWithAI, loadPromptTemplate, NoAIProviderError } from "../workers/ai-generation";
 import {
   validateDocRequest,
   validateDesignRequest,
   validateAdvisorRequest,
 } from "../lib/validation-schemas";
 import { v4 as uuidv4 } from "uuid";
+import { getCurrentBrandGuide } from "../lib/brand-guide-service";
+import {
+  GenerateSocialRequestSchema,
+  SocialContentPackageSchema,
+  UpdateDraftRequestSchema,
+  PLATFORM_RULES,
+  type SocialContentPackage,
+  type SupportedPlatform,
+} from "@shared/social-content";
 
 const router = Router();
 
@@ -738,6 +750,482 @@ router.post("/generate/advisor", async (req, res) => {
 });
 
 /**
+ * POST /api/agents/generate/social
+ * Generate social content for Facebook and Instagram (feed + Reels)
+ * 
+ * Input: { brand_id: string, slot_id: string }
+ * Output: { success: boolean, draft_id: string, content: SocialContentPackage }
+ */
+router.post("/generate/social", async (req, res) => {
+  const startTime = Date.now();
+  const requestId = uuidv4();
+  
+  try {
+    // ✅ VALIDATION: Parse and validate request with Zod
+    let brand_id: string;
+    let slot_id: string;
+    
+    try {
+      const validated = GenerateSocialRequestSchema.parse(req.body);
+      brand_id = validated.brand_id;
+      slot_id = validated.slot_id;
+    } catch (validationError) {
+      if (validationError instanceof z.ZodError) {
+        const errorMessages = validationError.errors.map((err) => {
+          const path = err.path.join(".");
+          return `${path}: ${err.message}`;
+        }).join("; ");
+        throw new AppError(
+          ErrorCode.MISSING_REQUIRED_FIELD,
+          `Validation failed: ${errorMessages}`,
+          HTTP_STATUS.BAD_REQUEST,
+          "warning",
+          { requestId, originalBody: req.body },
+          "Please provide valid brand_id and slot_id (both must be UUIDs)",
+        );
+      }
+      throw validationError;
+    }
+
+    console.log("[Social Agent] Starting generation", { requestId, brand_id, slot_id });
+
+    // ✅ STEP 1: Load the slot (content_items record)
+    const { data: slotData, error: slotError } = await supabase
+      .from("content_items")
+      .select("*")
+      .eq("id", slot_id)
+      .eq("brand_id", brand_id)
+      .single();
+
+    if (slotError || !slotData) {
+      throw new AppError(
+        ErrorCode.NOT_FOUND,
+        `Content slot not found: ${slot_id}`,
+        HTTP_STATUS.NOT_FOUND,
+        "warning",
+        { requestId, slot_id, brand_id },
+        "The specified content slot does not exist or belongs to a different brand",
+      );
+    }
+
+    // ✅ STEP 2: Normalize platform from slot
+    const rawPlatform = (slotData.platform || "").toLowerCase();
+    const slotType = (slotData.type || "post").toLowerCase();
+    
+    // Map platform string to supported platform enum
+    let platform: SupportedPlatform;
+    if (rawPlatform === "facebook") {
+      platform = "facebook";
+    } else if (rawPlatform === "instagram" || rawPlatform === "instagram_feed") {
+      // Check if it's a reel based on type
+      if (slotType === "reel" || slotType === "reels" || slotType === "instagram_reel") {
+        platform = "instagram_reel";
+      } else {
+        platform = "instagram_feed";
+      }
+    } else if (rawPlatform === "instagram_reel") {
+      platform = "instagram_reel";
+    } else {
+      // Unsupported platform
+      throw new AppError(
+        ErrorCode.VALIDATION_ERROR,
+        `Unsupported platform: ${rawPlatform}. Only facebook, instagram_feed, and instagram_reel are supported.`,
+        HTTP_STATUS.BAD_REQUEST,
+        "warning",
+        { requestId, platform: rawPlatform },
+        "This endpoint only supports Facebook and Instagram (feed + Reels). For other platforms, please use the appropriate endpoint.",
+      );
+    }
+
+    console.log("[Social Agent] Slot loaded", { 
+      requestId, 
+      slot_id, 
+      platform, 
+      rawPlatform, 
+      slotType,
+      slotTitle: slotData.title 
+    });
+
+    // ✅ STEP 3: Load the Brand Guide
+    const brandGuide = await getCurrentBrandGuide(brand_id);
+    
+    if (!brandGuide) {
+      throw new AppError(
+        ErrorCode.NOT_FOUND,
+        `Brand Guide not found for brand: ${brand_id}`,
+        HTTP_STATUS.NOT_FOUND,
+        "warning",
+        { requestId, brand_id },
+        "Please complete the brand setup before generating content",
+      );
+    }
+
+    console.log("[Social Agent] Brand Guide loaded", { 
+      requestId, 
+      brandName: brandGuide.brandName,
+      hasTone: !!brandGuide.voiceAndTone?.tone?.length,
+      hasColors: !!brandGuide.visualIdentity?.colors?.length,
+    });
+
+    // ✅ STEP 4: Extract slot context (from content JSONB)
+    const slotContent = typeof slotData.content === "object" ? slotData.content : {};
+    const slotContext = {
+      title: slotData.title || "",
+      pillar: (slotContent as any).pillar || (slotContent as any).content_pillar || "",
+      objective: (slotContent as any).objective || "",
+      hook: (slotContent as any).hook || "",
+      angle: (slotContent as any).angle || "",
+      cta: (slotContent as any).cta || "",
+      recommended_asset_role: (slotContent as any).recommended_asset_role || (slotContent as any).asset_role || "",
+    };
+
+    // ✅ STEP 5: Build the AI prompt
+    const prompt = buildSocialContentPrompt(brandGuide, slotContext, platform);
+
+    // ✅ STEP 6: Call AI to generate content
+    const aiResponse = await generateWithAI(prompt, "doc");
+    
+    console.log("[Social Agent] AI response received", { 
+      requestId, 
+      tokens_in: aiResponse.tokens_in,
+      tokens_out: aiResponse.tokens_out,
+      provider: aiResponse.provider,
+    });
+
+    // ✅ STEP 7: Parse and validate AI response
+    let contentPackage: SocialContentPackage;
+    try {
+      // Clean up the response (remove markdown code blocks if present)
+      let cleaned = aiResponse.content
+        .replace(/```json\n?/g, "")
+        .replace(/```\n?/g, "")
+        .trim();
+      
+      // Parse JSON
+      const parsed = JSON.parse(cleaned);
+      
+      // Add platform to the parsed object
+      parsed.platform = platform;
+      
+      // Validate with Zod schema
+      contentPackage = SocialContentPackageSchema.parse(parsed);
+    } catch (parseError) {
+      console.error("[Social Agent] Failed to parse AI response", { 
+        requestId, 
+        error: parseError instanceof Error ? parseError.message : String(parseError),
+        rawResponse: aiResponse.content.substring(0, 500),
+      });
+      
+      throw new AppError(
+        ErrorCode.INTERNAL_ERROR,
+        "Failed to parse AI-generated content",
+        HTTP_STATUS.INTERNAL_SERVER_ERROR,
+        "error",
+        { 
+          requestId, 
+          parseError: parseError instanceof Error ? parseError.message : String(parseError),
+        },
+        "The AI generated invalid content. Please try again.",
+      );
+    }
+
+    // ✅ STEP 8: Store the draft in content_drafts table
+    const draftId = uuidv4();
+    const { error: insertError } = await supabase
+      .from("content_drafts")
+      .insert({
+        id: draftId,
+        brand_id,
+        slot_id,
+        platform,
+        payload: contentPackage,
+        status: "draft",
+        generated_by_agent: "social-content-agent",
+      });
+
+    if (insertError) {
+      console.error("[Social Agent] Failed to store draft", { 
+        requestId, 
+        error: insertError.message,
+        code: insertError.code,
+      });
+      
+      // Return success but warn about storage failure
+      // The content is still usable even if not persisted
+      console.warn("[Social Agent] Returning content without persistence", { requestId });
+    }
+
+    // ✅ STEP 9: Log the generation
+    const logEntry = {
+      brand_id,
+      agent: "social" as const,
+      prompt_version: "v1.0",
+      safety_mode: "safe" as const,
+      input: { brand_id, slot_id, platform },
+      output: contentPackage,
+      approved: true,
+      revision: 0,
+      timestamp: new Date().toISOString(),
+      duration_ms: Date.now() - startTime,
+      tokens_in: aiResponse.tokens_in || 0,
+      tokens_out: aiResponse.tokens_out || 0,
+      provider: aiResponse.provider || "unknown",
+      model: aiResponse.model || "unknown",
+      regeneration_count: 0,
+      request_id: requestId,
+    };
+
+    await supabase
+      .from("generation_logs")
+      .insert(logEntry)
+      .then(({ error }) => {
+        if (error) {
+          console.error("[Social Agent] Failed to log generation:", error);
+        }
+      });
+
+    // ✅ STEP 10: Return success response
+    const response = {
+      success: true,
+      draft_id: insertError ? undefined : draftId,
+      content: contentPackage,
+    };
+
+    console.log("[Social Agent] Generation complete", { 
+      requestId, 
+      draft_id: draftId,
+      platform,
+      duration_ms: Date.now() - startTime,
+    });
+
+    (res as any).json(response);
+  } catch (error) {
+    console.error("[Social Agent] Generation error:", error);
+
+    if (error instanceof AppError) {
+      throw error;
+    }
+
+    // ✅ Handle missing AI provider with user-friendly error
+    if (error instanceof NoAIProviderError) {
+      throw new AppError(
+        ErrorCode.NO_AI_PROVIDER_CONFIGURED,
+        error.message,
+        HTTP_STATUS.SERVICE_UNAVAILABLE,
+        "warning",
+        { requestId, code: "NO_AI_PROVIDER_CONFIGURED" },
+        "Configure OPENAI_API_KEY or ANTHROPIC_API_KEY in your environment to enable AI features.",
+      );
+    }
+
+    throw new AppError(
+      ErrorCode.INTERNAL_ERROR,
+      error instanceof Error ? error.message : "Internal server error",
+      HTTP_STATUS.INTERNAL_SERVER_ERROR,
+      "error",
+      error instanceof Error
+        ? { originalError: error.message, requestId }
+        : { requestId },
+      "Failed to generate social content. Please try again.",
+    );
+  }
+});
+
+/**
+ * PATCH /api/agents/drafts/:draftId
+ * Update a content draft (e.g., edit caption, change status)
+ */
+router.patch("/drafts/:draftId", async (req, res) => {
+  const requestId = uuidv4();
+  const { draftId } = req.params;
+
+  try {
+    // Validate draftId is a UUID
+    if (!z.string().uuid().safeParse(draftId).success) {
+      throw new AppError(
+        ErrorCode.VALIDATION_ERROR,
+        "Invalid draft ID format",
+        HTTP_STATUS.BAD_REQUEST,
+        "warning",
+        { requestId, draftId },
+        "Draft ID must be a valid UUID",
+      );
+    }
+
+    // Parse and validate update payload
+    const updateResult = UpdateDraftRequestSchema.safeParse(req.body);
+    if (!updateResult.success) {
+      throw new AppError(
+        ErrorCode.VALIDATION_ERROR,
+        `Invalid update payload: ${updateResult.error.errors.map(e => `${e.path.join(".")}: ${e.message}`).join("; ")}`,
+        HTTP_STATUS.BAD_REQUEST,
+        "warning",
+        { requestId, validationErrors: updateResult.error.errors },
+        "Please provide valid update fields",
+      );
+    }
+
+    const updates = updateResult.data;
+
+    // Fetch existing draft
+    const { data: existingDraft, error: fetchError } = await supabase
+      .from("content_drafts")
+      .select("*")
+      .eq("id", draftId)
+      .single();
+
+    if (fetchError || !existingDraft) {
+      throw new AppError(
+        ErrorCode.NOT_FOUND,
+        "Draft not found",
+        HTTP_STATUS.NOT_FOUND,
+        "warning",
+        { requestId, draftId },
+        "The specified draft does not exist",
+      );
+    }
+
+    // Build updated payload
+    const existingPayload = existingDraft.payload || {};
+    const updatedPayload = { ...existingPayload };
+
+    if (updates.primary_text !== undefined) {
+      updatedPayload.primary_text = updates.primary_text;
+    }
+    if (updates.headline !== undefined) {
+      updatedPayload.headline = updates.headline;
+    }
+    if (updates.suggested_hashtags !== undefined) {
+      updatedPayload.suggested_hashtags = updates.suggested_hashtags;
+    }
+    if (updates.cta_text !== undefined) {
+      updatedPayload.cta_text = updates.cta_text;
+    }
+    if (updates.design_brief !== undefined) {
+      updatedPayload.design_brief = updates.design_brief;
+    }
+
+    // Determine new status
+    const newStatus = updates.status || (Object.keys(updates).length > 0 ? "edited" : existingDraft.status);
+
+    // Update the draft
+    const { error: updateError } = await supabase
+      .from("content_drafts")
+      .update({
+        payload: updatedPayload,
+        status: newStatus,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", draftId);
+
+    if (updateError) {
+      throw new AppError(
+        ErrorCode.DATABASE_ERROR,
+        `Failed to update draft: ${updateError.message}`,
+        HTTP_STATUS.INTERNAL_SERVER_ERROR,
+        "error",
+        { requestId, draftId, error: updateError.message },
+        "Failed to save changes. Please try again.",
+      );
+    }
+
+    console.log("[Social Agent] Draft updated", { requestId, draftId, status: newStatus });
+
+    (res as any).json({
+      success: true,
+      draft_id: draftId,
+      status: newStatus,
+      updated_at: new Date().toISOString(),
+    });
+  } catch (error) {
+    console.error("[Social Agent] Draft update error:", error);
+
+    if (error instanceof AppError) {
+      throw error;
+    }
+
+    throw new AppError(
+      ErrorCode.INTERNAL_ERROR,
+      error instanceof Error ? error.message : "Internal server error",
+      HTTP_STATUS.INTERNAL_SERVER_ERROR,
+      "error",
+      { requestId },
+      "Failed to update draft. Please try again.",
+    );
+  }
+});
+
+/**
+ * GET /api/agents/drafts/slot/:slotId
+ * Get the draft for a specific slot
+ */
+router.get("/drafts/slot/:slotId", async (req, res) => {
+  const requestId = uuidv4();
+  const { slotId } = req.params;
+
+  try {
+    // Validate slotId is a UUID
+    if (!z.string().uuid().safeParse(slotId).success) {
+      throw new AppError(
+        ErrorCode.VALIDATION_ERROR,
+        "Invalid slot ID format",
+        HTTP_STATUS.BAD_REQUEST,
+        "warning",
+        { requestId, slotId },
+        "Slot ID must be a valid UUID",
+      );
+    }
+
+    // Fetch draft for this slot (get the most recent one)
+    const { data: draft, error: fetchError } = await supabase
+      .from("content_drafts")
+      .select("*")
+      .eq("slot_id", slotId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .single();
+
+    if (fetchError || !draft) {
+      // No draft found is not an error - just return null
+      (res as any).json({
+        success: true,
+        draft: null,
+      });
+      return;
+    }
+
+    (res as any).json({
+      success: true,
+      draft: {
+        id: draft.id,
+        slot_id: draft.slot_id,
+        brand_id: draft.brand_id,
+        platform: draft.platform,
+        content: draft.payload,
+        status: draft.status,
+        created_at: draft.created_at,
+        updated_at: draft.updated_at,
+      },
+    });
+  } catch (error) {
+    console.error("[Social Agent] Draft fetch error:", error);
+
+    if (error instanceof AppError) {
+      throw error;
+    }
+
+    throw new AppError(
+      ErrorCode.INTERNAL_ERROR,
+      error instanceof Error ? error.message : "Internal server error",
+      HTTP_STATUS.INTERNAL_SERVER_ERROR,
+      "error",
+      { requestId },
+      "Failed to fetch draft. Please try again.",
+    );
+  }
+});
+
+/**
  * GET /api/agents/bfs/calculate
  * Calculate Brand Fidelity Score for given content
  */
@@ -1207,5 +1695,352 @@ async function generateAdvisorInsights(
 
   return result;
 }
+
+/**
+ * Build the AI prompt for social content generation
+ * 
+ * Combines Brand Guide context, slot context, and platform-specific rules
+ * to generate on-brand social content.
+ */
+function buildSocialContentPrompt(
+  brandGuide: any,
+  slotContext: {
+    title: string;
+    pillar: string;
+    objective: string;
+    hook: string;
+    angle: string;
+    cta: string;
+    recommended_asset_role: string;
+  },
+  platform: SupportedPlatform
+): string {
+  const platformRules = PLATFORM_RULES[platform];
+
+  // Build brand context section
+  const brandContext = `
+## Brand Context
+
+**Brand Name:** ${brandGuide.brandName || "Brand"}
+**Industry:** ${brandGuide.identity?.industry || brandGuide.identity?.businessType || "General Business"}
+**Target Audience:** ${brandGuide.identity?.targetAudience || "General audience"}
+
+### Voice & Tone
+- **Tone Keywords:** ${(brandGuide.voiceAndTone?.tone || []).join(", ") || "Professional, Friendly"}
+- **Voice Description:** ${brandGuide.voiceAndTone?.voiceDescription || "Confident and approachable"}
+- **Friendliness Level:** ${brandGuide.voiceAndTone?.friendlinessLevel || 50}/100
+- **Formality Level:** ${brandGuide.voiceAndTone?.formalityLevel || 50}/100
+
+### Brand Values & Messaging
+- **Core Values:** ${(brandGuide.identity?.values || []).join(", ") || "Quality, Trust, Innovation"}
+- **Pain Points to Address:** ${(brandGuide.identity?.painPoints || []).join(", ") || "General audience challenges"}
+- **Content Pillars:** ${(brandGuide.contentRules?.contentPillars || []).join(", ") || "Educational, Inspirational, Promotional"}
+
+### Visual Identity (for design brief)
+- **Brand Colors:** ${(brandGuide.visualIdentity?.colors || []).join(", ") || "#000000, #FFFFFF"}
+- **Typography:** ${brandGuide.visualIdentity?.typography?.heading || "Modern sans-serif"}
+- **Photography Style:** ${brandGuide.visualIdentity?.photographyStyle?.mustInclude?.join(", ") || "Professional, authentic imagery"}
+
+### Content Rules
+- **Brand Phrases to Use:** ${(brandGuide.contentRules?.brandPhrases || []).join(", ") || "N/A"}
+- **Phrases to Avoid:** ${(brandGuide.voiceAndTone?.avoidPhrases || []).join(", ") || "N/A"}
+- **Never Do:** ${(brandGuide.contentRules?.neverDo || []).join(", ") || "N/A"}
+`;
+
+  // Build slot context section
+  const slotContextSection = `
+## Content Slot Context
+
+**Slot Title:** ${slotContext.title || "Social Post"}
+**Content Pillar:** ${slotContext.pillar || "General"}
+**Objective:** ${slotContext.objective || "Engagement"}
+**Hook/Angle:** ${slotContext.hook || slotContext.angle || "Open-ended"}
+**Call-to-Action:** ${slotContext.cta || "Engage with post"}
+**Recommended Asset Type:** ${slotContext.recommended_asset_role || "Brand imagery"}
+`;
+
+  // Build platform-specific rules section
+  const platformSection = `
+## Platform: ${platform.replace("_", " ").toUpperCase()}
+
+**Maximum Character Count:** ${platformRules.maxLength}
+**Hashtag Guidance:** ${platformRules.hashtagGuidance}
+
+### Best Practices:
+${platformRules.bestPractices.map(bp => `- ${bp}`).join("\n")}
+`;
+
+  // Build Reel-specific instructions if needed
+  const reelInstructions = platform === "instagram_reel" ? `
+### Reel-Specific Requirements:
+- Include a compelling opening hook (first 3 seconds are critical)
+- Suggest a scene-by-scene script outline
+- Recommend audio/music style that fits the brand
+- Aim for 15-30 seconds duration for optimal engagement
+- Caption should complement, not repeat, the video content
+` : "";
+
+  // Build the full prompt
+  const prompt = `You are an expert social media content creator specializing in brand-aligned content for ${platform.replace("_", " ")}.
+
+${brandContext}
+
+${slotContextSection}
+
+${platformSection}
+
+${reelInstructions}
+
+## Your Task
+
+Generate a complete, ready-to-post social content package that:
+1. Perfectly matches the brand voice and tone
+2. Aligns with the content pillar and objective
+3. Follows all platform-specific best practices
+4. Includes a compelling design brief for the Creative Studio
+
+## Output Format
+
+Return your response as a valid JSON object with these fields:
+
+{
+  "primary_text": "The main caption/body text for the post. Should be engaging, on-brand, and include any relevant emojis.",
+  "headline": "Optional headline (primarily useful for Facebook). Can be null for Instagram.",
+  "suggested_hashtags": ["array", "of", "relevant", "hashtags"],
+  "suggested_mentions": ["@relevant_accounts_if_any"],
+  "cta_text": "Clear call-to-action text",
+  "cta_link": "Optional link URL if applicable",
+  "design_brief": "Detailed instructions for the Creative Studio to create the visual. Include color preferences, layout suggestions, text overlay placement, and style guidance based on the brand's visual identity.",
+  "preferred_asset_role": "product|lifestyle|team|testimonial|educational|behind-the-scenes",
+  "visual_style_notes": "Additional visual style guidance",
+  "optimal_length": ${Math.min(platformRules.maxLength, 2200)},
+  "best_posting_time": "Suggested posting time if known",
+  "pillar": "${slotContext.pillar || "General"}",
+  "objective": "${slotContext.objective || "Engagement"}"${platform === "instagram_reel" ? `,
+  "reel_hook": "Opening hook text/concept for the first 3 seconds",
+  "reel_script_outline": ["Scene 1: Description", "Scene 2: Description", "Scene 3: Description"],
+  "reel_audio_suggestion": "Suggested audio/music style",
+  "reel_duration_seconds": 30` : ""}
+}
+
+IMPORTANT:
+- The primary_text MUST be complete, polished, and ready to post
+- Do NOT include placeholder text like "[insert here]" or "TBD"
+- Ensure all content aligns with the brand's voice and values
+- The design_brief should be detailed enough for a designer to create a visual
+- Stay within the platform's character limits
+`;
+
+  return prompt;
+}
+
+// ============================================================================
+// CAPTION REFINEMENT ENDPOINT
+// ============================================================================
+
+/**
+ * Zod schema for caption refinement request
+ */
+const RefineCaptionRequestSchema = z.object({
+  brand_id: z.string().uuid("brand_id must be a valid UUID"),
+  caption: z.string().min(1, "Caption is required"),
+  platform: z.enum(["facebook", "instagram_feed", "instagram_reel"]),
+  refinement_type: z.enum([
+    "shorten",
+    "expand",
+    "more_fun",
+    "more_professional",
+    "add_emojis",
+    "remove_emojis",
+  ]),
+  hashtags: z.array(z.string()).optional(),
+});
+
+type RefinementType = z.infer<typeof RefineCaptionRequestSchema>["refinement_type"];
+
+/**
+ * Build refinement prompt based on type
+ */
+function buildRefinementPrompt(
+  brandGuide: any,
+  caption: string,
+  platform: SupportedPlatform,
+  refinementType: RefinementType,
+  hashtags?: string[]
+): string {
+  const platformRules = PLATFORM_RULES[platform];
+  
+  // Brand voice context
+  const voiceContext = `
+Brand Voice:
+- Tone: ${(brandGuide.voiceAndTone?.tone || []).join(", ") || "Professional, Friendly"}
+- Friendliness Level: ${brandGuide.voiceAndTone?.friendlinessLevel || 50}/100
+- Formality Level: ${brandGuide.voiceAndTone?.formalityLevel || 50}/100
+- Avoid phrases: ${(brandGuide.voiceAndTone?.avoidPhrases || []).join(", ") || "None specified"}
+`;
+
+  const refinementInstructions: Record<RefinementType, string> = {
+    shorten: `
+TASK: Shorten this caption while keeping the core message and brand voice intact.
+- Aim for 30-50% shorter
+- Preserve the main CTA and key points
+- Keep it punchy and engaging
+- Maintain the same tone
+- Maximum ${Math.min(platformRules.maxLength, 300)} characters
+`,
+    expand: `
+TASK: Expand this caption with more detail while maintaining brand voice.
+- Add more context, storytelling, or value
+- Keep the same tone and style
+- Don't exceed ${platformRules.maxLength} characters
+- Add personality without being verbose
+- Include a stronger call-to-action if appropriate
+`,
+    more_fun: `
+TASK: Make this caption more fun and playful while staying on-brand.
+- Add humor, wit, or playfulness
+- Use more casual language
+- Add relevant emojis if appropriate
+- Keep the core message intact
+- Maintain professionalism - fun doesn't mean unprofessional
+`,
+    more_professional: `
+TASK: Make this caption more professional and polished.
+- Use more formal language
+- Remove slang or overly casual expressions
+- Focus on value and credibility
+- Keep it authoritative but not stiff
+- Remove excessive emojis
+`,
+    add_emojis: `
+TASK: Add appropriate emojis to this caption.
+- Weave emojis naturally into the text
+- Don't overdo it (3-5 emojis max for most captions)
+- Use emojis that match the content and brand tone
+- Place emojis strategically (line breaks, key points)
+- Keep the exact wording intact, just add emojis
+`,
+    remove_emojis: `
+TASK: Remove all emojis from this caption.
+- Strip all emoji characters
+- Ensure punctuation and spacing remain correct
+- Keep the text exactly the same otherwise
+- Make sure sentences still flow naturally
+`,
+  };
+
+  return `You are refining a social media caption for ${platform.replace("_", " ")}.
+
+${voiceContext}
+
+Platform: ${platform.replace("_", " ").toUpperCase()}
+Max Length: ${platformRules.maxLength} characters
+
+ORIGINAL CAPTION:
+"""
+${caption}
+"""
+${hashtags && hashtags.length > 0 ? `\nHASHTAGS: ${hashtags.join(" ")}` : ""}
+
+${refinementInstructions[refinementType]}
+
+Return ONLY the refined caption text, no explanations or quotes. The caption should be ready to post.`;
+}
+
+/**
+ * POST /api/agents/refine-caption
+ * Refine a caption with AI (shorten, expand, add/remove emojis, change tone)
+ */
+router.post("/refine-caption", async (req, res) => {
+  const requestId = uuidv4();
+  
+  try {
+    // Validate request
+    const parseResult = RefineCaptionRequestSchema.safeParse(req.body);
+    if (!parseResult.success) {
+      throw new AppError(
+        ErrorCode.VALIDATION_ERROR,
+        "Invalid refinement request",
+        HTTP_STATUS.BAD_REQUEST,
+        "warning",
+        { validationErrors: parseResult.error.errors }
+      );
+    }
+
+    const { brand_id, caption, platform, refinement_type, hashtags } = parseResult.data;
+
+    // Load brand guide for voice context
+    const brandGuide = await getCurrentBrandGuide(brand_id);
+    if (!brandGuide) {
+      throw new AppError(
+        ErrorCode.NOT_FOUND,
+        "Brand guide not found. Please complete brand setup first.",
+        HTTP_STATUS.NOT_FOUND,
+        "warning"
+      );
+    }
+
+    // Build and execute refinement prompt
+    const prompt = buildRefinementPrompt(
+      brandGuide,
+      caption,
+      platform,
+      refinement_type,
+      hashtags
+    );
+
+    const aiOutput = await generateWithAI(prompt, "doc");
+    
+    // Clean up the response - remove any wrapping quotes or explanations
+    let refinedCaption = aiOutput.content.trim();
+    
+    // Remove surrounding quotes if present
+    if ((refinedCaption.startsWith('"') && refinedCaption.endsWith('"')) ||
+        (refinedCaption.startsWith("'") && refinedCaption.endsWith("'"))) {
+      refinedCaption = refinedCaption.slice(1, -1);
+    }
+
+    // Log the refinement
+    console.log(`[refine-caption] ${requestId} | ${refinement_type} | ${brand_id} | ${platform} | ${caption.length} → ${refinedCaption.length} chars`);
+
+    res.json({
+      success: true,
+      refined_caption: refinedCaption,
+      refinement_type,
+      original_length: caption.length,
+      refined_length: refinedCaption.length,
+      tokens_used: {
+        input: aiOutput.tokens_in,
+        output: aiOutput.tokens_out,
+      },
+    });
+  } catch (error) {
+    console.error(`[refine-caption] ${requestId} | Error:`, error);
+    
+    if (error instanceof AppError) {
+      throw error;
+    }
+
+    // ✅ Handle missing AI provider with user-friendly error
+    if (error instanceof NoAIProviderError) {
+      throw new AppError(
+        ErrorCode.NO_AI_PROVIDER_CONFIGURED,
+        error.message,
+        HTTP_STATUS.SERVICE_UNAVAILABLE,
+        "warning",
+        { requestId, code: "NO_AI_PROVIDER_CONFIGURED" },
+        "Configure OPENAI_API_KEY or ANTHROPIC_API_KEY in your environment to enable AI features.",
+      );
+    }
+
+    throw new AppError(
+      ErrorCode.INTERNAL_ERROR,
+      "Failed to refine caption. Please try again.",
+      HTTP_STATUS.INTERNAL_SERVER_ERROR,
+      "error",
+      { originalError: error instanceof Error ? error.message : String(error) }
+    );
+  }
+});
 
 export default router;

@@ -203,7 +203,7 @@ All agents:
 - `brandId` (UUID) — Brand to plan for
 - `tenantId` (optional) — Workspace context
 - Brand Guide (loaded via `getCurrentBrandGuide()`)
-- Brand Profile (loaded via `getBrandProfile()`)
+- Brand Guide analytics context (loaded via `getBrandProfile()` — returns Brand Guide/`brand_kit` data)
 - Scraped Images (loaded via `getScrapedImages()`)
 
 **Key Outputs:**
@@ -227,7 +227,7 @@ All agents:
 
 **Key Inputs:**
 - Content text (headline, body, CTA, hashtags)
-- Brand Profile (tone keywords, brand personality, writing style, common phrases, banned phrases)
+- Brand Guide (`brand_kit`) — tone keywords, brand personality, writing style, common phrases, banned phrases
 
 **Key Outputs:**
 - `brandFidelityScore` — Overall score (0-1)

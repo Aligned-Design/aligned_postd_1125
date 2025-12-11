@@ -18,12 +18,15 @@ import {
   getSeverityForStatus,
 } from "./error-responses";
 
+// Import types for Vercel compatibility
+import "../types/express.d";
+
 /**
  * Request ID middleware - adds unique request ID for tracing
  */
 export const addRequestId: RequestHandler = (req, _res, next) => {
   const requestId = req.get("X-Request-ID") || uuidv4();
-  req.id = requestId;
+  (req as any).id = requestId;
   next();
 };
 
@@ -71,10 +74,10 @@ export function errorHandler(
   res: Response,
   _next: NextFunction
 ): void {
-  const requestId = req.id;
+  const requestId = (req as any).id;
 
   // Ensure we only respond once
-  if (res.headersSent) {
+  if ((res as any).headersSent) {
     return;
   }
 
@@ -92,7 +95,7 @@ export function errorHandler(
       },
     };
 
-    res.status(err.statusCode).json(errorResponse);
+    (res as any).status(err.statusCode).json(errorResponse);
     return;
   }
 
@@ -116,7 +119,7 @@ export function errorHandler(
       },
     };
 
-    res.status(HTTP_STATUS.UNPROCESSABLE_ENTITY).json(response);
+    (res as any).status(HTTP_STATUS.UNPROCESSABLE_ENTITY).json(response);
     return;
   }
 
@@ -152,7 +155,7 @@ export function errorHandler(
     },
   };
 
-    res.status(statusCode).json(errorResponse);
+    (res as any).status(statusCode).json(errorResponse);
 }
 
 /**
@@ -161,9 +164,9 @@ export function errorHandler(
  */
 export function asyncHandler(
   fn: (req: Request, res: Response, next: NextFunction) => Promise<void>
-) {
+): RequestHandler {
   return (req: Request, res: Response, next: NextFunction): void => {
-    Promise.resolve(fn(req, res, next)).catch(next);
+    Promise.resolve(fn(req, res, next)).catch((err) => next(err));
   };
 }
 

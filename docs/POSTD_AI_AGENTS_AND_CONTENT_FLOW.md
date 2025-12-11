@@ -140,7 +140,7 @@ Provides insights, recommendations, diagnostics, and strategic guidance. Support
   - `performanceInsights.visualPatterns` - Visual performance patterns
   - `performanceInsights.copyPatterns` - Copy performance patterns
 - **Other data:**
-  - Brand Profile (analytics, metrics)
+  - Brand Guide (`brand_kit`) - analytics and metrics context
   - Performance data (post performance, engagement metrics)
   - BrandHistory (success patterns, design fatigue alerts)
   - PerformanceLog (recent content performance)
@@ -180,7 +180,7 @@ Calculates Brand Fidelity Score (0-1) for generated content to ensure brand alig
 
 **Inputs:**
 - Content text (headline, body, CTA, hashtags)
-- Brand Profile (tone keywords, brand personality, writing style, common phrases, banned phrases)
+- Brand Guide (`brand_kit`) - tone keywords, brand personality, writing style, common phrases, banned phrases
 
 **Outputs:**
 - Brand Fidelity Score (0-1)
@@ -470,7 +470,7 @@ Classifies content tone using semantic similarity and ML-based analysis. Enhance
 **BFS Calculation:**
 - Called by: Doc Agent, Design Agent, Advisor Agent
 - Function: `calculateBrandFidelityScore(content, brandProfile)` from `server/lib/ai/brandFidelity.ts`
-- Input: Content text + Brand Profile (tone keywords, brand personality, writing style, common phrases, banned phrases)
+- Input: Content text + Brand Guide (`brand_kit`) - tone keywords, brand personality, writing style, common phrases, banned phrases
 - Output: `{ brandFidelityScore: number, complianceTags: string[] }`
 - Stored in: `content_items.bfs_score`, `generation_logs.bfs_score`, variant metadata
 

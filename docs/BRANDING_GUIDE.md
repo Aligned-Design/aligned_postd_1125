@@ -22,6 +22,23 @@
 - ✅ **Use**: "POSTD", "POSTD Platform", "POSTD Platform for [use case]"
 - ❌ **Avoid**: "Aligned", "AlignedAI", "aligned-20ai" (legacy names)
 
+### Brand Guide Terminology
+
+The client's brand profile (the central data object that powers AI) has multiple names depending on context:
+
+| Context | Term to Use | Example |
+|---------|-------------|---------|
+| **User-Facing UI** | Brand Guide | "Review your Brand Guide" |
+| **Marketing/Conceptual** | Brand Brain | "The AI-powered Brand Brain" |
+| **Database/Code** | `brand_kit` | `brands.brand_kit` JSONB column |
+| **React Hooks** | `brandGuide` | `const { brandGuide } = useBrandGuide()` |
+
+**Deprecated Terms (do not use in new code or docs):**
+- ❌ "Brand Profile" — Ambiguous, could mean user profile
+- ❌ "Brand Kit" in user-facing UI — Sounds like a downloadable asset pack
+
+**For complete Brand Guide documentation, see:** [Brand Guide Lifecycle](BRAND_GUIDE_LIFECYCLE.md)
+
 ### Code References
 
 #### User-Agent Strings

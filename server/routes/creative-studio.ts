@@ -23,6 +23,8 @@ import {
   CreativeStudioDesign,
   CanvasItem,
 } from "@shared/creative-studio";
+import { integrationsDB } from "../lib/integrations-db-service";
+import { publishingQueue } from "../lib/publishing-queue";
 
 const studioRouter = Router();
 
@@ -472,6 +474,54 @@ studioRouter.post(
         }
       }
 
+      // ✅ VALIDATION: Check if brand has connected social accounts before scheduling
+      // Only validate when autoPublish is true (user expects content to be published)
+      if (scheduleData.autoPublish) {
+        try {
+          const connections = await integrationsDB.getBrandConnections(brandId);
+          const connectedPlatforms = connections
+            .filter((conn) => conn.status === "connected")
+            .map((conn) => conn.provider.toLowerCase());
+
+          // Map scheduled platforms to provider names
+          const platformMap: Record<string, string[]> = {
+            instagram: ["meta", "instagram"],
+            facebook: ["meta", "facebook"],
+            linkedin: ["linkedin"],
+            twitter: ["twitter"],
+            tiktok: ["tiktok"],
+          };
+
+          // Check if any of the scheduled platforms are connected
+          const requestedPlatforms = scheduleData.scheduledPlatforms.map((p) => p.toLowerCase());
+          const missingPlatforms = requestedPlatforms.filter((platform) => {
+            const providerOptions = platformMap[platform] || [platform];
+            return !providerOptions.some((provider) => connectedPlatforms.includes(provider));
+          });
+
+          if (missingPlatforms.length === requestedPlatforms.length) {
+            // No platforms are connected - block scheduling
+            throw new AppError(
+              ErrorCode.NO_ACCOUNTS_CONNECTED,
+              "No connected social accounts found",
+              HTTP_STATUS.BAD_REQUEST,
+              "warning",
+              { missingPlatforms, requestedPlatforms },
+              "You don't have any connected social accounts. Connect Facebook or Instagram in Settings → Linked Accounts before scheduling this design for auto-publish."
+            );
+          } else if (missingPlatforms.length > 0) {
+            // Some platforms are not connected - warn but allow scheduling
+            console.log(`[CreativeStudio] Some platforms not connected: ${missingPlatforms.join(", ")}`);
+          }
+        } catch (err) {
+          if (err instanceof AppError) {
+            throw err;
+          }
+          // Log but don't block on connection check errors
+          console.warn("[CreativeStudio] Could not verify platform connections:", err);
+        }
+      }
+
       // Combine date and time into ISO datetime
       const scheduledAt = new Date(`${scheduleData.scheduledDate}T${scheduleData.scheduledTime}`).toISOString();
 
@@ -491,53 +541,46 @@ studioRouter.post(
         // Design not found, continue with empty content
       }
 
-      // Create publishing job (use existing publishing_jobs table)
-      const { data: job, error: jobError } = await supabase
-        .from("publishing_jobs")
-        .insert({
-          brand_id: brandId,
-          content: {
-            designId: designId,
-            autoPublish: scheduleData.autoPublish,
-            createdBy: userId,
-            ...designContent, // Include design data
-          },
-          platforms: scheduleData.scheduledPlatforms,
-          scheduled_at: scheduledAt,
-          status: "scheduled",
-        })
-        .select()
-        .single();
-
-      if (jobError) {
-        // If table doesn't exist, return mock response
-        console.log("Publishing jobs table not available, using mock response");
-        const mockResponse: ScheduleDesignResponse = {
-          success: true,
-          job: {
-            id: randomUUID(),
-            designId,
-            platforms: scheduleData.scheduledPlatforms,
-            scheduledAt,
-            autoPublish: scheduleData.autoPublish || false,
-            status: "scheduled",
-          },
-        };
-        return res.status(HTTP_STATUS.CREATED).json(mockResponse);
-      }
-
-      const response: ScheduleDesignResponse = {
-        success: true,
-        job: {
-          id: job.id,
+      // ✅ SINGLE SOURCE OF TRUTH: Create job through publishingQueue
+      // This ensures:
+      // - Job is inserted into publishing_jobs table
+      // - For autoPublish=true, job is also added to in-memory queue
+      // - For autoPublish=false (draft), job stays only in DB
+      try {
+        const job = await publishingQueue.createJobFromStudio({
+          brandId,
           designId,
           platforms: scheduleData.scheduledPlatforms,
           scheduledAt,
           autoPublish: scheduleData.autoPublish || false,
-          status: job.status || "scheduled",
-        },
-      };
-      res.status(HTTP_STATUS.CREATED).json(response);
+          userId,
+          designContent,
+        });
+
+        const response: ScheduleDesignResponse = {
+          success: true,
+          job: {
+            id: job.id,
+            designId,
+            platforms: scheduleData.scheduledPlatforms,
+            scheduledAt,
+            autoPublish: scheduleData.autoPublish || false,
+            status: job.status,
+          },
+        };
+        res.status(HTTP_STATUS.CREATED).json(response);
+      } catch (jobError) {
+        // If job creation fails, return error
+        console.error("[CreativeStudio] Failed to create publishing job:", jobError);
+        throw new AppError(
+          ErrorCode.DATABASE_ERROR,
+          "Failed to schedule design",
+          HTTP_STATUS.INTERNAL_SERVER_ERROR,
+          "error",
+          { originalError: jobError instanceof Error ? jobError.message : String(jobError) },
+          "Could not schedule your design. Please try again."
+        );
+      }
     } catch (error) {
       next(error);
     }

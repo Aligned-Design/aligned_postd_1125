@@ -481,6 +481,112 @@ router.post(
 );
 
 /**
+ * PATCH /api/media/:assetId/role
+ * Change the role (classification) of an asset
+ * Updates the role in metadata.role and category column
+ * 
+ * **Auth:** Required (authenticateUser)
+ * **Scope:** content:manage
+ * **Params:** assetId (UUID)
+ * **Body:** { role: "logo" | "brand_image" | "icon" | "hero" | "team" | "product" | "other" }
+ */
+const RoleUpdateSchema = z.object({
+  role: z.enum(["logo", "brand_image", "icon", "hero", "team", "product", "partner_logo", "social_icon", "platform_logo", "background", "other"]),
+});
+
+router.patch(
+  "/:assetId/role",
+  authenticateUser,
+  requireScope("content:manage"),
+  (async (req, res, next) => {
+    try {
+      // ✅ VALIDATION: Validate assetId parameter
+      let assetId: string;
+      try {
+        const validated = AssetIdParamSchema.parse(req.params);
+        assetId = validated.assetId;
+      } catch (validationError) {
+        if (validationError instanceof z.ZodError) {
+          throw new AppError(
+            ErrorCode.VALIDATION_ERROR,
+            "Invalid asset ID format",
+            HTTP_STATUS.BAD_REQUEST,
+            "warning",
+            { validationErrors: validationError.errors }
+          );
+        }
+        throw validationError;
+      }
+
+      // ✅ VALIDATION: Validate body
+      let role: string;
+      try {
+        const bodyValidated = RoleUpdateSchema.parse(req.body);
+        role = bodyValidated.role;
+      } catch (validationError) {
+        if (validationError instanceof z.ZodError) {
+          throw new AppError(
+            ErrorCode.VALIDATION_ERROR,
+            "Invalid role. Must be one of: logo, brand_image, icon, hero, team, product, partner_logo, social_icon, platform_logo, background, other",
+            HTTP_STATUS.BAD_REQUEST,
+            "warning",
+            { validationErrors: validationError.errors }
+          );
+        }
+        throw validationError;
+      }
+
+      // Get asset to verify brand access
+      const asset = await mediaDB.getMediaAsset(assetId);
+
+      if (!asset) {
+        throw new AppError(
+          ErrorCode.NOT_FOUND,
+          "Asset not found",
+          HTTP_STATUS.NOT_FOUND,
+          "info"
+        );
+      }
+
+      // ✅ Verify brand access
+      await assertBrandAccess(req, asset.brand_id, true, true);
+
+      // ✅ Determine new category based on role
+      let newCategory: string = asset.category || "images";
+      if (role === "logo") {
+        newCategory = "logos";
+      } else if (role === "icon" || role === "social_icon" || role === "platform_logo" || role === "partner_logo") {
+        newCategory = "icons";
+      } else {
+        newCategory = "images";
+      }
+
+      // ✅ Import updateAssetRole from scraped-images-service
+      const { updateAssetRole } = await import("../lib/scraped-images-service");
+      const success = await updateAssetRole(assetId, asset.brand_id, role, newCategory);
+
+      if (!success) {
+        throw new AppError(
+          ErrorCode.DATABASE_ERROR,
+          "Failed to update asset role",
+          HTTP_STATUS.INTERNAL_SERVER_ERROR,
+          "error"
+        );
+      }
+
+      res.json({
+        assetId,
+        role,
+        category: newCategory,
+        updatedAt: new Date().toISOString(),
+      });
+    } catch (error) {
+      next(error);
+    }
+  }) as RequestHandler
+);
+
+/**
  * POST /api/media/:assetId/restore
  * Restore an excluded asset (un-exclude)
  * Sets excluded = false for the specified asset

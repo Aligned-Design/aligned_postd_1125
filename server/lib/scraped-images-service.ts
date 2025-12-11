@@ -1321,3 +1321,73 @@ export async function restoreAsset(
   }
 }
 
+/**
+ * Update the role (classification) of an asset
+ * Updates metadata.role and category column
+ * 
+ * This allows users to manually correct misclassifications.
+ * For example: logo ⇄ brand_image ⇄ icon
+ * 
+ * @param assetId - The asset ID to update
+ * @param brandId - The brand ID (for validation)
+ * @param role - The new role (logo, brand_image, icon, etc.)
+ * @param category - The new category (logos, images, icons)
+ * @returns true if successful, false if failed
+ */
+export async function updateAssetRole(
+  assetId: string,
+  brandId: string,
+  role: string,
+  category: string
+): Promise<boolean> {
+  try {
+    // First, get the current metadata
+    const { data: asset, error: fetchError } = await supabase
+      .from("media_assets")
+      .select("metadata")
+      .eq("id", assetId)
+      .eq("brand_id", brandId)
+      .single();
+    
+    if (fetchError || !asset) {
+      console.error("[ScrapedImages] Error fetching asset for role update:", fetchError);
+      return false;
+    }
+    
+    // Update metadata with new role and mark as user-overridden
+    const currentMetadata = (asset.metadata as Record<string, unknown>) || {};
+    const originalRole = currentMetadata.role || "other";
+    
+    const updatedMetadata = {
+      ...currentMetadata,
+      role,
+      category, // Also store category in metadata for easier filtering
+      userOverridden: true,
+      originalRole: currentMetadata.userOverridden ? currentMetadata.originalRole : originalRole,
+      roleUpdatedAt: new Date().toISOString(),
+    };
+    
+    // Update both metadata and category column
+    const { error: updateError } = await supabase
+      .from("media_assets")
+      .update({
+        metadata: updatedMetadata,
+        category,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", assetId)
+      .eq("brand_id", brandId);
+    
+    if (updateError) {
+      console.error("[ScrapedImages] Error updating asset role:", updateError);
+      return false;
+    }
+    
+    console.log(`[ScrapedImages] ✅ Asset role updated: ${assetId} -> ${role} (category: ${category}) for brand ${brandId}`);
+    return true;
+  } catch (error) {
+    console.error("[ScrapedImages] Error updating asset role:", error);
+    return false;
+  }
+}
+

@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ChevronDown, Music, Youtube, MapPin, Facebook, Twitter, Instagram, Linkedin, Calendar as CalendarIcon } from "lucide-react";
+import { ChevronDown, Music, Youtube, MapPin, Facebook, Twitter, Instagram, Linkedin, Calendar as CalendarIcon, Wand2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useDragAndDrop } from "@/hooks/useDragAndDrop";
 import { useRescheduleContent } from "@/hooks/useRescheduleContent";
@@ -12,6 +12,8 @@ import { cn } from "@/lib/design-system";
 import { LoadingState } from "@/components/postd/dashboard/states/LoadingState";
 import { ErrorState } from "@/components/ui/error-state";
 import { EmptyState } from "@/components/ui/empty-state";
+import { SocialContentEditor, GenerateSocialButton } from "@/components/content/SocialContentEditor";
+import { isSupportedPlatform } from "@/hooks/useSocialContentGeneration";
 
 interface CalendarPost {
   id: string;
@@ -532,10 +534,30 @@ export function CalendarAccordion({
                                       Approve
                                     </button>
                                   )}
+                                  {/* Generate button for supported platforms */}
+                                  {isSupportedPlatform(post.platform) && brandId && (
+                                    <GenerateSocialButton
+                                      slotId={post.id}
+                                      brandId={brandId}
+                                      platform={post.platform}
+                                      compact
+                                    />
+                                  )}
                                 </div>
                               </div>
                             </div>
                           </div>
+                          
+                          {/* Social Content Editor (for FB/IG slots) */}
+                          {isSupportedPlatform(post.platform) && brandId && (
+                            <SocialContentEditor
+                              slotId={post.id}
+                              brandId={brandId}
+                              platform={post.platform}
+                              slotTitle={post.title}
+                              className="mx-3 mb-3"
+                            />
+                          )}
                         </div>
                       );
                     })

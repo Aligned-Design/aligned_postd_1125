@@ -65,6 +65,18 @@ function getDefaultProvider(): AIProvider {
 }
 
 /**
+ * Custom error class for AI provider configuration issues
+ * Client-side code can check for error.code === "NO_AI_PROVIDER_CONFIGURED"
+ */
+export class NoAIProviderError extends Error {
+  code = "NO_AI_PROVIDER_CONFIGURED";
+  constructor() {
+    super("AI content generation is unavailable. Configure OPENAI_API_KEY or ANTHROPIC_API_KEY to enable this feature.");
+    this.name = "NoAIProviderError";
+  }
+}
+
+/**
  * Generate content using configured AI provider with token tracking
  */
 export async function generateWithAI(
@@ -72,6 +84,11 @@ export async function generateWithAI(
   agentType: "doc" | "design" | "advisor",
   provider?: AIProvider
 ): Promise<AIGenerationOutput> {
+  // ✅ Check if any AI provider is configured before attempting generation
+  if (!validateAIProviders()) {
+    throw new NoAIProviderError();
+  }
+
   const selectedProvider = provider || getDefaultProvider();
 
   try {
@@ -87,6 +104,10 @@ export async function generateWithAI(
       throw new Error(`Unknown provider: ${selectedProvider}`);
     }
   } catch (error) {
+    // Re-throw NoAIProviderError without fallback attempt
+    if (error instanceof NoAIProviderError) {
+      throw error;
+    }
     // ✅ FIX: Log as warning since we have fallback providers - API failures are non-critical
     logger.warn("AI generation failed, attempting fallback", {
       provider: selectedProvider,

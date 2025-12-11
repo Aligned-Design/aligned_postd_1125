@@ -1,5 +1,5 @@
-import { RequestHandler } from "express";
-import { AuthenticatedRequest } from "../types/express";
+import { RequestHandler, Request, Response, NextFunction } from "express";
+import { AuthenticatedRequest } from "../types/express.d";
 import crypto from "crypto";
 import { AppError } from "../lib/error-middleware";
 import { ErrorCode, HTTP_STATUS } from "../lib/error-responses";
@@ -11,10 +11,10 @@ import { jwtAuth } from "../lib/jwt-auth";
  * Attaches req.auth with userId, email, role, brandIds
  * Also sets req.user for backward compatibility
  */
-export const authenticateUser: RequestHandler = (req, res, next) => {
+export const authenticateUser: RequestHandler = (req: Request, res: Response, next: NextFunction) => {
   const aReq = req as AuthenticatedRequest;
   try {
-    jwtAuth(req, res, () => {
+    (jwtAuth as RequestHandler)(req, res, () => {
       // Normalize req.user for backward compatibility
       const auth = aReq.auth;
       if (auth) {
@@ -120,7 +120,7 @@ export function rateLimit(config: RateLimitConfig) {
     windowMs,
     maxRequests,
     keyGenerator = (req) => {
-      const ip = req.ip || req.socket.remoteAddress || "unknown";
+      const ip = (req as any).ip || (req as any).socket?.remoteAddress || "unknown";
       const userId = req.auth?.userId || "anonymous";
       return `${ip}-${userId}`;
     },
@@ -292,7 +292,7 @@ export function setAllowlist(ips: string[]) {
 }
 
 export const ipFilter: RequestHandler = (req, _res, next) => {
-  const ip = req.ip || req.socket.remoteAddress || "unknown";
+  const ip = (req as any).ip || (req as any).socket?.remoteAddress || "unknown";
 
   if (blockedIPs.has(ip)) {
     throw new AppError(

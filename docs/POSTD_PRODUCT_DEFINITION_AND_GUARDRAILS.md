@@ -41,6 +41,42 @@ Its purpose is to allow users (agencies, businesses, creators) to:
 
 ---
 
+## 1.5 Terminology Alignment
+
+The client's brand profile is the central data object that powers all AI agents and content generation. It is referred to by different names in different contexts:
+
+| User-Facing Term | Technical Term | Conceptual Name | Usage |
+|-----------------|----------------|-----------------|-------|
+| **Brand Guide** | `brand_kit` (DB column) | Brand Brain | The complete brand profile including identity, voice, visual identity, and content rules |
+| Brand Snapshot | `brandSnapshot` (onboarding) | — | Intermediate state during onboarding before Brand Guide is finalized |
+| Brand colors | `brand_kit.visualIdentity.colors` | — | Array of hex color codes extracted from website or manually entered |
+
+### Terminology Rules
+
+1. **In user-facing UI and documentation:** Always use "Brand Guide"
+   - ✅ "Review your Brand Guide"
+   - ✅ "Update Brand Guide settings"
+   - ❌ "Review your Brand Kit" (sounds like a downloadable asset pack)
+
+2. **In marketing and conceptual explanations:** Use "Brand Brain"
+   - ✅ "The AI-powered Brand Brain ensures every post sounds like you"
+   - ✅ "Brand Brain is POSTD's core intelligence system"
+
+3. **In code and database references:** Use `brand_kit` or `brandGuide`
+   - ✅ `brands.brand_kit` (database column)
+   - ✅ `const { brandGuide } = useBrandGuide()` (React hook)
+   - ✅ `getCurrentBrandGuide(brandId)` (server function)
+
+4. **Deprecated terms (do not use):**
+   - ❌ "Brand Profile" — Ambiguous, could mean user profile
+   - ❌ "Brand Kit" in user-facing copy — Sounds like a downloadable asset
+
+**For complete Brand Guide documentation, see:** [Brand Guide Lifecycle](BRAND_GUIDE_LIFECYCLE.md)
+
+**For the detailed client experience view of these pillars, see:** [Client Onboarding Overview](CLIENT_ONBOARDING_OVERVIEW.md)
+
+---
+
 ## 2. Required System Pillars (Non-Negotiable)
 
 Cursor should treat these 7 pillars as the **backbone of POSTD**:

@@ -3,6 +3,7 @@ import { validatePostContent } from "./platform-validators";
 import { connectionsDB } from "./connections-db-service";
 import { publishingDBService } from "./publishing-db-service";
 import { getPlatformAPI } from "./platform-apis";
+import { supabase } from "./supabase";
 // Weekend posting logic removed - replaced with flexible Preferred Posting Schedule
 import {
   broadcastJobCreated,
@@ -12,6 +13,65 @@ import {
   broadcastJobFailed,
   broadcastJobRetry,
 } from "./event-broadcaster";
+
+// Approved statuses that allow scheduling/publishing
+const APPROVED_STATUSES = ["approved", "ready", "scheduled"];
+
+/**
+ * Check if content is approved for scheduling/publishing.
+ * Returns { approved: boolean, reason?: string }
+ */
+async function checkContentApprovalStatus(
+  contentId: string,
+  brandId: string
+): Promise<{ approved: boolean; reason?: string; status?: string }> {
+  try {
+    // Check content_items table first
+    const { data: contentItem } = await supabase
+      .from("content_items")
+      .select("id, status, title")
+      .eq("id", contentId)
+      .eq("brand_id", brandId)
+      .single();
+
+    if (contentItem) {
+      const isApproved = APPROVED_STATUSES.includes(contentItem.status);
+      return {
+        approved: isApproved,
+        status: contentItem.status,
+        reason: isApproved
+          ? undefined
+          : `Content "${contentItem.title || contentId}" is not approved. Current status: ${contentItem.status}. Please approve the content before scheduling.`,
+      };
+    }
+
+    // Check content_drafts table (for social content)
+    const { data: contentDraft } = await supabase
+      .from("content_drafts")
+      .select("id, status, platform")
+      .eq("slot_id", contentId)
+      .eq("brand_id", brandId)
+      .single();
+
+    if (contentDraft) {
+      const isApproved = APPROVED_STATUSES.includes(contentDraft.status);
+      return {
+        approved: isApproved,
+        status: contentDraft.status,
+        reason: isApproved
+          ? undefined
+          : `Draft for ${contentDraft.platform || "this slot"} is not approved. Current status: ${contentDraft.status}. Please approve before scheduling.`,
+      };
+    }
+
+    // If no record found, allow scheduling (legacy content without approval workflow)
+    return { approved: true };
+  } catch (error) {
+    // On error, log but don't block (fail open for backwards compatibility)
+    console.warn("[PublishingQueue] Error checking approval status:", error);
+    return { approved: true };
+  }
+}
 
 interface PublishResult {
   success: boolean;
@@ -26,6 +86,35 @@ export class PublishingQueue {
   private processing = new Set<string>();
 
   async addJob(job: PublishingJob): Promise<void> {
+    // Check if content is approved before scheduling (guardrail #26)
+    // Uses postId which maps to content_items.id or content_drafts.slot_id
+    if (job.postId && job.brandId) {
+      const approvalCheck = await checkContentApprovalStatus(job.postId, job.brandId);
+      if (!approvalCheck.approved) {
+        job.status = "failed";
+        job.lastError = approvalCheck.reason || "Content not approved for scheduling";
+        job.validationResults = [
+          {
+            field: "approval_status",
+            status: "error",
+            message: approvalCheck.reason || "Content must be approved before scheduling",
+          },
+        ];
+        this.jobs.set(job.id, job);
+        
+        // Log the rejection
+        const logger = (await import("./logger")).logger;
+        logger.info("Job rejected: content not approved", {
+          jobId: job.id,
+          brandId: job.brandId,
+          postId: job.postId,
+          currentStatus: approvalCheck.status,
+          platform: job.platform,
+        });
+        return;
+      }
+    }
+
     // Validate content before adding to queue
     const validationResults = validatePostContent(job.platform, job.content);
     const hasErrors = validationResults.some((r) => r.status === "error");
@@ -809,6 +898,116 @@ export class PublishingQueue {
         timezone: "UTC",
       };
     }
+  }
+
+  /**
+   * Create a publishing job from Creative Studio context.
+   * This is the SINGLE SOURCE OF TRUTH for job creation.
+   * 
+   * - Inserts into publishing_jobs table
+   * - For scheduled/autoPublish jobs, adds to in-memory queue
+   * - For draft jobs (autoPublish=false), only persists to DB
+   * 
+   * @returns The created job record from the database
+   */
+  async createJobFromStudio(params: {
+    brandId: string;
+    designId: string;
+    platforms: string[];
+    scheduledAt: string;
+    autoPublish: boolean;
+    userId: string;
+    designContent?: Record<string, unknown>;
+  }): Promise<{
+    id: string;
+    status: string;
+    brand_id: string;
+    platforms: string[];
+    scheduled_at: string;
+    content: Record<string, unknown>;
+  }> {
+    const { brandId, designId, platforms, scheduledAt, autoPublish, userId, designContent = {} } = params;
+    
+    // Determine job status based on autoPublish flag
+    const jobStatus = autoPublish ? "scheduled" : "draft";
+    
+    // Insert into database
+    const { data: job, error: jobError } = await supabase
+      .from("publishing_jobs")
+      .insert({
+        brand_id: brandId,
+        content: {
+          designId,
+          autoPublish,
+          createdBy: userId,
+          ...designContent,
+        },
+        platforms,
+        scheduled_at: scheduledAt,
+        status: jobStatus,
+      })
+      .select()
+      .single();
+
+    if (jobError) {
+      throw new Error(`Failed to create publishing job: ${jobError.message}`);
+    }
+
+    // For scheduled jobs (autoPublish=true), add to in-memory queue
+    // Draft jobs stay only in DB until user explicitly publishes
+    if (autoPublish && job) {
+      try {
+        // Create PublishingJob object for the queue
+        // We create one job per platform for proper queue processing
+        for (const platform of platforms) {
+          const queueJob: PublishingJob = {
+            id: job.id,
+            brandId: job.brand_id,
+            tenantId: "default",
+            postId: designId,
+            platform: platform.toLowerCase() as any,
+            connectionId: `${platform.toLowerCase()}-${brandId}`,
+            status: "pending",
+            scheduledAt,
+            content: job.content,
+            validationResults: [],
+            retryCount: 0,
+            maxRetries: 3,
+            createdAt: job.created_at,
+            updatedAt: job.updated_at,
+          };
+
+          await this.addJob(queueJob);
+        }
+
+        const logger = (await import("./logger")).logger;
+        logger.info("Job created from Creative Studio and enqueued", {
+          jobId: job.id,
+          brandId,
+          designId,
+          platforms,
+          scheduledAt,
+          autoPublish,
+        });
+      } catch (queueError) {
+        // Log but don't fail - job is already in DB
+        const logger = (await import("./logger")).logger;
+        logger.warn("Job created in DB but queue sync failed", {
+          jobId: job.id,
+          brandId,
+          error: queueError instanceof Error ? queueError.message : String(queueError),
+        });
+      }
+    }
+
+    return {
+      id: job.id,
+      status: job.status,
+      brand_id: job.brand_id,
+      platforms: job.platforms,
+      scheduled_at: job.scheduled_at,
+      content: job.content,
+    };
   }
 }
 

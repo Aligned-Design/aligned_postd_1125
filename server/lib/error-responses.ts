@@ -57,6 +57,7 @@ export enum ErrorCode {
   DUPLICATE_RESOURCE = "DUPLICATE_RESOURCE",
   INVALID_BRAND = "INVALID_BRAND",
   NO_BRAND_GUIDE = "NO_BRAND_GUIDE",
+  NO_ACCOUNTS_CONNECTED = "NO_ACCOUNTS_CONNECTED", // No social accounts connected for publishing
 
   // Rate limiting
   RATE_LIMIT_EXCEEDED = "RATE_LIMIT_EXCEEDED",
@@ -65,6 +66,7 @@ export enum ErrorCode {
   // Configuration errors
   CONFIGURATION_ERROR = "CONFIGURATION_ERROR", // ✅ Added
   NOT_IMPLEMENTED = "NOT_IMPLEMENTED", // ✅ Added
+  NO_AI_PROVIDER_CONFIGURED = "NO_AI_PROVIDER_CONFIGURED", // AI API keys missing
 
   // Server errors (5xx)
   INTERNAL_ERROR = "INTERNAL_ERROR",
@@ -251,6 +253,15 @@ export const ErrorScenarios = {
     message: `Error communicating with ${serviceName}`,
     severity: "error" as ErrorSeverity,
     suggestion: "Please try again later",
+  }),
+
+  noAccountsConnected: (platforms?: string[]) => ({
+    statusCode: HTTP_STATUS.BAD_REQUEST,
+    code: ErrorCode.NO_ACCOUNTS_CONNECTED,
+    message: "No connected social accounts found",
+    severity: "warning" as ErrorSeverity,
+    details: platforms ? { requestedPlatforms: platforms } : undefined,
+    suggestion: "Connect Facebook or Instagram in Settings → Linked Accounts before scheduling for auto-publish.",
   }),
 };
 

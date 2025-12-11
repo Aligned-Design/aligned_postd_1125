@@ -237,7 +237,7 @@ Progress Steps:
 
 Success Message:
 "🎉 Your first week of content is ready! 
- 8 pieces of content, ready to review and publish."
+ 7 pieces of content, ready to review and publish."
 ```
 
 **Improvements:**
@@ -673,7 +673,7 @@ export function DashboardWelcome({ brandId, completedSteps }) {
            content is ready.</p>
         
         <div className="completion-checklist">
-          ✅ Brand profile created
+          ✅ Brand Guide created
           ✅ First week of content generated
           ✅ Ready to publish
         </div>
@@ -720,8 +720,8 @@ Subheadline: "Your brand profile is complete and your first week of
 
 Completion Message:
 "Here's what we've set up for you:
- ✅ Brand profile created
- ✅ First week of content generated (8 pieces)
+ ✅ Brand Guide created
+ ✅ First week of content generated (7 pieces)
  ✅ Ready to review and publish"
 
 Next Steps:

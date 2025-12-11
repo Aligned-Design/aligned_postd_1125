@@ -9,7 +9,10 @@
  * for type casting inside middleware functions.
  */
 
-import { Request } from "express";
+import { Request, Response, NextFunction, ParamsDictionary } from "express";
+import { ParsedQs } from "qs";
+import { Socket } from "net";
+import { IncomingHttpHeaders } from "http";
 
 declare global {
   namespace Express {
@@ -41,29 +44,54 @@ declare global {
 }
 
 /**
+ * Auth context attached to authenticated requests
+ */
+export interface AuthContext {
+  userId: string;
+  email: string;
+  role: string;
+  brandIds?: string[];
+  tenantId?: string;
+  workspaceId?: string;
+  scopes?: string[];
+}
+
+/**
+ * User context for backward compatibility
+ */
+export interface UserContext {
+  id: string;
+  email: string;
+  role: string;
+  brandId?: string;
+  brandIds?: string[];
+  tenantId?: string;
+  workspaceId?: string;
+  scopes?: string[];
+}
+
+/**
  * AuthenticatedRequest - Request with authentication context
  * Use this interface for type casting inside middleware that requires auth
+ * 
+ * Includes all standard Express Request properties to ensure compatibility
+ * when casting from Request to AuthenticatedRequest.
  */
 export interface AuthenticatedRequest extends Request {
-  auth?: {
-    userId: string;
-    email: string;
-    role: string;
-    brandIds?: string[];
-    tenantId?: string;
-    workspaceId?: string;
-    scopes?: string[];
-  };
-  user?: {
-    id: string;
-    email: string;
-    role: string;
-    brandId?: string;
-    brandIds?: string[];
-    tenantId?: string;
-    workspaceId?: string;
-    scopes?: string[];
-  };
+  // Custom auth properties
+  id?: string;
+  auth?: AuthContext;
+  user?: UserContext;
+  validatedState?: string;
+  validatedBrandId?: string;
+  
+  // Standard Express Request properties (re-declared for Vercel compatibility)
+  params: ParamsDictionary;
+  query: ParsedQs;
+  body: any;
+  headers: IncomingHttpHeaders;
+  ip?: string;
+  socket: Socket;
 }
 
 /**
@@ -71,5 +99,9 @@ export interface AuthenticatedRequest extends Request {
  * Use this interface for type casting inside middleware that requires brand context
  */
 export interface BrandScopedRequest extends AuthenticatedRequest {
-  validatedBrandId?: string;
+  validatedBrandId: string;
 }
+
+// Re-export Express types for convenience
+// Note: These are type-only re-exports for TypeScript
+export type { Request, Response, NextFunction } from "express";
