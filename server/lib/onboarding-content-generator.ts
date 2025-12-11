@@ -631,32 +631,39 @@ async function logGenerationToDatabase(
   usedFallback: boolean
 ): Promise<void> {
   try {
+    // Map to existing generation_logs schema columns
     const logEntries = items.map((item, index) => ({
       brand_id: brandId,
       agent: "doc",
-      post_id: item.id,
-      generated_content: {
-        headline: item.title,
-        body: item.content,
+      prompt_version: "onboarding-v1",
+      // Input: what was sent to the AI
+      input: {
         platform: item.platform,
         type: item.type,
         scheduledDate: item.scheduledDate,
         scheduledTime: item.scheduledTime,
-        imageUrl: item.imageUrl,
         packageId: packageId,
         itemIndex: index,
-      },
-      brand_fidelity_score: item.brandFidelityScore || 0,
-      linter_passed: (item.brandFidelityScore || 0) >= 0.7,
-      approved: false, // Requires human review
-      generation_metadata: {
         source: "onboarding-content-generator",
-        packageId,
         usedFallback,
-        itemIndex: index,
-        avgPackageBFS: avgBFS,
+      },
+      // Output: what the AI generated
+      output: {
+        id: item.id,
+        headline: item.title,
+        body: item.content,
+        imageUrl: item.imageUrl,
+        brandFidelityScore: item.brandFidelityScore || 0,
         isPlaceholder: item.content.includes("placeholder") || (item.brandFidelityScore || 0) === 0,
       },
+      bfs_score: item.brandFidelityScore || 0,
+      linter_results: {
+        passed: (item.brandFidelityScore || 0) >= 0.7,
+        avgPackageBFS: avgBFS,
+        checks: [],
+      },
+      approved: false, // Requires human review
+      revision: 0,
     }));
 
     // Insert all logs (batch insert for efficiency)
@@ -783,4 +790,5 @@ export async function syncPackageToContentItems(
     return { synced, failed: contentPackage.items.length };
   }
 }
+
 
