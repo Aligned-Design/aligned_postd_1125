@@ -90,10 +90,11 @@ router.get("/", authenticateUser, validateBrandId, async (req, res, next) => {
         campaign_name: content.campaign || metadata.campaign || item.campaign,
         created_at: item.created_at,
         createdAt: item.created_at,
-        scheduled_at: item.scheduled_at || metadata.scheduled_at,
-        scheduledAt: item.scheduled_at || metadata.scheduled_at,
-        published_at: item.published_at || metadata.published_at,
-        publishedAt: item.published_at || metadata.published_at,
+        // Handle both scheduled_for (schema) and scheduled_at (legacy) columns
+        scheduled_at: item.scheduled_for || item.scheduled_at || content.scheduledDate,
+        scheduledAt: item.scheduled_for || item.scheduled_at || content.scheduledDate,
+        published_at: item.published_at,
+        publishedAt: item.published_at,
         error_message: item.error_message || metadata.error_message,
         errorMessage: item.error_message || metadata.error_message,
         content_id: item.id,
@@ -147,20 +148,21 @@ router.get("/:id", authenticateUser, async (req, res, next) => {
     await assertBrandAccess(req, data.brand_id, true, true);
 
     const content = data.content || {};
-    const metadata = data.metadata || {};
 
     const item = {
       id: data.id,
       title: content.headline || content.title || data.title || "Untitled Post",
       content: content.body || content.caption || content.text || "",
-      platform: content.platform || metadata.platform || data.platform || "instagram",
+      platform: content.platform || data.platform || "instagram",
       status: data.status || "draft",
       brand_id: data.brand_id,
       created_at: data.created_at,
-      scheduled_at: data.scheduled_at || metadata.scheduled_at,
-      published_at: data.published_at || metadata.published_at,
+      // Handle both scheduled_for (schema) and scheduled_at (legacy) + content.scheduledDate
+      scheduled_at: data.scheduled_for || data.scheduled_at || content.scheduledDate,
+      published_at: data.published_at,
+      generated_by_agent: data.generated_by_agent,
+      media_urls: data.media_urls,
       ...content,
-      ...metadata,
     };
 
     return res.status(HTTP_STATUS.OK).json({

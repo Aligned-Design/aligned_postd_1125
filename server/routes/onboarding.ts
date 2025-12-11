@@ -9,7 +9,7 @@ import { Router, RequestHandler } from "express";
 import { supabase } from "../lib/supabase";
 import { AppError } from "../lib/error-middleware";
 import { ErrorCode, HTTP_STATUS } from "../lib/error-responses";
-import { generateWeeklyContentPackage, generateDefaultContentPackage } from "../lib/onboarding-content-generator";
+import { generateWeeklyContentPackage, generateDefaultContentPackage, syncPackageToContentItems } from "../lib/onboarding-content-generator";
 import { logger } from "../lib/logger";
 
 const router = Router();
@@ -42,13 +42,15 @@ router.post("/generate-week", async (req, res, next) => {
         brandSnapshot
       );
       
-      // ✅ Check if default/fallback content was used (deterministic defaults have lower BFS)
-      const allItemsLowBFS = contentPackage.items.every(item => 
-        (item.brandFidelityScore || 0) <= 0.5 &&
-        (item.id.includes("default-") || item.id.includes("fallback"))
+      // ✅ Check if default/fallback content was used (deterministic defaults have BFS of exactly 0.5)
+      const allItemsAreFallback = contentPackage.items.every(item => 
+        (item.brandFidelityScore || 0) === 0.5 || // Default content has BFS 0.5
+        (item.brandFidelityScore || 0) === 0 ||   // Placeholder content has BFS 0
+        item.content.includes("placeholder") ||
+        item.content.includes("Please regenerate")
       );
       
-      if (allItemsLowBFS && contentPackage.id.includes("default-")) {
+      if (allItemsAreFallback) {
         usedFallback = true;
         logger.info("Default content plan used (AI unavailable)", {
           brandId,
@@ -181,6 +183,19 @@ router.post("/generate-week", async (req, res, next) => {
       });
     }
 
+    // ✅ PIPELINE FIX: Sync content items to content_items table for Queue visibility
+    // This ensures generated content appears in the /queue page
+    let syncResult = { synced: 0, failed: 0 };
+    try {
+      syncResult = await syncPackageToContentItems(brandId, contentPackage);
+    } catch (syncError) {
+      logger.warn("Content items sync failed (non-blocking)", {
+        brandId,
+        packageId: contentPackage.id,
+        error: syncError instanceof Error ? syncError.message : String(syncError),
+      });
+    }
+
     (res as any).json({
       success: true,
       contentPackage,
@@ -191,6 +206,8 @@ router.post("/generate-week", async (req, res, next) => {
         usedFallback: usedFallback,
         persisted: persistenceSuccess,
         itemsCount: contentPackage.items.length,
+        syncedToContentItems: syncResult.synced,
+        syncFailures: syncResult.failed,
       },
     });
   } catch (error) {
@@ -336,10 +353,26 @@ router.post("/regenerate-week", async (req, res, next) => {
       });
     }
 
+    // ✅ PIPELINE FIX: Sync content items to content_items table for Queue visibility
+    let syncResult = { synced: 0, failed: 0 };
+    try {
+      syncResult = await syncPackageToContentItems(brandId, contentPackage);
+    } catch (syncError) {
+      logger.warn("Content items sync failed (non-blocking)", {
+        brandId,
+        packageId: contentPackage.id,
+        error: syncError instanceof Error ? syncError.message : String(syncError),
+      });
+    }
+
     (res as any).json({
       success: true,
       contentPackage,
       message: "7-day content plan regenerated successfully",
+      metadata: {
+        syncedToContentItems: syncResult.synced,
+        syncFailures: syncResult.failed,
+      },
     });
   } catch (error) {
     next(error);

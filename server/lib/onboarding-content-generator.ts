@@ -13,6 +13,7 @@ import { getPrioritizedImage } from "./image-sourcing";
 import { getCurrentBrandGuide } from "./brand-guide-service";
 import { buildFullBrandGuidePrompt } from "./prompts/brand-guide-prompts";
 import { logger } from "./logger";
+import { supabase } from "./supabase";
 import type { BrandProfile } from "@shared/advisor";
 
 // BrandSnapshot type (from onboarding context)
@@ -194,7 +195,7 @@ async function generateContentItem(
     }
     
     return {
-      id: `${itemSpec.type}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      id: crypto.randomUUID(), // Use proper UUID for content_items table
       title: parsed.title || itemSpec.topic,
       platform: itemSpec.platform,
       type: itemSpec.type,
@@ -216,9 +217,9 @@ async function generateContentItem(
       }
     );
     
-    // Return fallback content
+    // Return fallback content with proper UUID
     return {
-      id: `${itemSpec.type}-fallback-${Date.now()}`,
+      id: crypto.randomUUID(),
       title: `${itemSpec.topic} - ${itemSpec.platform}`,
       platform: itemSpec.platform,
       type: itemSpec.type,
@@ -260,9 +261,10 @@ export function generateDefaultContentPackage(
   };
   const baseTopic = topicMap[weeklyFocus] || "Sharing valuable updates and insights";
 
+  // Use proper UUIDs for content_items table compatibility
   const defaultItems: ContentItem[] = [
     {
-      id: `default-instagram-${Date.now()}-1`,
+      id: crypto.randomUUID(),
       title: `Share Your Story - ${brandName}`,
       platform: "instagram",
       type: "social",
@@ -272,7 +274,7 @@ export function generateDefaultContentPackage(
       brandFidelityScore: 0.5,
     },
     {
-      id: `default-facebook-${Date.now()}`,
+      id: crypto.randomUUID(),
       title: `Engage Your Audience - ${brandName}`,
       platform: "facebook",
       type: "social",
@@ -282,7 +284,7 @@ export function generateDefaultContentPackage(
       brandFidelityScore: 0.5,
     },
     {
-      id: `default-linkedin-${Date.now()}`,
+      id: crypto.randomUUID(),
       title: `Professional Insight - ${brandName}`,
       platform: "linkedin",
       type: "social",
@@ -292,7 +294,7 @@ export function generateDefaultContentPackage(
       brandFidelityScore: 0.5,
     },
     {
-      id: `default-twitter-${Date.now()}`,
+      id: crypto.randomUUID(),
       title: `Quick Update - ${brandName}`,
       platform: "twitter",
       type: "social",
@@ -302,7 +304,7 @@ export function generateDefaultContentPackage(
       brandFidelityScore: 0.5,
     },
     {
-      id: `default-instagram-${Date.now()}-2`,
+      id: crypto.randomUUID(),
       title: `Behind the Scenes - ${brandName}`,
       platform: "instagram",
       type: "social",
@@ -312,7 +314,7 @@ export function generateDefaultContentPackage(
       brandFidelityScore: 0.5,
     },
     {
-      id: `default-email-${Date.now()}`,
+      id: crypto.randomUUID(),
       title: `Weekly Update from ${brandName}`,
       platform: "email",
       type: "email",
@@ -526,10 +528,10 @@ export async function generateWeeklyContentPackage(
           error: result.reason instanceof Error ? result.reason.message : String(result.reason),
         });
         
-        // Return individual fallback
+        // Return individual fallback with proper UUID
         const spec = itemSpecs[index];
         return {
-          id: `${spec.type}-fallback-${Date.now()}-${index}`,
+          id: crypto.randomUUID(),
           title: `${spec.topic} - ${spec.platform}`,
           platform: spec.platform,
           type: spec.type,
@@ -612,6 +614,173 @@ export async function generateWeeklyContentPackage(
     platforms: [...new Set(items.map(item => item.platform))],
   });
   
+  // ✅ PIPELINE FIX: Log generation to generation_logs for tracking
+  await logGenerationToDatabase(brandId, packageId, items, avgBFS, aiFailedCompletely);
+  
   return packageData;
+}
+
+/**
+ * Log generation attempt to generation_logs table for tracking and review
+ */
+async function logGenerationToDatabase(
+  brandId: string,
+  packageId: string,
+  items: ContentItem[],
+  avgBFS: number,
+  usedFallback: boolean
+): Promise<void> {
+  try {
+    const logEntries = items.map((item, index) => ({
+      brand_id: brandId,
+      agent: "doc",
+      post_id: item.id,
+      generated_content: {
+        headline: item.title,
+        body: item.content,
+        platform: item.platform,
+        type: item.type,
+        scheduledDate: item.scheduledDate,
+        scheduledTime: item.scheduledTime,
+        imageUrl: item.imageUrl,
+        packageId: packageId,
+        itemIndex: index,
+      },
+      brand_fidelity_score: item.brandFidelityScore || 0,
+      linter_passed: (item.brandFidelityScore || 0) >= 0.7,
+      approved: false, // Requires human review
+      generation_metadata: {
+        source: "onboarding-content-generator",
+        packageId,
+        usedFallback,
+        itemIndex: index,
+        avgPackageBFS: avgBFS,
+        isPlaceholder: item.content.includes("placeholder") || (item.brandFidelityScore || 0) === 0,
+      },
+    }));
+
+    // Insert all logs (batch insert for efficiency)
+    const { error } = await supabase.from("generation_logs").insert(logEntries);
+    
+    if (error) {
+      logger.warn("Failed to log generation to database", {
+        brandId,
+        packageId,
+        error: error.message,
+        code: error.code,
+      });
+    } else {
+      logger.info("Generation logged to database", {
+        brandId,
+        packageId,
+        logsCreated: logEntries.length,
+      });
+    }
+  } catch (error) {
+    // Non-blocking: don't fail generation if logging fails
+    logger.warn("Error logging generation to database", {
+      brandId,
+      packageId,
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+}
+
+/**
+ * ✅ PIPELINE FIX: Sync content_packages items to content_items table
+ * 
+ * This ensures generated content is visible in the Queue page (/queue)
+ * which fetches from content_items, not content_packages.
+ * 
+ * Schema: content_items has columns:
+ * - id, brand_id, title, type, content (JSONB), platform, media_urls,
+ * - scheduled_for, status, generated_by_agent, created_by, approved_by,
+ * - published_at, created_at, updated_at
+ * 
+ * @param brandId - Brand UUID
+ * @param contentPackage - The generated content package
+ * @returns Promise<{synced: number, failed: number}> - Sync results
+ */
+export async function syncPackageToContentItems(
+  brandId: string,
+  contentPackage: WeeklyContentPackage
+): Promise<{ synced: number; failed: number }> {
+  let synced = 0;
+  let failed = 0;
+
+  try {
+    // Map content package items to content_items format (matching DB schema)
+    const contentItemsToInsert = contentPackage.items.map((item) => ({
+      id: item.id,
+      brand_id: brandId,
+      title: item.title,
+      type: item.type === "social" ? "post" : item.type, // Normalize type
+      platform: item.platform,
+      status: "draft", // All generated content starts as draft
+      generated_by_agent: "doc", // Content generated by Doc agent
+      // Store all content and metadata in the content JSONB field
+      content: {
+        headline: item.title,
+        body: item.content,
+        caption: item.content,
+        text: item.content,
+        platform: item.platform,
+        type: item.type,
+        imageUrl: item.imageUrl,
+        brandFidelityScore: item.brandFidelityScore,
+        // Include metadata in content JSONB (no separate metadata column)
+        scheduledDate: item.scheduledDate,
+        scheduledTime: item.scheduledTime,
+        source: "onboarding",
+        packageId: contentPackage.id,
+        generatedAt: contentPackage.generatedAt,
+      },
+      // Use scheduled_for (not scheduled_at) per schema
+      scheduled_for: item.scheduledDate && item.scheduledTime 
+        ? new Date(`${item.scheduledDate}T${item.scheduledTime}:00`).toISOString()
+        : null,
+      // Add media URLs if image is available
+      media_urls: item.imageUrl ? [item.imageUrl] : null,
+    }));
+
+    // Insert content items (upsert to avoid duplicates)
+    for (const contentItem of contentItemsToInsert) {
+      const { error } = await supabase
+        .from("content_items")
+        .upsert(contentItem, { 
+          onConflict: "id",
+          ignoreDuplicates: false 
+        });
+
+      if (error) {
+        logger.warn("Failed to sync content item to content_items", {
+          brandId,
+          itemId: contentItem.id,
+          error: error.message,
+          code: error.code,
+        });
+        failed++;
+      } else {
+        synced++;
+      }
+    }
+
+    logger.info("Content package synced to content_items", {
+      brandId,
+      packageId: contentPackage.id,
+      synced,
+      failed,
+      total: contentPackage.items.length,
+    });
+
+    return { synced, failed };
+  } catch (error) {
+    logger.error(
+      "Error syncing content package to content_items",
+      error instanceof Error ? error : new Error(String(error)),
+      { brandId, packageId: contentPackage.id }
+    );
+    return { synced, failed: contentPackage.items.length };
+  }
 }
 
