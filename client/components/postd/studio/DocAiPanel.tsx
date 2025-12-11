@@ -21,6 +21,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import type { AiDocGenerationRequest, AiDocVariant } from "@/lib/types/aiContent";
+import { BrandBrainScoreBadge } from "@/components/collaboration";
 
 interface DocAiPanelProps {
   onUseVariant?: (variant: AiDocVariant) => void;
@@ -37,7 +38,7 @@ export function DocAiPanel({ onUseVariant, onEditVariant }: DocAiPanelProps) {
   // Workspace only exists if there's a brand, so use workspace-level brand
   const brandId = contextBrandId || (currentWorkspace?.id ? `workspace-${currentWorkspace.id}` : null);
   
-  const { variants, isLoading, isError, error, generate, reset } = useDocAgent();
+  const { data: generationResponse, variants, isLoading, isError, error, generate, reset } = useDocAgent();
 
   const [formData, setFormData] = useState<Partial<AiDocGenerationRequest>>({
     topic: "",
@@ -306,7 +307,13 @@ export function DocAiPanel({ onUseVariant, onEditVariant }: DocAiPanelProps) {
       {/* Variants */}
       {variants.length > 0 && (
         <div className="space-y-4">
-          <h3 className="text-lg font-semibold">Generated Options</h3>
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold">Generated Options</h3>
+            {/* Brand Brain Score Badge (advisory) */}
+            {generationResponse?.brandBrainEvaluation && (
+              <BrandBrainScoreBadge score={generationResponse.brandBrainEvaluation.score} />
+            )}
+          </div>
           {variants.map((variant) => {
             const bfsPercentage = Math.round(variant.brandFidelityScore * 100);
             const isLowBFS = variant.brandFidelityScore < 0.8;

@@ -116,6 +116,7 @@ import reviewsRouter from "./routes/reviews";
 import studioRouter from "./routes/creative-studio";
 import contentPackagesRouter from "./routes/content-packages";
 import orchestrationRouter from "./routes/orchestration";
+import brandBrainRouter from "./routes/brand-brain";
 import { getSyncState } from "./routes/ai-sync";
 import {
   handleZapierWebhook,
@@ -228,6 +229,7 @@ export function createServer() {
   app.use("/api/studio", authenticateUser, studioRouter);
   app.use("/api/content-packages", authenticateUser, contentPackagesRouter);
   app.use("/api/orchestration", authenticateUser, orchestrationRouter);
+  app.use("/api/brand-brain", authenticateUser, brandBrainRouter);
   
   // ✅ DEBUG: Health check endpoint (comprehensive system verification)
   app.use("/api/debug", debugHealthRouter);

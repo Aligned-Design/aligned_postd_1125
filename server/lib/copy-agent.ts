@@ -3,10 +3,18 @@
  *
  * Generates on-brand copy that aligns with strategy and resonates with audience.
  * Works in tandem with Advisor insights and Creative designs.
+ *
+ * BRAND BRAIN INTEGRATION:
+ * - Always request Brand Context from Brand Brain before generating
+ * - Evaluate generated content with Brand Brain before returning
+ * - Respect brand rules from Brand Brain over default behavior
  */
 
 import { v4 as uuidv4 } from "uuid";
 import type { StrategyBrief } from "./collaboration-artifacts";
+import { copyAgentPreflight, withAgentPreflight } from "./agent-preflight";
+import { getBrandContextPack, evaluateContent } from "./brand-brain-service";
+import type { BrandContextPack, ContentEvaluationResult, ContentGoal } from "@shared/brand-brain";
 
 /**
  * Copy output metadata - tags for tracking performance
@@ -42,14 +50,24 @@ export interface CopyOutput {
   timestamp: string;
   durationMs: number;
   qualityScore?: number;
+  /** Brand Brain evaluation result (if available) */
+  brandEvaluation?: ContentEvaluationResult;
+  /** Brand context used for generation */
+  brandContextUsed?: boolean;
 }
 
 /**
  * Copy Agent - generates on-brand content
+ *
+ * PREFLIGHT REQUIREMENTS:
+ * - brand_id must be present
+ * - Brand Context must be loaded from Brand Brain
+ * - All content must be evaluated before returning
  */
 export class CopyAgent {
   private brandId: string;
   private requestId: string;
+  private brandContext: BrandContextPack | null = null;
 
   constructor(brandId: string) {
     this.brandId = brandId;
@@ -57,7 +75,59 @@ export class CopyAgent {
   }
 
   /**
+   * Run preflight check before any operation
+   */
+  async preflight(): Promise<{ passed: boolean; errors: string[] }> {
+    const result = await copyAgentPreflight(this.brandId);
+
+    if (result.passed && result.contextPack) {
+      this.brandContext = result.contextPack;
+    }
+
+    return {
+      passed: result.passed,
+      errors: result.errors,
+    };
+  }
+
+  /**
+   * Load brand context from Brand Brain
+   */
+  async loadBrandContext(): Promise<BrandContextPack | null> {
+    if (!this.brandContext) {
+      this.brandContext = await getBrandContextPack(this.brandId);
+    }
+    return this.brandContext;
+  }
+
+  /**
+   * Evaluate generated content with Brand Brain
+   */
+  async evaluateWithBrandBrain(
+    content: { body: string; headline?: string; cta?: string; hashtags?: string[] },
+    channel: string,
+    goal: ContentGoal = "engagement"
+  ): Promise<ContentEvaluationResult | null> {
+    try {
+      return await evaluateContent(this.brandId, {
+        channel,
+        content,
+        goal,
+      });
+    } catch (error) {
+      console.warn("[CopyAgent] Brand Brain evaluation failed:", error);
+      return null;
+    }
+  }
+
+  /**
    * Generate copy using strategy brief
+   *
+   * BRAND BRAIN INTEGRATION:
+   * 1. Load Brand Context if available
+   * 2. Merge Brand Brain rules with strategy
+   * 3. Generate copy
+   * 4. Evaluate with Brand Brain
    */
   async generateCopy(
     strategy: StrategyBrief,
@@ -65,13 +135,18 @@ export class CopyAgent {
       platform?: string;
       contentType?: string;
       additionalContext?: string;
+      goal?: ContentGoal;
     }
   ): Promise<CopyOutput> {
     const startTime = Date.now();
     const platform = options?.platform || "instagram";
     const contentType = options?.contentType || "post";
+    const goal = options?.goal || "engagement";
 
     try {
+      // 1. Load Brand Context from Brand Brain
+      await this.loadBrandContext();
+
       // Validate strategy (required)
       if (!strategy || !strategy.positioning || !strategy.voice) {
         throw new Error(
@@ -81,7 +156,21 @@ export class CopyAgent {
 
       // Extract key elements from strategy
       const { positioning, voice, competitive } = strategy;
-      const toneKeywords = voice.keyMessages || [];
+
+      // 2. Merge Brand Brain rules with strategy (Brand Brain wins on conflict)
+      let toneKeywords = voice.keyMessages || [];
+      let toneDescriptor = voice.tone;
+
+      if (this.brandContext) {
+        // Brand Brain voice rules override strategy
+        if (this.brandContext.voiceRules.keyMessages.length > 0) {
+          toneKeywords = this.brandContext.voiceRules.keyMessages;
+        }
+        if (this.brandContext.voiceRules.tone.length > 0) {
+          toneDescriptor = this.brandContext.voiceRules.tone[0];
+        }
+      }
+
       const audience = positioning.targetAudience;
 
       // Generate headline using multiple hook types
@@ -131,7 +220,7 @@ export class CopyAgent {
 
       // Metadata tags
       const metadata: CopyMetadata = {
-        tone: voice.tone,
+        tone: toneDescriptor,
         emotion,
         hookType: "benefit", // Could vary
         ctaType: "benefit",
@@ -141,9 +230,42 @@ export class CopyAgent {
         generatedBy: "copy-agent",
       };
 
+      // 3. Evaluate with Brand Brain before returning
+      let brandEvaluation: ContentEvaluationResult | null = null;
+      try {
+        brandEvaluation = await this.evaluateWithBrandBrain(
+          {
+            body,
+            headline: selectedHeadline,
+            cta,
+            hashtags,
+          },
+          platform,
+          goal
+        );
+      } catch (evalError) {
+        console.warn("[CopyAgent] Brand evaluation failed:", evalError);
+      }
+
+      // Determine status based on evaluation
+      let status: "success" | "needs_review" | "failed" = "success";
+      let qualityScore = 8.0;
+
+      if (brandEvaluation) {
+        qualityScore = brandEvaluation.score / 10; // Convert 0-100 to 0-10
+        if (brandEvaluation.score < 60) {
+          status = "needs_review";
+        }
+        // Check for any failed checks
+        const hasFailedChecks = brandEvaluation.checks.some(c => c.status === "fail");
+        if (hasFailedChecks) {
+          status = "needs_review";
+        }
+      }
+
       const output: CopyOutput = {
         requestId: this.requestId,
-        status: "success",
+        status,
         headline: selectedHeadline,
         body,
         callToAction: cta,
@@ -152,11 +274,13 @@ export class CopyAgent {
         alternativeVersions: headlines.slice(1, 3).map((h) => ({
           hookType: "question",
           headline: h,
-          body: this.generateBodyCopy(h, toneKeywords, voice.tone, positioning.missionStatement, platform),
+          body: this.generateBodyCopy(h, toneKeywords, toneDescriptor, positioning.missionStatement, platform),
         })),
         timestamp: new Date().toISOString(),
         durationMs: Date.now() - startTime,
-        qualityScore: 8.0, // Would be calculated by scoring system
+        qualityScore,
+        brandEvaluation: brandEvaluation || undefined,
+        brandContextUsed: !!this.brandContext,
       };
 
       return output;
@@ -317,8 +441,92 @@ export async function generateCopyWithStrategy(
   options?: {
     platform?: string;
     contentType?: string;
+    goal?: ContentGoal;
   }
 ): Promise<CopyOutput> {
   const agent = new CopyAgent(brandId);
+  return agent.generateCopy(strategy, options);
+}
+
+/**
+ * Generate copy with Brand Brain integration
+ *
+ * This is the preferred method for generating copy as it:
+ * 1. Runs preflight checks
+ * 2. Loads Brand Context
+ * 3. Evaluates output with Brand Brain
+ */
+export async function generateCopyWithBrandBrain(
+  brandId: string,
+  strategy: StrategyBrief,
+  options?: {
+    platform?: string;
+    contentType?: string;
+    goal?: ContentGoal;
+  }
+): Promise<CopyOutput> {
+  return withAgentPreflight("copy", brandId, async (context) => {
+    const agent = new CopyAgent(brandId);
+
+    // If preflight provided context, use it
+    if (context) {
+      agent["brandContext"] = context;
+    }
+
+    return agent.generateCopy(strategy, options);
+  });
+}
+
+/**
+ * Generate copy directly from Brand Context (without strategy brief)
+ *
+ * Use this when you have Brand Context but no pre-defined strategy.
+ * Brand Brain provides all the context needed.
+ */
+export async function generateCopyFromBrandContext(
+  brandId: string,
+  options: {
+    platform: string;
+    contentType?: string;
+    goal?: ContentGoal;
+    topic?: string;
+  }
+): Promise<CopyOutput> {
+  const context = await getBrandContextPack(brandId);
+
+  if (!context) {
+    throw new Error(`Brand context not found for brand ${brandId}`);
+  }
+
+  // Build a minimal strategy from Brand Context
+  const strategy: StrategyBrief = {
+    positioning: {
+      tagline: context.positioning?.tagline || context.brandName,
+      missionStatement: context.positioning?.missionStatement || context.brandSummary.description,
+      targetAudience: {
+        demographics: {},
+        psychographics: [],
+        aspirations: context.brandSummary.values,
+      },
+    },
+    voice: {
+      tone: context.voiceRules.tone[0] || "professional",
+      keyMessages: context.voiceRules.keyMessages.length > 0
+        ? context.voiceRules.keyMessages
+        : context.voiceRules.brandPhrases,
+    },
+    visual: {
+      primaryColor: context.visualRules.colors[0] || "#000000",
+      secondaryColor: context.visualRules.colors[1] || "#ffffff",
+    },
+    competitive: {
+      uniqueValueProposition: context.brandSummary.uvp || context.brandSummary.description,
+      differentiators: context.brandSummary.differentiators,
+    },
+  };
+
+  const agent = new CopyAgent(brandId);
+  agent["brandContext"] = context;
+
   return agent.generateCopy(strategy, options);
 }

@@ -4,7 +4,39 @@
  * Shared types for AI-generated content between client and server.
  */
 
+import type { ContentEvaluationResult, EvaluationCheck } from "./brand-brain";
+
 export type AiContentStatus = "draft" | "approved" | "needs_review";
+
+/**
+ * Brand Brain Evaluation result included in AI generation responses.
+ * This is an advisory score - it does not block approvals.
+ */
+export interface BrandBrainEvaluation {
+  /** Overall alignment score 0-100 */
+  score: number;
+  /** Individual checks with pass/warn/fail status */
+  checks: EvaluationCheck[];
+  /** Natural language recommendations for improvement */
+  recommendations: string[];
+  /** Evaluation timestamp */
+  evaluatedAt: string;
+  /** Evaluation version for tracking */
+  evaluationVersion: string;
+}
+
+/**
+ * Converts ContentEvaluationResult to BrandBrainEvaluation for API responses
+ */
+export function toBrandBrainEvaluation(result: ContentEvaluationResult): BrandBrainEvaluation {
+  return {
+    score: result.score,
+    checks: result.checks,
+    recommendations: result.recommendations,
+    evaluatedAt: result.evaluatedAt,
+    evaluationVersion: result.evaluationVersion,
+  };
+}
 
 export type AiAgentResponseStatus = "ok" | "partial" | "error" | "success" | "partial_success" | "failure";
 
@@ -119,7 +151,9 @@ export interface AiDocGenerationResponse {
   request: AiDocGenerationRequest;
   metadata: AiAgentMetadata;
   warnings?: AiAgentWarning[];
-  status?: AiAgentResponseStatus; // ✅ Added status property
+  status?: AiAgentResponseStatus;
+  /** Brand Brain evaluation result (advisory - does not block approval) */
+  brandBrainEvaluation?: BrandBrainEvaluation;
 }
 
 export interface AiDesignGenerationResponse {
@@ -128,6 +162,8 @@ export interface AiDesignGenerationResponse {
   request: AiDesignGenerationRequest;
   metadata: AiAgentMetadata;
   warnings?: AiAgentWarning[];
-  status?: AiAgentResponseStatus; // ✅ Added status property
+  status?: AiAgentResponseStatus;
+  /** Brand Brain evaluation result (advisory - does not block approval) */
+  brandBrainEvaluation?: BrandBrainEvaluation;
 }
 

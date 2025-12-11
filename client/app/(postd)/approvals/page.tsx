@@ -10,7 +10,7 @@ import { PageShell } from "@/components/postd/ui/layout/PageShell";
 import { PageHeader } from "@/components/postd/ui/layout/PageHeader";
 import { EmptyState } from "@/components/postd/ui/feedback/EmptyState";
 import { NewPostButton } from "@/components/postd/shared/NewPostButton";
-import { MultiClientApprovalDashboard } from "@/components/collaboration/MultiClientApprovalDashboard";
+import { MultiClientApprovalDashboard, BrandBrainCheckPanel, BrandBrainScoreBadge } from "@/components/collaboration";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Dialog,
@@ -45,6 +45,7 @@ import {
   LinterResult,
   DocOutput,
 } from "@/types/agent-config";
+import type { BrandBrainEvaluation } from "@shared/aiContent";
 
 interface ReviewItem {
   id: string;
@@ -53,7 +54,9 @@ interface ReviewItem {
   input: unknown;
   output: DocOutput | unknown;
   bfs?: BrandFidelityScore;
-  linter_results?: LinterResult | Record<string, unknown>; // ✅ FIX: Allow Record for linter_results
+  linter_results?: LinterResult | Record<string, unknown>;
+  /** Brand Brain evaluation result (advisory only) */
+  brandBrainEvaluation?: BrandBrainEvaluation;
   timestamp: string;
   error?: string;
 }
@@ -120,6 +123,7 @@ export default function Approvals() {
         output: item.output || {},
         bfs: transformBfs(item.bfs),
         linter_results: item.linter_results,
+        brandBrainEvaluation: (item as unknown as { brandBrainEvaluation?: BrandBrainEvaluation }).brandBrainEvaluation,
         timestamp: item.timestamp || item.created_at || new Date().toISOString(),
         error: item.error,
       }));
@@ -321,11 +325,14 @@ export default function Approvals() {
 
             {selectedItem && (
               <div className="space-y-6">
+                {/* Brand Brain Check Panel (Advisory) */}
+                <BrandBrainCheckPanel evaluation={selectedItem.brandBrainEvaluation} />
+
                 {/* Quality Scores */}
-                {selectedItem.bfs && selectedItem.linter_results && (
+                {(selectedItem.bfs || selectedItem.linter_results) && (
                   <div className="grid gap-4 md:grid-cols-2">
-                    <BrandFidelityScoreCard score={selectedItem.bfs} />
-                    {/* ✅ FIX: Type guard for linter_results */}
+                    {selectedItem.bfs && <BrandFidelityScoreCard score={selectedItem.bfs} />}
+                    {/* Type guard for linter_results */}
                     {typeof selectedItem.linter_results === "object" && 
                      selectedItem.linter_results !== null && 
                      "passed" in selectedItem.linter_results && (
@@ -468,6 +475,10 @@ function ReviewItemCard({
         {/* Quality indicators */}
         <div className="flex items-center justify-between text-sm">
           <div className="flex items-center gap-4">
+            {/* Brand Brain Score Badge */}
+            {item.brandBrainEvaluation && (
+              <BrandBrainScoreBadge score={item.brandBrainEvaluation.score} />
+            )}
             {item.bfs && (
               <span
                 className={cn(

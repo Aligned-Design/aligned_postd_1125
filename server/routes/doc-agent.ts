@@ -37,7 +37,11 @@ import type {
   AiDocGenerationRequest,
   AiDocGenerationResponse,
   AiDocVariant,
+  BrandBrainEvaluation,
 } from "@shared/aiContent";
+import { toBrandBrainEvaluation } from "@shared/aiContent";
+import { evaluateContent } from "../lib/brand-brain-service";
+import type { ContentEvaluationInput } from "@shared/brand-brain";
 import type { BrandProfile } from "@shared/advisor";
 import {
   buildBrandContextPayload,
@@ -196,6 +200,7 @@ function buildDocAgentResponse(
   latencyMs: number,
   retryAttempted: boolean,
   avgBFS: number,
+  brandBrainEvaluation?: BrandBrainEvaluation,
 ): AiDocGenerationResponse {
   const complianceTagCounts = aggregateComplianceTags(variants);
   const parseWarning = variants.some((variant) => variant.id === "parse-error");
@@ -223,6 +228,11 @@ function buildDocAgentResponse(
 
   if (warnings.length > 0) {
     response.warnings = warnings;
+  }
+
+  // Include Brand Brain evaluation if available (advisory only)
+  if (brandBrainEvaluation) {
+    response.brandBrainEvaluation = brandBrainEvaluation;
   }
 
   return response;
@@ -373,6 +383,29 @@ export const generateDocContent: RequestHandler = async (req, res) => {
           
           const latencyMs = Date.now() - startTime;
 
+          // ✅ BRAND BRAIN: Evaluate generated content after retry (advisory only)
+          let brandBrainEval: BrandBrainEvaluation | undefined;
+          if (variants.length > 0) {
+            try {
+              const selectedVariant = variants[0];
+              const evaluationInput: ContentEvaluationInput = {
+                channel: platform || "instagram",
+                content: {
+                  body: selectedVariant.content,
+                  headline: selectedVariant.content.split('\n')[0]?.substring(0, 100),
+                  cta: callToAction,
+                  hashtags: [],
+                },
+                goal: contentType === "ad" ? "conversion" : contentType === "email" ? "nurture" : "engagement",
+              };
+              const evalResult = await evaluateContent(brandId, evaluationInput);
+              brandBrainEval = toBrandBrainEvaluation(evalResult);
+              console.log(`[Copywriter] Brand Brain evaluation (retry): score=${brandBrainEval.score}`);
+            } catch (bbError) {
+              console.warn(`[Copywriter] Brand Brain evaluation failed (non-blocking):`, bbError);
+            }
+          }
+
           const response = buildDocAgentResponse(
             brandId,
             brand,
@@ -382,6 +415,7 @@ export const generateDocContent: RequestHandler = async (req, res) => {
             latencyMs,
             true,
             retryAvgBFS,
+            brandBrainEval,
           );
 
           // ✅ COLLABORATION: Save ContentPackage if collaboration context exists
@@ -446,6 +480,30 @@ export const generateDocContent: RequestHandler = async (req, res) => {
         // Success - return response
         const latencyMs = Date.now() - startTime;
 
+        // ✅ BRAND BRAIN: Evaluate generated content (advisory only)
+        let brandBrainEval: BrandBrainEvaluation | undefined;
+        if (variants.length > 0) {
+          try {
+            const selectedVariant = variants[0];
+            const evaluationInput: ContentEvaluationInput = {
+              channel: platform || "instagram",
+              content: {
+                body: selectedVariant.content,
+                headline: selectedVariant.content.split('\n')[0]?.substring(0, 100),
+                cta: callToAction,
+                hashtags: [],
+              },
+              goal: contentType === "ad" ? "conversion" : contentType === "email" ? "nurture" : "engagement",
+            };
+            const evalResult = await evaluateContent(brandId, evaluationInput);
+            brandBrainEval = toBrandBrainEvaluation(evalResult);
+            console.log(`[Copywriter] Brand Brain evaluation: score=${brandBrainEval.score}`);
+          } catch (bbError) {
+            console.warn(`[Copywriter] Brand Brain evaluation failed (non-blocking):`, bbError);
+            // Don't throw - Brand Brain evaluation is advisory only
+          }
+        }
+
         const response = buildDocAgentResponse(
           brandId,
           brand,
@@ -455,6 +513,7 @@ export const generateDocContent: RequestHandler = async (req, res) => {
           latencyMs,
           retryAttempted,
           avgBFS,
+          brandBrainEval,
         );
 
         logDocAgentCall(provider, latencyMs, avgBFS, retryAttempted, variants.length);
