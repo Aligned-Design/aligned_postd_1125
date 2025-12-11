@@ -252,6 +252,7 @@ contentPlanRouter.post(
       brandKit.advisorRecommendations = contentPlan.advisorRecommendations;
       brandKit.contentPlanGeneratedAt = contentPlan.generatedAt;
 
+      // @supabase-scope-ok Brand lookup by its own primary key
       await supabase
         .from("brands")
         .update({

@@ -53,6 +53,11 @@ export interface BrandKitWithSources {
   // About
   about_blurb?: TrackedField<string>;
 
+  // Host-aware copy extraction fields (from crawler)
+  heroHeadline?: TrackedField<string>;
+  aboutText?: TrackedField<string>;
+  services?: TrackedField<string[]>;
+
   // Settings
   crawler_settings?: {
     auto_apply: boolean;

@@ -140,11 +140,8 @@ export default function Screen2BusinessEssentials() {
 
           if (brandResponse.success && brandResponse.brand) {
             const realBrandId = brandResponse.brand.id;
-            // ✅ Standardize: Use postd_brand_id as primary key
+            // ✅ Standardize: Use postd_brand_id as the only key
             localStorage.setItem("postd_brand_id", realBrandId);
-            // ✅ Use postd_brand_id (keep aligned_brand_id for backward compatibility during migration)
-            localStorage.setItem("postd_brand_id", realBrandId);
-            localStorage.setItem("aligned_brand_id", realBrandId); // Legacy - remove after migration complete
             if (import.meta.env.DEV) {
               logInfo("Brand created", { step: "brand_creation" });
             }
@@ -308,9 +305,8 @@ export default function Screen2BusinessEssentials() {
                   });
 
                   if (brandResponse.success && brandResponse.brand) {
-                    // ✅ Use postd_brand_id (keep aligned_brand_id for backward compatibility)
+                    // ✅ Use postd_brand_id as the only key
                     localStorage.setItem("postd_brand_id", brandResponse.brand.id);
-                    localStorage.setItem("aligned_brand_id", brandResponse.brand.id); // Legacy - remove after migration complete
                     if (import.meta.env.DEV) {
                       logInfo("Brand created for manual setup", { step: "manual_setup" });
                     }

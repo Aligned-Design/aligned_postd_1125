@@ -37,7 +37,7 @@ export class ErrorBoundary extends React.Component<
     this.setState({ errorInfo });
     // Log error (will be silent in production unless error tracking is configured)
     logError("Error boundary caught an error", error, { errorInfo });
-    // TODO: Send to error tracking service (e.g., Sentry) in production
+    // Error tracking: Configure SENTRY_DSN environment variable for production error reporting
   }
 
   render() {

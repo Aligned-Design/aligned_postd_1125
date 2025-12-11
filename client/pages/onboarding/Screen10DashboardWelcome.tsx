@@ -69,7 +69,7 @@ export default function Screen10DashboardWelcome() {
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="p-4 rounded-lg bg-indigo-50 border border-indigo-100">
-              <p className="text-sm font-bold text-indigo-900 mb-1">Brand Profile</p>
+              <p className="text-sm font-bold text-indigo-900 mb-1">Brand Guide</p>
               <p className="text-xs text-indigo-700">✓ Colors, tone, and identity extracted</p>
             </div>
             <div className="p-4 rounded-lg bg-purple-50 border border-purple-100">
@@ -130,7 +130,7 @@ export default function Screen10DashboardWelcome() {
               <BookOpen className="w-5 h-5" />
               <div className="text-left">
                 <div className="font-black">Edit Brand Guide</div>
-                <div className="text-xs font-normal opacity-90">Refine your brand profile</div>
+                <div className="text-xs font-normal opacity-90">Refine your Brand Guide</div>
               </div>
             </SecondaryButton>
             

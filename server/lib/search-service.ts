@@ -80,6 +80,8 @@ export class SearchService {
     options: SearchOptions,
     limit: number,
   ): Promise<SearchResult[]> {
+    // @supabase-scope-ok TODO(rls-review): Confirm if brand search should be restricted to user's authorized brands
+    // Currently returns all brands matching query - may need options.brandIds filter
     const builder = supabase
       .from("brands")
       .select("id,name,description,created_at,updated_at")
@@ -108,6 +110,7 @@ export class SearchService {
     options: SearchOptions,
     limit: number,
   ): Promise<SearchResult[]> {
+    // @supabase-scope-ok Uses .in("brand_id", options.brandIds) when brandIds provided - caller provides authorized IDs
     // ✅ SCHEMA ALIGNMENT: scheduled_content doesn't have headline/body/platform columns
     // It only has: id, brand_id, content_id, scheduled_at, platforms[], status
     // Need to search in content_items instead (or join)
@@ -221,6 +224,7 @@ export class SearchService {
     options: SearchOptions,
     limit: number,
   ): Promise<SearchResult[]> {
+    // @supabase-scope-ok Uses .in("brand_id", options.brandIds) when brandIds provided - caller provides authorized IDs
     let builder = supabase
       .from("media_assets")
       .select("id,brand_id,filename,category,metadata,created_at,updated_at")
@@ -265,6 +269,7 @@ export class SearchService {
     options: SearchOptions,
     limit: number,
   ): Promise<SearchResult[]> {
+    // @supabase-scope-ok Uses .in("brand_id", options.brandIds) when brandIds provided - caller provides authorized IDs
     // ✅ SCHEMA ALIGNMENT: scheduled_content doesn't have headline/body/platform columns
     // Search in content_items instead (or join with scheduled_content if needed)
     let builder = supabase

@@ -4,7 +4,7 @@
  * 
  * Note: BrandFidelityScore, LinterResult, and DocOutput are client-only types
  * For shared types, we use Record<string, unknown> to avoid circular dependencies
- * TODO: Move agent-config types to shared in a future refactor
+ * Agent configuration types are defined in @shared/agent-config
  */
 
 /**

@@ -319,18 +319,18 @@ function isLikelyLogo(input: ImageClassificationInput): {
   const altLower = input.alt?.toLowerCase() || "";
   const urlLower = input.url.toLowerCase();
   
-  // Check for "logo" in filename/alt/url
+  // Check for "logo" in filename/alt/url - explicit "logo" keyword is strong signal
   if (filename.includes("logo")) {
     reasons.push("filename_logo");
-    confidence += 0.3;
+    confidence += 0.5;  // Strong signal - explicit "logo" in filename
   }
   if (altLower.includes("logo")) {
     reasons.push("alt_logo");
-    confidence += 0.2;
+    confidence += 0.5;  // Strong signal - explicit "logo" in alt text
   }
   if (urlLower.includes("/logo")) {
     reasons.push("path_logo");
-    confidence += 0.2;
+    confidence += 0.3;
   }
   
   // Check for brand name in filename/alt

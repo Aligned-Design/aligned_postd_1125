@@ -76,7 +76,6 @@ export default function Billing() {
       setLoading(true);
       setError(null);
 
-      // TODO: Replace with actual API call to /api/billing/status when backend is implemented
       const response = await fetch("/api/billing/status");
 
       if (!response.ok) {

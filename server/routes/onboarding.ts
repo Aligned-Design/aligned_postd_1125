@@ -68,8 +68,8 @@ router.post("/generate-week", async (req, res, next) => {
       });
       
       // ✅ Use exported default generator as last resort
-      const { getBrandProfile } = await import("../lib/brand-profile");
-      const brand = await getBrandProfile(brandId);
+      const { getBrandContext } = await import("../lib/brand-context");
+      const brand = await getBrandContext(brandId);
       
       usedFallback = true;
       contentPackage = generateDefaultContentPackage(brandId, weeklyFocus, brandSnapshot, brand);
@@ -87,6 +87,7 @@ router.post("/generate-week", async (req, res, next) => {
     const maxRetries = 3;
     
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      // @supabase-scope-ok INSERT includes brand_id_uuid in payload
       const { error: dbError } = await supabase
         .from("content_packages")
         .insert({
@@ -306,6 +307,7 @@ router.post("/regenerate-week", async (req, res, next) => {
       brandSnapshot
     );
 
+    // @supabase-scope-ok INSERT includes brand_id_uuid in payload
     // Save to Supabase (will create new record)
     // Use brand_id_uuid (UUID) instead of brand_id (TEXT) - migration 005
     const { error: dbError } = await supabase

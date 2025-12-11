@@ -298,6 +298,7 @@ export async function saveBrandGuide(brandId: string, guide: Partial<BrandGuide>
       return; // Skip save for temporary brandIds
     }
 
+    // @supabase-scope-ok Brand lookup by its own primary key
     // Brand exists - update it
     const { error } = await supabase
       .from("brands")

@@ -34,6 +34,8 @@
     "format": "prettier --check .",
     "lint": "eslint . --ext .ts,.tsx,.js,.jsx --max-warnings 250",
     "lint:fix": "eslint . --ext .ts,.tsx,.js,.jsx --fix",
+    "lint:supabase": "tsx server/scripts/lint-supabase-queries.ts",
+    "lint:supabase:error": "tsx server/scripts/lint-supabase-queries.ts --error",
     "typecheck": "tsc",
     "validate:env": "tsx server/utils/validate-env.ts",
     "validate:security": "tsx server/scripts/validate-security.ts",

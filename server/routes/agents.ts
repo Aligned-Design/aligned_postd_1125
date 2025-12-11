@@ -43,6 +43,7 @@ import {
 } from "../lib/validation-schemas";
 import { v4 as uuidv4 } from "uuid";
 import { getCurrentBrandGuide } from "../lib/brand-guide-service";
+import { logGenerationEvent, updateGenerationLog } from "../lib/generation-log-helper";
 import {
   GenerateSocialRequestSchema,
   SocialContentPackageSchema,
@@ -432,13 +433,12 @@ router.post("/generate/doc", async (req, res) => {
       }
     }
 
-    // Log the generation attempt
-    // ✅ SCHEMA FIX: Only use columns that exist in generation_logs table
-    // Extra metadata stored in input/output JSONB fields
-    const logEntry = {
-      brand_id,
-      agent: "doc" as const,
-      prompt_version: "v1.0",
+    // Log the generation attempt using centralized helper
+    // ✅ PIPELINE HARDENING: Uses logGenerationEvent for consistent schema alignment
+    const logResult = await logGenerationEvent({
+      brandId: brand_id,
+      agent: "doc",
+      promptVersion: "v1.0",
       input: {
         ...docInput,
         safety_mode: safetyConfig.safety_mode,
@@ -458,21 +458,23 @@ router.post("/generate/doc", async (req, res) => {
             ? "Failed to generate acceptable content"
             : undefined,
       },
-      bfs_score: output?.bfs || 0,
-      linter_results: output?.linter,
+      bfsScore: output?.bfs?.overall ?? 0,
+      linterResults: output?.linter ? {
+        passed: output.linter.passed,
+        blocked: output.linter.blocked,
+        needs_human_review: output.linter.needs_human_review,
+        issues: [
+          ...output.linter.banned_phrases_found,
+          ...output.linter.banned_claims_found,
+          ...output.linter.missing_disclaimers,
+        ].filter(Boolean),
+        fixes_applied: output.linter.fixes_applied,
+      } : null,
       approved: !needsReview && !blocked,
       revision: 0,
-    };
+    });
 
-    const { data: logData, error: logError } = await supabase
-      .from("generation_logs")
-      .insert(logEntry)
-      .select()
-      .single();
-
-    if (logError) {
-      console.error("Failed to log generation:", logError);
-    }
+    const logData = logResult.success ? { id: logResult.logId } : null;
 
     const response: GenerationResponse = {
       success: !!output,
@@ -561,12 +563,12 @@ router.post("/generate/design", async (req, res) => {
     const provider = (output as any).__provider || "unknown";
     const model = (output as any).__model || "unknown";
 
-    // Log the generation
-    // ✅ SCHEMA FIX: Only use columns that exist in generation_logs table
-    const logEntry = {
-      brand_id,
-      agent: "design" as const,
-      prompt_version: "v1.0",
+    // Log the generation using centralized helper
+    // ✅ PIPELINE HARDENING: Uses logGenerationEvent for consistent schema alignment
+    const logResult = await logGenerationEvent({
+      brandId: brand_id,
+      agent: "design",
+      promptVersion: "v1.0",
       input: {
         ...input,
         safety_mode: "safe",
@@ -580,20 +582,12 @@ router.post("/generate/design", async (req, res) => {
         provider,
         model,
       },
-      bfs_score: 0, // Design doesn't have BFS
+      bfsScore: 0, // Design doesn't have BFS
       approved: true, // Design output doesn't require BFS/linter checks
       revision: 0,
-    };
+    });
 
-    const { data: logData, error: logError } = await supabase
-      .from("generation_logs")
-      .insert(logEntry)
-      .select()
-      .single();
-
-    if (logError) {
-      console.error("Failed to log generation:", logError);
-    }
+    const logData = logResult.success ? { id: logResult.logId } : null;
 
     const response: GenerationResponse = {
       success: true,
@@ -671,6 +665,7 @@ router.post("/generate/advisor", async (req, res) => {
     const validUntil = new Date();
     validUntil.setHours(validUntil.getHours() + 24);
 
+    // @supabase-scope-ok UPSERT includes brand_id in payload
     const { data: cacheData, error: cacheSaveError } = await supabase
       .from("advisor_cache")
       .upsert({
@@ -693,11 +688,12 @@ router.post("/generate/advisor", async (req, res) => {
     const model = (output as any).__model || "unknown";
 
     // Log the generation
-    // ✅ SCHEMA FIX: Only use columns that exist in generation_logs table
-    const logEntry = {
-      brand_id,
-      agent: "advisor" as const,
-      prompt_version: "v1.0",
+    // Log the generation using centralized helper
+    // ✅ PIPELINE HARDENING: Uses logGenerationEvent for consistent schema alignment
+    const logResult = await logGenerationEvent({
+      brandId: brand_id,
+      agent: "advisor",
+      promptVersion: "v1.0",
       input: {
         brand_id,
         safety_mode: "safe",
@@ -711,16 +707,12 @@ router.post("/generate/advisor", async (req, res) => {
         provider,
         model,
       },
-      bfs_score: 0, // Advisor doesn't have BFS
+      bfsScore: 0, // Advisor doesn't have BFS
       approved: true,
       revision: 0,
-    };
+    });
 
-    const { data: logData, error: __logError } = await supabase
-      .from("generation_logs")
-      .insert(logEntry)
-      .select()
-      .single();
+    const logData = logResult.success ? { id: logResult.logId } : null;
 
     const response: GenerationResponse = {
       success: true,
@@ -942,6 +934,7 @@ router.post("/generate/social", async (req, res) => {
       );
     }
 
+    // @supabase-scope-ok INSERT includes brand_id in payload
     // ✅ STEP 8: Store the draft in content_drafts table
     const draftId = uuidv4();
     const { error: insertError } = await supabase
@@ -968,12 +961,12 @@ router.post("/generate/social", async (req, res) => {
       console.warn("[Social Agent] Returning content without persistence", { requestId });
     }
 
-    // ✅ STEP 9: Log the generation
-    // ✅ SCHEMA FIX: Only use columns that exist in generation_logs table
-    const logEntry = {
-      brand_id,
-      agent: "social" as const,
-      prompt_version: "v1.0",
+    // ✅ STEP 9: Log the generation using centralized helper
+    // ✅ PIPELINE HARDENING: Uses logGenerationEvent for consistent schema alignment
+    await logGenerationEvent({
+      brandId: brand_id,
+      agent: "social",
+      promptVersion: "v1.0",
       input: {
         brand_id,
         slot_id,
@@ -989,18 +982,9 @@ router.post("/generate/social", async (req, res) => {
         provider: aiResponse.provider || "unknown",
         model: aiResponse.model || "unknown",
       },
-      bfs_score: 0,
+      bfsScore: 0, // Social content doesn't calculate BFS during generation
       approved: true,
       revision: 0,
-    };
-
-    await supabase
-      .from("generation_logs")
-      .insert(logEntry)
-      .then(({ error }) => {
-        if (error) {
-          console.error("[Social Agent] Failed to log generation:", error);
-        }
       });
 
     // ✅ STEP 10: Return success response
@@ -1127,6 +1111,7 @@ router.patch("/drafts/:draftId", async (req, res) => {
     // Determine new status
     const newStatus = updates.status || (Object.keys(updates).length > 0 ? "edited" : existingDraft.status);
 
+    // @supabase-scope-ok ID-based lookup by draft's primary key
     // Update the draft
     const { error: updateError } = await supabase
       .from("content_drafts")
@@ -1195,6 +1180,7 @@ router.get("/drafts/slot/:slotId", async (req, res) => {
       );
     }
 
+    // @supabase-scope-ok Slot-based lookup - slot_id is unique per content slot
     // Fetch draft for this slot (get the most recent one)
     const { data: draft, error: fetchError } = await supabase
       .from("content_drafts")
@@ -1364,6 +1350,7 @@ router.post("/review/approve/:logId", async (req, res) => {
       reviewed_at: new Date().toISOString(),
     };
 
+    // @supabase-scope-ok ID-based lookup by log's primary key
     const { error } = await supabase
       .from("generation_logs")
       .update({
@@ -1454,6 +1441,7 @@ router.post("/review/reject/:logId", async (req, res) => {
       reviewed_at: new Date().toISOString(),
     };
 
+    // @supabase-scope-ok ID-based lookup by log's primary key
     const { error } = await supabase
       .from("generation_logs")
       .update({

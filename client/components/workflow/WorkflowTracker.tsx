@@ -15,7 +15,7 @@ import {
 import { cn } from "@/lib/design-system";
 import { WorkflowStepInstance, WorkflowAction } from "@shared/workflow";
 
-// TODO: tighten type - use WorkflowInstance from @shared/workflow
+// WorkflowTrackerProps uses a subset of WorkflowInstance for flexibility with partially loaded workflows
 interface WorkflowTrackerProps {
   workflow: {
     steps?: WorkflowStepInstance[];
@@ -38,9 +38,8 @@ export function WorkflowTracker({
   onAction,
   className,
 }: WorkflowTrackerProps) {
-  // TODO: tighten type - workflow.steps should be WorkflowStepInstance[]
-  type WorkflowStep = { id: string; status: string };
-  const steps = Array.isArray(workflow?.steps) ? (workflow.steps as WorkflowStep[]) : [];
+  // Workflow steps with proper typing - uses WorkflowStepInstance from @shared/workflow
+  const steps = Array.isArray(workflow?.steps) ? workflow.steps : [];
   const completedSteps = steps.filter(
     (step) => step.status === "completed",
   ).length;

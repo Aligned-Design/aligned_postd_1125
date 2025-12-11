@@ -12,7 +12,7 @@ import { RequestHandler } from "express";
 import { generateWithAI } from "../workers/ai-generation";
 import { buildDesignSystemPrompt, buildDesignUserPrompt, buildDesignRetryPrompt } from "../lib/ai/designPrompt";
 import { calculateBrandFidelityScore } from "../lib/ai/brandFidelity";
-import { getBrandProfile } from "../lib/brand-profile";
+import { getBrandContext } from "../lib/brand-context";
 import { getPrioritizedImages } from "../lib/image-sourcing";
 import { AppError } from "../lib/error-middleware";
 import { ErrorCode, HTTP_STATUS } from "../lib/error-responses";
@@ -26,10 +26,10 @@ import type {
   AiDesignGenerationResponse,
   AiDesignVariant,
 } from "@shared/aiContent";
-import type { BrandProfile } from "@shared/advisor";
+import type { BrandContext } from "@shared/advisor";
 import {
   buildBrandContextPayload,
-  mergeBrandProfileWithOverrides,
+  mergeBrandContextWithOverrides,
 } from "../lib/ai/agent-context";
 import {
   broadcastAgentCompleted,
@@ -37,6 +37,7 @@ import {
 } from "../lib/event-broadcaster";
 import { StrategyBriefStorage, ContentPackageStorage, BrandHistoryStorage, PerformanceLogStorage } from "../lib/collaboration-storage";
 import { getBrandVisualIdentity } from "../lib/brand-visual-identity";
+import { getBrandContextPack } from "../lib/brand-brain-service";
 import { getCurrentBrandGuide } from "../lib/brand-guide-service";
 import { mapVariantToVisualEntry } from "../lib/collaboration-utils";
 import { logger } from "../lib/logger";
@@ -203,7 +204,7 @@ function determineStatus(
 
 function buildDesignAgentResponse(
   brandId: string,
-  brand: BrandProfile,
+  brand: BrandContext,
   request: AiDesignGenerationRequest,
   variants: AiDesignVariant[],
   provider: "openai" | "claude",
@@ -325,14 +326,18 @@ export const generateDesignContent: RequestHandler = async (req, res) => {
     // ✅ BRAND VISUAL IDENTITY: Get actual brand tokens (colors, fonts, spacing)
     const brandVisualIdentity = await getBrandVisualIdentity(brandId);
 
-    // Get brand profile and apply optional overrides
-    const brand = mergeBrandProfileWithOverrides(
-      await getBrandProfile(brandId),
+    // Get brand context and apply optional overrides
+    const brand = mergeBrandContextWithOverrides(
+      await getBrandContext(brandId),
       requestBody.brandContext,
     );
 
     // Get available images (prioritized: brand assets → stock images)
     const availableImages = await getPrioritizedImages(brandId, 5); // Get up to 5 images for context
+
+    // ✅ MVP3: Get host metadata from Brand Brain for host-aware prompts
+    const brandContextPack = await getBrandContextPack(brandId);
+    const hostMetadata = brandContextPack?.host;
 
     // ✅ COLLABORATION: Build prompts with BrandGuide + collaboration context + performance insights
     const systemPrompt = buildDesignSystemPrompt();
@@ -351,6 +356,7 @@ export const generateDesignContent: RequestHandler = async (req, res) => {
         title: img.metadata?.alt || undefined,
         alt: img.metadata?.alt || undefined,
       })),
+      host: hostMetadata, // ✅ MVP3: Pass host for host-aware prompts
     });
 
     // Combine system and user prompts

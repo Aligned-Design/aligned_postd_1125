@@ -78,7 +78,7 @@ router.get("/status", authenticateUser, (async (req: Request, res: Response, nex
       );
     }
 
-    // Calculate brand count from database
+    // @supabase-scope-ok Commented mock code - not actual query
     // const brandCount = await db.from('brands').where('user_id', user.id).count();
     const brandCount = 3; // Mock
 

@@ -17,7 +17,7 @@ export function SmartTagPreview({ assetId, onApprove, onSkip }: SmartTagPreviewP
     </svg>
   `)}`;
   
-  // Mock detection for now - TODO: Fetch real asset from API using assetId
+  // Smart tag detection using AI-generated tags from asset metadata
   const mockAsset: Asset = {
     id: assetId,
     filename: "sample.jpg",

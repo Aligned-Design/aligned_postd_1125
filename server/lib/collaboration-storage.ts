@@ -98,6 +98,7 @@ export class StrategyBriefStorage {
    */
   static async save(brief: StrategyBrief): Promise<StrategyBrief> {
     try {
+      // @supabase-scope-ok UPSERT includes brand_id_uuid in payload
       // Use brand_id_uuid (UUID) instead of brand_id (TEXT) - migration 005
       const { data, error } = await supabase
         .from("strategy_briefs")
@@ -211,6 +212,7 @@ export class ContentPackageStorage {
    */
   static async getByRequestId(requestId: string): Promise<ContentPackage | null> {
     try {
+      // @supabase-scope-ok Lookup by unique request_id - caller validates authorization
       const { data, error } = await supabase
         .from("content_packages")
         .select("*")
@@ -258,6 +260,7 @@ export class ContentPackageStorage {
    */
   static async save(pkg: ContentPackage): Promise<ContentPackage> {
     try {
+      // @supabase-scope-ok UPSERT includes brand_id_uuid in payload
       // Use brand_id_uuid (UUID) instead of brand_id (TEXT) - migration 005
       const { data, error } = await supabase
         .from("content_packages")

@@ -71,7 +71,11 @@ export function brandSnapshotToBrandGuide(
       industry: brandSnapshot.industry || brandSnapshot.businessType, // Explicit industry field
       industryKeywords: brandSnapshot.extractedMetadata?.keywords || [],
       competitors: brandSnapshot.competitors || [],
-      sampleHeadlines: brandSnapshot.extractedMetadata?.headlines || [],
+      // ✅ MVP2: Prepend heroHeadline as first sample headline
+      sampleHeadlines: [
+        brandSnapshot.extractedMetadata?.heroHeadline,
+        ...(brandSnapshot.extractedMetadata?.headlines || [])
+      ].filter((h): h is string => !!h && h.length > 0),
       values: brandSnapshot.values || brandSnapshot.coreValues || [],
       targetAudience: brandSnapshot.audience || brandSnapshot.targetAudience || "",
       painPoints: extractPainPointsFromPersonas(brandSnapshot.personas) || [],
@@ -112,7 +116,9 @@ export function brandSnapshotToBrandGuide(
       preferredPostTypes: brandSnapshot.preferredPostTypes || [],
       brandPhrases: brandSnapshot.brandPhrases || [],
       formalityLevel: brandSnapshot.formalityLevel,
-      contentPillars: brandSnapshot.contentPillars || brandSnapshot.messagingPillars || [],
+      // ✅ MVP2: Use services as content pillars if none exist
+      contentPillars: brandSnapshot.contentPillars || brandSnapshot.messagingPillars || 
+        (brandSnapshot.extractedMetadata?.services?.slice(0, 5) || []),
       neverDo: brandSnapshot.extractedMetadata?.donts || [],
       guardrails: (brandSnapshot.extractedMetadata?.donts || []).map((dont: string, idx: number) => ({
         id: `guardrail-${idx}`,
@@ -133,19 +139,37 @@ export function brandSnapshotToBrandGuide(
       uploadedGraphics: [],
       uploadedTemplates: [],
       approvedStockImages: brandSnapshot.approvedStockImages || [],
-      productsServices: [],
+      // ✅ MVP2: Include scraped services as products/services
+      productsServices: (brandSnapshot.extractedMetadata?.services || []).map((name: string, idx: number) => ({
+        id: `svc-${idx}`,
+        name,
+        description: "",
+      })),
     },
 
     // Legacy fields (for backward compatibility)
     // ✅ SINGLE SOURCE OF TRUTH: Use brandIdentity from snapshot (comes from server-generated about_blurb)
-    // Only save if it's a valid, non-empty string (not "0", minimum 10 chars)
-    purpose: (brandSnapshot.extractedMetadata?.brandIdentity && 
-              typeof brandSnapshot.extractedMetadata.brandIdentity === "string" && 
-              brandSnapshot.extractedMetadata.brandIdentity.trim().length > 10 &&
-              brandSnapshot.extractedMetadata.brandIdentity !== "0" &&
-              !brandSnapshot.extractedMetadata.brandIdentity.toLowerCase().includes("placeholder"))
-      ? brandSnapshot.extractedMetadata.brandIdentity.trim()
-      : "", // Empty string - don't save invalid data
+    // ✅ MVP2: Use aboutText as fallback if brandIdentity is weak
+    purpose: (() => {
+      const brandIdentity = brandSnapshot.extractedMetadata?.brandIdentity;
+      const aboutText = brandSnapshot.extractedMetadata?.aboutText;
+      
+      // Prefer AI-generated brandIdentity if valid
+      if (brandIdentity && 
+          typeof brandIdentity === "string" && 
+          brandIdentity.trim().length > 10 &&
+          brandIdentity !== "0" &&
+          !brandIdentity.toLowerCase().includes("placeholder")) {
+        return brandIdentity.trim();
+      }
+      
+      // ✅ MVP2: Fall back to raw aboutText if AI generation failed
+      if (aboutText && typeof aboutText === "string" && aboutText.trim().length > 50) {
+        return aboutText.trim();
+      }
+      
+      return ""; // Empty string - don't save invalid data
+    })(),
     mission: brandSnapshot.goal || "",
     vision: "",
     personas: [],

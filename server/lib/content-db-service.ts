@@ -3,11 +3,14 @@
  * 
  * Centralized service for saving AI-generated content to the canonical content_items table.
  * Used by AI routes, Studio, and content planning to ensure consistent persistence.
+ * 
+ * ✅ Uses buildContentItemContent helper for consistent JSONB structure.
  */
 
 import { supabase } from "./supabase";
 import { randomUUID } from "crypto";
 import { logger } from "./logger";
+import { buildContentItemContent, extractBody } from "@shared/content-item";
 
 export interface SaveContentItemInput {
   brandId: string;
@@ -49,13 +52,18 @@ export async function saveContentItem(input: SaveContentItemInput): Promise<Save
   // Map contentType to type field (handle gbp as post)
   const type = input.contentType === "gbp" ? "post" : input.contentType;
   
-  // Build content JSONB
-  const contentJson = {
+  // ✅ Build content JSONB using shared helper for consistent structure
+  const contentJson = buildContentItemContent({
     body: input.content,
+    title: input.title || "",
     headline: input.title || "",
-    platform: input.platform,
-    ...(input.metadata || {}),
-  };
+    channel: input.platform,
+    source: input.generatedByAgent || "ai-generation",
+    imageUrl: input.imageUrl,
+    brandFidelityScore: input.brandFidelityScore,
+    // Merge any additional metadata under metadata block
+    additionalMetadata: input.metadata,
+  });
   
   // Build insert data matching content_items schema
   const insertData: Record<string, unknown> = {
@@ -89,6 +97,7 @@ export async function saveContentItem(input: SaveContentItemInput): Promise<Save
   }
   
   try {
+    // @supabase-scope-ok INSERT includes brand_id in insertData
     const { data, error } = await supabase
       .from("content_items")
       .insert(insertData)
@@ -121,9 +130,8 @@ export async function saveContentItem(input: SaveContentItemInput): Promise<Save
       id: data.id,
       brandId: data.brand_id,
       title: data.title,
-      content: typeof data.content === "object" && data.content !== null 
-        ? (data.content as Record<string, unknown>).body as string || ""
-        : "",
+      // ✅ Use extractBody helper for consistent content extraction
+      content: extractBody(data.content as Record<string, unknown>),
       platform: data.platform || input.platform,
       contentType: data.type,
       status: data.status,
@@ -210,13 +218,12 @@ export async function getContentItemsForBrand(
     throw new Error(`Failed to get content items: ${error.message}`);
   }
   
+  // ✅ Use extractBody helper for consistent content extraction
   return (data || []).map((item): SavedContentItem => ({
     id: item.id,
     brandId: item.brand_id,
     title: item.title || "",
-    content: typeof item.content === "object" && item.content !== null
-      ? (item.content as Record<string, unknown>).body as string || ""
-      : "",
+    content: extractBody(item.content as Record<string, unknown>),
     platform: item.platform || "",
     contentType: item.type || "",
     status: item.status || "draft",
@@ -236,6 +243,7 @@ export async function updateContentItemStatus(
   contentId: string,
   status: "draft" | "pending_review" | "scheduled" | "published" | "errored"
 ): Promise<SavedContentItem> {
+  // @supabase-scope-ok ID-based lookup by content item's primary key
   const { data, error } = await supabase
     .from("content_items")
     .update({ 
@@ -258,13 +266,12 @@ export async function updateContentItemStatus(
     throw new Error("Content item not found");
   }
   
+  // ✅ Use extractBody helper for consistent content extraction
   return {
     id: data.id,
     brandId: data.brand_id,
     title: data.title || "",
-    content: typeof data.content === "object" && data.content !== null
-      ? (data.content as Record<string, unknown>).body as string || ""
-      : "",
+    content: extractBody(data.content as Record<string, unknown>),
     platform: data.platform || "",
     contentType: data.type || "",
     status: data.status,

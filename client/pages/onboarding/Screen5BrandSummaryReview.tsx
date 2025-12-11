@@ -94,8 +94,7 @@ export default function Screen5BrandSummaryReview() {
   // ✅ FIX: Fetch images from brand guide (where scraped images are stored)
   useEffect(() => {
     const fetchBrandGuideImages = async () => {
-      // TODO: Migrate from "aligned_brand_id" to "postd_brand_id" (keeping backward compatibility)
-      const brandId = localStorage.getItem("postd_brand_id") || localStorage.getItem("aligned_brand_id");
+      const brandId = localStorage.getItem("postd_brand_id");
       if (!brandId) {
         if (import.meta.env.DEV) {
           logWarning("No brandId found in localStorage", { step: "fetch_images" });
@@ -272,7 +271,7 @@ export default function Screen5BrandSummaryReview() {
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-indigo-50/30 via-white to-blue-50/20">
         <div className="text-center">
           <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mb-4"></div>
-          <p className="text-slate-600 font-medium">Loading your brand profile...</p>
+          <p className="text-slate-600 font-medium">Loading your Brand Guide...</p>
         </div>
       </div>
     );
@@ -281,8 +280,7 @@ export default function Screen5BrandSummaryReview() {
   const handleContinue = async () => {
     // Save Brand Guide to Supabase before continuing
     if (brandSnapshot) {
-      // TODO: Migrate from "aligned_brand_id" to "postd_brand_id" (keeping backward compatibility)
-      const brandId = localStorage.getItem("postd_brand_id") || localStorage.getItem("aligned_brand_id");
+      const brandId = localStorage.getItem("postd_brand_id");
       if (!brandId) {
         logError("No brandId found - cannot save brand guide", new Error("Brand ID missing"), {
           step: "save_brand_guide",
@@ -351,8 +349,7 @@ export default function Screen5BrandSummaryReview() {
     setBrandSnapshot(updatedSnapshot);
     
     // Save to Supabase via Brand Guide API
-    // TODO: Migrate from "aligned_brand_id" to "postd_brand_id" (keeping backward compatibility)
-    const brandId = localStorage.getItem("postd_brand_id") || localStorage.getItem("aligned_brand_id");
+    const brandId = localStorage.getItem("postd_brand_id");
     if (!brandId) {
       if (import.meta.env.DEV) {
         logWarning("No brandId found for save", { step: "save_edit" });
@@ -466,7 +463,7 @@ export default function Screen5BrandSummaryReview() {
             <Sparkles className="w-8 h-8 text-white" />
           </div>
           <h1 className="text-4xl font-black text-slate-900 mb-3">
-            Here's your brand profile
+            Here's your Brand Guide
           </h1>
           <p className="text-slate-600 font-medium text-lg mb-2">
             We've automatically detected your brand assets for you

@@ -11,7 +11,7 @@ import { logger } from "./logger";
 import { supabase } from "./supabase";
 import { getCurrentBrandGuide } from "./brand-guide-service";
 import { generateWithAI } from "../workers/ai-generation";
-import { getBrandProfile } from "./brand-profile";
+import { getBrandContext } from "./brand-context";
 import { getScrapedImages } from "./scraped-images-service";
 
 export interface BrandSummaryContext {
@@ -66,8 +66,8 @@ export async function generateBrandNarrativeSummary(
     // 2. Load brand guide
     const brandGuide = await getCurrentBrandGuide(brandId);
 
-    // 3. Get brand profile
-    const brandProfile = await getBrandProfile(brandId);
+    // 3. Get brand context
+    const brandContext = await getBrandContext(brandId);
 
     // 4. Get scraped images with metadata
     const scrapedImages = await getScrapedImages(brandId);
@@ -104,7 +104,7 @@ Output format: Return the summary as plain text (no JSON, no markdown code block
       brandName,
       websiteUrl,
       brandGuide,
-      brandProfile,
+      brandContext,
       scrapedContent,
       imageMetadata,
     });
@@ -165,7 +165,7 @@ Output format: Return the summary as plain text (no JSON, no markdown code block
  * Build prompt for brand summary generation
  */
 function buildBrandSummaryPrompt(context: BrandSummaryContext & {
-  brandProfile: any;
+  brandContext: any;
   imageMetadata: Array<{ url: string; alt?: string; role?: string }>;
 }): string {
   const {
@@ -173,7 +173,7 @@ function buildBrandSummaryPrompt(context: BrandSummaryContext & {
     brandName,
     websiteUrl,
     brandGuide,
-    brandProfile,
+    brandContext,
     scrapedContent,
     imageMetadata,
   } = context;
@@ -268,14 +268,14 @@ function buildBrandSummaryPrompt(context: BrandSummaryContext & {
     }
   }
 
-  // Brand profile data
-  if (brandProfile) {
-    prompt += `\n## Brand Profile\n`;
-    if (brandProfile.industry) {
-      prompt += `Industry: ${brandProfile.industry}\n`;
+  // Brand context data
+  if (brandContext) {
+    prompt += `\n## Brand Context\n`;
+    if (brandContext.industry) {
+      prompt += `Industry: ${brandContext.industry}\n`;
     }
-    if (brandProfile.targetAudience) {
-      prompt += `Target Audience: ${brandProfile.targetAudience}\n`;
+    if (brandContext.targetAudience) {
+      prompt += `Target Audience: ${brandContext.targetAudience}\n`;
     }
   }
 
@@ -321,6 +321,7 @@ async function storeBrandSummary(brandId: string, summary: string): Promise<void
       summaryGeneratedAt: new Date().toISOString(),
     };
 
+    // @supabase-scope-ok Brand lookup by its own primary key
     // Also update voice_summary if it exists
     const { data: brandFull, error: updateError } = await supabase
       .from("brands")

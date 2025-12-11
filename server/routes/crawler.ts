@@ -342,6 +342,7 @@ router.post("/start", authenticateUser, validateBrandIdFormat, async (req, res, 
         const logo = result.brandKit?.logoUrl;
         const colors = result.brandKit?.colors;
         const typography = result.brandKit?.typography;
+        const host = result.brandKit?.metadata?.host;
         console.log("[CRAWLER] ✅ Sync crawl completed successfully", {
           images: images.length,
           hasLogo: !!logo,
@@ -349,6 +350,10 @@ router.post("/start", authenticateUser, validateBrandIdFormat, async (req, res, 
           hasTypography: !!typography,
           typographyHeading: typography?.heading || "none",
           typographyBody: typography?.body || "none",
+          // ✅ NEW: Log detected host for debugging
+          host: host?.name || "unknown",
+          hostConfidence: host?.confidence || "none",
+          hostMethod: host?.detectionMethod || "none",
           brandId: finalBrandId,
           tenantId: tenantId || "unknown",
           requestId: (req as any).id,
@@ -896,6 +901,9 @@ async function runCrawlJobSync(url: string, brandId: string, tenantId: string | 
           ].filter((c): c is string => !!c).slice(0, 6), // Max 6 colors
         };
 
+        // ✅ HOST DETECTION: Get detected host from first crawl result (set during extractImages)
+        const detectedHost = crawlResults[0]?.detectedHost || undefined;
+        
         // ✅ PRIORITY: Use AI-generated brand kit if available, otherwise use fallback
         const brandKit = aiBrandKit ? {
           ...aiBrandKit,
@@ -907,6 +915,8 @@ async function runCrawlJobSync(url: string, brandId: string, tenantId: string | 
           headlines: headlines || aiBrandKit.headlines,
           metadata: {
             openGraph: openGraphMetadata || undefined,
+            // ✅ NEW: Include detected host for debugging and analytics
+            host: detectedHost || undefined,
           },
           source: "crawler" as const,
         } : {
@@ -927,6 +937,8 @@ async function runCrawlJobSync(url: string, brandId: string, tenantId: string | 
           headlines,
           metadata: {
             openGraph: openGraphMetadata || undefined,
+            // ✅ NEW: Include detected host for debugging and analytics
+            host: detectedHost || undefined,
           },
           source: "crawler" as const,
         };
@@ -942,6 +954,7 @@ async function runCrawlJobSync(url: string, brandId: string, tenantId: string | 
         // This ensures brand story is persisted even if client save fails
         if (brandId && !brandId.startsWith("brand_")) {
           try {
+            // @supabase-scope-ok Brand lookup by its own primary key
             const { error: updateError } = await supabase
               .from("brands")
               .update({
@@ -951,9 +964,14 @@ async function runCrawlJobSync(url: string, brandId: string, tenantId: string | 
                   purpose: brandKit.about_blurb || brandKit.purpose || "",
                   about_blurb: brandKit.about_blurb || "",
                   longFormSummary: (brandKit as any).longFormSummary || brandKit.about_blurb || "",
-                  // ✅ Persist Open Graph metadata
+                  // ✅ Host-aware copy extraction fields
+                  heroHeadline: brandKit.heroHeadline || undefined,
+                  aboutText: brandKit.aboutText || undefined,
+                  services: brandKit.services || undefined,
+                  // ✅ Persist Open Graph metadata and host info
                   metadata: {
                     openGraph: openGraphMetadata || undefined,
+                    host: brandKit.metadata?.host || undefined,
                   },
                 },
                 voice_summary: brandKit.voice_summary || {},
@@ -972,6 +990,12 @@ async function runCrawlJobSync(url: string, brandId: string, tenantId: string | 
                 brandId,
                 hasAboutBlurb: !!brandKit.about_blurb,
                 aboutBlurbLength: brandKit.about_blurb?.length || 0,
+                // ✅ Log host-aware copy fields
+                hasHeroHeadline: !!brandKit.heroHeadline,
+                hasAboutText: !!brandKit.aboutText,
+                aboutTextLength: brandKit.aboutText?.length || 0,
+                servicesCount: brandKit.services?.length || 0,
+                host: brandKit.metadata?.host?.name || "unknown",
               });
             }
           } catch (dbError) {
@@ -1301,6 +1325,7 @@ router.post("/brand-kit/apply", authenticateUser, async (req, res) => {
       brandKit[change.field] = createTrackedField(change.value, change.source);
     }
 
+    // @supabase-scope-ok Brand lookup by its own primary key
     // Save updated brand_kit
     const { error: updateError } = await supabase
       .from("brands")
@@ -1437,6 +1462,7 @@ router.post("/brand-kit/revert", authenticateUser, async (req, res) => {
       historyEntry.old_source,
     );
 
+    // @supabase-scope-ok Brand lookup by its own primary key
     // Save
     const { error: updateError } = await supabase
       .from("brands")

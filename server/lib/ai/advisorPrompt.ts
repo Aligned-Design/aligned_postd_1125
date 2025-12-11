@@ -4,15 +4,20 @@
  * Constructs prompts for the AI Advisor agent based on brand context and analytics.
  */
 
-import type { BrandProfile, AdvisorRequest } from "@shared/advisor";
+import type { BrandContext, AdvisorRequest } from "@shared/advisor";
 import type { BrandGuide } from "@shared/brand-guide";
-import { buildFullBrandGuidePrompt } from "../prompts/brand-guide-prompts";
+import { buildFullBrandGuidePrompt, buildHostAwarePromptSection } from "../prompts/brand-guide-prompts";
 
 export interface AdvisorPromptContext {
-  brand: BrandProfile;
+  brand: BrandContext;
   brandGuide?: BrandGuide | null;
   analytics?: AdvisorRequest["metrics"];
   timeRange?: string;
+  /** MVP3: Host/CMS platform metadata for style inference */
+  host?: {
+    type: string;
+    confidence?: string;
+  };
 }
 
 /**
@@ -46,7 +51,7 @@ Output format: Return insights as a JSON array with this structure:
  * Builds the user prompt with brand and analytics context
  */
 export function buildAdvisorUserPrompt(context: AdvisorPromptContext): string {
-  const { brand, brandGuide, analytics, timeRange } = context;
+  const { brand, brandGuide, analytics, timeRange, host } = context;
   
   let prompt = `Analyze the following brand and analytics data to generate marketing insights.\n\n`;
 
@@ -56,9 +61,14 @@ export function buildAdvisorUserPrompt(context: AdvisorPromptContext): string {
     prompt += `\n`;
   }
 
+  // ✅ MVP3: Host-aware strategic context
+  if (host?.type) {
+    prompt += buildHostAwarePromptSection(host.type, "advisor");
+  }
+
   // Brand context (fallback if BrandGuide not available)
   if (!brandGuide) {
-    prompt += `## Brand Profile\n`;
+    prompt += `## Brand Context\n`;
     prompt += `Name: ${brand.name}\n`;
     if (brand.tone) {
       prompt += `Tone: ${brand.tone}\n`;
@@ -113,7 +123,7 @@ export function buildAdvisorUserPrompt(context: AdvisorPromptContext): string {
     }
   } else {
     prompt += `\n## Analytics Summary\n`;
-    prompt += `Limited analytics data available. Provide general best practices that align with the brand profile.\n`;
+    prompt += `Limited analytics data available. Provide general best practices that align with the brand context.\n`;
   }
 
   prompt += `\nGenerate 3-5 insights that are specific, actionable, and aligned with the brand guidelines above.`;

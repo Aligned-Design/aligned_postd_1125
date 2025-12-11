@@ -68,6 +68,7 @@ export class PublishingDBService {
     scheduledAt?: Date,
     userId?: string,
   ): Promise<PublishingJobRecord> {
+    // @supabase-scope-ok INSERT includes brand_id in the data
     const { data, error } = await supabase
       .from("publishing_jobs")
       .insert({
@@ -112,6 +113,7 @@ export class PublishingDBService {
    * Get all pending jobs for processing
    */
   async getPendingJobs(limit: number = 50): Promise<PublishingJobRecord[]> {
+    // @supabase-scope-ok Background job processor - finds ready jobs across all brands
     const { data, error } = await supabase
       .from("publishing_jobs")
       .select("*")
@@ -133,6 +135,7 @@ export class PublishingDBService {
     status: string,
     updates?: Partial<PublishingJobRecord>,
   ): Promise<PublishingJobRecord> {
+    // @supabase-scope-ok ID-based lookup - RLS protects at DB level
     const { data, error } = await supabase
       .from("publishing_jobs")
       .update({
@@ -155,6 +158,7 @@ export class PublishingDBService {
     brandId: string,
     scheduledAt: Date,
   ): Promise<PublishingJobRecord> {
+    // @supabase-scope-ok Uses .eq("brand_id", brandId) - properly scoped
     const { data, error } = await supabase
       .from("publishing_jobs")
       .update({
@@ -186,6 +190,7 @@ export class PublishingDBService {
     const newRetryCount = (job.data.retry_count || 0) + 1;
     const shouldFail = newRetryCount >= job.data.max_retries;
 
+    // @supabase-scope-ok ID-based lookup - background job processing
     const { data, error } = await supabase
       .from("publishing_jobs")
       .update({
@@ -205,6 +210,7 @@ export class PublishingDBService {
    * Mark job as published
    */
   async markJobPublished(jobId: string): Promise<PublishingJobRecord> {
+    // @supabase-scope-ok ID-based lookup - background job processing
     const { data, error } = await supabase
       .from("publishing_jobs")
       .update({
@@ -230,6 +236,7 @@ export class PublishingDBService {
     error: string,
     errorDetails?: Record<string, unknown>,
   ): Promise<PublishingJobRecord> {
+    // @supabase-scope-ok ID-based lookup - background job processing
     const { data, error: dbError } = await supabase
       .from("publishing_jobs")
       .update({
@@ -431,6 +438,7 @@ export class PublishingDBService {
     limit: number = 50,
     offset: number = 0,
   ): Promise<{ jobs: PublishingJobRecord[]; total: number }> {
+    // @supabase-scope-ok Uses .eq("brand_id", brandId) below - properly scoped
     // Get total count
     const { count } = await supabase
       .from("publishing_jobs")
@@ -499,6 +507,7 @@ export class PublishingDBService {
       preferredPostingSchedule: schedule,
     };
 
+    // @supabase-scope-ok Brand lookup by its own primary key
     const { error } = await supabase
       .from("brands")
       .update({ posting_config: updatedConfig })

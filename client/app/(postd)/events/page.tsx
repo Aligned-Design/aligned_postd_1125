@@ -1,4 +1,6 @@
 import { useWorkspace } from "@/contexts/WorkspaceContext";
+import { useCurrentBrand } from "@/hooks/useCurrentBrand";
+import { cn } from "@/lib/design-system";
 import { EventCard } from "@/components/dashboard/EventCard";
 import { EventEditorModal } from "@/components/dashboard/EventEditorModal";
 import { EventInsightsPanel } from "@/components/dashboard/EventInsightsPanel";
@@ -25,6 +27,7 @@ import { PageHeader } from "@/components/postd/ui/layout/PageHeader";
 
 export default function Events() {
   const { currentWorkspace } = useWorkspace();
+  const { brandId } = useCurrentBrand();
   // Event CRUD state
   const [showEventEditor, setShowEventEditor] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<Event | undefined>();
@@ -48,22 +51,27 @@ export default function Events() {
   const [eventsLoading, setEventsLoading] = useState(true);
   const [eventsError, setEventsError] = useState<string | null>(null);
 
-  // ✅ FIX: Fetch real events from API
+  // ✅ FIX: Fetch real events from API with brandId
   useEffect(() => {
     const loadEvents = async () => {
+      if (!brandId) {
+        setEvents([]);
+        setEventsLoading(false);
+        return;
+      }
+
       try {
         setEventsLoading(true);
         setEventsError(null);
 
-        const response = await fetch("/api/events");
+        const response = await fetch(`/api/${brandId}/events`);
 
         if (response.ok) {
           const data = await response.json();
           setEvents(data.events || []);
         } else if (response.status === 404) {
-          // API endpoint not implemented yet
+          // No events found - show empty state
           setEvents([]);
-          setEventsError("Events feature is coming soon. The API endpoint is not yet implemented.");
         } else {
           throw new Error(`Failed to load events: ${response.statusText}`);
         }
@@ -78,7 +86,7 @@ export default function Events() {
     };
 
     loadEvents();
-  }, []);
+  }, [brandId]);
 
   // Helper: Get default placeholder SVG for events without images
   const getEventPlaceholderSvg = () => {
@@ -187,27 +195,78 @@ export default function Events() {
   };
 
   // Confirmation handlers
-  const handleGenerateCampaign = () => {
-    if (generatedEvent) {
-      setEvents([...events, generatedEvent]);
+  const handleGenerateCampaign = async () => {
+    if (generatedEvent && brandId) {
+      try {
+        // Save event to database
+        const response = await fetch(`/api/${brandId}/events`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(generatedEvent),
+        });
+        
+        if (response.ok) {
+          const { event } = await response.json();
+          setEvents([...events, event]);
+          // Navigate to campaigns page to create a campaign for this event
+          window.location.href = `/campaigns?eventId=${event.id}`;
+        } else {
+          logError("[Events] Failed to save event", new Error("API error"));
+        }
+      } catch (err) {
+        logError("[Events] Failed to save event", err instanceof Error ? err : new Error(String(err)));
+      }
       setShowConfirmation(false);
       resetCreationFlow();
-      // TODO: Redirect to Campaigns page with pre-filled data
     }
   };
 
-  const handleLaunchManually = () => {
-    if (generatedEvent) {
-      setEvents([...events, generatedEvent]);
+  const handleLaunchManually = async () => {
+    if (generatedEvent && brandId) {
+      try {
+        // Save event to database
+        const response = await fetch(`/api/${brandId}/events`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(generatedEvent),
+        });
+        
+        if (response.ok) {
+          const { event } = await response.json();
+          setEvents([...events, event]);
+          // Open the event editor for manual configuration
+          setSelectedEvent(event);
+          setShowEventEditor(true);
+        } else {
+          logError("[Events] Failed to save event", new Error("API error"));
+        }
+      } catch (err) {
+        logError("[Events] Failed to save event", err instanceof Error ? err : new Error(String(err)));
+      }
       setShowConfirmation(false);
       resetCreationFlow();
-      // TODO: Open campaign creation form
     }
   };
 
-  const handleSkipCampaign = () => {
-    if (generatedEvent) {
-      setEvents([...events, generatedEvent]);
+  const handleSkipCampaign = async () => {
+    if (generatedEvent && brandId) {
+      try {
+        // Save event to database without creating a campaign
+        const response = await fetch(`/api/${brandId}/events`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(generatedEvent),
+        });
+        
+        if (response.ok) {
+          const { event } = await response.json();
+          setEvents([...events, event]);
+        } else {
+          logError("[Events] Failed to save event", new Error("API error"));
+        }
+      } catch (err) {
+        logError("[Events] Failed to save event", err instanceof Error ? err : new Error(String(err)));
+      }
       setShowConfirmation(false);
       resetCreationFlow();
     }
@@ -224,18 +283,64 @@ export default function Events() {
     setShowEventEditor(true);
   };
 
-  const handleSaveEvent = (event: Event) => {
-    if (selectedEvent) {
-      setEvents(events.map((e) => (e.id === event.id ? event : e)));
-    } else {
-      setEvents([...events, event]);
+  const handleSaveEvent = async (event: Event) => {
+    if (!brandId) return;
+    
+    try {
+      if (selectedEvent) {
+        // Update existing event
+        const response = await fetch(`/api/${brandId}/events/${event.id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(event),
+        });
+        
+        if (response.ok) {
+          const { event: updatedEvent } = await response.json();
+          setEvents(events.map((e) => (e.id === updatedEvent.id ? updatedEvent : e)));
+        } else {
+          logError("[Events] Failed to update event", new Error("API error"));
+        }
+      } else {
+        // Create new event
+        const response = await fetch(`/api/${brandId}/events`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(event),
+        });
+        
+        if (response.ok) {
+          const { event: newEvent } = await response.json();
+          setEvents([...events, newEvent]);
+        } else {
+          logError("[Events] Failed to create event", new Error("API error"));
+        }
+      }
+    } catch (err) {
+      logError("[Events] Failed to save event", err instanceof Error ? err : new Error(String(err)));
     }
+    
     setShowEventEditor(false);
     setSelectedEvent(undefined);
   };
 
-  const handleDeleteEvent = (id: string) => {
-    setEvents(events.filter((e) => e.id !== id));
+  const handleDeleteEvent = async (id: string) => {
+    if (!brandId) return;
+    
+    try {
+      const response = await fetch(`/api/${brandId}/events/${id}`, {
+        method: "DELETE",
+      });
+      
+      if (response.ok) {
+        setEvents(events.filter((e) => e.id !== id));
+      } else {
+        logError("[Events] Failed to delete event", new Error("API error"));
+      }
+    } catch (err) {
+      logError("[Events] Failed to delete event", err instanceof Error ? err : new Error(String(err)));
+    }
+    
     setShowDeleteConfirm(null);
   };
 
@@ -413,12 +518,54 @@ export default function Events() {
                   )}
                 </div>
               ) : (
-                <div className="bg-white/50 backdrop-blur-xl rounded-2xl p-8 border border-white/60 text-center">
-                  <Grid3x3 className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-                  <p className="text-slate-600 font-medium mb-2">Calendar view coming soon</p>
-                  <p className="text-xs text-slate-500">
-                    Currently showing list view. Calendar view will be available soon.
-                  </p>
+                <div className="bg-white/50 backdrop-blur-xl rounded-2xl p-6 border border-white/60">
+                  {/* Simple Calendar Grid */}
+                  <div className="grid grid-cols-7 gap-1 mb-4">
+                    {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
+                      <div key={day} className="text-center text-xs font-semibold text-slate-600 py-2">
+                        {day}
+                      </div>
+                    ))}
+                  </div>
+                  <div className="grid grid-cols-7 gap-1">
+                    {Array.from({ length: 35 }, (_, i) => {
+                      const today = new Date();
+                      const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+                      const startDay = firstDayOfMonth.getDay();
+                      const dayNumber = i - startDay + 1;
+                      const isCurrentMonth = dayNumber > 0 && dayNumber <= new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
+                      const date = new Date(today.getFullYear(), today.getMonth(), dayNumber);
+                      const dateStr = date.toISOString().split("T")[0];
+                      const dayEvents = events.filter((e) => e.startDate === dateStr);
+
+                      return (
+                        <div
+                          key={i}
+                          className={cn(
+                            "min-h-[80px] p-1 rounded-lg border",
+                            isCurrentMonth ? "bg-white/50 border-white/60" : "bg-slate-50/30 border-transparent",
+                            dayEvents.length > 0 && "ring-2 ring-lime-400"
+                          )}
+                        >
+                          <span className={cn("text-xs font-medium", isCurrentMonth ? "text-slate-700" : "text-slate-400")}>
+                            {isCurrentMonth ? dayNumber : ""}
+                          </span>
+                          {dayEvents.slice(0, 2).map((event) => (
+                            <div
+                              key={event.id}
+                              className="mt-1 text-xs p-1 rounded bg-indigo-100 text-indigo-700 truncate cursor-pointer hover:bg-indigo-200"
+                              onClick={() => handleEditEvent(event)}
+                            >
+                              {event.title}
+                            </div>
+                          ))}
+                          {dayEvents.length > 2 && (
+                            <div className="text-xs text-slate-500 mt-1">+{dayEvents.length - 2} more</div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               )}
             </div>
@@ -430,7 +577,13 @@ export default function Events() {
                   events={events}
                   stats={stats}
                   onPromoteClick={(action) => {
-                    // TODO: Implement promote action
+                    // Navigate to campaign creation with event context
+                    const upcomingEvent = events.find((e) => e.status === "scheduled" || e.status === "published");
+                    if (upcomingEvent) {
+                      window.location.href = `/campaigns?action=create&eventId=${upcomingEvent.id}`;
+                    } else {
+                      window.location.href = "/campaigns?action=create";
+                    }
                   }}
                 />
               </div>

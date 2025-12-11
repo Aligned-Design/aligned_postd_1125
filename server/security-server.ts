@@ -30,6 +30,17 @@ import mediaManagementRouter from "./routes/media-management";
 import publishingRouter from "./routes/publishing-router";
 import orchestrationRouter from "./routes/orchestration";
 import milestonesRouter from "./routes/milestones";
+import contentItemsRouter from "./routes/content-items";
+import reportsRouter from "./routes/reports";
+
+// Import events route handlers
+import {
+  listEvents,
+  getEvent,
+  createEvent,
+  updateEvent,
+  deleteEvent,
+} from "./routes/events";
 
 // Import route handlers
 import {
@@ -311,6 +322,8 @@ export function createSecureServer() {
   app.use("/api/publishing", strictRateLimit, publishingRouter);
   app.use("/api/orchestration", orchestrationRouter);
   app.use("/api/milestones", milestonesRouter);
+  app.use("/api/content-items", contentItemsRouter);
+  app.use("/api/reports", reportsRouter);
 
   // Register individual route handlers with appropriate paths
 
@@ -346,6 +359,13 @@ export function createSecureServer() {
   app.post("/api/approvals/request", requestApproval);
   app.get("/api/approvals/pending/:brandId", getPendingApprovals);
   app.post("/api/approvals/:approvalId/remind", sendApprovalReminder);
+
+  // Events routes (CRUD via content_items table with type='event')
+  app.get("/api/:brandId/events", listEvents);
+  app.get("/api/:brandId/events/:eventId", getEvent);
+  app.post("/api/:brandId/events", createEvent);
+  app.put("/api/:brandId/events/:eventId", updateEvent);
+  app.delete("/api/:brandId/events/:eventId", deleteEvent);
 
   // Audit routes (stricter rate limit)
   app.get("/api/audit/logs/:brandId", strictRateLimit, getAuditLogs);

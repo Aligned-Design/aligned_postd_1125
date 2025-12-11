@@ -1,13 +1,13 @@
-import type { BrandProfile } from "@shared/advisor";
+import type { BrandContext } from "@shared/advisor";
 import type {
   AiAgentBrandContext,
   AiAgentBrandContextInput,
 } from "@shared/aiContent";
 
-export function mergeBrandProfileWithOverrides(
-  brand: BrandProfile,
+export function mergeBrandContextWithOverrides(
+  brand: BrandContext,
   overrides?: AiAgentBrandContextInput,
-): BrandProfile {
+): BrandContext {
   if (!overrides) {
     return brand;
   }
@@ -27,7 +27,7 @@ export function mergeBrandProfileWithOverrides(
 
 export function buildBrandContextPayload(
   brandId: string,
-  brand: BrandProfile,
+  brand: BrandContext,
 ): AiAgentBrandContext {
   return {
     brandId,

@@ -62,8 +62,7 @@ export default function Screen8CalendarPreview() {
       
       try {
         // Get the most recent content package for this brand
-        // TODO: Migrate from "aligned_brand_id" to "postd_brand_id" (keeping backward compatibility)
-        const brandId = localStorage.getItem("postd_brand_id") || localStorage.getItem("aligned_brand_id");
+        const brandId = localStorage.getItem("postd_brand_id");
         if (!brandId) {
           setLoadError("Brand ID not found. Please go back and complete brand setup.");
           setIsLoading(false);
@@ -228,7 +227,7 @@ export default function Screen8CalendarPreview() {
   const generateSampleWeekContent = (snapshot: any): ContentItem[] => {
     const brandName = snapshot.brandName || snapshot.name || "Your Brand";
     const industry = snapshot.industry || snapshot.businessType || "business";
-    // TODO: Migrate from "aligned:weekly_focus" to "postd:weekly_focus"
+    // Telemetry event for weekly focus selection (using POSTD naming)
     const weeklyFocus = (user as any)?.weeklyFocus || localStorage.getItem("postd:weekly_focus") || localStorage.getItem("aligned:weekly_focus") || "brand_awareness";
     
     // Content templates based on weekly focus
@@ -371,7 +370,7 @@ export default function Screen8CalendarPreview() {
     setShowConnectCTA(false);
     // Mark as skipped, continue to dashboard
     // NOTE: Keys are brand-specific to support multi-brand / agency onboarding
-    const brandId = localStorage.getItem("postd_brand_id") || localStorage.getItem("aligned_brand_id");
+    const brandId = localStorage.getItem("postd_brand_id");
     if (brandId) {
       localStorage.setItem(`postd:onboarding:${brandId}:connect_skipped`, "true");
     }
@@ -380,7 +379,7 @@ export default function Screen8CalendarPreview() {
 
   const handleRegenerateWeek = async () => {
     // Get brandId first (required for brand-specific keys)
-    const brandId = localStorage.getItem("postd_brand_id") || localStorage.getItem("aligned_brand_id");
+    const brandId = localStorage.getItem("postd_brand_id");
     if (!brandId) {
       logError("Cannot regenerate: brandId not found", new Error("Missing brandId"), { step: "regenerate_content" });
       return;

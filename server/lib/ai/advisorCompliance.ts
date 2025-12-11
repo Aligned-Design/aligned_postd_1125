@@ -4,7 +4,7 @@
  * Evaluates advisor insights for brand fidelity and compliance.
  */
 
-import type { AdvisorInsight, BrandProfile, AdvisorComplianceFlags } from "@shared/advisor";
+import type { AdvisorInsight, BrandContext, AdvisorComplianceFlags } from "@shared/advisor";
 
 export interface ComplianceResult {
   brandFidelityScore: number; // 0-1
@@ -16,7 +16,7 @@ export interface ComplianceResult {
  */
 export function calculateAdvisorBFS(
   insights: AdvisorInsight[],
-  brand: BrandProfile
+  brand: BrandContext
 ): ComplianceResult {
   let totalScore = 0;
   const compliance: AdvisorComplianceFlags = {

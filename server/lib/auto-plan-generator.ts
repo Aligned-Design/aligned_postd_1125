@@ -6,7 +6,7 @@
 import { analyticsDB } from "./analytics-db-service";
 import { advisorEngine } from "./advisor-engine";
 import { getCurrentBrandGuide } from "./brand-guide-service";
-import { getBrandProfile } from "./brand-profile";
+import { getBrandContext } from "./brand-context";
 import { generateWithAI } from "../workers/ai-generation";
 import { buildFullBrandGuidePrompt } from "./prompts/brand-guide-prompts";
 import { logger } from "./logger";
@@ -51,7 +51,7 @@ export class AutoPlanGenerator {
 
     // ✅ BRAND GUIDE: Load brand guide (source of truth)
     const brandGuide = await getCurrentBrandGuide(brandId);
-    const brand = await getBrandProfile(brandId);
+    const brand = await getBrandContext(brandId);
 
     // Get metrics for the past 90 days for analysis
     const metrics = await analyticsDB.getMetricsByDateRange(
@@ -177,7 +177,7 @@ export class AutoPlanGenerator {
         prompt += buildFullBrandGuidePrompt(brandGuide);
         prompt += `\n\n`;
       } else if (brand) {
-        prompt += `## Brand Profile\n`;
+        prompt += `## Brand Context\n`;
         prompt += `Name: ${brand.name}\n`;
         if (brand.targetAudience) {
           prompt += `Target Audience: ${brand.targetAudience}\n`;

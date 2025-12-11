@@ -43,7 +43,7 @@ export const getClientDashboard: RequestHandler = async (req, res, next) => {
       0,
     );
 
-    const brandInfo = await fetchBrandProfile(context.brandId);
+    const brandInfo = await fetchBrandContext(context.brandId);
     const metricsRow = await fetchLatestDashboardMetric(context.brandId);
     const mappedRecent = dashboardContent.recentContent.map(mapContentRecord);
     const mappedUpcoming = dashboardContent.upcomingPosts.map(mapContentRecord);
@@ -895,7 +895,7 @@ function mapContentRecord(record: any): ContentItem {
   };
 }
 
-async function fetchBrandProfile(brandId: string) {
+async function fetchBrandContext(brandId: string) {
   const { data, error } = await supabase
     .from("brands")
     .select("name,logo_url,primary_color,secondary_color,favicon_url")
@@ -905,7 +905,7 @@ async function fetchBrandProfile(brandId: string) {
   if (error && error.code !== "PGRST116") {
     throw new AppError(
       ErrorCode.DATABASE_ERROR,
-      "Failed to load brand profile",
+      "Failed to load brand context",
       HTTP_STATUS.INTERNAL_SERVER_ERROR,
       "critical",
       { details: error.message },

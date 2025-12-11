@@ -1,5 +1,5 @@
 import { ReportSettings } from "@/types/user";
-import { AlignedAISummary } from "./AlignedAISummary";
+import { PostdSummary } from "./PostdSummary";
 import { X, Plus, Trash2, Sparkles } from "lucide-react";
 import { useState } from "react";
 
@@ -339,9 +339,8 @@ export function ReportSettingsModal({
             </button>
 
             {includeAISummary && (
-              // ✅ FIX: AlignedAISummary doesn't accept summary/onSummaryChange props
-              // It reads from context internally, so we just render it
-              <AlignedAISummary />
+              // PostdSummary reads from context internally
+              <PostdSummary />
             )}
           </div>
 

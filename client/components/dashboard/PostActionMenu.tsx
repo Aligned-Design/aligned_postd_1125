@@ -48,9 +48,15 @@ export function PostActionMenu({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const handleAction = (action: () => void | undefined) => {
+  const handleAction = (action: (() => void) | undefined, isDisabled: boolean) => {
+    if (isDisabled) return;
     action?.();
     setIsOpen(false);
+  };
+
+  // Check if an action is effectively disabled (no handler or empty handler)
+  const isActionDisabled = (action: (() => void) | undefined): boolean => {
+    return !action;
   };
 
   const menuItems = [
@@ -60,6 +66,7 @@ export function PostActionMenu({
       action: onSchedule,
       color: "text-blue-600",
       bgColor: "hover:bg-blue-50",
+      disabled: isActionDisabled(onSchedule),
     },
     {
       icon: Tag,
@@ -67,6 +74,7 @@ export function PostActionMenu({
       action: onChangeStatus,
       color: "text-purple-600",
       bgColor: "hover:bg-purple-50",
+      disabled: isActionDisabled(onChangeStatus),
     },
     {
       icon: Users,
@@ -74,6 +82,7 @@ export function PostActionMenu({
       action: onAssign,
       color: "text-indigo-600",
       bgColor: "hover:bg-indigo-50",
+      disabled: isActionDisabled(onAssign),
     },
     {
       icon: Folder,
@@ -81,6 +90,7 @@ export function PostActionMenu({
       action: onMoveCampaign,
       color: "text-slate-600",
       bgColor: "hover:bg-slate-50",
+      disabled: isActionDisabled(onMoveCampaign),
     },
     {
       icon: Copy,
@@ -88,6 +98,7 @@ export function PostActionMenu({
       action: onDuplicate,
       color: "text-green-600",
       bgColor: "hover:bg-green-50",
+      disabled: isActionDisabled(onDuplicate),
     },
     {
       icon: Share2,
@@ -95,6 +106,7 @@ export function PostActionMenu({
       action: onShare,
       color: "text-cyan-600",
       bgColor: "hover:bg-cyan-50",
+      disabled: isActionDisabled(onShare),
     },
     {
       icon: Trash2,
@@ -103,6 +115,7 @@ export function PostActionMenu({
       color: "text-red-600",
       bgColor: "hover:bg-red-50",
       isDanger: true,
+      disabled: isActionDisabled(onDelete),
     },
   ];
 
@@ -116,22 +129,31 @@ export function PostActionMenu({
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-48 rounded-lg bg-white/95 backdrop-blur-xl border border-indigo-200/60 shadow-lg z-50 animate-[slideDown_150ms_ease-out]">
+        <div className="absolute right-0 mt-2 w-52 rounded-lg bg-white/95 backdrop-blur-xl border border-indigo-200/60 shadow-lg z-50 animate-[slideDown_150ms_ease-out]">
           <div className="p-1">
             {menuItems.map((item) => {
               const Icon = item.icon;
               return (
                 <button
                   key={item.label}
-                  onClick={() => handleAction(item.action)}
+                  onClick={() => handleAction(item.action, item.disabled)}
+                  disabled={item.disabled}
+                  title={item.disabled ? "Coming soon" : undefined}
                   className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200 ${
-                    item.isDanger
-                      ? `${item.color} ${item.bgColor} border-b border-indigo-100/50 mt-1 pt-3`
-                      : `${item.color} ${item.bgColor}`
+                    item.disabled
+                      ? "text-slate-400 cursor-not-allowed opacity-60"
+                      : item.isDanger
+                        ? `${item.color} ${item.bgColor} border-b border-indigo-100/50 mt-1 pt-3`
+                        : `${item.color} ${item.bgColor}`
                   }`}
                 >
                   <Icon className="w-4 h-4" />
-                  {item.label}
+                  <span className="flex-1 text-left">{item.label}</span>
+                  {item.disabled && (
+                    <span className="text-[10px] font-normal text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">
+                      Soon
+                    </span>
+                  )}
                 </button>
               );
             })}

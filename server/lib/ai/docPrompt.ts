@@ -4,14 +4,14 @@
  * Constructs prompts for the AI Doc Agent (copywriter) based on brand context and requirements.
  */
 
-import type { BrandProfile } from "@shared/advisor";
+import type { BrandContext } from "@shared/advisor";
 import type { AiDocGenerationRequest } from "@shared/aiContent";
 import type { StrategyBrief } from "@shared/collaboration-artifacts";
 import type { BrandGuide } from "@shared/brand-guide";
-import { buildFullBrandGuidePrompt } from "../prompts/brand-guide-prompts";
+import { buildFullBrandGuidePrompt, buildHostAwarePromptSection } from "../prompts/brand-guide-prompts";
 
 export interface DocPromptContext {
-  brand: BrandProfile;
+  brand: BrandContext;
   brandGuide?: BrandGuide | null;
   request: AiDocGenerationRequest;
   strategyBrief?: StrategyBrief | null;
@@ -21,6 +21,11 @@ export interface DocPromptContext {
     title?: string;
     alt?: string;
   }>;
+  /** MVP3: Host/CMS platform metadata for style inference */
+  host?: {
+    type: string;
+    confidence?: string;
+  };
 }
 
 /**
@@ -149,7 +154,7 @@ If you cannot create high-quality content that meets all requirements, explain w
  * Builds the user prompt with brand and request context
  */
 export function buildDocUserPrompt(context: DocPromptContext): string {
-  const { brand, brandGuide, request, strategyBrief } = context;
+  const { brand, brandGuide, request, strategyBrief, host } = context;
   
   let prompt = `Create ${request.contentType} content for ${request.platform}.\n\n`;
 
@@ -157,6 +162,11 @@ export function buildDocUserPrompt(context: DocPromptContext): string {
   if (brandGuide) {
     prompt += buildFullBrandGuidePrompt(brandGuide);
     prompt += `\n`;
+  }
+
+  // ✅ MVP3: Host-aware style context
+  if (host?.type) {
+    prompt += buildHostAwarePromptSection(host.type, "copy");
   }
 
   // ✅ COLLABORATION: Include StrategyBrief if available
@@ -187,7 +197,7 @@ export function buildDocUserPrompt(context: DocPromptContext): string {
 
   // Brand context (fallback if BrandGuide not available)
   if (!brandGuide) {
-    prompt += `## Brand Profile\n`;
+    prompt += `## Brand Context\n`;
     prompt += `Name: ${brand.name}\n`;
     if (brand.tone) {
       prompt += `Tone: ${brand.tone}\n`;

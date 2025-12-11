@@ -19,7 +19,7 @@ const DEFAULT_FLAGS: FeatureFlags = {
   studio_align_tools: false,
   ai_copy_v1: false,
   ai_palette_v1: false,
-  onboarding_auto_run_workflow: false, // Enable via VITE_FEATURE_ONBOARDING_AUTO_RUN_WORKFLOW=true
+  onboarding_auto_run_workflow: true, // ✅ MVP4: Enabled by default - auto-generates 7-day content plan after onboarding
 };
 
 /**

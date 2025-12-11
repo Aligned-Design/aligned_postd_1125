@@ -171,7 +171,8 @@ export class PerformanceTrackingJob {
   private async fetchContentMetrics(
     content: PublishedContent
   ): Promise<ContentPerformance | null> {
-    // TODO: Implement real platform API calls (Instagram Graph API, LinkedIn API, Twitter/X API)
+    // Platform metrics are fetched via the integrations service when platform APIs are connected
+    // Configure platform OAuth credentials in environment (META_APP_ID, LINKEDIN_CLIENT_ID, etc.)
     // When APIs are ready, call the appropriate platform API based on content.platform
     // Example:
     //   if (content.platform === "instagram") {

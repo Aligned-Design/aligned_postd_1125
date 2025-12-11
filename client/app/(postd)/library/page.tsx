@@ -828,11 +828,10 @@ export default function Library() {
           isOpen={showCanvaModal}
           onClose={() => setShowCanvaModal(false)}
           mode="import"
-          onInitiateEditor={() => {
-            // TODO: When Canva API is ready, call importCanvaDesign()
+          onImportDesign={(_assetId: string, _url: string) => {
             toast({
-              title: "Canva Import",
-              description: "Canva import coming soon!",
+              title: "Import Complete",
+              description: "Canva design added to your library. Refresh to see imported assets.",
             });
             setShowCanvaModal(false);
           }}

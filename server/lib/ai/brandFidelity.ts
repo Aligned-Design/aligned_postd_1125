@@ -5,7 +5,7 @@
  * for any text content (advisor insights, doc content, design prompts, etc.).
  */
 
-import type { BrandProfile } from "@shared/advisor";
+import type { BrandContext } from "@shared/advisor";
 
 export interface BrandFidelityResult {
   brandFidelityScore: number; // 0-1
@@ -17,7 +17,7 @@ export interface BrandFidelityResult {
  */
 export function calculateBrandFidelityScore(
   text: string,
-  brand: BrandProfile
+  brand: BrandContext
 ): BrandFidelityResult {
   let score = 1.0;
   const complianceTags: string[] = [];
@@ -94,7 +94,7 @@ export function calculateBrandFidelityScore(
  */
 export function getComplianceTags(
   text: string,
-  brand: BrandProfile
+  brand: BrandContext
 ): string[] {
   const result = calculateBrandFidelityScore(text, brand);
   return result.complianceTags;

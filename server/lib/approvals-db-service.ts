@@ -4,6 +4,7 @@
  */
 
 import { ApprovalBoardItem, ApprovalBoardStatus } from "@shared/approvals";
+import { CONTENT_STATUS } from "@shared/content-status";
 import { supabase } from "./supabase";
 import { AppError } from "./error-middleware";
 import { ErrorCode, HTTP_STATUS } from "./error-responses";
@@ -490,6 +491,7 @@ export class ApprovalsDBService {
       );
     }
 
+    // @supabase-scope-ok INSERT includes brand_id in payload
     const { data, error } = await supabase
       .from("scheduled_content")
       .insert({
@@ -565,6 +567,7 @@ export class ApprovalsDBService {
     brandId: string,
     updates: Record<string, unknown>,
   ): Promise<Record<string, any>> {
+    // @supabase-scope-ok Uses .eq("brand_id", brandId) - properly scoped
     const { data, error } = await supabase
       .from("scheduled_content")
       .update({
@@ -615,6 +618,7 @@ export class ApprovalsDBService {
       return { items: [], total: 0 };
     }
 
+    // @supabase-scope-ok Uses .in("brand_id", params.brandIds) - properly scoped
     // Fetch from scheduled_content table
     let scheduledQuery = supabase
       .from("scheduled_content")
@@ -637,13 +641,14 @@ export class ApprovalsDBService {
 
     const { data: scheduledData, error: scheduledError, count: scheduledCount } = await scheduledQuery;
 
+    // @supabase-scope-ok Uses .in("brand_id", params.brandIds) - properly scoped
     // Also fetch from content_items table (for content planning service items)
     // ✅ SCHEMA ALIGNMENT: approval_required column doesn't exist - use status/generated_by_agent instead
     let contentItemsQuery = supabase
       .from("content_items")
       .select("*", { count: "exact" })
       .in("brand_id", params.brandIds)
-      .in("status", ["pending_review", "draft"])
+      .in("status", [CONTENT_STATUS.PENDING_REVIEW, CONTENT_STATUS.DRAFT]) // ✅ MVP4.3: Use shared constants
       // Note: approval_required column doesn't exist - filter by status instead
       .order("created_at", { ascending: false });
 
@@ -739,6 +744,7 @@ export class ApprovalsDBService {
       return {};
     }
 
+    // @supabase-scope-ok Lookup brands by their own primary keys - caller provides authorized brand IDs
     const { data, error } = await supabase
       .from("brands")
       .select("id,name,logo_url")

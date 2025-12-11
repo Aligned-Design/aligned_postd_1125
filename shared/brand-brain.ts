@@ -252,6 +252,13 @@ export interface BrandContextPack {
     isRegulated: boolean;
     requiredDisclaimers: string[];
   };
+  /** Host/CMS platform metadata (from scraper) */
+  host?: {
+    /** CMS/platform type: squarespace, shopify, wordpress, wix, webflow, unknown */
+    type: string;
+    /** Detection confidence: high, medium, low */
+    confidence?: string;
+  };
   /** Context pack version */
   version: number;
   /** Generated at timestamp */

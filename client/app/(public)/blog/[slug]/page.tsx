@@ -12,9 +12,11 @@ import { Calendar, Clock, User, ArrowLeft, Twitter, Linkedin, Share2 } from "luc
 import { cn } from "@/lib/design-system";
 import { useMemo } from "react";
 import { renderMarkdown } from "@/lib/blog/renderMarkdown";
+import { useToast } from "@/hooks/use-toast";
 
 export default function BlogPost() {
   const { slug } = useParams<{ slug: string }>();
+  const { toast } = useToast();
   // Use useMemo instead of useState + useEffect to avoid setState in effect
   const post = useMemo(() => {
     return slug ? getPostBySlug(slug) : null;
@@ -65,9 +67,17 @@ export default function BlogPost() {
   const handleCopyLink = async () => {
     try {
       await navigator.clipboard.writeText(shareUrl);
-      alert("Link copied to clipboard!");
+      toast({
+        title: "Link copied",
+        description: "Blog post link copied to clipboard!",
+      });
     } catch (err) {
       console.error("Failed to copy link:", err);
+      toast({
+        title: "Copy failed",
+        description: "Unable to copy link to clipboard.",
+        variant: "destructive",
+      });
     }
   };
 

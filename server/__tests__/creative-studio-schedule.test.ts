@@ -77,12 +77,21 @@ describe("Creative Studio Schedule Endpoint Tests", () => {
         });
 
         // Create test content item (design)
+        // ✅ Uses canonical content structure with metadata nested properly
         await supabase.from("content_items").insert({
           id: testDesignId,
           brand_id: testBrandId,
           title: "Test Design",
           type: "creative_studio",
-          content: { format: "social_square", width: 1080, height: 1080 },
+          content: {
+            title: "Test Design",
+            metadata: {
+              source: "creative_studio",
+              format: "social_square",
+              width: 1080,
+              height: 1080,
+            },
+          },
           status: "draft",
         });
 

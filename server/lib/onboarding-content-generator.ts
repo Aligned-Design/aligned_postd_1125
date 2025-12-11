@@ -8,13 +8,15 @@
 import { generateWithAI } from "../workers/ai-generation";
 import { buildDocSystemPrompt, buildDocUserPrompt } from "./ai/docPrompt";
 import { calculateBrandFidelityScore } from "./ai/brandFidelity";
-import { getBrandProfile } from "./brand-profile";
+import { getBrandContext } from "./brand-context";
 import { getPrioritizedImage } from "./image-sourcing";
 import { getCurrentBrandGuide } from "./brand-guide-service";
 import { buildFullBrandGuidePrompt } from "./prompts/brand-guide-prompts";
 import { logger } from "./logger";
 import { supabase } from "./supabase";
-import type { BrandProfile } from "@shared/advisor";
+import { logGenerationEventsBatch, type LogGenerationEventArgs } from "./generation-log-helper";
+import type { BrandContext } from "@shared/advisor";
+import { buildContentItemContent } from "@shared/content-item";
 
 // BrandSnapshot type (from onboarding context)
 interface BrandSnapshot {
@@ -49,7 +51,7 @@ interface WeeklyContentPackage {
  * Generate a single content item using AI
  */
 async function generateContentItem(
-  brand: BrandProfile,
+  brand: BrandContext,
   brandSnapshot: BrandSnapshot | null,
   weeklyFocus: string,
   brandId: string,
@@ -65,7 +67,7 @@ async function generateContentItem(
 ): Promise<ContentItem> {
   const systemPrompt = buildDocSystemPrompt();
   
-  // ✅ Get Brand Guide (preferred over BrandProfile)
+  // ✅ Get Brand Guide (preferred over BrandContext)
   const brandGuide = await getCurrentBrandGuide(brandId);
   
   // Build enhanced prompt with weekly focus and brand snapshot context
@@ -76,8 +78,8 @@ async function generateContentItem(
     userPrompt += buildFullBrandGuidePrompt(brandGuide);
     userPrompt += `\n`;
   } else {
-    // Fallback to Brand Profile if Brand Guide not available
-    userPrompt += `## Brand Profile\n`;
+    // Fallback to Brand Context if Brand Guide not available
+    userPrompt += `## Brand Context\n`;
     userPrompt += `Name: ${brand.name}\n`;
     if (brand.tone) {
       userPrompt += `Tone: ${brand.tone}\n`;
@@ -239,7 +241,7 @@ export function generateDefaultContentPackage(
   brandId: string,
   weeklyFocus: string,
   brandSnapshot: BrandSnapshot | null,
-  brand: BrandProfile
+  brand: BrandContext
 ): WeeklyContentPackage {
   const today = new Date();
   const dates: string[] = [];
@@ -344,7 +346,7 @@ export async function generateWeeklyContentPackage(
 ): Promise<WeeklyContentPackage> {
   // Get brand profile from Supabase (synced Brand Guide)
   // This ensures we use the latest Brand Guide data, not just the snapshot
-  const brand = await getBrandProfile(brandId);
+  const brand = await getBrandContext(brandId);
   
   // Calculate dates (starting from tomorrow, 7 days)
   const today = new Date();
@@ -622,6 +624,7 @@ export async function generateWeeklyContentPackage(
 
 /**
  * Log generation attempt to generation_logs table for tracking and review
+ * Uses the centralized logGenerationEventsBatch helper for schema consistency.
  */
 async function logGenerationToDatabase(
   brandId: string,
@@ -631,56 +634,51 @@ async function logGenerationToDatabase(
   usedFallback: boolean
 ): Promise<void> {
   try {
-    // Map to existing generation_logs schema columns
-    const logEntries = items.map((item, index) => ({
-      brand_id: brandId,
-      agent: "doc",
-      prompt_version: "onboarding-v1",
-      // Input: what was sent to the AI
+    // Map items to LogGenerationEventArgs format
+    const events: LogGenerationEventArgs[] = items.map((item, index) => ({
+      brandId,
+      agent: "doc" as const,
+      promptVersion: "onboarding-v1",
       input: {
         platform: item.platform,
-        type: item.type,
+        format: item.type,
         scheduledDate: item.scheduledDate,
         scheduledTime: item.scheduledTime,
-        packageId: packageId,
-        itemIndex: index,
+        request_id: packageId,
         source: "onboarding-content-generator",
+        itemIndex: index,
         usedFallback,
       },
-      // Output: what the AI generated
       output: {
-        id: item.id,
         headline: item.title,
         body: item.content,
         imageUrl: item.imageUrl,
-        brandFidelityScore: item.brandFidelityScore || 0,
-        isPlaceholder: item.content.includes("placeholder") || (item.brandFidelityScore || 0) === 0,
+        is_fallback: item.content.includes("placeholder") || (item.brandFidelityScore || 0) === 0,
+        contentItemId: item.id,
       },
-      bfs_score: item.brandFidelityScore || 0,
-      linter_results: {
+      bfsScore: item.brandFidelityScore || 0,
+      linterResults: {
         passed: (item.brandFidelityScore || 0) >= 0.7,
         avgPackageBFS: avgBFS,
-        checks: [],
       },
       approved: false, // Requires human review
       revision: 0,
     }));
 
-    // Insert all logs (batch insert for efficiency)
-    const { error } = await supabase.from("generation_logs").insert(logEntries);
+    // Use centralized batch logging helper
+    const result = await logGenerationEventsBatch(events);
     
-    if (error) {
+    if (!result.success) {
       logger.warn("Failed to log generation to database", {
         brandId,
         packageId,
-        error: error.message,
-        code: error.code,
+        errors: result.errors,
       });
     } else {
       logger.info("Generation logged to database", {
         brandId,
         packageId,
-        logsCreated: logEntries.length,
+        logsCreated: result.logged,
       });
     }
   } catch (error) {
@@ -717,39 +715,44 @@ export async function syncPackageToContentItems(
 
   try {
     // Map content package items to content_items format (matching DB schema)
-    const contentItemsToInsert = contentPackage.items.map((item) => ({
-      id: item.id,
-      brand_id: brandId,
-      title: item.title,
-      type: item.type === "social" ? "post" : item.type, // Normalize type
-      platform: item.platform,
-      status: "draft", // All generated content starts as draft
-      generated_by_agent: "doc", // Content generated by Doc agent
-      // Store all content and metadata in the content JSONB field
-      content: {
-        headline: item.title,
+    // ✅ Uses buildContentItemContent to ensure consistent JSONB structure
+    const contentItemsToInsert = contentPackage.items.map((item) => {
+      // Build properly structured content JSONB using shared helper
+      const contentPayload = buildContentItemContent({
         body: item.content,
-        caption: item.content,
-        text: item.content,
-        platform: item.platform,
+        title: item.title,
+        headline: item.title,
+        channel: item.platform,
+        source: "onboarding",
         type: item.type,
-        imageUrl: item.imageUrl,
-        brandFidelityScore: item.brandFidelityScore,
-        // Include metadata in content JSONB (no separate metadata column)
         scheduledDate: item.scheduledDate,
         scheduledTime: item.scheduledTime,
-        source: "onboarding",
         packageId: contentPackage.id,
         generatedAt: contentPackage.generatedAt,
-      },
-      // Use scheduled_for (not scheduled_at) per schema
-      scheduled_for: item.scheduledDate && item.scheduledTime 
-        ? new Date(`${item.scheduledDate}T${item.scheduledTime}:00`).toISOString()
-        : null,
-      // Add media URLs if image is available
-      media_urls: item.imageUrl ? [item.imageUrl] : null,
-    }));
+        brandFidelityScore: item.brandFidelityScore,
+        imageUrl: item.imageUrl,
+      });
 
+      return {
+        id: item.id,
+        brand_id: brandId,
+        title: item.title,
+        type: item.type === "social" ? "post" : item.type, // Normalize type
+        platform: item.platform,
+        status: "draft", // All generated content starts as draft
+        generated_by_agent: "doc", // Content generated by Doc agent
+        // ✅ Store properly structured content JSONB
+        content: contentPayload,
+        // Use scheduled_for (not scheduled_at) per schema
+        scheduled_for: item.scheduledDate && item.scheduledTime 
+          ? new Date(`${item.scheduledDate}T${item.scheduledTime}:00`).toISOString()
+          : null,
+        // Add media URLs if image is available
+        media_urls: item.imageUrl ? [item.imageUrl] : null,
+      };
+    });
+
+    // @supabase-scope-ok UPSERT includes brand_id in contentItem payload
     // Insert content items (upsert to avoid duplicates)
     for (const contentItem of contentItemsToInsert) {
       const { error } = await supabase

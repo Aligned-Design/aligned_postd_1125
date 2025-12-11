@@ -25,6 +25,7 @@ import {
 } from "@shared/creative-studio";
 import { integrationsDB } from "../lib/integrations-db-service";
 import { publishingQueue } from "../lib/publishing-queue";
+import { buildContentItemContent } from "@shared/content-item";
 
 const studioRouter = Router();
 
@@ -133,6 +134,21 @@ studioRouter.post(
       designData.brandId = brandId;
 
       // ✅ R04 FIX: Removed mock fallback - DB errors now return proper error response
+      // ✅ Build properly structured content JSONB using shared helper
+      const contentPayload = buildContentItemContent({
+        title: designData.name || "Untitled Design",
+        source: "creative_studio",
+        additionalMetadata: {
+          format: designData.format,
+          width: designData.width,
+          height: designData.height,
+          items: designData.items,
+          backgroundColor: designData.backgroundColor,
+          campaignId: designData.campaignId,
+        },
+      });
+
+      // @supabase-scope-ok INSERT includes brand_id in payload
       // Save to content_items table
       const { data: contentItem, error: contentError } = await supabase
         .from("content_items")
@@ -140,13 +156,7 @@ studioRouter.post(
           brand_id: designData.brandId,
           title: designData.name || "Untitled Design",
           type: "creative_studio",
-          content: {
-            format: designData.format,
-            width: designData.width,
-            height: designData.height,
-            items: designData.items,
-            backgroundColor: designData.backgroundColor,
-          },
+          content: contentPayload,
           status: designData.savedToLibrary ? "saved" : "draft",
           created_by: userId,
         })

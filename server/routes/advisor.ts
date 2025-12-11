@@ -13,7 +13,7 @@ import { z } from "zod";
 import { generateWithAI } from "../workers/ai-generation";
 import { buildAdvisorSystemPrompt, buildAdvisorUserPrompt, buildAdvisorRetryPrompt } from "../lib/ai/advisorPrompt";
 import { calculateAdvisorBFS, shouldRetryAdvisor } from "../lib/ai/advisorCompliance";
-import { getBrandProfile } from "../lib/brand-profile";
+import { getBrandContext } from "../lib/brand-context";
 import { getCurrentBrandGuide } from "../lib/brand-guide-service";
 import { AppError } from "../lib/error-middleware";
 import { ErrorCode, HTTP_STATUS } from "../lib/error-responses";
@@ -22,12 +22,12 @@ import type {
   AdvisorRequest,
   AdvisorResponse,
   AdvisorInsight,
-  BrandProfile,
+  BrandContext,
 } from "@shared/advisor";
 import type { AiAgentResponseStatus, AiAgentWarning } from "@shared/aiContent";
 import {
   buildBrandContextPayload,
-  mergeBrandProfileWithOverrides,
+  mergeBrandContextWithOverrides,
 } from "../lib/ai/agent-context";
 import {
   broadcastAgentCompleted,
@@ -36,6 +36,7 @@ import {
 import { assertBrandAccess } from "../lib/brand-access";
 import { StrategyBriefStorage, ContentPackageStorage } from "../lib/collaboration-storage";
 import { createStrategyBrief } from "@shared/collaboration-artifacts";
+import { getBrandContextPack } from "../lib/brand-brain-service";
 
 // Simple logger for telemetry
 function logAdvisorCall(provider: string, latencyMs: number, bfs: number, retryAttempted: boolean, error?: string) {
@@ -172,7 +173,7 @@ function buildAdvisorResponse({
   complianceResult,
 }: {
   brandId: string;
-  brand: BrandProfile;
+  brand: BrandContext;
   request: AdvisorRequest;
   insights: AdvisorInsight[];
   provider: "openai" | "claude";
@@ -279,11 +280,15 @@ export const getAdvisorInsights: RequestHandler = async (req, res) => {
     // ✅ BRAND GUIDE: Load Brand Guide (source of truth)
     const brandGuide = await getCurrentBrandGuide(brandId);
 
-    // Get brand profile and merge optional overrides
-    const brand = mergeBrandProfileWithOverrides(
-      await getBrandProfile(brandId),
+    // Get brand context and merge optional overrides
+    const brand = mergeBrandContextWithOverrides(
+      await getBrandContext(brandId),
       requestBody.brandContext,
     );
+
+    // ✅ MVP3: Get host metadata from Brand Brain for host-aware prompts
+    const brandContextPack = await getBrandContextPack(brandId);
+    const hostMetadata = brandContextPack?.host;
 
     // Build prompts
     const systemPrompt = buildAdvisorSystemPrompt();
@@ -292,6 +297,7 @@ export const getAdvisorInsights: RequestHandler = async (req, res) => {
       brandGuide, // Pass BrandGuide to prompt builder (source of truth)
       analytics: metrics,
       timeRange: timeRange || period,
+      host: hostMetadata, // ✅ MVP3: Pass host for host-aware prompts
     });
 
     // Combine system and user prompts for single-prompt API

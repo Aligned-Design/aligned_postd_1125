@@ -9,8 +9,8 @@ import { SendEmailOptions, EmailSendResult } from "@shared/approvals";
 
 // Configuration
 const SENDGRID_API_KEY = process.env.SENDGRID_API_KEY;
-const EMAIL_FROM = process.env.EMAIL_FROM || "noreply@aligned-ai.com";
-const EMAIL_REPLY_TO = process.env.EMAIL_REPLY_TO || "support@aligned-ai.com";
+const EMAIL_FROM = process.env.EMAIL_FROM || "noreply@postd.app";
+const EMAIL_REPLY_TO = process.env.EMAIL_REPLY_TO || "support@postd.app";
 const ENABLE_EMAILS = process.env.EMAIL_SERVICE_ENABLED === "true";
 const USE_SENDGRID =
   process.env.EMAIL_PROVIDER === "sendgrid" && SENDGRID_API_KEY;

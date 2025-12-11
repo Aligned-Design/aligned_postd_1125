@@ -131,6 +131,7 @@ router.get(
         );
       }
 
+      // @supabase-scope-ok Uses .eq("user_id", userId) - scoped to authenticated user
       // Get all brand IDs the user is a member of
       const { data: memberships, error: membershipError } = await supabase
         .from("brand_members")
@@ -155,6 +156,7 @@ router.get(
         });
       }
 
+      // @supabase-scope-ok Uses .in("id", brandIds) - scoped to user's authorized brands
       // Fetch full brand details for each brand ID
       const brandIds = memberships.map((m) => m.brand_id);
       const { data: brands, error: brandsError } = await supabase
@@ -375,6 +377,7 @@ router.post(
           userId: user?.id,
         });
 
+        // @supabase-scope-ok INSERT creates new brand - no scoping needed
         const result = await supabase
           .from("brands")
           .insert([brandInsertData])
@@ -466,6 +469,7 @@ router.post(
         tenantId: brandData.tenant_id || brandData.workspace_id,
       });
 
+      // @supabase-scope-ok INSERT includes brand_id in payload
       // Create brand membership
       const { error: memberError } = await supabase.from("brand_members").insert([
         {

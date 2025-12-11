@@ -369,6 +369,7 @@ router.put("/:brandId", authenticateUser, validateBrandId, async (req, res, next
     const user = (req as any).user;
     const changedBy = user?.id || user?.userId;
 
+    // @supabase-scope-ok Brand lookup by its own primary key
     const { data: updatedBrand, error } = await supabase
       .from("brands")
       .update({
@@ -410,6 +411,7 @@ router.put("/:brandId", authenticateUser, validateBrandId, async (req, res, next
             bfsBaseline: baseline,
           },
         };
+        // @supabase-scope-ok Brand lookup by its own primary key
         await supabase
           .from("brands")
           .update({ brand_kit: updatedBrandKit })
@@ -684,6 +686,7 @@ router.patch("/:brandId", authenticateUser, validateBrandId, async (req, res, ne
             bfsBaseline: baseline,
           },
         };
+        // @supabase-scope-ok Brand lookup by its own primary key
         await supabase
           .from("brands")
           .update({ brand_kit: updatedBrandKitWithBaseline })
@@ -918,6 +921,7 @@ router.post("/:brandId/rollback/:version", authenticateUser, validateBrandId, as
               bfsBaseline: baseline,
             },
           };
+          // @supabase-scope-ok Brand lookup by its own primary key
           await supabase
             .from("brands")
             .update({ brand_kit: updatedBrandKit })

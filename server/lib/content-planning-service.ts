@@ -13,10 +13,13 @@ import { logger } from "./logger";
 import { supabase } from "./supabase";
 import { getCurrentBrandGuide } from "./brand-guide-service";
 import { buildFullBrandGuidePrompt } from "./prompts/brand-guide-prompts";
-import { getBrandProfile } from "./brand-profile";
+import { getBrandContext } from "./brand-context";
 import { generateWithAI } from "../workers/ai-generation";
 import { getScrapedImages } from "./scraped-images-service";
 import { randomUUID } from "crypto";
+import { buildContentItemContent } from "@shared/content-item";
+import { CONTENT_STATUS } from "@shared/content-status";
+import { logGenerationEventsBatch, type LogGenerationEventArgs } from "./generation-log-helper";
 
 export interface ContentPlanItem {
   id: string;
@@ -56,7 +59,7 @@ export async function generateContentPlan(
 
     // 1. Load brand context
     const brandGuide = await getCurrentBrandGuide(brandId);
-    const brandProfile = await getBrandProfile(brandId);
+    const brandProfile = await getBrandContext(brandId);
     const scrapedImages = await getScrapedImages(brandId);
 
     // Get brand info (including industry for better context)
@@ -146,6 +149,11 @@ export async function generateContentPlan(
     const storedItems = await storeContentItems(brandId, contentItems, tenantId);
 
     const durationMs = Date.now() - startTime;
+
+    // 7. Log generation to generation_logs for observability
+    // ✅ PIPELINE HARDENING: Content planning now logs all generations
+    await logContentPlanGeneration(brandId, requestId, storedItems, durationMs);
+
     logger.info("Content plan generated and stored", {
       requestId,
       brandId,
@@ -222,6 +230,7 @@ Guidelines:
       brandGuideCompletedAt: new Date().toISOString(),
     };
 
+    // @supabase-scope-ok Brand lookup by its own primary key
     await supabase
       .from("brands")
       .update({
@@ -607,24 +616,35 @@ async function storeContentItems(
       
       // ✅ SCHEMA ALIGNMENT: Use canonical schema from 001_bootstrap_schema.sql
       // Schema: type TEXT NOT NULL, content JSONB NOT NULL (not content_type/body)
+      // ✅ Build properly structured content JSONB using shared helper
+      const contentPayload = buildContentItemContent({
+        body: typeof item.content === "string" ? item.content : (item.content as any)?.body || "",
+        title: item.title,
+        channel: platform,
+        source: "planner",
+        type: contentType,
+        scheduledDate: item.scheduledDate,
+        scheduledTime: item.scheduledTime,
+        imageUrl: item.imageUrl,
+      });
+
       const insertData: any = {
         id: item.id,
         brand_id: brandId,
         title: item.title,
         type: contentType, // ✅ Matches schema: type TEXT NOT NULL
         platform: platform,
-        content: typeof item.content === "string" 
-          ? { body: item.content } // Wrap string content in JSONB object
-          : item.content, // Already an object
+        content: contentPayload, // ✅ Properly structured JSONB
         media_urls: item.imageUrl ? [item.imageUrl] : [],
         scheduled_for: scheduledFor,
-        status: "pending_review", // Set to pending_review so it appears in queue
+        status: CONTENT_STATUS.PENDING_REVIEW, // ✅ MVP4.3: Use shared status constant
         generated_by_agent: "content-planning-service",
       };
 
       // Note: tenant_id column doesn't exist in content_items table (per migrations)
       // Note: approval_required column doesn't exist - use status instead
 
+      // @supabase-scope-ok INSERT includes brand_id in insertData
       const { data, error } = await supabase
         .from("content_items")
         .insert(insertData)
@@ -681,6 +701,71 @@ async function storeContentItems(
   return storedItems;
 }
 
+/**
+ * Log content plan generation to generation_logs for observability.
+ * Uses the centralized batch logging helper for schema consistency.
+ * 
+ * ✅ PIPELINE HARDENING: Ensures all content generation is logged
+ */
+async function logContentPlanGeneration(
+  brandId: string,
+  requestId: string,
+  items: ContentPlanItem[],
+  durationMs: number
+): Promise<void> {
+  try {
+    // Map content plan items to generation log events
+    const events: LogGenerationEventArgs[] = items.map((item, index) => ({
+      brandId,
+      agent: "doc" as const, // Content planner uses Doc agent
+      promptVersion: "planner-v1",
+      input: {
+        platform: item.platform,
+        format: item.contentType,
+        scheduledDate: item.scheduledDate,
+        scheduledTime: item.scheduledTime,
+        request_id: requestId,
+        source: "content-planning-service",
+        itemIndex: index,
+      },
+      output: {
+        headline: item.title,
+        body: item.content,
+        imageUrl: item.imageUrl,
+        duration_ms: durationMs,
+        is_fallback: false, // Planning service uses real AI
+      },
+      bfsScore: 0, // Content planning doesn't calculate BFS during generation
+      approved: false, // Requires human review
+      revision: 0,
+    }));
+
+    // Use centralized batch logging helper
+    const result = await logGenerationEventsBatch(events);
+
+    if (!result.success) {
+      logger.warn("Failed to log content plan generation", {
+        brandId,
+        requestId,
+        errors: result.errors,
+      });
+    } else {
+      logger.info("Content plan generation logged", {
+        brandId,
+        requestId,
+        logsCreated: result.logged,
+      });
+    }
+  } catch (error) {
+    // Non-blocking: don't fail generation if logging fails
+    logger.warn("Error logging content plan generation", {
+      brandId,
+      requestId,
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+}
+
 // Helper functions for prompt building
 
 function buildBrandGuideCompletionPrompt(
@@ -705,7 +790,7 @@ function buildBrandGuideCompletionPrompt(
     prompt += JSON.stringify(brandGuide, null, 2);
   }
 
-  prompt += `\n\n## Brand Profile\n`;
+  prompt += `\n\n## Brand Context\n`;
   prompt += JSON.stringify(brandProfile, null, 2);
   prompt += `\n\n## Scraped Content\n`;
   prompt += `Headlines: ${(brandKit.headlines || []).join(", ")}\n`;

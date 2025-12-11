@@ -34,7 +34,7 @@ export function ZiaMascot({ size = "md", className = "", animate = true }: ZiaMa
 
   return (
     <div className={`${sizeMap[size]} ${className} flex items-center justify-center relative`}>
-      {/* TODO: Replace with real Zia zebra mascot illustration */}
+      {/* Zia mascot - AI assistant visual representation */}
       <div className={`w-full h-full bg-gradient-to-br from-slate-300 via-slate-200 to-slate-300 rounded-full flex items-center justify-center ${textSizeMap[size]} font-bold text-slate-700 border-2 border-slate-400 transition-all duration-300 hover:shadow-lg hover:border-slate-500`}>
         {/* Eyes container */}
         <div className="flex gap-1.5 items-center">

@@ -81,9 +81,12 @@ export class BrandBrainService {
       // 2. Get example snippets
       const examples = await this.getExampleSnippets(brandId);
 
-      // 3. Get brand name from Brand Guide
+      // 3. Get brand name and host metadata from Brand Guide
       const brandGuide = await getCurrentBrandGuide(brandId);
       const brandName = brandGuide?.brandName || "Unknown Brand";
+
+      // 3a. Get host metadata from raw brand_kit (not normalized)
+      const hostMetadata = await this.getHostMetadata(brandId);
 
       // 4. Build do's and don'ts from voice rules and preferences
       const dosAndDonts = this.buildDosAndDonts(state);
@@ -114,6 +117,8 @@ export class BrandBrainService {
                 requiredDisclaimers: state.preferences.requiredDisclaimers,
               }
             : undefined,
+        // ✅ MVP3: Host metadata for AI agent style inference
+        host: hostMetadata,
         version: state.version,
         generatedAt: new Date().toISOString(),
       };
@@ -452,6 +457,39 @@ export class BrandBrainService {
       text: (ex.content as { body?: string })?.body?.slice(0, 200) || "",
       reason: ex.notes || undefined,
     }));
+  }
+
+  /**
+   * Get host metadata from raw brand_kit (not normalized by BrandGuide)
+   * Returns the CMS/platform detected during scraping
+   */
+  private async getHostMetadata(brandId: string): Promise<{ type: string; confidence?: string } | undefined> {
+    try {
+      const { data, error } = await supabase
+        .from("brands")
+        .select("brand_kit")
+        .eq("id", brandId)
+        .single();
+
+      if (error || !data) {
+        return undefined;
+      }
+
+      const brandKit = data.brand_kit as any;
+      const host = brandKit?.metadata?.host;
+
+      if (!host || !host.name) {
+        return undefined;
+      }
+
+      return {
+        type: host.name, // e.g., "squarespace", "shopify", "wordpress", "wix", "webflow", "unknown"
+        confidence: host.confidence, // e.g., "high", "medium", "low"
+      };
+    } catch (error) {
+      console.warn(`[BrandBrain] Could not get host metadata for ${brandId}:`, error);
+      return undefined;
+    }
   }
 
   private buildDosAndDonts(state: BrandBrainState): { do: string[]; dont: string[] } {

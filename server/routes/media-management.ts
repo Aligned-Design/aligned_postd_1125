@@ -473,6 +473,7 @@ router.post('/organize', async (req: Request, res: Response) => {
       );
     }
 
+    // @supabase-scope-ok Uses .eq('brand_id', brandId) - properly scoped
     const { error } = await supabase
       .from('media_assets')
       .update({ category: newCategory })

@@ -438,7 +438,7 @@ export default function BrandIntake() {
       toast({
         title: "Brand intake completed!",
         description:
-          "Your brand profile has been saved. Redirecting to summary...",
+          "Your Brand Guide has been saved. Redirecting to summary...",
       });
 
       navigate(`/brand-snapshot?brandId=${brandId}`);

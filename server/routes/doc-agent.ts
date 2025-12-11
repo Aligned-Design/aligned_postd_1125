@@ -22,7 +22,7 @@ import { RequestHandler } from "express";
 import { generateWithAI } from "../workers/ai-generation";
 import { buildDocSystemPrompt, buildDocUserPrompt, buildDocRetryPrompt } from "../lib/ai/docPrompt";
 import { calculateBrandFidelityScore } from "../lib/ai/brandFidelity";
-import { getBrandProfile } from "../lib/brand-profile";
+import { getBrandContext } from "../lib/brand-context";
 import { getCurrentBrandGuide } from "../lib/brand-guide-service";
 import type { BrandGuide } from "@shared/brand-guide";
 import { getPrioritizedImages } from "../lib/image-sourcing";
@@ -40,12 +40,12 @@ import type {
   BrandBrainEvaluation,
 } from "@shared/aiContent";
 import { toBrandBrainEvaluation } from "@shared/aiContent";
-import { evaluateContent } from "../lib/brand-brain-service";
+import { evaluateContent, getBrandContextPack } from "../lib/brand-brain-service";
 import type { ContentEvaluationInput } from "@shared/brand-brain";
-import type { BrandProfile } from "@shared/advisor";
+import type { BrandContext } from "@shared/advisor";
 import {
   buildBrandContextPayload,
-  mergeBrandProfileWithOverrides,
+  mergeBrandContextWithOverrides,
 } from "../lib/ai/agent-context";
 import {
   broadcastAgentCompleted,
@@ -193,7 +193,7 @@ function determineStatus(
 
 function buildDocAgentResponse(
   brandId: string,
-  brand: BrandProfile,
+  brand: BrandContext,
   request: AiDocGenerationRequest,
   variants: AiDocVariant[],
   provider: "openai" | "claude",
@@ -308,14 +308,18 @@ export const generateDocContent: RequestHandler = async (req, res) => {
       );
     }
 
-    // Get brand profile and apply optional overrides from the request
-    const brand = mergeBrandProfileWithOverrides(
-      await getBrandProfile(brandId),
+    // Get brand context and apply optional overrides from the request
+    const brand = mergeBrandContextWithOverrides(
+      await getBrandContext(brandId),
       requestBody.brandContext,
     );
 
     // Get available images (prioritized: brand assets → stock images)
     const availableImages = await getPrioritizedImages(brandId, 5); // Get up to 5 images for context
+
+    // ✅ MVP3: Get host metadata from Brand Brain for host-aware prompts
+    const brandContextPack = await getBrandContextPack(brandId);
+    const hostMetadata = brandContextPack?.host;
 
     // ✅ COLLABORATION: Enhance prompt with BrandGuide and StrategyBrief
     const systemPrompt = buildDocSystemPrompt();
@@ -330,6 +334,7 @@ export const generateDocContent: RequestHandler = async (req, res) => {
         alt: img.metadata?.alt || undefined,
       })),
       strategyBrief, // Pass StrategyBrief to prompt builder
+      host: hostMetadata, // ✅ MVP3: Pass host for host-aware prompts
     });
 
     // Combine system and user prompts

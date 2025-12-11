@@ -81,7 +81,7 @@ export function FirstTimeWelcome({ onDismiss }: FirstTimeWelcomeProps) {
         {/* Brand Summary */}
         {brandSnapshot && (
           <div className="mb-6 p-4 bg-gradient-to-br from-indigo-50 to-purple-50 rounded-xl border border-indigo-200">
-            <p className="text-sm font-bold text-slate-900 mb-2">Your brand profile:</p>
+            <p className="text-sm font-bold text-slate-900 mb-2">Your Brand Guide:</p>
             <div className="flex flex-wrap gap-2">
               {brandSnapshot.tone && brandSnapshot.tone.length > 0 && (
                 <span className="text-xs px-2 py-1 bg-white rounded-full text-slate-700 font-medium">

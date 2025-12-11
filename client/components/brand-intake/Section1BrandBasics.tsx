@@ -44,7 +44,7 @@ export default function Section1BrandBasics({
             id="brandName"
             value={data.brandName || ""}
             onChange={(e) => onChange("brandName", e.target.value)}
-            placeholder="Aligned AI"
+            placeholder="Your Brand Name"
             className="min-h-[44px]"
             aria-invalid={!!errors.brandName}
           />

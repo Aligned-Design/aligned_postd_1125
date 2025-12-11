@@ -4,10 +4,12 @@ import { ReportSettings } from "@/types/user";
 import { Plus, Mail, Trash2, Edit2, Send, Calendar, Users, Clock, AlertCircle, Loader2 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { logInfo, logError } from "@/lib/logger";
+import { useToast } from "@/hooks/use-toast";
 import { PageShell } from "@/components/postd/ui/layout/PageShell";
 import { PageHeader } from "@/components/postd/ui/layout/PageHeader";
 
 export default function Reporting() {
+  const { toast } = useToast();
   const [reports, setReports] = useState<ReportSettings[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -29,9 +31,8 @@ export default function Reporting() {
           const data = await response.json();
           setReports(data.reports || []);
         } else if (response.status === 404) {
-          // API endpoint not implemented yet
+          // No reports found
           setReports([]);
-          setError("Reports feature is coming soon. The API endpoint is not yet implemented.");
         } else {
           throw new Error(`Failed to load reports: ${response.statusText}`);
         }
@@ -163,7 +164,10 @@ export default function Reporting() {
 
   const handleSendEmail = (emails: string[]) => {
     logInfo("Sending test report", { recipients: emails });
-    alert(`Test email sent to ${emails.length} recipient(s)`);
+    toast({
+      title: "Test email sent",
+      description: `Report sent to ${emails.length} recipient${emails.length !== 1 ? 's' : ''}.`,
+    });
     setShowEmailDialog(false);
   };
 
@@ -380,7 +384,7 @@ export default function Reporting() {
                         setReports(data.reports || []);
                         setError(null);
                       } else {
-                        setError("Reports feature is coming soon.");
+                        setError("Failed to load reports. Please try again.");
                       }
                     } catch (err) {
                       setError(err instanceof Error ? err.message : "Failed to load reports");

@@ -593,6 +593,7 @@ router.post("/login", (async (req, res, next) => {
       });
     }
 
+    // @supabase-scope-ok Uses .eq("user_id", userId) - scoped to authenticated user
     // ✅ STEP 4: Get user's brands to populate brandIds
     const { data: brandMemberships } = await supabase
       .from("brand_members")
@@ -710,6 +711,7 @@ router.get("/me", (async (req, res, next) => {
       .eq("id", userId)
       .single();
 
+    // @supabase-scope-ok Uses .eq("user_id", userId) - scoped to authenticated user
     // Get brands
     const { data: brandMemberships } = await supabase
       .from("brand_members")

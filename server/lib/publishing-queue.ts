@@ -931,6 +931,7 @@ export class PublishingQueue {
     // Determine job status based on autoPublish flag
     const jobStatus = autoPublish ? "scheduled" : "draft";
     
+    // @supabase-scope-ok INSERT includes brand_id in the data
     // Insert into database
     const { data: job, error: jobError } = await supabase
       .from("publishing_jobs")

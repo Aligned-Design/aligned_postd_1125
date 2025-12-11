@@ -542,6 +542,7 @@ class MediaService {
       };
     }
 
+    // @supabase-scope-ok Uses .eq("brandId", brandId) and hash - properly scoped
     // Check database
     // ✅ FIX: Explicitly select only columns that exist (exclude thumbnail_url and url)
     const { data, error } = await supabase
@@ -595,6 +596,7 @@ class MediaService {
    * Store asset record in database
    */
   private async storeAssetRecord(asset: MediaAsset): Promise<void> {
+    // @supabase-scope-ok INSERT includes brand_id in payload
     // ✅ FIX: Do NOT include url or thumbnail_url - these columns don't exist in media_assets schema
     // Use path column instead (contains the storage path)
     const { error } = await supabase.from("media_assets").insert([
@@ -657,6 +659,7 @@ class MediaService {
       sortOrder?: "asc" | "desc";
     },
   ): Promise<{ assets: MediaAsset[]; total: number }> {
+    // @supabase-scope-ok Uses .eq("brand_id", brandId) - properly scoped
     // ✅ FIX: Explicitly select only columns that exist (exclude thumbnail_url and url)
     let query = supabase
       .from("media_assets")
@@ -761,6 +764,7 @@ class MediaService {
     // Delete original
     await supabase.storage.from(bucketName).remove([asset.bucketPath]);
 
+    // @supabase-scope-ok ID-based lookup by asset's primary key
     // Mark as deleted in database
     await supabase
       .from("media_assets")
@@ -835,6 +839,7 @@ class MediaService {
       usageCount: (asset.metadata.usageCount || 0) + 1,
     };
 
+    // @supabase-scope-ok ID-based lookup by asset's primary key
     await supabase
       .from("media_assets")
       .update({

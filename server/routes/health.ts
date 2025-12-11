@@ -73,6 +73,7 @@ router.get("/ai", (async (_req, res) => {
  */
 router.get("/supabase", (async (_req, res) => {
   try {
+    // @supabase-scope-ok DB connectivity check - only verifies Supabase is reachable
     const { data, error } = await supabase.from("brands").select("id").limit(1);
 
     if (error) {

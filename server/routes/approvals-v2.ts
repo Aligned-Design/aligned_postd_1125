@@ -15,6 +15,7 @@ import { requireScope } from "../middleware/requireScope";
 import { validateBrandId } from "../middleware/validate-brand-id";
 import { assertBrandAccess } from "../lib/brand-access";
 import { supabase } from "../lib/supabase";
+import { extractBody, extractTitle } from "@shared/content-item";
 
 const router = Router();
 
@@ -115,10 +116,12 @@ router.get(
       );
 
       // Get content items for approvals
+      // ✅ RLS HARDENING: Add explicit brand_id filter for defense-in-depth
       const postIds = approvals.map((a) => a.post_id);
       const { data: contentItems, error: contentError } = await supabase
         .from("content_items")
         .select("id, title, platform, status, content, scheduled_for")
+        .eq("brand_id", brandId) // Explicit brand filter
         .in("id", postIds.length > 0 ? postIds : ["none"]);
 
       if (contentError) {
@@ -128,7 +131,7 @@ router.get(
         });
       }
 
-      // Map approvals to response format
+      // ✅ Map approvals to response format using shared extractors
       const items = approvals.map((approval) => {
         const contentItem = contentItems?.find((item) => item.id === approval.post_id);
         const content = contentItem?.content as Record<string, unknown> | undefined;
@@ -144,8 +147,8 @@ router.get(
           requestedAt: approval.created_at,
           dueDate: approval.deadline,
           content: {
-            headline: content?.headline || contentItem?.title || "",
-            body: typeof content?.body === "string" ? content.body : "",
+            headline: extractTitle(content) || contentItem?.title || "",
+            body: extractBody(content),
           },
         };
       });
@@ -249,8 +252,8 @@ router.get(
         requestedAt: approval.created_at,
         dueDate: approval.deadline,
         content: {
-          headline: content?.headline || contentItem?.title || "",
-          body: typeof content?.body === "string" ? content.body : "",
+          headline: extractTitle(content) || contentItem?.title || "",
+          body: extractBody(content),
         },
       };
 
@@ -522,10 +525,12 @@ router.get(
       }
 
       // Get content items
+      // ✅ RLS HARDENING: Add explicit brand_id filter for defense-in-depth
       const postIds = (approvals || []).map((a: any) => a.post_id);
       const { data: contentItems } = await supabase
         .from("content_items")
         .select("id, title, platform, status, content")
+        .eq("brand_id", brandId) // Explicit brand filter
         .in("id", postIds.length > 0 ? postIds : ["none"]);
 
       // Map to response format
@@ -545,8 +550,8 @@ router.get(
           approvedBy: approval.status === "approved" ? approval.assigned_to : undefined,
           approvedAt: approval.status === "approved" ? approval.updated_at : undefined,
           content: {
-            headline: content?.headline || contentItem?.title || "",
-            body: typeof content?.body === "string" ? content.body : "",
+            headline: extractTitle(content) || contentItem?.title || "",
+            body: extractBody(content),
           },
         };
       });

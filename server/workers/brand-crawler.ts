@@ -135,6 +135,14 @@ interface CrawlResult {
   headlines?: string[];
   typography?: TypographyData;
   openGraph?: OpenGraphMetadata;
+  /** Detected host/CMS platform from the first crawled page */
+  detectedHost?: DetectedHost;
+  /** Host-aware extracted hero headline */
+  heroHeadline?: string;
+  /** Host-aware extracted about/mission text */
+  aboutText?: string;
+  /** Host-aware extracted services/offerings */
+  services?: string[];
 }
 
 interface ColorPalette {
@@ -164,7 +172,367 @@ interface BrandKitData {
   source_urls: string[];
   metadata?: {
     openGraph?: OpenGraphMetadata;
+    host?: DetectedHost;
   };
+  // Host-aware copy extraction results
+  heroHeadline?: string;
+  aboutText?: string;
+  services?: string[];
+}
+
+// =============================================================================
+// HOST DETECTION SYSTEM
+// =============================================================================
+
+/**
+ * Detected host/CMS platform information
+ */
+export interface DetectedHost {
+  name: "squarespace" | "wix" | "wordpress" | "webflow" | "shopify" | "unknown";
+  confidence: "high" | "medium" | "low";
+  detectionMethod: "domain" | "meta" | "signature" | "cdn" | "fallback";
+  signals: string[];
+}
+
+/**
+ * Host-specific extraction configuration
+ */
+interface HostExtractionConfig {
+  name: string;
+  imageDataAttributes: string[];
+  logoSelectors: string[];
+  additionalWaitMs: number;
+  scrollBeforeExtract: boolean;
+  // Copy extraction selectors (host-aware)
+  heroSelectors?: string[];
+  aboutSelectors?: string[];
+  servicesSelectors?: string[];
+  copyExclusions?: string[];
+}
+
+/**
+ * Host detection signatures - patterns that identify specific CMS platforms
+ */
+const HOST_SIGNATURES: Record<string, {
+  domains: string[];
+  cdnPatterns: string[];
+  metaPatterns: RegExp[];
+  cssSelectors: string[];
+  classPatterns: RegExp[];
+}> = {
+  squarespace: {
+    domains: ["squarespace.com", "sqsp.com"],
+    cdnPatterns: ["images.squarespace-cdn.com", "static1.squarespace.com"],
+    metaPatterns: [/Squarespace/i],
+    cssSelectors: [".sqs-layout", ".sqs-block", "[data-controller='SiteLoader']"],
+    classPatterns: [/^sqs-/, /^Header-branding/]
+  },
+  wix: {
+    domains: ["wix.com", "wixsite.com"],
+    cdnPatterns: ["static.wixstatic.com", "wix.com"],
+    metaPatterns: [/Wix/i],
+    cssSelectors: ["[data-mesh-id]", "[id^='comp-']"],
+    classPatterns: [/^comp-/, /^wixui/]
+  },
+  wordpress: {
+    domains: ["wordpress.com", "wordpress.org"],
+    cdnPatterns: ["wp-content/", "wp-includes/"],
+    metaPatterns: [/WordPress/i],
+    cssSelectors: [".wp-block-", "#wpadminbar"],
+    classPatterns: [/^wp-/]
+  },
+  webflow: {
+    domains: ["webflow.io", "webflow.com"],
+    cdnPatterns: ["assets.website-files.com", "uploads-ssl.webflow.com"],
+    metaPatterns: [/Webflow/i],
+    cssSelectors: [".w-webflow-badge", "[data-wf-domain]"],
+    classPatterns: [/^w-/]
+  },
+  shopify: {
+    domains: ["myshopify.com", "shopify.com"],
+    cdnPatterns: ["cdn.shopify.com", "shopifycdn.com"],
+    metaPatterns: [/Shopify/i],
+    cssSelectors: ["[data-shopify]", ".shopify-section"],
+    classPatterns: [/^shopify-/]
+  }
+};
+
+/**
+ * Host-specific extraction configurations
+ */
+const HOST_EXTRACTION_CONFIGS: Record<string, HostExtractionConfig> = {
+  squarespace: {
+    name: "squarespace",
+    imageDataAttributes: ["data-src", "data-image", "data-image-focal-point"],
+    logoSelectors: [
+      ".header-title-logo img",
+      ".Header-branding-logo img",
+      ".site-title-logo img",
+      ".Logo-image img",
+      "header svg.Logo",
+      "[data-component='Logo'] img",
+      "[data-component='Logo'] svg",
+      ".sqs-logo-image img",
+      ".header-title img",
+      ".Site-header-logo img"
+    ],
+    additionalWaitMs: 2000,
+    scrollBeforeExtract: true,
+    // Host-aware copy extraction
+    heroSelectors: [".sqs-block-html h1", "[data-block-type='headline'] h1", ".Index-page-content h1", ".banner-thumbnail-wrapper h1"],
+    aboutSelectors: [".sqs-block-content p", "[data-block-type='text'] .sqs-block-content", ".sqs-layout .sqs-block-html p"],
+    servicesSelectors: ["[data-block-type='accordion'] .accordion-item-title", ".portfolio-grid-item-title", ".sqs-block-summary-v2 .summary-title"],
+    copyExclusions: [".sqs-cookie-banner", ".sqs-announcement-bar", ".announcement-bar-text"]
+  },
+  wix: {
+    name: "wix",
+    imageDataAttributes: ["data-src", "data-pin-media"],
+    logoSelectors: [
+      "[data-testid='siteHeader'] img",
+      "[id^='comp-'] img[alt*='logo']",
+      ".logo img"
+    ],
+    additionalWaitMs: 3000,
+    scrollBeforeExtract: true,
+    heroSelectors: ["[data-testid='richTextElement'] h1", "[data-hook='header-content'] h1", "[id^='comp-'] h1"],
+    aboutSelectors: ["[data-testid='richTextElement'] p", "[data-hook='content-section'] p"],
+    servicesSelectors: ["[data-hook='services-item'] h3", ".gallery-item-title"],
+    copyExclusions: ["[data-testid='WixAdsDesktopRoot']", "[data-hook='cookie-banner']"]
+  },
+  wordpress: {
+    name: "wordpress",
+    imageDataAttributes: ["data-src", "data-lazy-src", "data-srcset"],
+    logoSelectors: [
+      ".custom-logo",
+      ".site-logo img",
+      ".wp-block-site-logo img",
+      "header img[alt*='logo']"
+    ],
+    additionalWaitMs: 1500,
+    scrollBeforeExtract: false,
+    heroSelectors: [".entry-title", ".wp-block-heading", ".hero-content h1", ".page-header h1"],
+    aboutSelectors: [".entry-content p", ".wp-block-group p", "article.page .content p"],
+    servicesSelectors: [".wp-block-columns h3", ".services-list li", ".wp-block-media-text h3"],
+    copyExclusions: [".wp-block-search", ".comment-form", ".sidebar", "#secondary"]
+  },
+  webflow: {
+    name: "webflow",
+    imageDataAttributes: ["data-src"],
+    logoSelectors: [
+      ".nav-logo img",
+      ".brand img",
+      "nav img",
+      "header a[href='/'] img"
+    ],
+    additionalWaitMs: 1000,
+    scrollBeforeExtract: false,
+    heroSelectors: [".hero-heading", ".hero h1", "[class*='hero'] h1"],
+    aboutSelectors: [".w-richtext p", ".about-content p", ".page-content p"],
+    servicesSelectors: [".w-dyn-item h3", ".services-grid h3", ".service-card h3"],
+    copyExclusions: [".w-webflow-badge"]
+  },
+  shopify: {
+    name: "shopify",
+    imageDataAttributes: ["data-src", "data-srcset"],
+    logoSelectors: [
+      ".header-logo img",
+      ".site-header__logo img",
+      "header a[href='/'] img"
+    ],
+    additionalWaitMs: 1500,
+    scrollBeforeExtract: false,
+    heroSelectors: [".banner__heading", ".collection-hero__title", ".product-single__title", ".page-title"],
+    aboutSelectors: [".page-content p", ".rte.rte--page p", "[data-section-type='custom-content'] p"],
+    servicesSelectors: [".product-card__title", ".collection-product-card__title", "[data-product-title]"],
+    copyExclusions: [".announcement-bar", ".shopify-section-header-sticky"]
+  },
+  unknown: {
+    name: "unknown",
+    imageDataAttributes: ["data-src", "data-lazy-src"],
+    logoSelectors: [],
+    additionalWaitMs: 1000,
+    scrollBeforeExtract: false,
+    heroSelectors: ["h1", "header h1", ".hero h1", "main h1"],
+    aboutSelectors: ["main p", "article p", ".content p", "section p"],
+    servicesSelectors: [".services li", "main h3", "section h3"],
+    copyExclusions: []
+  }
+};
+
+/**
+ * Detect the host/CMS platform from a page
+ * Uses domain patterns, meta tags, and HTML signatures
+ */
+async function detectHost(page: Page, url: string): Promise<DetectedHost> {
+  const urlLower = url.toLowerCase();
+  const signals: string[] = [];
+  
+  // Method 1: Check domain patterns (fastest)
+  for (const [hostName, signature] of Object.entries(HOST_SIGNATURES)) {
+    for (const domain of signature.domains) {
+      if (urlLower.includes(domain)) {
+        signals.push(`domain:${domain}`);
+        console.log(`[HostDetect] Detected ${hostName} via domain pattern: ${domain}`);
+        return {
+          name: hostName as DetectedHost["name"],
+          confidence: "high",
+          detectionMethod: "domain",
+          signals
+        };
+      }
+    }
+  }
+  
+  // Method 2: Check CDN patterns in URL
+  for (const [hostName, signature] of Object.entries(HOST_SIGNATURES)) {
+    for (const cdnPattern of signature.cdnPatterns) {
+      if (urlLower.includes(cdnPattern)) {
+        signals.push(`cdn:${cdnPattern}`);
+        console.log(`[HostDetect] Detected ${hostName} via CDN pattern: ${cdnPattern}`);
+        return {
+          name: hostName as DetectedHost["name"],
+          confidence: "high",
+          detectionMethod: "cdn",
+          signals
+        };
+      }
+    }
+  }
+  
+  // Method 3: Check meta tags and HTML signatures
+  try {
+    const pageSignatures = await page.evaluate(() => {
+      const meta = document.querySelector('meta[name="generator"]');
+      const generatorContent = meta?.getAttribute("content") || "";
+      
+      // Collect all class names for pattern matching
+      const allClasses: string[] = [];
+      document.querySelectorAll("[class]").forEach(el => {
+        const classes = el.className;
+        if (typeof classes === "string") {
+          allClasses.push(...classes.split(/\s+/).filter(c => c.length > 0).slice(0, 100));
+        }
+      });
+      
+      return {
+        generator: generatorContent,
+        classes: [...new Set(allClasses)].slice(0, 500), // Limit for performance
+        hasSquarespaceSqs: document.querySelector(".sqs-layout") !== null,
+        hasWixMesh: document.querySelector("[data-mesh-id]") !== null,
+        hasWebflowBadge: document.querySelector(".w-webflow-badge") !== null,
+        hasShopifySection: document.querySelector(".shopify-section") !== null,
+        hasWordPressBlock: document.querySelector(".wp-block-") !== null
+      };
+    });
+    
+    // Check generator meta tag
+    for (const [hostName, signature] of Object.entries(HOST_SIGNATURES)) {
+      for (const pattern of signature.metaPatterns) {
+        if (pattern.test(pageSignatures.generator)) {
+          signals.push(`meta:generator=${pageSignatures.generator.substring(0, 50)}`);
+          console.log(`[HostDetect] Detected ${hostName} via meta generator: ${pageSignatures.generator}`);
+          return {
+            name: hostName as DetectedHost["name"],
+            confidence: "high",
+            detectionMethod: "meta",
+            signals
+          };
+        }
+      }
+    }
+    
+    // Check specific selectors (fast boolean checks)
+    if (pageSignatures.hasSquarespaceSqs) {
+      signals.push("selector:.sqs-layout");
+      console.log("[HostDetect] Detected squarespace via .sqs-layout selector");
+      return {
+        name: "squarespace",
+        confidence: "high",
+        detectionMethod: "signature",
+        signals
+      };
+    }
+    
+    if (pageSignatures.hasWixMesh) {
+      signals.push("selector:[data-mesh-id]");
+      console.log("[HostDetect] Detected wix via [data-mesh-id] selector");
+      return {
+        name: "wix",
+        confidence: "high",
+        detectionMethod: "signature",
+        signals
+      };
+    }
+    
+    if (pageSignatures.hasWebflowBadge) {
+      signals.push("selector:.w-webflow-badge");
+      console.log("[HostDetect] Detected webflow via .w-webflow-badge selector");
+      return {
+        name: "webflow",
+        confidence: "high",
+        detectionMethod: "signature",
+        signals
+      };
+    }
+    
+    if (pageSignatures.hasShopifySection) {
+      signals.push("selector:.shopify-section");
+      console.log("[HostDetect] Detected shopify via .shopify-section selector");
+      return {
+        name: "shopify",
+        confidence: "high",
+        detectionMethod: "signature",
+        signals
+      };
+    }
+    
+    if (pageSignatures.hasWordPressBlock) {
+      signals.push("selector:.wp-block-");
+      console.log("[HostDetect] Detected wordpress via .wp-block- selector");
+      return {
+        name: "wordpress",
+        confidence: "medium",
+        detectionMethod: "signature",
+        signals
+      };
+    }
+    
+    // Check class patterns (medium confidence)
+    for (const [hostName, signature] of Object.entries(HOST_SIGNATURES)) {
+      for (const pattern of signature.classPatterns) {
+        const matchingClasses = pageSignatures.classes.filter(c => pattern.test(c));
+        if (matchingClasses.length >= 3) { // Require at least 3 matching classes
+          signals.push(`classPattern:${pattern.source}:${matchingClasses.length}matches`);
+          console.log(`[HostDetect] Detected ${hostName} via class patterns: ${matchingClasses.slice(0, 3).join(", ")}`);
+          return {
+            name: hostName as DetectedHost["name"],
+            confidence: "medium",
+            detectionMethod: "signature",
+            signals
+          };
+        }
+      }
+    }
+    
+  } catch (detectError) {
+    console.warn("[HostDetect] Error during signature detection:", detectError);
+  }
+  
+  // Fallback to unknown
+  console.log("[HostDetect] No host detected, using generic strategy");
+  return {
+    name: "unknown",
+    confidence: "low",
+    detectionMethod: "fallback",
+    signals: ["none"]
+  };
+}
+
+/**
+ * Get extraction configuration for a detected host
+ */
+function getHostExtractionConfig(host: DetectedHost): HostExtractionConfig {
+  return HOST_EXTRACTION_CONFIGS[host.name] || HOST_EXTRACTION_CONFIGS.unknown;
 }
 
 /**
@@ -1567,10 +1935,45 @@ function mergeLogoCandidates(
  * - Better error handling
  * - Logs extraction progress
  * - ✅ ENHANCED: Now extracts logos from CSS, SVG, favicon, and OG metadata
+ * - ✅ HOST-AWARE: Uses host-specific selectors and data attributes
+ * - ✅ RETURNS: Both extracted images AND the detected host for end-to-end integration
  */
-async function extractImages(page: Page, baseUrl: string, brandName?: string): Promise<CrawledImage[]> {
+async function extractImages(page: Page, baseUrl: string, brandName?: string): Promise<{ images: CrawledImage[], detectedHost: DetectedHost }> {
   try {
     const pageType = detectPageType(baseUrl);
+    
+    // ✅ HOST DETECTION: Detect the CMS/platform for host-specific extraction
+    const detectedHost = await detectHost(page, baseUrl);
+    const hostConfig = getHostExtractionConfig(detectedHost);
+    
+    console.log("[Crawler] Host-aware extraction", {
+      url: baseUrl,
+      host: detectedHost.name,
+      confidence: detectedHost.confidence,
+      method: detectedHost.detectionMethod,
+      signals: detectedHost.signals,
+      config: hostConfig.name
+    });
+    
+    // ✅ HOST-SPECIFIC: Scroll to trigger lazy loading on JS-heavy platforms
+    if (hostConfig.scrollBeforeExtract) {
+      try {
+        await page.evaluate(() => {
+          window.scrollTo(0, document.body.scrollHeight / 3);
+        });
+        await page.waitForTimeout(500);
+        await page.evaluate(() => {
+          window.scrollTo(0, document.body.scrollHeight * 2 / 3);
+        });
+        await page.waitForTimeout(500);
+        await page.evaluate(() => {
+          window.scrollTo(0, 0);
+        });
+        console.log("[Crawler] Scroll-triggered lazy load complete");
+      } catch (scrollError) {
+        console.warn("[Crawler] Scroll-triggered lazy load failed:", scrollError);
+      }
+    }
     
     // ✅ CRITICAL: Wait for images to load before extracting dimensions
     // This ensures naturalWidth/naturalHeight are available
@@ -1579,8 +1982,8 @@ async function extractImages(page: Page, baseUrl: string, brandName?: string): P
       console.log("[Crawler] Network idle timeout, continuing with image extraction");
     });
     
-    // Wait a bit more for lazy-loaded images
-    await page.waitForTimeout(1000);
+    // ✅ HOST-SPECIFIC: Wait additional time for JS-heavy platforms
+    await page.waitForTimeout(hostConfig.additionalWaitMs || 1000);
     
     // ✅ NEW: Get page context for brand matching
     const pageContext = await page.evaluate(() => {
@@ -1591,7 +1994,7 @@ async function extractImages(page: Page, baseUrl: string, brandName?: string): P
     });
 
     const images = await page.evaluate((args) => {
-      const { url, brandName } = args;
+      const { url, brandName, dataAttributes } = args;
       const base = new URL(url);
       const results: Array<{
         url: string;
@@ -1679,7 +2082,35 @@ async function extractImages(page: Page, baseUrl: string, brandName?: string): P
       
       imgElements.forEach((img) => {
         try {
-          const src = img.getAttribute("src") || img.getAttribute("srcset")?.split(",")[0]?.trim().split(" ")[0];
+          // ✅ HOST-AWARE: Try multiple src attributes including host-specific data attributes
+          // Priority: src > data-src > data-image > srcset (first value) > data-lazy-src
+          let src = img.getAttribute("src");
+          
+          // Check host-specific data attributes if src is empty or is a placeholder
+          if (!src || src.startsWith("data:") || src.includes("placeholder") || src.includes("loading")) {
+            // Try standard data-src first
+            src = img.getAttribute("data-src") || src;
+          }
+          
+          // Try additional host-specific data attributes passed from config
+          if (!src || src.startsWith("data:") || src.includes("placeholder")) {
+            for (const attr of dataAttributes) {
+              const attrValue = img.getAttribute(attr);
+              if (attrValue && !attrValue.startsWith("data:") && !attrValue.includes("placeholder")) {
+                src = attrValue;
+                break;
+              }
+            }
+          }
+          
+          // Fallback to srcset first value
+          if (!src || src.startsWith("data:")) {
+            const srcset = img.getAttribute("srcset");
+            if (srcset) {
+              src = srcset.split(",")[0]?.trim().split(" ")[0] || src;
+            }
+          }
+          
           const normalizedUrl = normalizeUrl(src);
           if (!normalizedUrl) return;
 
@@ -1815,7 +2246,7 @@ async function extractImages(page: Page, baseUrl: string, brandName?: string): P
 
       console.log(`[Browser] Extracted ${results.length} images total`);
       return results;
-    }, { url: baseUrl, brandName: brandName || undefined });
+    }, { url: baseUrl, brandName: brandName || undefined, dataAttributes: hostConfig.imageDataAttributes });
     
     console.log(`[Crawler] Extracted ${images.length} HTML images from page ${baseUrl}`);
 
@@ -2010,7 +2441,7 @@ async function extractImages(page: Page, baseUrl: string, brandName?: string): P
     
     console.log(`[Crawler] Returning ${finalImages.length} images for page ${baseUrl}`);
     
-    return finalImages;
+    return { images: finalImages, detectedHost };
   } catch (error) {
     console.error("[Crawler] Error extracting images:", error);
     console.error("[Crawler] Error details:", {
@@ -2018,8 +2449,16 @@ async function extractImages(page: Page, baseUrl: string, brandName?: string): P
       error: error instanceof Error ? error.message : String(error),
       stack: error instanceof Error ? error.stack : undefined,
     });
-    // Return empty array on error (don't crash the crawler)
-    return [];
+    // Return empty array on error with unknown host (don't crash the crawler)
+    return { 
+      images: [], 
+      detectedHost: { 
+        name: "unknown" as const, 
+        confidence: "low" as const, 
+        detectionMethod: "fallback" as const, 
+        signals: ["error-fallback"] 
+      } 
+    };
   }
 }
 
@@ -2097,10 +2536,13 @@ async function extractPageContent(
   // Extract images (we don't have brand name here, but can extract from URL if needed)
   // For now, pass undefined - logo detection will work with filename/URL checks
   let images: CrawledImage[] = [];
+  let detectedHost: DetectedHost | undefined;
   try {
     // ✅ CRITICAL: Extract brand name from URL for better logo detection
     const brandNameFromUrl = extractBrandNameFromUrl(url);
-    images = await extractImages(page, url, brandNameFromUrl);
+    const extractionResult = await extractImages(page, url, brandNameFromUrl);
+    images = extractionResult.images;
+    detectedHost = extractionResult.detectedHost;
     console.log(`[Crawler] Extracted ${images.length} images from ${url}`, {
       url,
       imagesCount: images.length,
@@ -2108,6 +2550,8 @@ async function extractPageContent(
       heroes: images.filter(img => img.role === "hero").length,
       others: images.filter(img => img.role === "other").length,
       sampleImage: images[0]?.url?.substring(0, 100),
+      host: detectedHost?.name,
+      hostConfidence: detectedHost?.confidence,
     });
   } catch (error) {
     console.error("[Crawler] ❌ Error extracting images from page:", error);
@@ -2138,6 +2582,147 @@ async function extractPageContent(
     return undefined;
   });
 
+  // ============= HOST-AWARE COPY EXTRACTION =============
+  // Use host-specific selectors to extract hero, about, and services content
+  
+  // Helper: Normalize extracted text (whitespace, max length, strip invisible chars)
+  const normalizeText = (text: string, maxLength: number): string => {
+    return text
+      .replace(/\s+/g, ' ')           // Collapse whitespace
+      .replace(/[\u200B-\u200D\uFEFF]/g, '') // Remove zero-width chars
+      .trim()
+      .slice(0, maxLength);
+  };
+  
+  // Max length constants (per spec)
+  const MAX_HERO_LENGTH = 180;
+  const MAX_ABOUT_LENGTH = 800;
+  const MAX_SERVICE_LENGTH = 120;
+  const MAX_SERVICES_COUNT = 10;
+  
+  let heroHeadline: string | undefined;
+  let aboutText: string | undefined;
+  let services: string[] = [];
+
+  if (detectedHost) {
+    const hostConfig = getHostExtractionConfig(detectedHost);
+    
+    try {
+      // Get exclusion selectors for this host
+      const exclusions = hostConfig.copyExclusions || [];
+      
+      // Extract hero headline using host-specific selectors
+      if (hostConfig.heroSelectors && hostConfig.heroSelectors.length > 0) {
+        for (const selector of hostConfig.heroSelectors) {
+          try {
+            const heroText = await page.$eval(
+              selector, 
+              (el, excl) => {
+                // Skip if inside an exclusion container
+                for (const excSelector of excl) {
+                  if (el.closest(excSelector)) return "";
+                }
+                return el.textContent?.trim() || "";
+              },
+              exclusions
+            );
+            if (heroText && heroText.length > 3 && heroText.length <= MAX_HERO_LENGTH) {
+              heroHeadline = normalizeText(heroText, MAX_HERO_LENGTH);
+              break;
+            }
+          } catch {
+            // Selector not found, try next
+          }
+        }
+      }
+      
+      // Fallback to first H1 if no host-specific hero found
+      if (!heroHeadline && h1.length > 0) {
+        heroHeadline = normalizeText(h1[0], MAX_HERO_LENGTH);
+      }
+
+      // Extract about text using host-specific selectors
+      if (hostConfig.aboutSelectors && hostConfig.aboutSelectors.length > 0) {
+        const aboutParagraphs: string[] = [];
+        for (const selector of hostConfig.aboutSelectors) {
+          try {
+            const texts = await page.$$eval(
+              selector, 
+              (els, excl) => els
+                .filter(el => {
+                  // Exclude elements inside exclusion containers
+                  for (const excSelector of excl) {
+                    if (el.closest(excSelector)) return false;
+                  }
+                  return true;
+                })
+                .map(el => el.textContent?.trim() || "")
+                .filter(t => t.length > 50),
+              exclusions
+            );
+            aboutParagraphs.push(...texts);
+            if (aboutParagraphs.length >= 3) break;
+          } catch {
+            // Selector not found, try next
+          }
+        }
+        if (aboutParagraphs.length > 0) {
+          // Take first 2-3 meaningful paragraphs, normalize and limit
+          const combined = aboutParagraphs.slice(0, 3).join(" ");
+          aboutText = normalizeText(combined, MAX_ABOUT_LENGTH);
+        }
+      }
+
+      // Extract services using host-specific selectors
+      if (hostConfig.servicesSelectors && hostConfig.servicesSelectors.length > 0) {
+        for (const selector of hostConfig.servicesSelectors) {
+          try {
+            const serviceItems = await page.$$eval(
+              selector,
+              (els, excl) => els
+                .filter(el => {
+                  // Exclude elements inside exclusion containers
+                  for (const excSelector of excl) {
+                    if (el.closest(excSelector)) return false;
+                  }
+                  return true;
+                })
+                .map(el => el.textContent?.trim() || "")
+                .filter(t => t.length > 2 && t.length <= 120),
+              exclusions
+            );
+            if (serviceItems.length > 0) {
+              // Dedupe, normalize, limit count
+              services = [...new Set(serviceItems)]
+                .map(s => normalizeText(s, MAX_SERVICE_LENGTH))
+                .filter(s => s.length > 2)
+                .slice(0, MAX_SERVICES_COUNT);
+              break;
+            }
+          } catch {
+            // Selector not found, try next
+          }
+        }
+      }
+
+      console.log("[Crawler] Host-aware copy extraction", {
+        url,
+        host: detectedHost.name,
+        heroFound: !!heroHeadline,
+        heroLength: heroHeadline?.length || 0,
+        aboutLength: aboutText?.length || 0,
+        servicesCount: services.length,
+      });
+    } catch (copyError) {
+      console.warn("[Crawler] Host-aware copy extraction failed, using fallback:", copyError);
+      // Fallback to generic extraction
+      heroHeadline = h1[0] ? normalizeText(h1[0], MAX_HERO_LENGTH) : undefined;
+    }
+  } else {
+    // No host detected, use generic extraction
+    heroHeadline = h1[0] ? normalizeText(h1[0], MAX_HERO_LENGTH) : undefined;
+  }
+
   // Create hash for deduplication
   const hash = crypto.createHash("md5").update(bodyText).digest("hex");
 
@@ -2154,6 +2739,10 @@ async function extractPageContent(
     headlines,
     typography,
     openGraph,
+    detectedHost,
+    heroHeadline,
+    aboutText,
+    services: services.length > 0 ? services : undefined,
   };
 }
 
@@ -2863,6 +3452,52 @@ export async function generateBrandKit(
     brandKit.about_blurb = enhancedSummary.about_blurb;
     // Also add longFormSummary to brandKit (will be saved to brand_kit.longFormSummary)
     (brandKit as any).longFormSummary = enhancedSummary.longFormSummary;
+  }
+
+  // ============= HOST-AWARE COPY INTEGRATION =============
+  // Add host-aware extracted copy from crawl results
+  const firstResult = uniqueResults[0];
+  if (firstResult) {
+    // Add detected host metadata
+    if (firstResult.detectedHost) {
+      brandKit.metadata = brandKit.metadata || {};
+      brandKit.metadata.host = firstResult.detectedHost;
+    }
+    
+    // Add hero headline if extracted
+    if (firstResult.heroHeadline) {
+      brandKit.heroHeadline = firstResult.heroHeadline;
+    }
+    
+    // Aggregate services from all pages
+    const allServices: string[] = [];
+    for (const result of uniqueResults) {
+      if (result.services && result.services.length > 0) {
+        allServices.push(...result.services);
+      }
+    }
+    if (allServices.length > 0) {
+      // Dedupe and limit services
+      brandKit.services = [...new Set(allServices)].slice(0, 15);
+    }
+    
+    // Store aboutText and use as fallback for about_blurb if needed
+    if (firstResult.aboutText) {
+      brandKit.aboutText = firstResult.aboutText;
+      
+      // If AI-generated about_blurb is weak or missing, use host-aware extraction
+      if (!brandKit.about_blurb || brandKit.about_blurb.length < 100) {
+        console.log("[Brand Crawler] Enhancing about_blurb with host-aware extraction");
+        brandKit.about_blurb = firstResult.aboutText;
+      }
+    }
+    
+    console.log("[Brand Crawler] Host-aware copy integrated", {
+      host: firstResult.detectedHost?.name || "unknown",
+      heroHeadline: brandKit.heroHeadline?.substring(0, 50) || "none",
+      aboutTextLength: brandKit.aboutText?.length || 0,
+      servicesCount: brandKit.services?.length || 0,
+    });
   }
 
   return brandKit;

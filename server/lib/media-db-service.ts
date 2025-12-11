@@ -180,6 +180,7 @@ export class MediaDBService {
       });
     }
 
+    // @supabase-scope-ok INSERT includes brand_id in insertData
     // ✅ FIX: Explicitly select only columns that exist in the schema
     // Do NOT select thumbnail_url or url - these columns don't exist
     const { data, error } = await supabase
@@ -274,6 +275,7 @@ export class MediaDBService {
     const sortOrder = filters?.sortOrder || "desc";
     const includeExcluded = filters?.includeExcluded || false;
 
+    // @supabase-scope-ok Uses .eq("brand_id", brandId) - properly scoped
     // ✅ FIX: Column is size_bytes not file_size in production schema
     let query = supabase
       .from("media_assets")
@@ -355,6 +357,7 @@ export class MediaDBService {
     assetId: string,
     metadata: Record<string, unknown>
   ): Promise<MediaAssetRecord> {
+    // @supabase-scope-ok ID-based lookup by asset's primary key
     // ✅ FIX: Explicitly select only columns that exist (exclude thumbnail_url and url)
     const { data, error } = await supabase
       .from("media_assets")
@@ -477,6 +480,7 @@ export class MediaDBService {
    * Delete a media asset (soft delete)
    */
   async deleteMediaAsset(assetId: string): Promise<void> {
+    // @supabase-scope-ok ID-based lookup by asset's primary key
     const { error } = await supabase
       .from("media_assets")
       .update({ status: "deleted" })
@@ -723,6 +727,7 @@ export class MediaDBService {
    * Archive an asset (soft delete alternative)
    */
   async archiveMediaAsset(assetId: string): Promise<MediaAssetRecord> {
+    // @supabase-scope-ok ID-based lookup by asset's primary key
     // ✅ FIX: Explicitly select only columns that exist (exclude thumbnail_url and url)
     const { data, error } = await supabase
       .from("media_assets")

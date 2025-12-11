@@ -4,11 +4,11 @@
  * Validates the complete Plan → Create → Review → Learn workflow
  * with synchronized agent execution and shared data passing.
  *
- * TODO: This file uses a custom test runner (runPipelineOrchestratorTests) instead of Vitest describe/it blocks.
- * Convert to Vitest format or run via: npx tsx server/scripts/run-orchestrator-tests.ts
+ * NOTE: These tests require the PipelineOrchestrator and its dependencies.
+ * Run with: pnpm vitest run server/__tests__/pipeline-orchestrator.test.ts
  */
 
-import { describe, it } from "vitest";
+import { describe, it, expect, beforeEach } from "vitest";
 import {
   PipelineOrchestrator,
   type PipelineCycle,
@@ -77,441 +77,177 @@ const createMockCollaborationContext = (
 };
 
 /**
- * Test Suite
+ * Pipeline Orchestrator Tests
+ * 
+ * SKIP-E2E: These tests require AI providers + multi-agent coordination.
+ * Run manually in AI pipeline with rate limiting and cost controls.
+ * Enable by removing .skip when AI providers are configured.
  */
-export async function runPipelineOrchestratorTests(): Promise<{
-  passed: number;
-  failed: number;
-  total: number;
-}> {
-  let passed = 0;
-  let failed = 0;
-  const total = 10;
+describe.skip("Pipeline Orchestrator Integration Tests", () => {
+  let orchestrator: PipelineOrchestrator;
+  let context: Partial<CollaborationContext>;
 
-  console.log("\n╔════════════════════════════════════════════════════════════════╗");
-  console.log(
-    "║         PIPELINE ORCHESTRATOR INTEGRATION TESTS                ║"
-  );
-  console.log("╚════════════════════════════════════════════════════════════════╝\n");
+  beforeEach(() => {
+    orchestrator = new PipelineOrchestrator("test_brand");
+    context = createMockCollaborationContext();
+  });
 
-  // Test 1: Phase 1 - Plan generation
-  try {
-    console.log("🧪 Test 1: Phase 1 - Plan generates StrategyBrief");
-    const context = createMockCollaborationContext();
-    const orchestrator = new PipelineOrchestrator("test_brand");
-    const { strategy, cycle } = await orchestrator["phase1_Plan"](context);
+  describe("Phase 1 - Plan", () => {
+    it("should generate StrategyBrief with positioning and voice", async () => {
+      const { strategy, cycle } = await orchestrator["phase1_Plan"](context);
 
-    if (!strategy || !strategy.positioning || !strategy.voice) {
-      throw new Error("Strategy generation failed");
-    }
-    if (cycle.status !== "creating") {
-      throw new Error("Cycle status not updated to 'creating'");
-    }
-    if (cycle.metrics.planDurationMs < 0) {
-      throw new Error("Plan duration not tracked");
-    }
+      expect(strategy).toBeDefined();
+      expect(strategy.positioning).toBeDefined();
+      expect(strategy.voice).toBeDefined();
+      expect(cycle.status).toBe("creating");
+      expect(cycle.metrics.planDurationMs).toBeGreaterThanOrEqual(0);
+    });
+  });
 
-    console.log("   ✅ Strategy generated with positioning and voice");
-    console.log(
-      `   ✅ Duration: ${cycle.metrics.planDurationMs}ms, Status: ${cycle.status}`
-    );
-    passed++;
-  } catch (error) {
-    console.error(
-      `   ❌ Failed: ${error instanceof Error ? error.message : String(error)}`
-    );
-    failed++;
-  }
+  describe("Phase 2 - Create", () => {
+    it("should initialize ContentPackage with copy and design context", async () => {
+      const { strategy } = await orchestrator["phase1_Plan"](context);
+      const { contentPackage, cycle } = await orchestrator["phase2_Create"](
+        strategy,
+        context
+      );
 
-  // Test 2: Phase 2 - Create initializes ContentPackage
-  try {
-    console.log("\n🧪 Test 2: Phase 2 - Create initializes ContentPackage");
-    const context = createMockCollaborationContext();
-    const orchestrator = new PipelineOrchestrator("test_brand");
-    const { strategy } = await orchestrator["phase1_Plan"](context);
-    const { contentPackage, cycle } = await orchestrator["phase2_Create"](
-      strategy,
-      context
-    );
+      expect(contentPackage).toBeDefined();
+      expect(contentPackage.copy).toBeDefined();
+      expect(contentPackage.copy.headline).toBeDefined();
+      expect(contentPackage.designContext).toBeDefined();
+      expect(cycle.status).toBe("reviewing");
+      expect(cycle.metrics.createDurationMs).toBeGreaterThanOrEqual(0);
+    });
+  });
 
-    if (!contentPackage) {
-      throw new Error("ContentPackage not created");
-    }
-    if (!contentPackage.copy || !contentPackage.copy.headline) {
-      throw new Error("Copy section not populated");
-    }
-    if (!contentPackage.designContext) {
-      throw new Error("Design context not merged");
-    }
-    if (cycle.status !== "reviewing") {
-      throw new Error("Cycle status not updated to 'reviewing'");
-    }
+  describe("Phase 3 - Review", () => {
+    it("should score content with 5D system", async () => {
+      const { strategy } = await orchestrator["phase1_Plan"](context);
+      const { contentPackage } = await orchestrator["phase2_Create"](
+        strategy,
+        context
+      );
+      const { reviewScores, cycle } = await orchestrator["phase3_Review"](
+        contentPackage,
+        strategy
+      );
 
-    console.log(
-      `   ✅ ContentPackage created with headline: "${contentPackage.copy.headline}"`
-    );
-    console.log(
-      `   ✅ Design context merged with ${contentPackage.designContext.componentPrecedence.length} components`
-    );
-    console.log(`   ✅ Duration: ${cycle.metrics.createDurationMs}ms`);
-    passed++;
-  } catch (error) {
-    console.error(
-      `   ❌ Failed: ${error instanceof Error ? error.message : String(error)}`
-    );
-    failed++;
-  }
+      expect(reviewScores).toBeDefined();
+      expect(typeof reviewScores.clarity).toBe("number");
+      expect(typeof reviewScores.brand_alignment).toBe("number");
+      expect(typeof reviewScores.resonance).toBe("number");
+      expect(typeof reviewScores.actionability).toBe("number");
+      expect(typeof reviewScores.platform_fit).toBe("number");
+      expect(reviewScores.average).toBeGreaterThanOrEqual(0);
+      expect(reviewScores.average).toBeLessThanOrEqual(10);
+      expect(cycle.status).toBe("learning");
+    });
+  });
 
-  // Test 3: Phase 3 - Review scores content
-  try {
-    console.log("\n🧪 Test 3: Phase 3 - Review scores content with 5D system");
-    const context = createMockCollaborationContext();
-    const orchestrator = new PipelineOrchestrator("test_brand");
-    const { strategy } = await orchestrator["phase1_Plan"](context);
-    const { contentPackage } = await orchestrator["phase2_Create"](
-      strategy,
-      context
-    );
-    const { reviewScores, cycle } = await orchestrator["phase3_Review"](
-      contentPackage,
-      strategy
-    );
+  describe("Phase 4 - Learn", () => {
+    it("should update BrandHistory with patterns", async () => {
+      const { strategy } = await orchestrator["phase1_Plan"](context);
+      const { contentPackage } = await orchestrator["phase2_Create"](
+        strategy,
+        context
+      );
+      const { reviewScores } = await orchestrator["phase3_Review"](
+        contentPackage,
+        strategy
+      );
 
-    if (!reviewScores) {
-      throw new Error("Scores not calculated");
-    }
-    if (
-      typeof reviewScores.clarity !== "number" ||
-      typeof reviewScores.brand_alignment !== "number"
-    ) {
-      throw new Error("5D scoring not computed");
-    }
-    if (reviewScores.average < 0 || reviewScores.average > 10) {
-      throw new Error("Average score out of valid range");
-    }
-    if (cycle.status !== "learning") {
-      throw new Error("Cycle status not updated to 'learning'");
-    }
+      const brandHistory =
+        context.brandHistory || createBrandHistory({ brandId: "test_brand" });
+      const { updatedHistory, cycle } = await orchestrator["phase4_Learn"](
+        contentPackage,
+        reviewScores,
+        brandHistory
+      );
 
-    console.log(
-      `   ✅ 5D Scores - Clarity: ${reviewScores.clarity}, Alignment: ${reviewScores.brand_alignment}, Resonance: ${reviewScores.resonance}, Actionability: ${reviewScores.actionability}, Platform: ${reviewScores.platform_fit}`
-    );
-    console.log(
-      `   ✅ Average: ${reviewScores.average.toFixed(1)}/10, Weighted: ${reviewScores.weighted.toFixed(1)}/10`
-    );
-    console.log(`   ✅ Duration: ${cycle.metrics.reviewDurationMs}ms`);
-    passed++;
-  } catch (error) {
-    console.error(
-      `   ❌ Failed: ${error instanceof Error ? error.message : String(error)}`
-    );
-    failed++;
-  }
+      expect(updatedHistory).toBeDefined();
+      expect(updatedHistory.entries).toBeDefined();
+      expect(updatedHistory.entries.length).toBeGreaterThan(0);
 
-  // Test 4: Phase 4 - Learn updates BrandHistory
-  try {
-    console.log(
-      "\n🧪 Test 4: Phase 4 - Learn updates BrandHistory with patterns"
-    );
-    const context = createMockCollaborationContext();
-    const orchestrator = new PipelineOrchestrator("test_brand");
-    const { strategy } = await orchestrator["phase1_Plan"](context);
-    const { contentPackage } = await orchestrator["phase2_Create"](
-      strategy,
-      context
-    );
-    const { reviewScores } = await orchestrator["phase3_Review"](
-      contentPackage,
-      strategy
-    );
+      const entry = updatedHistory.entries[0];
+      expect(entry.tags).toBeDefined();
+      expect(entry.tags.length).toBeGreaterThan(0);
+      expect(cycle.status).toBe("complete");
+    });
+  });
 
-    const brandHistory =
-      context.brandHistory || createBrandHistory({ brandId: "test_brand" });
-    const { updatedHistory, cycle } = await orchestrator["phase4_Learn"](
-      contentPackage,
-      reviewScores,
-      brandHistory
-    );
-
-    if (!updatedHistory || !updatedHistory.entries) {
-      throw new Error("BrandHistory not updated");
-    }
-    if (updatedHistory.entries.length === 0) {
-      throw new Error("History entries not created");
-    }
-
-    const entry = updatedHistory.entries[0];
-    if (!entry.tags || entry.tags.length === 0) {
-      throw new Error("Pattern tags not applied");
-    }
-    if (cycle.status !== "complete") {
-      throw new Error("Cycle status not updated to 'complete'");
-    }
-
-    console.log(
-      `   ✅ History entry created: ${entry.action} (${entry.timestamp})`
-    );
-    console.log(`   ✅ Pattern tags: ${entry.tags.join(", ")}`);
-    console.log(
-      `   ✅ Performance tracked: metric=${entry.performance?.metric}, improvement=${entry.performance?.improvement.toFixed(2)}`
-    );
-    console.log(`   ✅ Duration: ${cycle.metrics.learnDurationMs}ms`);
-    passed++;
-  } catch (error) {
-    console.error(
-      `   ❌ Failed: ${error instanceof Error ? error.message : String(error)}`
-    );
-    failed++;
-  }
-
-  // Test 5: Full pipeline execution
-  try {
-    console.log(
-      "\n🧪 Test 5: Full pipeline executes Plan → Create → Review → Learn"
-    );
-    const context = createMockCollaborationContext();
-    const orchestrator = new PipelineOrchestrator("test_brand");
-    const cycle = await orchestrator.executeFullPipeline(context);
-
-    if (cycle.status !== "complete") {
-      throw new Error(`Pipeline failed with status: ${cycle.status}`);
-    }
-    if (!cycle.strategy || !cycle.contentPackage || !cycle.reviewScores) {
-      throw new Error("Pipeline did not populate all artifacts");
-    }
-    if (cycle.learnings.length === 0) {
-      throw new Error("Pipeline did not record learnings");
-    }
-
-    const totalDuration =
-      cycle.metrics.planDurationMs +
-      cycle.metrics.createDurationMs +
-      cycle.metrics.reviewDurationMs +
-      cycle.metrics.learnDurationMs;
-
-    console.log(`   ✅ Pipeline completed successfully`);
-    console.log(
-      `   ✅ Total Duration: ${totalDuration}ms (Plan: ${cycle.metrics.planDurationMs}ms, Create: ${cycle.metrics.createDurationMs}ms, Review: ${cycle.metrics.reviewDurationMs}ms, Learn: ${cycle.metrics.learnDurationMs}ms)`
-    );
-    console.log(`   ✅ Learnings: ${cycle.learnings.length} entries recorded`);
-    console.log(`   ✅ Errors: ${cycle.errors.length}`);
-    passed++;
-  } catch (error) {
-    console.error(
-      `   ❌ Failed: ${error instanceof Error ? error.message : String(error)}`
-    );
-    failed++;
-  }
-
-  // Test 6: Collaboration log accumulation
-  try {
-    console.log(
-      "\n🧪 Test 6: ContentPackage.collaborationLog accumulates all agent actions"
-    );
-    const context = createMockCollaborationContext();
-    const orchestrator = new PipelineOrchestrator("test_brand");
-    const cycle = await orchestrator.executeFullPipeline(context);
-
-    if (!cycle.contentPackage) {
-      throw new Error("ContentPackage not available");
-    }
-
-    const log = cycle.contentPackage.collaborationLog;
-    if (log.length === 0) {
-      throw new Error("Collaboration log is empty");
-    }
-
-    const agents = log.map((entry) => entry.agent);
-    const hasCopy = agents.includes("copywriter");
-    const hasCreative = agents.includes("creative");
-    const hasAdvisor = agents.includes("advisor");
-
-    if (!hasCopy || !hasCreative || !hasAdvisor) {
-      throw new Error("Not all agents logged their actions");
-    }
-
-    console.log(
-      `   ✅ Collaboration log has ${log.length} entries from all agents`
-    );
-    console.log(`   ✅ Copy logged: ${log.filter((e) => e.agent === "copywriter").length} action(s)`);
-    console.log(
-      `   ✅ Creative logged: ${log.filter((e) => e.agent === "creative").length} action(s)`
-    );
-    console.log(
-      `   ✅ Advisor logged: ${log.filter((e) => e.agent === "advisor").length} action(s)`
-    );
-    passed++;
-  } catch (error) {
-    console.error(
-      `   ❌ Failed: ${error instanceof Error ? error.message : String(error)}`
-    );
-    failed++;
-  }
-
-  // Test 7: Error handling per phase
-  try {
-    console.log("\n🧪 Test 7: Error handling records phase failures");
-    const context: Partial<CollaborationContext> = {
-      strategyBrief: undefined, // Will trigger null handling
-    };
-
-    const orchestrator = new PipelineOrchestrator("test_brand");
-
-    try {
-      // This should handle the missing strategy gracefully
+  describe("Full Pipeline Execution", () => {
+    it("should execute Plan → Create → Review → Learn successfully", async () => {
       const cycle = await orchestrator.executeFullPipeline(context);
-      // If we get here, the orchestrator handled the missing data
-      if (cycle.status === "complete" || cycle.status === "failed") {
-        console.log(
-          `   ✅ Orchestrator handled missing context gracefully (status: ${cycle.status})`
-        );
-        passed++;
-      } else {
-        throw new Error("Unexpected cycle status");
-      }
-    } catch (innerError) {
-      // Even if phase1_Plan throws, the orchestrator should handle it
-      if (innerError instanceof Error) {
-        console.log(
-          `   ✅ Error handling triggered and caught: ${innerError.message}`
-        );
-        passed++;
-      } else {
-        throw innerError;
-      }
-    }
-  } catch (error) {
-    console.error(
-      `   ❌ Failed: ${error instanceof Error ? error.message : String(error)}`
-    );
-    failed++;
-  }
 
-  // Test 8: Request ID and Cycle ID traceability
-  try {
-    console.log(
-      "\n🧪 Test 8: RequestId/CycleId propagates through all phases"
-    );
-    const context = createMockCollaborationContext();
-    const orchestrator = new PipelineOrchestrator("test_brand");
-    const cycle = await orchestrator.executeFullPipeline(context);
+      expect(cycle.status).toBe("complete");
+      expect(cycle.strategy).toBeDefined();
+      expect(cycle.contentPackage).toBeDefined();
+      expect(cycle.reviewScores).toBeDefined();
+      expect(cycle.learnings.length).toBeGreaterThan(0);
+    });
 
-    if (!cycle.cycleId || !cycle.requestId) {
-      throw new Error("IDs not set");
-    }
-    if (cycle.cycleId !== cycle.cycleId) {
-      throw new Error("CycleId not consistent");
-    }
-    if (!cycle.contentPackage || cycle.contentPackage.requestId !== cycle.requestId) {
-      throw new Error("RequestId not propagated to ContentPackage");
-    }
+    it("should accumulate all agent actions in collaboration log", async () => {
+      const cycle = await orchestrator.executeFullPipeline(context);
 
-    console.log(`   ✅ Cycle ID: ${cycle.cycleId}`);
-    console.log(`   ✅ Request ID: ${cycle.requestId}`);
-    console.log(
-      `   ✅ ContentPackage RequestId matches: ${cycle.contentPackage.requestId}`
-    );
-    passed++;
-  } catch (error) {
-    console.error(
-      `   ❌ Failed: ${error instanceof Error ? error.message : String(error)}`
-    );
-    failed++;
-  }
+      expect(cycle.contentPackage).toBeDefined();
+      const log = cycle.contentPackage!.collaborationLog;
+      expect(log.length).toBeGreaterThan(0);
 
-  // Test 9: Design accessibility compliance tracking
-  try {
-    console.log(
-      "\n🧪 Test 9: Design concepts include accessibility compliance notes"
-    );
-    const context = createMockCollaborationContext();
-    const orchestrator = new PipelineOrchestrator("test_brand");
-    const cycle = await orchestrator.executeFullPipeline(context);
+      const agents = log.map((entry) => entry.agent);
+      expect(agents).toContain("copywriter");
+      expect(agents).toContain("creative");
+      expect(agents).toContain("advisor");
+    });
 
-    if (!cycle.contentPackage || !cycle.contentPackage.designContext) {
-      throw new Error("Design context not available");
-    }
+    it("should propagate RequestId/CycleId through all phases", async () => {
+      const cycle = await orchestrator.executeFullPipeline(context);
 
-    const notes = cycle.contentPackage.designContext.accessibilityNotes;
-    if (!notes || notes.length === 0) {
-      throw new Error("Accessibility notes not included");
-    }
+      expect(cycle.cycleId).toBeDefined();
+      expect(cycle.requestId).toBeDefined();
+      expect(cycle.contentPackage).toBeDefined();
+      expect(cycle.contentPackage!.requestId).toBe(cycle.requestId);
+    });
+  });
 
-    console.log(`   ✅ Accessibility notes included: ${notes.length} items`);
-    console.log(`   ✅ Sample: "${notes[0]}"`);
-    passed++;
-  } catch (error) {
-    console.error(
-      `   ❌ Failed: ${error instanceof Error ? error.message : String(error)}`
-    );
-    failed++;
-  }
+  describe("Error Handling", () => {
+    it("should handle missing context gracefully", async () => {
+      const emptyContext: Partial<CollaborationContext> = {
+        strategyBrief: undefined,
+      };
 
-  // Test 10: HITL safeguards - all outputs require approval
-  try {
-    console.log(
-      "\n🧪 Test 10: HITL safeguards - all outputs marked requires_approval"
-    );
-    const context = createMockCollaborationContext();
-    const orchestrator = new PipelineOrchestrator("test_brand");
-    const cycle = await orchestrator.executeFullPipeline(context);
+      const emptyOrchestrator = new PipelineOrchestrator("test_brand");
+      
+      // Should either complete or fail gracefully
+      const cycle = await emptyOrchestrator.executeFullPipeline(emptyContext);
+      expect(["complete", "failed"]).toContain(cycle.status);
+    });
+  });
 
-    if (!cycle.contentPackage) {
-      throw new Error("ContentPackage not available");
-    }
+  describe("Design Accessibility Compliance", () => {
+    it("should include accessibility compliance notes in design concepts", async () => {
+      const cycle = await orchestrator.executeFullPipeline(context);
 
-    // Check that content is not auto-published
-    if (cycle.contentPackage.status !== "draft") {
-      throw new Error(
-        `Content status should be 'draft', got '${cycle.contentPackage.status}'`
-      );
-    }
+      expect(cycle.contentPackage).toBeDefined();
+      expect(cycle.contentPackage!.designContext).toBeDefined();
 
-    // Verify through collaboration log that all phases logged their work
-    const log = cycle.contentPackage.collaborationLog;
-    const publishActions = log.filter((e) => e.action.includes("publish"));
-    if (publishActions.length > 0) {
-      throw new Error(
-        "Content should not be auto-published (HITL safeguard violated)"
-      );
-    }
+      const notes = cycle.contentPackage!.designContext.accessibilityNotes;
+      expect(notes).toBeDefined();
+      expect(notes.length).toBeGreaterThan(0);
+    });
+  });
 
-    console.log(`   ✅ ContentPackage status: ${cycle.contentPackage.status}`);
-    console.log(`   ✅ No auto-publish actions in log`);
-    console.log(
-      `   ✅ HITL safeguard maintained: All outputs require human approval`
-    );
-    passed++;
-  } catch (error) {
-    console.error(
-      `   ❌ Failed: ${error instanceof Error ? error.message : String(error)}`
-    );
-    failed++;
-  }
+  describe("HITL Safeguards", () => {
+    it("should mark all outputs as requiring approval (not auto-published)", async () => {
+      const cycle = await orchestrator.executeFullPipeline(context);
 
-  // Summary
-  console.log("\n╔════════════════════════════════════════════════════════════════╗");
-  console.log("║                      TEST RESULTS                             ║");
-  console.log("╚════════════════════════════════════════════════════════════════╝\n");
+      expect(cycle.contentPackage).toBeDefined();
+      expect(cycle.contentPackage!.status).toBe("draft");
 
-  console.log(`✅ Passed: ${passed}/${total}`);
-  console.log(`❌ Failed: ${failed}/${total}`);
-
-  if (failed === 0) {
-    console.log(
-      "\n✅ All orchestration tests passed - Synchronized collaboration ready!"
-    );
-  } else {
-    console.log(`\n❌ ${failed} test(s) failed - Review errors above`);
-  }
-
-  return { passed, failed, total };
-}
-
-// SKIP-E2E: Pipeline Orchestrator tests require AI providers + multi-agent coordination
-// The custom test runner above exercises the full content generation pipeline
-// Can be run manually via: npx tsx server/scripts/run-orchestrator-tests.ts
-// Future: Run in dedicated AI pipeline with rate limiting and cost controls
-describe.skip("Pipeline Orchestrator Integration Tests [SKIP-E2E]", () => {
-  it.todo("Convert to Vitest format or run via: npx tsx server/scripts/run-orchestrator-tests.ts");
+      // Verify no auto-publish actions in log
+      const log = cycle.contentPackage!.collaborationLog;
+      const publishActions = log.filter((e) => e.action.includes("publish"));
+      expect(publishActions.length).toBe(0);
+    });
+  });
 });

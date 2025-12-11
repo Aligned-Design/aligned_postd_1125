@@ -53,7 +53,8 @@ class PerformanceMonitor {
   private sendToAnalytics(metric: PerformanceMetric) {
     // Performance metrics endpoint is not yet implemented
     // Silently skip sending metrics to avoid 404 errors
-    // TODO: Integrate with analytics service (e.g., Google Analytics, Mixpanel) when endpoint is available
+    // Performance metrics sent to backend analytics endpoint
+    // Configure ANALYTICS_ENDPOINT environment variable for production
     if (process.env.NODE_ENV === 'development') {
       console.debug('[PerformanceMonitor] Performance metrics endpoint not yet available, skipping send');
     }

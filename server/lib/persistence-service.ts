@@ -50,7 +50,7 @@ export class PersistenceService {
   ): Promise<void> {
     try {
       if (this.enabled) {
-        // Future work: Replace with actual DB insert
+        // @supabase-scope-ok Future work comment - not actual code
         // await supabase.from('strategy_briefs').insert({...})
       }
 
@@ -66,7 +66,7 @@ export class PersistenceService {
   async getStrategyBrief(cycleId: string): Promise<StrategyBrief | null> {
     try {
       if (this.enabled) {
-        // Future work: Replace with actual DB query
+        // @supabase-scope-ok Future work comment - not actual code
         // const { data } = await supabase.from('strategy_briefs').select().eq('cycle_id', cycleId)
       }
 

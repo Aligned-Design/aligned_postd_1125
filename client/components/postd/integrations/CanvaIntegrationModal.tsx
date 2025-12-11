@@ -1,19 +1,28 @@
 /**
  * Canva Integration Modal
  * 
- * Placeholder modal for Canva integration actions.
- * Shows "coming soon" message or initiates Canva editor session when ready.
+ * Modal for Canva integration actions.
+ * Handles OAuth connection and design import/editor functionality.
  */
 
-import { X, ExternalLink, Info } from "lucide-react";
-import { useState } from "react";
-import { isCanvaConfigured } from "@/lib/canva-utils";
+import { X, ExternalLink, Info, Link2 } from "lucide-react";
+import { useState, useEffect } from "react";
+import { 
+  isCanvaConfigured, 
+  checkCanvaConfigured, 
+  startCanvaAuth, 
+  initiateCanvaEditor, 
+  importCanvaDesign 
+} from "@/lib/canva-utils";
+import { logError, logInfo } from "@/lib/logger";
+import { useCurrentBrand } from "@/hooks/useCurrentBrand";
+import { useToast } from "@/hooks/use-toast";
 
 interface CanvaIntegrationModalProps {
   isOpen: boolean;
   onClose: () => void;
   onInitiateEditor?: () => void;
-  onImportDesign?: () => void;
+  onImportDesign?: (assetId: string, url: string) => void;
   mode?: "editor" | "import";
 }
 
@@ -25,34 +34,120 @@ export function CanvaIntegrationModal({
   mode = "editor",
 }: CanvaIntegrationModalProps) {
   const [isLoading, setIsLoading] = useState(false);
+  const [isConnected, setIsConnected] = useState(isCanvaConfigured());
+  const [isCheckingConnection, setIsCheckingConnection] = useState(true);
+  const [designIdInput, setDesignIdInput] = useState("");
+  const { brandId } = useCurrentBrand();
+  const { toast } = useToast();
+
+  // Check connection status on mount
+  useEffect(() => {
+    if (isOpen && brandId) {
+      setIsCheckingConnection(true);
+      checkCanvaConfigured(brandId)
+        .then((connected) => {
+          setIsConnected(connected);
+          if (connected) {
+            sessionStorage.setItem("canva_connected", "true");
+          }
+        })
+        .catch(() => setIsConnected(false))
+        .finally(() => setIsCheckingConnection(false));
+    }
+  }, [isOpen, brandId]);
 
   if (!isOpen) return null;
 
-  const handleInitiate = async () => {
+  const handleConnect = async () => {
+    if (!brandId) {
+      toast({
+        title: "Error",
+        description: "No brand selected. Please select a brand first.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsLoading(true);
     try {
-      // TODO: When Canva API is ready, call actual API
-      // For now, just log and show placeholder
-      console.log("[Canva] TODO: Connect Canva API");
-      
-      if (mode === "import" && onImportDesign) {
-        onImportDesign();
-      } else if (onInitiateEditor) {
-        onInitiateEditor();
-      } else {
-        // Placeholder: show info message
-        alert(mode === "import" 
-          ? "Canva import coming soon! This will import a design from your Canva account."
-          : "Canva integration coming soon! This will open the Canva editor.");
-      }
+      logInfo("[Canva] Starting OAuth flow", { brandId });
+      const { authUrl } = await startCanvaAuth(brandId);
+      window.location.href = authUrl;
     } catch (error) {
-      console.error("[Canva] Error:", error);
+      logError("[Canva] Failed to start OAuth", error instanceof Error ? error : new Error(String(error)));
+      toast({
+        title: "Connection Failed",
+        description: "Failed to connect to Canva. Please try again.",
+        variant: "destructive",
+      });
     } finally {
       setIsLoading(false);
     }
   };
 
-  const isConfigured = isCanvaConfigured();
+  const handleOpenEditor = async () => {
+    if (!brandId) return;
+
+    setIsLoading(true);
+    try {
+      logInfo("[Canva] Opening editor", { brandId });
+      const { editorUrl } = await initiateCanvaEditor(brandId);
+      
+      // Open Canva in a new tab
+      window.open(editorUrl, "_blank", "noopener,noreferrer");
+      
+      toast({
+        title: "Canva Opened",
+        description: "Canva editor opened in a new tab.",
+      });
+      
+      onInitiateEditor?.();
+      onClose();
+    } catch (error) {
+      logError("[Canva] Failed to open editor", error instanceof Error ? error : new Error(String(error)));
+      toast({
+        title: "Error",
+        description: "Failed to open Canva editor. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleImport = async () => {
+    if (!brandId || !designIdInput.trim()) {
+      toast({
+        title: "Error",
+        description: "Please enter a Canva design ID.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      logInfo("[Canva] Importing design", { brandId, designId: designIdInput });
+      const { assetId, url } = await importCanvaDesign(brandId, designIdInput.trim());
+      
+      toast({
+        title: "Import Successful",
+        description: "Design imported to your library.",
+      });
+      
+      onImportDesign?.(assetId, url);
+      onClose();
+    } catch (error) {
+      logError("[Canva] Failed to import design", error instanceof Error ? error : new Error(String(error)));
+      toast({
+        title: "Import Failed",
+        description: "Failed to import design. Please check the design ID and try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
@@ -77,14 +172,19 @@ export function CanvaIntegrationModal({
 
         {/* Content */}
         <div className="space-y-4">
-          {!isConfigured ? (
+          {isCheckingConnection ? (
+            <div className="flex items-center justify-center py-8">
+              <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+              <span className="ml-3 text-slate-600">Checking connection...</span>
+            </div>
+          ) : !isConnected ? (
             <>
-              <div className="flex items-start gap-3 p-4 bg-amber-50 border border-amber-200 rounded-lg">
-                <Info className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
-                <div className="text-sm text-amber-800">
-                  <p className="font-semibold mb-1">Canva Integration Coming Soon</p>
+              <div className="flex items-start gap-3 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <Info className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                <div className="text-sm text-blue-800">
+                  <p className="font-semibold mb-1">Connect Your Canva Account</p>
                   <p>
-                    The Canva integration is being set up. Once configured, you'll be able to:
+                    Connect your Canva account to access powerful design features:
                   </p>
                   <ul className="list-disc list-inside mt-2 space-y-1">
                     <li>Open designs in Canva's editor</li>
@@ -93,30 +193,93 @@ export function CanvaIntegrationModal({
                   </ul>
                 </div>
               </div>
+              <button
+                onClick={handleConnect}
+                disabled={isLoading}
+                className="w-full px-4 py-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white font-semibold rounded-lg hover:from-blue-600 hover:to-purple-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                {isLoading ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    <span>Connecting...</span>
+                  </>
+                ) : (
+                  <>
+                    <Link2 className="w-4 h-4" />
+                    <span>Connect Canva Account</span>
+                  </>
+                )}
+              </button>
             </>
-          ) : (
+          ) : mode === "editor" ? (
             <>
               <p className="text-slate-600">
-                {mode === "editor"
-                  ? "Open your design in Canva's editor to make advanced edits, use templates, and access Canva's full design tools."
-                  : "Import a design from your Canva account directly into your library."}
+                Open your design in Canva's editor to make advanced edits, use templates, and access Canva's full design tools.
               </p>
 
               <div className="flex gap-3">
                 <button
-                  onClick={handleInitiate}
+                  onClick={handleOpenEditor}
                   disabled={isLoading}
                   className="flex-1 px-4 py-3 bg-[var(--color-lime-500)] text-[var(--color-primary-dark)] font-semibold rounded-lg hover:bg-[var(--color-lime-400)] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
                   {isLoading ? (
                     <>
                       <div className="w-4 h-4 border-2 border-[var(--color-primary-dark)] border-t-transparent rounded-full animate-spin" />
-                      <span>Connecting...</span>
+                      <span>Opening...</span>
                     </>
                   ) : (
                     <>
                       <ExternalLink className="w-4 h-4" />
-                      <span>{mode === "editor" ? "Open in Canva" : "Import Design"}</span>
+                      <span>Open in Canva</span>
+                    </>
+                  )}
+                </button>
+                <button
+                  onClick={onClose}
+                  className="px-4 py-3 border-2 border-[var(--color-primary)] bg-transparent text-[var(--color-primary)] font-semibold rounded-lg hover:bg-[var(--color-primary)]/10 transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <p className="text-slate-600">
+                Import a design from your Canva account directly into your library.
+              </p>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  Canva Design ID
+                </label>
+                <input
+                  type="text"
+                  value={designIdInput}
+                  onChange={(e) => setDesignIdInput(e.target.value)}
+                  placeholder="e.g., DAF1234567890"
+                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+                <p className="text-xs text-slate-500 mt-1">
+                  Find the design ID in your Canva design URL
+                </p>
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={handleImport}
+                  disabled={isLoading || !designIdInput.trim()}
+                  className="flex-1 px-4 py-3 bg-[var(--color-lime-500)] text-[var(--color-primary-dark)] font-semibold rounded-lg hover:bg-[var(--color-lime-400)] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  {isLoading ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-[var(--color-primary-dark)] border-t-transparent rounded-full animate-spin" />
+                      <span>Importing...</span>
+                    </>
+                  ) : (
+                    <>
+                      <ExternalLink className="w-4 h-4" />
+                      <span>Import Design</span>
                     </>
                   )}
                 </button>
@@ -134,4 +297,3 @@ export function CanvaIntegrationModal({
     </div>
   );
 }
-

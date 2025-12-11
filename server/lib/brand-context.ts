@@ -1,12 +1,12 @@
 /**
- * Brand Profile Service
+ * Brand Context Service
  * 
- * Fetches brand profile data from Supabase and maps it to BrandProfile interface
+ * Fetches brand context data from Supabase and maps it to BrandContext interface
  * for use in AI agents (Advisor, Doc, Design).
  */
 
 import { supabase } from "./supabase";
-import type { BrandProfile } from "@shared/advisor";
+import type { BrandContext } from "@shared/advisor";
 
 interface BrandKitData {
   wordsToAvoid?: string;
@@ -27,12 +27,12 @@ interface VoiceSummaryData {
 }
 
 /**
- * Get brand profile from database
+ * Get brand context from database
  * 
  * Reads from the full Brand Guide structure (brand_kit, voice_summary, visual_summary)
  * to provide complete brand context for AI agents.
  */
-export async function getBrandProfile(brandId: string): Promise<BrandProfile> {
+export async function getBrandContext(brandId: string): Promise<BrandContext> {
   try {
     // Fetch brand data from Supabase (full Brand Guide structure)
     const { data: brand, error } = await supabase
@@ -44,14 +44,14 @@ export async function getBrandProfile(brandId: string): Promise<BrandProfile> {
       .single();
 
     if (error) {
-      console.error(`[BrandProfile] Error fetching brand ${brandId}:`, error);
-      // Return default profile on error
-      return getDefaultBrandProfile();
+      console.error(`[BrandContext] Error fetching brand ${brandId}:`, error);
+      // Return default context on error
+      return getDefaultBrandContext();
     }
 
     if (!brand) {
-      console.warn(`[BrandProfile] Brand ${brandId} not found`);
-      return getDefaultBrandProfile();
+      console.warn(`[BrandContext] Brand ${brandId} not found`);
+      return getDefaultBrandContext();
     }
 
     // Extract data from Brand Guide JSONB fields
@@ -59,7 +59,7 @@ export async function getBrandProfile(brandId: string): Promise<BrandProfile> {
     const voiceSummary = (brand.voice_summary as any) || {};
     const visualSummary = (brand.visual_summary as any) || {};
 
-    // Map Brand Guide fields to BrandProfile interface
+    // Map Brand Guide fields to BrandContext interface
     // Priority: voice_summary > brand_kit > tone_keywords (for backward compatibility)
     
     // Tone: from voice_summary.tone (array) or brand_kit.tone (array) or tone_keywords
@@ -173,7 +173,7 @@ export async function getBrandProfile(brandId: string): Promise<BrandProfile> {
       allowedToneDescriptors = ["professional", "helpful", "clear"];
     }
 
-    const profile: BrandProfile = {
+    const context: BrandContext = {
       name: brand.name || brandKit.brandName || "Brand",
       tone,
       values,
@@ -183,17 +183,17 @@ export async function getBrandProfile(brandId: string): Promise<BrandProfile> {
       allowedToneDescriptors,
     };
 
-    return profile;
+    return context;
   } catch (error) {
-    console.error(`[BrandProfile] Unexpected error fetching brand ${brandId}:`, error);
-    return getDefaultBrandProfile();
+    console.error(`[BrandContext] Unexpected error fetching brand ${brandId}:`, error);
+    return getDefaultBrandContext();
   }
 }
 
 /**
- * Get default brand profile (fallback)
+ * Get default brand context (fallback)
  */
-function getDefaultBrandProfile(): BrandProfile {
+function getDefaultBrandContext(): BrandContext {
   return {
     name: "Brand",
     tone: "professional",
@@ -204,4 +204,7 @@ function getDefaultBrandProfile(): BrandProfile {
     allowedToneDescriptors: ["professional", "helpful", "clear"],
   };
 }
+
+// Note: Legacy getBrandProfile and BrandProfile have been removed
+// Use getBrandContext and BrandContext directly
 

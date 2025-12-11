@@ -50,7 +50,7 @@ const SCRAPE_STEPS: ScrapeProgress[] = [
   {
     step: "generate",
     status: "pending",
-    message: "Creating your personalized brand profile",
+    message: "Creating your personalized Brand Guide",
   },
 ];
 
@@ -174,8 +174,7 @@ export default function Screen3AiScrape() {
     try {
       // ✅ CRITICAL: Use REAL brandId from database (created in step 2)
       // Do NOT create temporary IDs - brand should already exist
-      // TODO: Migrate from "aligned_brand_id" to "postd_brand_id" (keeping backward compatibility)
-      const brandId = localStorage.getItem("postd_brand_id") || localStorage.getItem("aligned_brand_id");
+      const brandId = localStorage.getItem("postd_brand_id");
       if (!brandId) {
         const errorMsg = "Brand ID not found. Please go back to step 2 and complete brand creation.";
         logError("Brand ID not found", new Error(errorMsg), { step: "scrape_validation" });
@@ -282,6 +281,12 @@ export default function Screen3AiScrape() {
               ? brandKit.about_blurb 
               : "", // Empty string - will be handled by Screen5BrandSummaryReview fallback
             headlines: brandKit?.headlines || [], // Include headlines
+            // ✅ MVP2: Host-aware copy extraction fields
+            heroHeadline: brandKit?.heroHeadline || "",
+            aboutText: brandKit?.aboutText || "",
+            services: brandKit?.services || [],
+            // ✅ MVP2: Host metadata for observability and styling hints
+            host: brandKit?.metadata?.host || null,
           },
       };
       
@@ -607,7 +612,7 @@ export default function Screen3AiScrape() {
               Your logos, images, colors, and brand voice are ready.
               {(() => {
                 // Check brand-specific key for multi-brand/agency support
-                const brandId = localStorage.getItem("postd_brand_id") || localStorage.getItem("aligned_brand_id");
+                const brandId = localStorage.getItem("postd_brand_id");
                 return brandId && localStorage.getItem(`postd:onboarding:${brandId}:workflow_completed`) === "true";
               })() && (
                 <> We've also generated your first week of content!</>

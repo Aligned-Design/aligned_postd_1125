@@ -75,7 +75,7 @@ export function DashboardWelcome({
               🎉 You're all set!
             </h1>
             <p className="text-slate-600 font-medium text-lg">
-              Your brand profile is complete and your first week of content is ready.
+              Your Brand Guide is complete and your first week of content is ready.
             </p>
           </div>
 
@@ -87,7 +87,7 @@ export function DashboardWelcome({
             <div className="space-y-3">
               <div className="flex items-center gap-3">
                 <CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0" />
-                <span className="text-slate-700">Brand profile created</span>
+                <span className="text-slate-700">Brand Guide created</span>
               </div>
               <div className="flex items-center gap-3">
                 <CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0" />

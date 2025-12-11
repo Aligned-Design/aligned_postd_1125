@@ -147,6 +147,7 @@ router.get("/", (async (req, res, next) => {
             // 5. Test media_assets table
             console.log("[Health] 🔍 Testing media_assets table...");
             try {
+              // @supabase-scope-ok DB health check - only verifies table is accessible
               const { data: media, error: mediaError } = await supabase
                 .from("media_assets")
                 .select("id")

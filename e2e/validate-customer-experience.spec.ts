@@ -47,8 +47,8 @@ test.describe('Customer Experience Validation - Onboarding Flow', () => {
     
     // Mock the brand snapshot in localStorage
     await page.addInitScript(() => {
-      localStorage.setItem('aligned_brand_id', 'test-brand-id-123');
-      localStorage.setItem('aligned_brand_snapshot', JSON.stringify({
+      localStorage.setItem('postd_brand_id', 'test-brand-id-123');
+      localStorage.setItem('postd_brand_snapshot', JSON.stringify({
         brandName: 'Test Brand',
         colors: ['#8B5CF6', '#F0F7F7'],
         tone: ['professional', 'friendly'],
@@ -56,7 +56,7 @@ test.describe('Customer Experience Validation - Onboarding Flow', () => {
           keywords: ['design', 'creative', 'innovation']
         }
       }));
-      localStorage.setItem('aligned_onboarding_step', '5');
+      localStorage.setItem('postd_onboarding_step', '5');
     });
 
     // Navigate to onboarding (this would normally be done through auth flow)

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { CalendarAccordion } from "@/components/dashboard/CalendarAccordion";
 import { MonthCalendarView } from "@/components/dashboard/MonthCalendarView";
 import { DayViewHourly } from "@/components/dashboard/DayViewHourly";
@@ -14,34 +14,68 @@ import { EmptyState } from "@/components/postd/ui/feedback/EmptyState";
 import { X, Filter, Calendar as CalendarIcon } from "lucide-react";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { usePlatformConnections } from "@/hooks/usePlatformConnections";
+import { useCurrentBrand } from "@/hooks/useCurrentBrand";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { logError } from "@/lib/logger";
 
 type ViewType = "day" | "week" | "month";
 
 export default function Calendar() {
   const { currentWorkspace } = useWorkspace();
   const { hasAnyConnection, isLoading: connectionsLoading } = usePlatformConnections();
+  const { brandId } = useCurrentBrand();
   const [view, setView] = useState<ViewType>("week");
   const [selectedBrand, setSelectedBrand] = useState<string | null>(null);
   const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>([]);
   const [selectedCampaign, setSelectedCampaign] = useState<string | null>(null);
   const [showFilters, setShowFilters] = useState(false);
-  // TODO: Replace with real data fetching hook when API is ready
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
-  const [hasContent, setHasContent] = useState(true); // Default to true - will be updated when real data is fetched
+  const [hasContent, setHasContent] = useState(false);
 
   const brands = ["Brand A", "Brand B", "Brand C"];
   const platforms = ["LinkedIn", "Instagram", "Facebook", "Twitter", "TikTok", "YouTube"];
   const campaigns = ["Product Launch", "Holiday Promo", "Brand Awareness", "Customer Spotlight"];
 
-  const handleRetry = () => {
-    setError(null);
+  // Fetch calendar content from API
+  const fetchCalendarData = useCallback(async () => {
+    if (!brandId) {
+      setIsLoading(false);
+      return;
+    }
+
     setIsLoading(true);
-    // TODO: Refetch calendar data when API is ready
-    setTimeout(() => setIsLoading(false), 1000);
+    setError(null);
+
+    try {
+      const response = await fetch(`/api/content-plan/${brandId}`);
+      if (!response.ok) {
+        if (response.status === 404) {
+          // No content plan yet - that's okay
+          setHasContent(false);
+          return;
+        }
+        throw new Error("Failed to fetch calendar data");
+      }
+
+      const data = await response.json();
+      setHasContent(data.contentPlan?.length > 0 || data.items?.length > 0);
+    } catch (err) {
+      logError("[Calendar] Failed to fetch data", err instanceof Error ? err : new Error(String(err)));
+      setError(err instanceof Error ? err : new Error(String(err)));
+    } finally {
+      setIsLoading(false);
+    }
+  }, [brandId]);
+
+  useEffect(() => {
+    fetchCalendarData();
+  }, [fetchCalendarData]);
+
+  const handleRetry = () => {
+    fetchCalendarData();
   };
 
   const togglePlatform = (platform: string) => {

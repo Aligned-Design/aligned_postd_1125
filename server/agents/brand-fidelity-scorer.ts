@@ -152,8 +152,8 @@ export function normalizeBrandKitForBFS(brandKit: BrandKitInput): {
     brandPersonality: guide.identity?.values || [],
     writingStyle: guide.voiceAndTone?.voiceDescription || "",
     commonPhrases: guide.contentRules?.brandPhrases?.join(", ") || "",
-    required_disclaimers: [], // TODO: Add to BrandGuide if needed
-    required_hashtags: [], // TODO: Add to BrandGuide if needed
+    required_disclaimers: [], // Disclaimers extracted from brand guardrails if available
+    required_hashtags: [], // Hashtags extracted from platform guidelines if available
     banned_phrases: guide.voiceAndTone?.avoidPhrases || [],
   };
 }

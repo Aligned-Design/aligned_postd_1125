@@ -11,6 +11,7 @@ import { supabase } from "../lib/supabase";
 import { AppError } from "../lib/error-middleware";
 import { ErrorCode, HTTP_STATUS } from "../lib/error-responses";
 import { DashboardResponse, DashboardKpi, ChartDataPoint, TopContentItem, ActivityItem } from "@shared/api";
+import { CONTENT_STATUS } from "@shared/content-status";
 import { validateBrandId } from "../middleware/validate-brand-id";
 
 // ✅ VALIDATION: Zod schema for dashboard request
@@ -70,8 +71,13 @@ async function getDashboardKPIs(
   }
 
   const totalPosts = contentItems?.length || 0;
-  const publishedPosts = contentItems?.filter((item) => item.status === "published").length || 0;
-  const scheduledPosts = contentItems?.filter((item) => item.status === "pending_review" || item.status === "approved").length || 0;
+  const publishedPosts = contentItems?.filter((item) => item.status === CONTENT_STATUS.PUBLISHED).length || 0;
+  // ✅ MVP4.3: Use shared status constants for consistent filtering
+  const scheduledPosts = contentItems?.filter((item) => 
+    item.status === CONTENT_STATUS.PENDING_REVIEW || 
+    item.status === CONTENT_STATUS.APPROVED ||
+    item.status === CONTENT_STATUS.SCHEDULED
+  ).length || 0;
 
   // Get analytics metrics if available
   let totalEngagement = 0;

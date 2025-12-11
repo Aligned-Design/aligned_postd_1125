@@ -280,3 +280,148 @@ export function buildBFSBaselinePrompt(brandGuide: BrandGuide): string {
   return prompt;
 }
 
+// ============================================================================
+// HOST-AWARE STYLE HINTS (MVP3)
+// ============================================================================
+
+/**
+ * Host-aware style hints for AI agents
+ * Returns platform-specific style guidance based on detected CMS/host
+ */
+export interface HostStyleHints {
+  /** Platform type */
+  hostType: string;
+  /** Copy/writing style hints */
+  copyStyle: string[];
+  /** Visual/design style hints */
+  visualStyle: string[];
+  /** Content format preferences */
+  formatHints: string[];
+}
+
+/**
+ * Get host-aware style hints for copy generation
+ * Maps CMS/host type to appropriate writing style guidance
+ */
+export function getHostCopyStyleHints(hostType: string | undefined): string[] {
+  if (!hostType) return [];
+
+  const hostHints: Record<string, string[]> = {
+    squarespace: [
+      "Modern, clean, editorial writing style",
+      "Prefer minimal, design-forward language",
+      "Emphasis on visual storytelling",
+      "Concise, impactful headlines",
+    ],
+    shopify: [
+      "Product-focused, conversion-friendly copy",
+      "Highlight offers, collections, and products",
+      "Clear value propositions and benefits",
+      "Action-oriented CTAs (Shop now, Add to cart)",
+    ],
+    wordpress: [
+      "Content-rich, SEO-friendly writing",
+      "Long-form friendly with clear structure",
+      "Blog-style narrative when appropriate",
+      "Include keywords naturally in copy",
+    ],
+    wix: [
+      "Versatile, adaptable writing style",
+      "Balance visual and text content",
+      "Friendly, approachable tone",
+      "Clear calls-to-action",
+    ],
+    webflow: [
+      "Design-conscious, polished copy",
+      "Creative, brand-forward language",
+      "Complement sophisticated visuals",
+      "Modern, refined tone",
+    ],
+  };
+
+  return hostHints[hostType.toLowerCase()] || [];
+}
+
+/**
+ * Get host-aware style hints for design/visual generation
+ * Maps CMS/host type to appropriate visual style guidance
+ */
+export function getHostVisualStyleHints(hostType: string | undefined): string[] {
+  if (!hostType) return [];
+
+  const hostHints: Record<string, string[]> = {
+    squarespace: [
+      "Clean, minimal layouts with generous whitespace",
+      "Editorial photography style",
+      "Elegant typography hierarchy",
+      "Grid-based, balanced compositions",
+    ],
+    shopify: [
+      "Product-focused grid layouts",
+      "Clear product photography",
+      "Conversion-optimized visual hierarchy",
+      "Badge/label elements for offers",
+    ],
+    wordpress: [
+      "Content-first layout with featured images",
+      "Blog-style card layouts",
+      "Typography-forward with readable body text",
+      "Supporting graphics and icons",
+    ],
+    wix: [
+      "Flexible, varied layouts",
+      "Mixed media friendly",
+      "Colorful, expressive visuals",
+      "Interactive element styling",
+    ],
+    webflow: [
+      "Sophisticated, custom design aesthetic",
+      "Creative animations and transitions",
+      "Bold typography and color usage",
+      "Unique, non-template look",
+    ],
+  };
+
+  return hostHints[hostType.toLowerCase()] || [];
+}
+
+/**
+ * Build host-aware context section for prompts
+ * Returns formatted prompt section with platform-specific guidance
+ */
+export function buildHostAwarePromptSection(
+  hostType: string | undefined,
+  agentType: "copy" | "design" | "advisor"
+): string {
+  if (!hostType || hostType === "unknown") {
+    return ""; // No special hints for unknown hosts
+  }
+
+  let prompt = `\n## PLATFORM STYLE CONTEXT\n\n`;
+  prompt += `This brand's website is built on **${hostType.charAt(0).toUpperCase() + hostType.slice(1)}**.\n`;
+  prompt += `Consider these platform-specific style hints:\n\n`;
+
+  if (agentType === "copy" || agentType === "advisor") {
+    const copyHints = getHostCopyStyleHints(hostType);
+    if (copyHints.length > 0) {
+      prompt += `**Writing Style:**\n`;
+      copyHints.forEach((hint) => {
+        prompt += `- ${hint}\n`;
+      });
+    }
+  }
+
+  if (agentType === "design") {
+    const visualHints = getHostVisualStyleHints(hostType);
+    if (visualHints.length > 0) {
+      prompt += `**Visual Style:**\n`;
+      visualHints.forEach((hint) => {
+        prompt += `- ${hint}\n`;
+      });
+    }
+  }
+
+  prompt += `\n`;
+  return prompt;
+}
+

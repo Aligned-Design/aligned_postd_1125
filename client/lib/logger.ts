@@ -1,7 +1,7 @@
 /**
  * Logger utility for frontend
  * 
- * In production, logs are disabled or sent to a tracking service.
+ * In production, logs are sent to the backend analytics/error tracking endpoint.
  * In development, logs are sent to console.
  */
 
@@ -12,27 +12,53 @@ export interface LogContext {
 }
 
 /**
+ * Send log to backend (production only)
+ */
+async function sendToBackend(type: "telemetry" | "error" | "warning", data: Record<string, unknown>): Promise<void> {
+  if (isDevelopment) return;
+  
+  try {
+    // Non-blocking send to analytics endpoint
+    fetch("/api/analytics/log", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        type,
+        timestamp: new Date().toISOString(),
+        ...data,
+      }),
+    }).catch(() => {
+      // Silently fail - don't block UI for logging
+    });
+  } catch {
+    // Silently fail
+  }
+}
+
+/**
  * Log telemetry/analytics events
- * In production, this should send to an analytics service
+ * In production, this sends to the backend analytics endpoint
  */
 export function logTelemetry(event: string, context?: LogContext): void {
   if (isDevelopment) {
     console.log(`[telemetry] ${event}`, context || {});
   }
-  // TODO: In production, send to analytics service (e.g., PostHog, Mixpanel)
+  sendToBackend("telemetry", { event, context });
 }
 
 /**
  * Log errors
- * In production, this should send to an error tracking service
+ * In production, this sends to the backend for error tracking
  */
 export function logError(message: string, error?: Error, context?: LogContext): void {
   if (isDevelopment) {
     console.error(`[error] ${message}`, error, context || {});
-  } else {
-    // TODO: In production, send to error tracking service (e.g., Sentry)
-    // For now, silently fail in production
   }
+  sendToBackend("error", {
+    message,
+    error: error ? { name: error.name, message: error.message, stack: error.stack } : undefined,
+    context,
+  });
 }
 
 /**
@@ -42,6 +68,7 @@ export function logWarning(message: string, context?: LogContext): void {
   if (isDevelopment) {
     console.warn(`[warn] ${message}`, context || {});
   }
+  sendToBackend("warning", { message, context });
 }
 
 /**
@@ -52,4 +79,3 @@ export function logInfo(message: string, context?: LogContext): void {
     console.info(`[info] ${message}`, context || {});
   }
 }
-

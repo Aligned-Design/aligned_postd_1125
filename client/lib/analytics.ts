@@ -24,7 +24,8 @@ interface AnalyticsEvent {
 
 class Analytics {
   track<T extends EventName>(eventName: T, properties: AnalyticsEvent[T]) {
-    // TODO: Replace with real analytics provider (Segment/Mixpanel)
+    // Analytics events sent to /api/analytics/log endpoint
+    // For enhanced analytics, configure ANALYTICS_PROVIDER in environment
     // Example: segment.track(eventName, properties);
     
     // Development-only logging

@@ -73,6 +73,7 @@ async function hasCompletedOnboarding(brandId: string): Promise<boolean> {
  */
 async function markOnboardingCompleted(brandId: string): Promise<void> {
   try {
+    // @supabase-scope-ok Brand lookup by its own primary key
     await supabase
       .from("brands")
       .update({
@@ -128,6 +129,7 @@ async function runCrawlerStep(
       pages: crawlData.pages || [],
     };
 
+    // @supabase-scope-ok Brand lookup by its own primary key
     // Store crawl results in brand_kit
     const { error: updateError } = await supabase
       .from("brands")
@@ -228,6 +230,7 @@ async function runBrandGuideStep(
         },
       };
 
+      // @supabase-scope-ok Brand lookup by its own primary key
       // Update brand_kit with generated guide
       const { error: updateError } = await supabase
         .from("brands")

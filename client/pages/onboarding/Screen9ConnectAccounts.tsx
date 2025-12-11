@@ -10,6 +10,7 @@ import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { ArrowRight, Check, X, Instagram, Facebook, Linkedin, Twitter, Mail, MapPin } from "lucide-react";
 import { OnboardingProgress } from "@/components/onboarding/OnboardingProgress";
+import { useToast } from "@/hooks/use-toast";
 
 const PLATFORMS = [
   { id: "instagram", name: "Instagram", icon: Instagram, color: "from-pink-500 to-rose-500", comingSoon: false },
@@ -22,6 +23,7 @@ const PLATFORMS = [
 
 export default function Screen9ConnectAccounts() {
   const { setOnboardingStep } = useAuth();
+  const { toast } = useToast();
   const [connectedPlatforms, setConnectedPlatforms] = useState<string[]>([]);
   const [isConnecting, setIsConnecting] = useState<string | null>(null);
 
@@ -46,7 +48,7 @@ export default function Screen9ConnectAccounts() {
 
   const handleSkip = () => {
     // Mark as skipped, continue to dashboard
-    // TODO: Migrate from "aligned:onboarding:connect_skipped" to "postd:onboarding:connect_skipped"
+    // Telemetry event for skipping account connection (using POSTD naming)
     localStorage.setItem("postd:onboarding:connect_skipped", "true");
     localStorage.setItem("aligned:onboarding:connect_skipped", "true"); // Backward compatibility
     setOnboardingStep(10);
@@ -119,7 +121,10 @@ export default function Screen9ConnectAccounts() {
                   <button
                     onClick={() => {
                       if (platform.comingSoon) {
-                        alert(`${platform.name} integration is coming soon. Check back later!`);
+                        toast({
+                          title: "Coming Soon",
+                          description: `${platform.name} integration is coming soon. Check back later!`,
+                        });
                         return;
                       }
                       handleConnect(platform.id);

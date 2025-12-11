@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useSearchParams } from "react-router-dom";
 import { FirstVisitTooltip } from "@/components/dashboard/FirstVisitTooltip";
 import { CreativeStudioTemplateGrid } from "@/components/dashboard/CreativeStudioTemplateGrid";
 import { CreativeStudioCanvas } from "@/components/dashboard/CreativeStudioCanvas";
@@ -130,6 +131,10 @@ function calculateFitToScreenZoom(canvasWidth: number, canvasHeight: number): nu
 }
 
 export default function CreativeStudio() {
+  // ✅ MVP4.1: Read postId from URL params for editing existing content
+  const [searchParams] = useSearchParams();
+  const postIdFromUrl = searchParams.get("postId");
+
   // Brand data - load from Supabase via useBrandGuide hook
   const { currentBrand, brands, loading: brandsLoading } = useBrand();
   const { brandGuide: brand, hasBrandGuide, isLoading: isBrandKitLoading } = useBrandGuide();
@@ -256,6 +261,95 @@ export default function CreativeStudio() {
     // Brand is loaded via BrandContext - no localStorage needed
     // The Brand Guide page syncs to Supabase, and we read from there
   }, []);
+
+  // ✅ MVP4.1: Load existing content item from API if postId is in URL
+  useEffect(() => {
+    if (!postIdFromUrl) return;
+
+    const loadContentItem = async () => {
+      try {
+        const response = await fetch(`/api/content-items/${postIdFromUrl}`);
+        if (!response.ok) {
+          logWarning("[Studio] Content item not found", { postId: postIdFromUrl });
+          toast({
+            title: "Content not found",
+            description: "The requested content item could not be loaded.",
+            variant: "destructive",
+          });
+          return;
+        }
+
+        const data = await response.json();
+        if (!data.success || !data.item) {
+          logWarning("[Studio] Invalid content item response", { postId: postIdFromUrl });
+          return;
+        }
+
+        const contentItem = data.item;
+
+        // Determine format based on platform
+        const format: DesignFormat = 
+          contentItem.platform === "story" ? "story_portrait" : "social_square";
+
+        // Create a design from the content item
+        const baseDesign = createInitialDesign(
+          format,
+          contentItem.brand_id || currentWorkspace?.id || "default"
+        );
+
+        // Add the content as a text item on the canvas
+        const textItem: CanvasItem = {
+          id: `text-${Date.now()}`,
+          type: "text",
+          x: 50,
+          y: 50,
+          width: baseDesign.width - 100,
+          height: 200,
+          text: contentItem.content || contentItem.body || "",
+          fontFamily: brand?.visualIdentity?.typography?.heading || "Inter",
+          fontSize: 24,
+          fontColor: brand?.visualIdentity?.colors?.[0] || "#000000",
+          fontWeight: "normal",
+          textAlign: "left",
+          rotation: 0,
+          zIndex: 1,
+        };
+
+        // Replace background item with our text item
+        const designWithContent: Design = {
+          ...baseDesign,
+          id: contentItem.id, // Use content item ID for updates
+          name: contentItem.title || "Untitled Post",
+          items: [...baseDesign.items, textItem],
+          brandId: contentItem.brand_id,
+        };
+
+        setState((prev) => ({
+          ...prev,
+          design: designWithContent,
+          history: [designWithContent],
+          historyIndex: 0,
+          startMode: "template", // Skip entry screen
+        }));
+
+        toast({
+          title: "Content loaded",
+          description: `Editing "${contentItem.title || "Untitled Post"}"`,
+        });
+
+        logTelemetry("studio_content_loaded", { postId: postIdFromUrl });
+      } catch (error) {
+        logError("[Studio] Failed to load content item", error instanceof Error ? error : new Error(String(error)), { postId: postIdFromUrl });
+        toast({
+          title: "Error loading content",
+          description: "Failed to load the content item. Please try again.",
+          variant: "destructive",
+        });
+      }
+    };
+
+    loadContentItem();
+  }, [postIdFromUrl, currentWorkspace?.id, brand?.visualIdentity, toast]);
 
   // Autosave design to API and localStorage
   useEffect(() => {
@@ -2520,8 +2614,19 @@ const handleAddElement = (elementType: string, defaultProps: Record<string, unkn
                     }
                   }}
                   onFilters={() => {
-                    // TODO: Implement filters
-                    toast({ title: "Filters", description: "Filters coming soon" });
+                    // Image filters are applied via CSS filter property on canvas items
+                    // For now, show a quick filter dialog with common presets
+                    if (state.selectedItemId && selectedItem?.type === "image") {
+                      const currentFilter = (selectedItem as any).filter || "none";
+                      const filterPresets = ["none", "grayscale(100%)", "sepia(100%)", "brightness(120%)", "contrast(120%)", "saturate(150%)"];
+                      const currentIndex = filterPresets.indexOf(currentFilter);
+                      const nextFilter = filterPresets[(currentIndex + 1) % filterPresets.length];
+                      handleUpdateItem(state.selectedItemId, { filter: nextFilter });
+                      toast({ 
+                        title: "Filter Applied", 
+                        description: nextFilter === "none" ? "Filters removed" : `Applied: ${nextFilter}` 
+                      });
+                    }
                   }}
                   onSwapImage={() => {
                     // Set the current item as pending so we update it instead of creating new
@@ -2810,15 +2915,34 @@ const handleAddElement = (elementType: string, defaultProps: Record<string, unkn
         mode={state.design ? "editor" : "import"}
         onInitiateEditor={() => {
           logTelemetry("canva_editor_initiated", { brandId: currentBrand?.id });
-          // TODO: When Canva API is ready, call initiateCanvaEditor()
           setShowCanvaModal(false);
         }}
-        onImportDesign={() => {
-          logTelemetry("canva_import_initiated", { brandId: currentBrand?.id });
-          // TODO: When Canva API is ready, call importCanvaDesign()
+        onImportDesign={(assetId: string, url: string) => {
+          logTelemetry("canva_import_completed", { brandId: currentBrand?.id, assetId });
+          // Add the imported image to the canvas
+          if (state.design) {
+            const newItem: CanvasItem = {
+              id: `canva-import-${Date.now()}`,
+              type: "image",
+              x: 50,
+              y: 50,
+              width: 400,
+              height: 300,
+              rotation: 0,
+              zIndex: state.design.items.length + 1,
+              imageUrl: url,
+              imageName: `Canva Import`,
+              opacity: 100,
+            };
+            setState((prev) => {
+              if (!prev.design) return prev;
+              const newDesign = { ...prev.design, items: [...prev.design.items, newItem] };
+              return pushToHistory(prev, newDesign);
+            });
+          }
           toast({
-            title: "Import from Canva",
-            description: "Canva import coming soon! This will import a design from your Canva account.",
+            title: "Import Complete",
+            description: "Canva design imported and added to canvas.",
           });
           setShowCanvaModal(false);
         }}

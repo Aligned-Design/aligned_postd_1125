@@ -59,6 +59,7 @@ export async function createVersionHistory(
       change_reason: changeReason || null,
     };
 
+    // @supabase-scope-ok INSERT includes brand_id in versionEntry payload
     // Store in Supabase brand_guide_versions table
     const { error } = await supabase
       .from("brand_guide_versions")

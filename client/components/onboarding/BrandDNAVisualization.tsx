@@ -79,7 +79,7 @@ export function BrandDNAVisualization({
           <div className="flex items-center justify-between mb-3">
             <div>
               <p className="text-sm font-bold text-slate-900">
-                Brand Profile Strength
+                Brand Guide Strength
               </p>
               <p className="text-xs text-slate-600">
                 Based on the information you've provided
@@ -95,7 +95,7 @@ export function BrandDNAVisualization({
           <Progress value={confidenceScore} className="h-2" />
           <p className="text-xs text-slate-600 mt-2">
             {confidenceScore === 100
-              ? "🎉 Excellent! Your brand profile is complete."
+              ? "🎉 Excellent! Your Brand Guide is complete."
               : confidenceScore >= 75
                 ? "Great start! Add more details to improve AI accuracy."
                 : confidenceScore >= 50
@@ -410,7 +410,7 @@ export function BrandDNAVisualization({
       <div className="flex gap-3">
         <Button variant="outline" onClick={onEdit} className="flex-1 gap-2">
           <Edit className="w-4 h-4" />
-          Edit Brand Profile
+          Edit Brand Guide
         </Button>
         <Button
           onClick={onConfirm}
@@ -424,8 +424,8 @@ export function BrandDNAVisualization({
       {/* Info Box */}
       <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
         <p className="text-xs text-blue-800 font-medium">
-          💡 <strong>Good news:</strong> You can refine your brand profile
-          anytime from Settings → Brand Profile. The AI learns and improves as
+          💡 <strong>Good news:</strong> You can refine your Brand Guide
+          anytime from Settings → Brand Guide. The AI learns and improves as
           you use the platform.
         </p>
       </div>

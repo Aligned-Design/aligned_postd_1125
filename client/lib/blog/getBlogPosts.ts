@@ -28,7 +28,7 @@ const BLOG_POSTS: BlogPost[] = [
   {
     slug: "getting-started-with-postd",
     title: "Getting Started with Postd: Your Complete Guide",
-    excerpt: "Learn how to set up your brand profile, connect your accounts, and start creating content that sounds like you.",
+    excerpt: "Learn how to set up your Brand Guide, connect your accounts, and start creating content that sounds like you.",
     featuredImage: "/images/blog/getting-started.jpg",
     date: "2025-01-15",
     author: {
@@ -46,9 +46,9 @@ Welcome to Postd! This guide will help you get up and running quickly.
 
 Sign up with your email and create a secure password. We'll guide you through the onboarding process.
 
-## Step 2: Set Up Your Brand Profile
+## Step 2: Set Up Your Brand Guide
 
-Your brand profile is the foundation of everything we do. We'll help you:
+Your Brand Guide is the foundation of everything we do. We'll help you:
 
 - Extract your brand colors from your website
 - Identify your brand voice and tone

@@ -49,8 +49,9 @@ export const getBrandIntelligence: RequestHandler = async (req, res) => {
     const visualSummary = (brand.visual_summary as any) || {};
     const toneKeywords = brand.tone_keywords || [];
 
-    // Build real brand profile from database
-    const brandProfile = {
+    // Build real brand context from database
+    // Note: Variable named to match BrandIntelligence.brandProfile API contract
+    const brandContextData = {
       usp: brandKit.usp || brandKit.uniqueSellingPoints || [],
       differentiators: brandKit.differentiators || brandKit.uniqueDifferentiators || [],
       coreValues: brandKit.coreValues || brandKit.values || [],

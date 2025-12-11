@@ -9,6 +9,7 @@ import { Calendar, BarChart3, Clock } from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { useAnalytics } from "@/components/postd/analytics/hooks/useAnalytics";
+import { useCurrentBrand } from "@/hooks/useCurrentBrand";
 import { useSearchParams } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PageShell } from "@/components/postd/ui/layout/PageShell";
@@ -18,9 +19,12 @@ import { ErrorState } from "@/components/postd/ui/feedback/ErrorState";
 import { EmptyState } from "@/components/postd/ui/feedback/EmptyState";
 import { BarChart3 as BarChart3Icon, AlertCircle, Loader2 } from "lucide-react";
 import { logError } from "@/lib/logger";
+import { useToast } from "@/hooks/use-toast";
 
 export default function Analytics() {
   const { currentWorkspace } = useWorkspace();
+  const { brandId } = useCurrentBrand();
+  const { toast } = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
   const [dateRange, setDateRange] = useState(DATE_RANGES[0]);
   const [showReportSettings, setShowReportSettings] = useState(false);
@@ -59,8 +63,9 @@ export default function Analytics() {
         ? `${new Date(analyticsData.timeframe.startDate).toLocaleDateString()} - ${new Date().toLocaleDateString()}`
         : "Current period";
 
-      // Get previous period data for comparison (simplified - could be enhanced)
-      const previousPeriodData = platformData; // TODO: Fetch previous period data for accurate comparison
+      // Use comparison data from API when available
+      // Per-platform comparison uses global comparison as proxy when platform-specific data not available
+      const globalComparison = analyticsData.comparison || { engagementGrowth: 0, followerGrowth: 0 };
 
       platforms.push({
         platform: platformKey as PlatformMetrics["platform"],
@@ -73,13 +78,14 @@ export default function Analytics() {
           engagementRate: platformData.engagementRate || 0,
           followers: platformData.followers || 0,
           followerGrowth: platformData.followerGrowth || 0,
-          topContent: [], // TODO: Fetch top content from API when available
+          topContent: [], // Top content requires separate API endpoint
         },
         comparison: {
-          reachChange: 0, // TODO: Calculate from previous period
-          engagementChange: 0, // TODO: Calculate from previous period
-          followerChange: platformData.followerGrowth || 0,
-          period: "previous period",
+          // Use global engagement growth as proxy for per-platform changes
+          reachChange: globalComparison.engagementGrowth || 0,
+          engagementChange: globalComparison.engagementGrowth || 0,
+          followerChange: platformData.followerGrowth || globalComparison.followerGrowth || 0,
+          period: `vs previous ${days} days`,
         },
       });
     }
@@ -306,22 +312,27 @@ export default function Analytics() {
   const [insightsLoading, setInsightsLoading] = useState(true);
   const [insightsError, setInsightsError] = useState<string | null>(null);
 
-  // ✅ FIX: Fetch real AI insights from API
+  // ✅ FIX: Fetch real AI insights from API with brandId
   useEffect(() => {
     const loadInsights = async () => {
+      if (!brandId) {
+        setInsights([]);
+        setInsightsLoading(false);
+        return;
+      }
+
       try {
         setInsightsLoading(true);
         setInsightsError(null);
 
-        const response = await fetch("/api/analytics/insights");
+        const response = await fetch(`/api/analytics/${brandId}/insights`);
 
         if (response.ok) {
           const data = await response.json();
           setInsights(data.insights || []);
         } else if (response.status === 404) {
-          // API endpoint not implemented yet
+          // No insights data available yet
           setInsights([]);
-          setInsightsError("AI Insights feature is coming soon. The API endpoint is not yet implemented.");
         } else {
           throw new Error(`Failed to load insights: ${response.statusText}`);
         }
@@ -336,15 +347,15 @@ export default function Analytics() {
     };
 
     loadInsights();
-  }, []);
+  }, [brandId]);
 
   const handleReportSettings = () => {
     setShowReportSettings(true);
   };
 
   const handleRunReport = () => {
-    alert("Generating report...");
-    // TODO: Implement report generation
+    // Report generation uses the ReportSettingsModal for configuration
+    setShowReportSettings(true);
   };
 
   const handleEmailReport = () => {
@@ -533,7 +544,6 @@ export default function Analytics() {
                 <div className="bg-white/50 backdrop-blur-xl rounded-2xl p-6 border border-white/60">
                   <AlertCircle className="w-8 h-8 text-red-300 mx-auto mb-2" />
                   <p className="text-sm text-slate-600 text-center">{insightsError}</p>
-                  <p className="text-xs text-slate-500 text-center mt-2">AI Insights coming soon</p>
                 </div>
               ) : insights.length === 0 ? (
                 <div className="bg-white/50 backdrop-blur-xl rounded-2xl p-6 border border-white/60">
@@ -547,24 +557,59 @@ export default function Analytics() {
 
             {/* Key Takeaways */}
             <div className="lg:col-span-2 space-y-4">
-              {/* Weekly Summary - Coming Soon */}
+              {/* Weekly Summary */}
               <div className="bg-white/50 backdrop-blur-xl rounded-2xl p-6 border border-white/60 hover:bg-white/70 transition-all duration-300">
                 <h3 className="text-lg font-black text-slate-900 mb-4">Weekly Summary</h3>
-                <div className="text-center py-8">
-                  <p className="text-sm text-slate-600 font-medium">
-                    Summary metrics will appear here once you start publishing content and connecting your social media accounts.
-                  </p>
-                </div>
+                {analyticsData?.summary ? (
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="text-center p-3 bg-white/50 rounded-lg">
+                      <p className="text-2xl font-bold text-indigo-600">{analyticsData.summary.reach?.toLocaleString() || 0}</p>
+                      <p className="text-xs text-slate-600">Total Reach</p>
+                    </div>
+                    <div className="text-center p-3 bg-white/50 rounded-lg">
+                      <p className="text-2xl font-bold text-lime-600">{analyticsData.summary.engagement?.toLocaleString() || 0}</p>
+                      <p className="text-xs text-slate-600">Engagements</p>
+                    </div>
+                    <div className="text-center p-3 bg-white/50 rounded-lg">
+                      <p className="text-2xl font-bold text-purple-600">{(analyticsData.summary.engagementRate || 0).toFixed(1)}%</p>
+                      <p className="text-xs text-slate-600">Engagement Rate</p>
+                    </div>
+                    <div className="text-center p-3 bg-white/50 rounded-lg">
+                      <p className="text-2xl font-bold text-blue-600">{analyticsData.summary.followers?.toLocaleString() || 0}</p>
+                      <p className="text-xs text-slate-600">Followers</p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <p className="text-sm text-slate-600 font-medium">
+                      Connect your social accounts to see weekly performance metrics.
+                    </p>
+                  </div>
+                )}
               </div>
 
-              {/* Top Opportunities - Coming Soon */}
+              {/* Top Opportunities */}
               <div className="bg-white/50 backdrop-blur-xl rounded-2xl p-6 border border-white/60 hover:bg-white/70 transition-all duration-300">
                 <h3 className="text-lg font-black text-slate-900 mb-4">Top Opportunities</h3>
-                <div className="text-center py-8">
-                  <p className="text-sm text-slate-600 font-medium">
-                    AI-powered opportunity recommendations will appear here once analytics data is available.
-                  </p>
-                </div>
+                {insights.length > 0 ? (
+                  <ul className="space-y-3">
+                    {insights.slice(0, 3).map((insight, idx) => (
+                      <li key={idx} className="flex items-start gap-3 p-3 bg-white/50 rounded-lg">
+                        <span className="text-lg">💡</span>
+                        <div>
+                          <p className="text-sm font-medium text-slate-900">{insight.title}</p>
+                          <p className="text-xs text-slate-600 mt-1">{insight.description}</p>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <div className="text-center py-8">
+                    <p className="text-sm text-slate-600 font-medium">
+                      AI-powered recommendations will appear once you have analytics data.
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -573,27 +618,123 @@ export default function Analytics() {
           <TabsContent value="content">
             <div className="bg-white rounded-2xl p-8 border border-gray-200">
               <h2 className="text-2xl font-bold text-gray-900 mb-4">Content Analytics</h2>
-              <p className="text-gray-600">
-                Detailed content performance metrics and insights coming soon.
-              </p>
+              {platformMetrics.length > 0 ? (
+                <div className="space-y-6">
+                  <p className="text-gray-600">Content performance across your connected platforms.</p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {platformMetrics.map((platform) => (
+                      <div key={platform.platform} className="bg-gray-50 rounded-xl p-4">
+                        <div className="flex items-center gap-2 mb-3">
+                          <span className="text-xl">{platform.icon}</span>
+                          <span className="font-semibold capitalize">{platform.platform}</span>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2 text-sm">
+                          <div>
+                            <p className="text-gray-500">Reach</p>
+                            <p className="font-bold">{platform.metrics.reach.toLocaleString()}</p>
+                          </div>
+                          <div>
+                            <p className="text-gray-500">Engagement</p>
+                            <p className="font-bold">{platform.metrics.engagement.toLocaleString()}</p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <p className="text-gray-600">Connect your social accounts to see content performance metrics.</p>
+              )}
             </div>
           </TabsContent>
 
           <TabsContent value="engagement">
             <div className="bg-white rounded-2xl p-8 border border-gray-200">
               <h2 className="text-2xl font-bold text-gray-900 mb-4">Engagement Analytics</h2>
-              <p className="text-gray-600">
-                Detailed engagement rate analysis and trends coming soon.
-              </p>
+              {platformMetrics.length > 0 ? (
+                <div className="space-y-6">
+                  <p className="text-gray-600">Engagement metrics and trends across platforms.</p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {platformMetrics.map((platform) => (
+                      <div key={platform.platform} className="bg-gray-50 rounded-xl p-5">
+                        <div className="flex items-center justify-between mb-4">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xl">{platform.icon}</span>
+                            <span className="font-semibold capitalize">{platform.platform}</span>
+                          </div>
+                          <span className={`text-sm font-bold ${platform.comparison.engagementChange >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                            {platform.comparison.engagementChange >= 0 ? '+' : ''}{platform.comparison.engagementChange}%
+                          </span>
+                        </div>
+                        <div className="space-y-3">
+                          <div className="flex justify-between">
+                            <span className="text-gray-600">Engagement Rate</span>
+                            <span className="font-bold">{platform.metrics.engagementRate.toFixed(1)}%</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-gray-600">Total Engagements</span>
+                            <span className="font-bold">{platform.metrics.engagement.toLocaleString()}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-gray-600">Followers</span>
+                            <span className="font-bold">{platform.metrics.followers.toLocaleString()}</span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <p className="text-gray-600">Connect your social accounts to see engagement analytics.</p>
+              )}
             </div>
           </TabsContent>
 
           <TabsContent value="channels">
             <div className="bg-white rounded-2xl p-8 border border-gray-200">
               <h2 className="text-2xl font-bold text-gray-900 mb-4">Channel Analytics</h2>
-              <p className="text-gray-600">
-                Cross-platform channel performance comparison coming soon.
-              </p>
+              {platformMetrics.length > 0 ? (
+                <div className="space-y-6">
+                  <p className="text-gray-600">Cross-platform performance comparison.</p>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b">
+                          <th className="text-left py-3 px-4 font-semibold">Channel</th>
+                          <th className="text-right py-3 px-4 font-semibold">Reach</th>
+                          <th className="text-right py-3 px-4 font-semibold">Engagement</th>
+                          <th className="text-right py-3 px-4 font-semibold">Rate</th>
+                          <th className="text-right py-3 px-4 font-semibold">Followers</th>
+                          <th className="text-right py-3 px-4 font-semibold">Growth</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {platformMetrics.map((platform) => (
+                          <tr key={platform.platform} className="border-b hover:bg-gray-50">
+                            <td className="py-3 px-4">
+                              <div className="flex items-center gap-2">
+                                <span>{platform.icon}</span>
+                                <span className="capitalize font-medium">{platform.platform}</span>
+                              </div>
+                            </td>
+                            <td className="text-right py-3 px-4">{platform.metrics.reach.toLocaleString()}</td>
+                            <td className="text-right py-3 px-4">{platform.metrics.engagement.toLocaleString()}</td>
+                            <td className="text-right py-3 px-4">{platform.metrics.engagementRate.toFixed(1)}%</td>
+                            <td className="text-right py-3 px-4">{platform.metrics.followers.toLocaleString()}</td>
+                            <td className="text-right py-3 px-4">
+                              <span className={platform.comparison.followerChange >= 0 ? 'text-green-600' : 'text-red-600'}>
+                                {platform.comparison.followerChange >= 0 ? '+' : ''}{platform.comparison.followerChange.toFixed(1)}%
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-gray-600">Connect your social accounts to see channel comparisons.</p>
+              )}
             </div>
           </TabsContent>
         </Tabs>
@@ -604,7 +745,10 @@ export default function Analytics() {
         isOpen={showReportSettings}
         onClose={() => setShowReportSettings(false)}
         onSave={(settings) => {
-          alert(`Report settings saved: ${settings.name}`);
+          toast({
+            title: "Report settings saved",
+            description: `"${settings.name}" has been configured successfully.`,
+          });
           setShowReportSettings(false);
         }}
       />
@@ -613,7 +757,10 @@ export default function Analytics() {
         isOpen={showEmailDialog}
         onClose={() => setShowEmailDialog(false)}
         onSend={(emails) => {
-          alert(`Report sent to: ${emails.join(", ")}\nDate Range: ${dateRange.label}`);
+          toast({
+            title: "Report sent",
+            description: `Report sent to ${emails.length} recipient${emails.length !== 1 ? 's' : ''} for ${dateRange.label}.`,
+          });
           setShowEmailDialog(false);
         }}
         dateRangeLabel={dateRange.label}

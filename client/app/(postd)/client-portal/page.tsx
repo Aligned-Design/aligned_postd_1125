@@ -790,7 +790,7 @@ function ApprovalsSection({
   );
 }
 
-// TODO: tighten type - define proper interface for upload response
+// Upload response type matches MediaAsset from @shared/media-assets
 interface ClientMediaUpload {
   id: string;
   filename: string;
@@ -1528,6 +1528,7 @@ function ShareLinkDialog({
   onClose: () => void;
   brandId: string;
 }) {
+  const { toast } = useToast();
   const [shareUrl, setShareUrl] = useState("");
   const [settings, setSettings] = useState({
     expiry: "30",
@@ -1560,11 +1561,19 @@ function ShareLinkDialog({
       } else {
         const error = await response.json();
         logError("Failed to generate share link", new Error(String(error.message || "Unknown error")), { responseStatus: response.status });
-        alert(`Failed to create share link: ${error.message || "Unknown error"}`);
+        toast({
+          title: "Share link failed",
+          description: error.message || "Unable to create share link. Please try again.",
+          variant: "destructive",
+        });
       }
     } catch (error) {
       logError("Failed to generate share link", error instanceof Error ? error : new Error(String(error)));
-      alert("Failed to create share link. Please try again.");
+      toast({
+        title: "Share link failed",
+        description: "Failed to create share link. Please try again.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -1694,24 +1703,82 @@ function UploadedAssetCard({ upload }: { upload: ClientMediaUpload }) {
 
 function ReviewsSection() {
   return (
-    <div className="text-center py-8 text-gray-500">
-      Reviews section coming soon
+    <div className="space-y-4">
+      <div className="text-center py-8">
+        <div className="w-12 h-12 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-3">
+          <span className="text-2xl">⭐</span>
+        </div>
+        <h3 className="font-semibold text-gray-900 mb-2">Review Management</h3>
+        <p className="text-gray-500 text-sm max-w-md mx-auto">
+          Connect your Google Business or Yelp account to manage and respond to customer reviews directly from this portal.
+        </p>
+        <button className="mt-4 px-4 py-2 text-sm font-medium text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 rounded-lg transition-colors">
+          Connect Reviews Platform
+        </button>
+      </div>
     </div>
   );
 }
 
 function EventsSection() {
   return (
-    <div className="text-center py-8 text-gray-500">
-      Events section coming soon
+    <div className="space-y-4">
+      <div className="text-center py-8">
+        <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-3">
+          <span className="text-2xl">📅</span>
+        </div>
+        <h3 className="font-semibold text-gray-900 mb-2">Upcoming Events</h3>
+        <p className="text-gray-500 text-sm max-w-md mx-auto">
+          View and manage upcoming brand events, promotions, and campaigns.
+        </p>
+        <a 
+          href="/events" 
+          className="mt-4 inline-block px-4 py-2 text-sm font-medium text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 rounded-lg transition-colors"
+        >
+          Go to Events
+        </a>
+      </div>
     </div>
   );
 }
 
 function MessagesSection({ data }: { data: ClientDashboardData }) {
+  const recentComments = data.recentContent
+    .filter((item) => item.comments && item.comments.length > 0)
+    .flatMap((item) => item.comments?.map((c) => ({ ...c, contentTitle: item.content?.slice(0, 30) + "..." || "Content" })) || [])
+    .slice(0, 5);
+
   return (
-    <div className="text-center py-8 text-gray-500">
-      Messages section coming soon
+    <div className="space-y-4">
+      {recentComments.length > 0 ? (
+        <div className="space-y-3">
+          {recentComments.map((comment, idx) => (
+            <div key={idx} className="p-4 bg-gray-50 rounded-lg">
+              <div className="flex items-start gap-3">
+                <div className="w-8 h-8 bg-indigo-100 rounded-full flex items-center justify-center">
+                  <span className="text-sm">💬</span>
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm text-gray-900">{comment.message}</p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    On: {comment.contentTitle} • {new Date(comment.createdAt || Date.now()).toLocaleDateString()}
+                  </p>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="text-center py-8">
+          <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-3">
+            <span className="text-2xl">💬</span>
+          </div>
+          <h3 className="font-semibold text-gray-900 mb-2">Messages & Comments</h3>
+          <p className="text-gray-500 text-sm max-w-md mx-auto">
+            Comments and feedback on your content will appear here.
+          </p>
+        </div>
+      )}
     </div>
   );
 }

@@ -338,7 +338,8 @@ describe('Phase 2: Core Routes Integration Tests', () => {
       });
 
       it('should provide preview URL in preview mode', async () => {
-        const previewUrl = 'https://preview.alignedai.com/agency_1';
+        // POSTD preview domain: preview.postd.app
+        const previewUrl = 'https://preview.postd.app/agency_1';
         expect(previewUrl).toContain('preview');
       });
 

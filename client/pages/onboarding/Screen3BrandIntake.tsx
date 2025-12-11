@@ -170,9 +170,7 @@ export default function Screen3BrandIntake() {
     setIsGenerating(true);
 
     try {
-      // ✅ Use postd_brand_id (fallback to aligned_brand_id for backward compatibility)
-      // TODO: Remove aligned_brand_id fallback after migration complete
-      const brandId = localStorage.getItem("postd_brand_id") || localStorage.getItem("aligned_brand_id");
+      const brandId = localStorage.getItem("postd_brand_id");
       if (!brandId) {
         throw new Error("Brand ID not found. Please go back and complete brand creation.");
       }
@@ -585,7 +583,7 @@ export default function Screen3BrandIntake() {
             💡 <strong>Pro tip:</strong> You only need to fill in your brand
             name to continue. The more details you provide, the better AI will
             understand your brand. You can always refine this later from
-            Settings → Brand Profile.
+            Settings → Brand Guide.
           </p>
         </div>
 

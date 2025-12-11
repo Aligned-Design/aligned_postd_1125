@@ -4,15 +4,15 @@
  * Constructs prompts for the AI Design Agent (art director) based on brand context and requirements.
  */
 
-import type { BrandProfile } from "@shared/advisor";
+import type { BrandContext } from "@shared/advisor";
 import type { AiDesignGenerationRequest } from "@shared/aiContent";
 import type { StrategyBrief, ContentPackage, BrandHistory, PerformanceLog } from "@shared/collaboration-artifacts";
 import type { BrandVisualIdentity } from "../brand-visual-identity";
 import type { BrandGuide } from "@shared/brand-guide";
-import { buildFullBrandGuidePrompt } from "../prompts/brand-guide-prompts";
+import { buildFullBrandGuidePrompt, buildHostAwarePromptSection } from "../prompts/brand-guide-prompts";
 
 export interface DesignPromptContext {
-  brand: BrandProfile;
+  brand: BrandContext;
   brandGuide?: BrandGuide | null;
   request: AiDesignGenerationRequest;
   strategyBrief?: StrategyBrief | null;
@@ -26,6 +26,11 @@ export interface DesignPromptContext {
     title?: string;
     alt?: string;
   }>;
+  /** MVP3: Host/CMS platform metadata for style inference */
+  host?: {
+    type: string;
+    confidence?: string;
+  };
 }
 
 /**
@@ -137,7 +142,7 @@ Return concepts as a JSON array with this structure:
  * Builds the user prompt with brand and request context
  */
 export function buildDesignUserPrompt(context: DesignPromptContext): string {
-  const { brand, brandGuide, request, strategyBrief, contentPackage, brandHistory, performanceLog, brandVisualIdentity } = context;
+  const { brand, brandGuide, request, strategyBrief, contentPackage, brandHistory, performanceLog, brandVisualIdentity, host } = context;
   
   let prompt = `Create visual concepts for ${request.format} content on ${request.platform}.\n\n`;
 
@@ -145,6 +150,11 @@ export function buildDesignUserPrompt(context: DesignPromptContext): string {
   if (brandGuide) {
     prompt += buildFullBrandGuidePrompt(brandGuide);
     prompt += `\n`;
+  }
+
+  // ✅ MVP3: Host-aware visual style context
+  if (host?.type) {
+    prompt += buildHostAwarePromptSection(host.type, "design");
   }
 
   // ✅ COLLABORATION: Include StrategyBrief if available

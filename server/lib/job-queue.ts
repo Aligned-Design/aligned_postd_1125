@@ -71,6 +71,7 @@ class JobQueueService {
   async getReadyJobs(limit: number = 10): Promise<ScheduledJob[]> {
     const now = new Date().toISOString();
     
+    // @supabase-scope-ok Background job processor - finds scheduled jobs across all brands
     const { data: jobs, error } = await supabase
       .from("publishing_jobs")
       .select("*")

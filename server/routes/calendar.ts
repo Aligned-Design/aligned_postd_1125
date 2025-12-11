@@ -96,6 +96,7 @@ calendarRouter.get(
       }
 
       // Transform to calendar format
+      // ✅ MVP4.3: Return raw UTC timestamps - let client handle timezone conversion
       const calendarItems = (contentItems || []).map((item: any) => {
         // Handle content JSONB - extract text content
         const contentObj = item.content || {};
@@ -103,20 +104,27 @@ calendarRouter.get(
           ? contentObj 
           : (contentObj as any)?.body || JSON.stringify(contentObj);
         
+        // Return raw scheduled_for timestamp - client will convert to local time
+        // This ensures calendar displays content on the correct local date
+        const scheduledFor = item.scheduled_for;
+        
         return {
           id: item.id,
           title: item.title || "Untitled",
           platform: item.platform || "instagram",
           contentType: item.type || "post",
           status: item.status || "draft",
-          scheduledDate: item.scheduled_for ? item.scheduled_for.split('T')[0] : null,
-          scheduledTime: item.scheduled_for ? item.scheduled_for.split('T')[1]?.substring(0, 5) : null,
+          // ✅ MVP4.3: Return full ISO timestamp for proper timezone handling
+          scheduledFor: scheduledFor || null, // Full UTC timestamp
+          scheduledDate: scheduledFor ? scheduledFor.split('T')[0] : null, // Legacy: date part only
+          scheduledTime: scheduledFor ? scheduledFor.split('T')[1]?.substring(0, 5) : null, // Legacy: time part only
           content: contentText || "",
           excerpt: (contentText || "").substring(0, 100) + "...",
           imageUrl: item.media_urls?.[0] || null,
           brand: item.brand_id,
           campaign: item.campaign_id || null,
-          createdDate: item.created_at ? item.created_at.split('T')[0] : null,
+          createdAt: item.created_at || null, // Full timestamp
+          createdDate: item.created_at ? item.created_at.split('T')[0] : null, // Legacy
         };
       });
 

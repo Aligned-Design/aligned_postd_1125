@@ -347,6 +347,7 @@ router.get(
         };
       });
 
+      // @supabase-scope-ok Uses .eq("brand_id", brandId) - properly scoped
       // Get total count
       const { count } = await supabase
         .from("content_items")

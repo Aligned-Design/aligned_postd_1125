@@ -1,15 +1,15 @@
 /**
- * Aligned AI Summary component
+ * POSTD AI Summary component
  * Shows AI insights and suggestions
  */
 
 import { useAuth, useCan } from "@/lib/auth";
 
-interface AlignedAISummaryProps {
+interface PostdSummaryProps {
   className?: string;
 }
 
-export function AlignedAISummary({ className = "" }: AlignedAISummaryProps) {
+export function PostdSummary({ className = "" }: PostdSummaryProps) {
   const { user } = useAuth();
   const canEditContent = useCan("content:edit");
 
@@ -55,4 +55,5 @@ export function AlignedAISummary({ className = "" }: AlignedAISummaryProps) {
   );
 }
 
-export default AlignedAISummary;
+export default PostdSummary;
+

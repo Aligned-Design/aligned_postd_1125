@@ -13,7 +13,8 @@
 
 import "dotenv/config";
 import path from "path";
-// TODO: Update to use index-v2.ts or remove this file if no longer needed
+// @deprecated - Use node-build-v2.ts for new deployments
+// This file is kept for backward compatibility with existing deployment scripts
 import { createServer } from "./index";
 import * as express from "express";
 

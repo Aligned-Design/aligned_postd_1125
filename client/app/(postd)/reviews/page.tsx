@@ -10,11 +10,13 @@ import { useState, useEffect } from "react";
 import { PageShell } from "@/components/postd/ui/layout/PageShell";
 import { PageHeader } from "@/components/postd/ui/layout/PageHeader";
 import { logError, logWarning, logInfo } from "@/lib/logger";
+import { useToast } from "@/hooks/use-toast";
 
 export default function Reviews() {
   const { currentWorkspace } = useWorkspace();
   const { brandId } = useCurrentBrand();
   const { brandGuide } = useBrandGuide();
+  const { toast } = useToast();
   const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(true);
   const [settingsLoading, setSettingsLoading] = useState(true);
@@ -195,7 +197,15 @@ export default function Reviews() {
   };
 
   const handleGenerateReplies = () => {
-    alert("Generating AI-suggested replies for all flagged and negative reviews...");
+    const flaggedAndNegative = reviews.filter(
+      (r) => r.replyStatus === "flagged" || r.sentiment === "negative"
+    );
+    toast({
+      title: "Generating AI replies",
+      description: flaggedAndNegative.length > 0
+        ? `Generating suggestions for ${flaggedAndNegative.length} review${flaggedAndNegative.length !== 1 ? 's' : ''}...`
+        : "No flagged or negative reviews to generate replies for.",
+    });
   };
 
   // Loading state

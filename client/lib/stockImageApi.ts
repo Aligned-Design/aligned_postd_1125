@@ -225,17 +225,54 @@ export async function getStockImage(id: string): Promise<StockImage | null> {
 
 export async function addStockImageToLibrary(
   image: StockImage,
-  libraryId: string,
+  brandId: string,
   userId: string
 ): Promise<{ success: boolean; assetId: string; message: string }> {
-  // This will be wired to Supabase later
-  // For now, return mock success
-  const assetId = `asset-${Date.now()}`;
-  return {
-    success: true,
-    assetId,
-    message: `Added "${image.title}" to library (${image.provider})`,
-  };
+  try {
+    const response = await fetch("/api/media/stock-images/import", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        brandId,
+        userId,
+        imageUrl: image.fullImageUrl,
+        provider: image.provider,
+        providerId: image.id,
+        title: image.title,
+        description: image.description,
+        attribution: image.attributionText,
+        tags: image.tags,
+        metadata: {
+          creatorName: image.creatorName,
+          creatorUrl: image.creatorUrl,
+          licenseType: image.licensType,
+          licenseText: image.licenseText,
+          originalUrl: image.originalUrl,
+          width: image.width,
+          height: image.height,
+        },
+      }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ message: "Failed to import image" }));
+      throw new Error(error.message || "Failed to import image to library");
+    }
+
+    const data = await response.json();
+    return {
+      success: true,
+      assetId: data.asset?.id || data.assetId || `asset-${Date.now()}`,
+      message: `Added "${image.title}" to library (${image.provider})`,
+    };
+  } catch (error) {
+    logError("[Stock Images] Failed to add to library", error instanceof Error ? error : new Error(String(error)));
+    return {
+      success: false,
+      assetId: "",
+      message: `Failed to add "${image.title}" to library: ${(error as Error).message}`,
+    };
+  }
 }
 
 export function getProviderBadgeColor(provider: StockProvider): string {
@@ -256,21 +293,23 @@ export function getLicenseBadgeColor(license: string): string {
   return colors[license as keyof typeof colors] || "bg-gray-100 text-gray-800";
 }
 
-// ✅ NOTE: These functions are not currently used in production paths
-// They are marked for future implementation with real APIs
-// For now, they return empty arrays in production and mock data only in dev
+/**
+ * Provider-specific search functions
+ * These delegate to the main searchStockImages function with the appropriate provider filter.
+ * Backend API (Pexels) handles the actual stock image fetching.
+ */
 export async function searchUnsplashImages(
   query: string,
   page: number = 1,
   perPage: number = 12
 ): Promise<StockImage[]> {
-  // TODO: Implement with real Unsplash API when key is provided
-  const isDev = typeof process !== "undefined" && process.env.NODE_ENV !== "production";
-  if (isDev) {
-    const results = MOCK_STOCK_IMAGES.filter((img) => img.provider === "unsplash");
-    return results.slice((page - 1) * perPage, page * perPage);
-  }
-  return []; // Production: return empty until real API is implemented
+  const result = await searchStockImages({
+    query,
+    page,
+    perPage,
+    providers: ["unsplash"],
+  });
+  return result.images;
 }
 
 export async function searchPexelsImages(
@@ -278,13 +317,13 @@ export async function searchPexelsImages(
   page: number = 1,
   perPage: number = 12
 ): Promise<StockImage[]> {
-  // TODO: Implement with real Pexels API when key is provided
-  const isDev = typeof process !== "undefined" && process.env.NODE_ENV !== "production";
-  if (isDev) {
-    const results = MOCK_STOCK_IMAGES.filter((img) => img.provider === "pexels");
-    return results.slice((page - 1) * perPage, page * perPage);
-  }
-  return []; // Production: return empty until real API is implemented
+  const result = await searchStockImages({
+    query,
+    page,
+    perPage,
+    providers: ["pexels"],
+  });
+  return result.images;
 }
 
 export async function searchPixabayImages(
@@ -292,11 +331,11 @@ export async function searchPixabayImages(
   page: number = 1,
   perPage: number = 12
 ): Promise<StockImage[]> {
-  // TODO: Implement with real Pixabay API when key is provided
-  const isDev = typeof process !== "undefined" && process.env.NODE_ENV !== "production";
-  if (isDev) {
-    const results = MOCK_STOCK_IMAGES.filter((img) => img.provider === "pixabay");
-    return results.slice((page - 1) * perPage, page * perPage);
-  }
-  return []; // Production: return empty until real API is implemented
+  const result = await searchStockImages({
+    query,
+    page,
+    perPage,
+    providers: ["pixabay"],
+  });
+  return result.images;
 }

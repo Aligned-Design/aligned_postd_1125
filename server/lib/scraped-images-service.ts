@@ -1040,10 +1040,12 @@ export async function transferScrapedImages(
     let transferredCount = 0;
     let failedCount = 0;
 
+    // @supabase-scope-ok Batch update by IDs - internal service operation
     // Update each image's brand_id and tenant_id in a single batch update
     // Use a transaction-like approach: update all at once
     const imageIds = scrapedImages.map(img => img.id);
     
+    // @supabase-scope-ok Batch update by IDs - internal service operation
     const { data: updateResult, error: batchError } = await supabase
       .from("media_assets")
       .update({
@@ -1059,6 +1061,7 @@ export async function transferScrapedImages(
       // Fallback to individual updates
       for (const image of scrapedImages) {
         try {
+          // @supabase-scope-ok ID-based update - internal service operation
           const { error } = await supabase
             .from("media_assets")
             .update({
@@ -1270,6 +1273,7 @@ export async function excludeAsset(
   brandId: string
 ): Promise<boolean> {
   try {
+    // @supabase-scope-ok Uses .eq("brand_id", brandId) - properly scoped
     const { error } = await supabase
       .from("media_assets")
       .update({ excluded: true, updated_at: new Date().toISOString() })
@@ -1302,6 +1306,7 @@ export async function restoreAsset(
   brandId: string
 ): Promise<boolean> {
   try {
+    // @supabase-scope-ok Uses .eq("brand_id", brandId) - properly scoped
     const { error } = await supabase
       .from("media_assets")
       .update({ excluded: false, updated_at: new Date().toISOString() })
@@ -1367,6 +1372,7 @@ export async function updateAssetRole(
       roleUpdatedAt: new Date().toISOString(),
     };
     
+    // @supabase-scope-ok Uses .eq("brand_id", brandId) - properly scoped
     // Update both metadata and category column
     const { error: updateError } = await supabase
       .from("media_assets")

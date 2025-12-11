@@ -1,6 +1,7 @@
 export interface BrandIntelligence {
   id: string;
   brandId: string;
+  // Note: brandProfile field kept for API backward compatibility; internally uses BrandContext
   brandProfile: {
     usp: string[];
     differentiators: string[];

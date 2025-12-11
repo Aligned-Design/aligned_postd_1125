@@ -71,7 +71,13 @@ export interface AdvisorRequest {
   brandContext?: AiAgentBrandContextInput;
 }
 
-export interface BrandProfile {
+/**
+ * BrandContext - Brand context data for AI agents
+ * 
+ * This is the canonical type name per POSTD terminology guidelines.
+ * Legacy "BrandProfile" has been removed - use BrandContext everywhere.
+ */
+export interface BrandContext {
   name: string;
   tone?: string;
   values?: string[];
@@ -80,4 +86,6 @@ export interface BrandProfile {
   requiredDisclaimers?: string[];
   allowedToneDescriptors?: string[];
 }
+
+// Note: Legacy "BrandProfile" alias removed - use BrandContext
 

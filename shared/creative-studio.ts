@@ -62,6 +62,10 @@ export interface CanvasItem {
   gradientFrom?: string;
   gradientTo?: string;
   gradientAngle?: number;
+
+  // Visual effects
+  opacity?: number; // 0-100
+  filter?: string; // CSS filter value (e.g., "grayscale(100%)", "sepia(50%)")
 }
 
 // ============================================================================

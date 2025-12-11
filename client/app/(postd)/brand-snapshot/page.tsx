@@ -79,7 +79,7 @@ export default function BrandSnapshot() {
     );
   }
 
-  // TODO: tighten type - define proper BrandKit interface based on backend schema
+  // BrandKit type defined in @shared/brand-guide - using Record for flexibility with brand_kit JSONB field
   type BrandKitData = {
     toneKeywords?: string[];
     brandPersonality?: string[];
@@ -115,7 +115,7 @@ export default function BrandSnapshot() {
             Here's Your Brand Snapshot
           </h1>
           <p className="text-lg text-slate-600 max-w-2xl mx-auto">
-            Your brand profile is complete! Postd is now ready to create content
+            Your Brand Guide is complete! Postd is now ready to create content
             that matches your unique voice, style, and preferences.
           </p>
         </div>
@@ -314,7 +314,7 @@ export default function BrandSnapshot() {
           </h3>
           <p className="text-muted-foreground mb-6 max-w-2xl mx-auto text-slate-600">
             The Copywriter, The Creative, and The Advisor are ready to create content,
-            design visuals, and provide insights that match your brand profile.
+            design visuals, and provide insights that match your Brand Guide.
           </p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <Button
@@ -343,7 +343,7 @@ export default function BrandSnapshot() {
             variant="ghost"
             size="sm"
           >
-            Edit brand profile
+            Edit Brand Guide
           </Button>
         </div>
       </div>

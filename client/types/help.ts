@@ -35,7 +35,7 @@ export const GUIDED_TOUR_STEPS: TooltipStep[] = [
     id: 1,
     emoji: "🎨",
     title: "Create Your First Post",
-    description: "Head to Creative Studio to create content with AI or templates. Your brand profile is already set up!",
+    description: "Head to Creative Studio to create content with AI or templates. Your Brand Guide is already set up!",
     action: {
       label: "Go to Studio",
       handler: () => {

@@ -69,6 +69,11 @@ export function brandSnapshotToBrandGuide(
       industry: brandSnapshot.industry || brandSnapshot.businessType, // Explicit industry field
       industryKeywords: brandSnapshot.extractedMetadata?.keywords || [],
       competitors: brandSnapshot.competitors || [],
+      // ✅ MVP2: Prepend heroHeadline as first sample headline
+      sampleHeadlines: [
+        brandSnapshot.extractedMetadata?.heroHeadline,
+        ...(brandSnapshot.extractedMetadata?.headlines || [])
+      ].filter((h): h is string => !!h && h.length > 0),
       values: brandSnapshot.values || brandSnapshot.coreValues || [],
       targetAudience: brandSnapshot.audience || brandSnapshot.targetAudience || "",
       painPoints: extractPainPointsFromPersonas(brandSnapshot.personas) || [],
@@ -109,7 +114,9 @@ export function brandSnapshotToBrandGuide(
       preferredPostTypes: brandSnapshot.preferredPostTypes || [],
       brandPhrases: brandSnapshot.brandPhrases || [],
       formalityLevel: brandSnapshot.formalityLevel,
-      contentPillars: brandSnapshot.contentPillars || brandSnapshot.messagingPillars || [],
+      // ✅ MVP2: Use services as content pillars if none exist
+      contentPillars: brandSnapshot.contentPillars || brandSnapshot.messagingPillars || 
+        (brandSnapshot.extractedMetadata?.services?.slice(0, 5) || []),
       neverDo: brandSnapshot.extractedMetadata?.donts || [],
       guardrails: (brandSnapshot.extractedMetadata?.donts || []).map((dont: string, idx: number) => ({
         id: `guardrail-${idx}`,
@@ -126,11 +133,32 @@ export function brandSnapshotToBrandGuide(
       uploadedGraphics: [],
       uploadedTemplates: [],
       approvedStockImages: brandSnapshot.approvedStockImages || [],
-      productsServices: [],
+      // ✅ MVP2: Include scraped services as products/services
+      productsServices: (brandSnapshot.extractedMetadata?.services || []).map((name: string, idx: number) => ({
+        id: `svc-${idx}`,
+        name,
+        description: "",
+      })),
     },
 
     // Legacy fields (for backward compatibility)
-    purpose: brandSnapshot.extractedMetadata?.brandIdentity || brandSnapshot.goal || "",
+    // ✅ MVP2: Use aboutText as fallback if brandIdentity is weak
+    purpose: (() => {
+      const brandIdentity = brandSnapshot.extractedMetadata?.brandIdentity;
+      const aboutText = brandSnapshot.extractedMetadata?.aboutText;
+      
+      // Prefer AI-generated brandIdentity if valid
+      if (brandIdentity && typeof brandIdentity === "string" && brandIdentity.trim().length > 10) {
+        return brandIdentity.trim();
+      }
+      
+      // Fall back to raw aboutText
+      if (aboutText && typeof aboutText === "string" && aboutText.trim().length > 50) {
+        return aboutText.trim();
+      }
+      
+      return brandSnapshot.goal || "";
+    })(),
     mission: brandSnapshot.goal || "",
     vision: "",
     personas: [],
@@ -269,6 +297,7 @@ export async function saveBrandGuideFromOnboarding(
       .single();
 
     if (existingBrand) {
+      // @supabase-scope-ok Brand lookup by its own primary key
       // Update existing brand
       const { error } = await supabase
         .from("brands")
@@ -334,6 +363,7 @@ export async function saveBrandGuideFromOnboarding(
               bfsBaseline: baseline,
             },
           };
+          // @supabase-scope-ok Brand lookup by its own primary key
           await supabase
             .from("brands")
             .update({ brand_kit: updatedBrandKit })
@@ -351,6 +381,7 @@ export async function saveBrandGuideFromOnboarding(
         // Non-critical, continue
       }
     } else {
+      // @supabase-scope-ok INSERT includes brand id in payload
       // Create new brand (shouldn't happen in onboarding, but handle gracefully)
       const { error } = await supabase
         .from("brands")
@@ -392,6 +423,7 @@ export async function saveBrandGuideFromOnboarding(
             bfsBaseline: baseline,
           },
         };
+        // @supabase-scope-ok Brand lookup by its own primary key
         await supabase
           .from("brands")
           .update({ brand_kit: updatedBrandKit })

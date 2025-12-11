@@ -46,6 +46,7 @@ function checkEnvVar(name: string): boolean {
  */
 async function checkSupabase(): Promise<boolean> {
   try {
+    // @supabase-scope-ok DB connectivity check - only verifies Supabase is reachable
     const { error } = await supabase.from("brands").select("id").limit(1);
     return !error;
   } catch {

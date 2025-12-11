@@ -98,8 +98,7 @@ export default function Screen7ContentGeneration() {
   const startGeneration = async () => {
     try {
       // Get brandId from context or localStorage
-      // TODO: Migrate from "aligned_brand_id" to "postd_brand_id" (keeping backward compatibility for now)
-      const brandId = localStorage.getItem("postd_brand_id") || localStorage.getItem("aligned_brand_id") || (brandSnapshot as any)?.brandId;
+      const brandId = localStorage.getItem("postd_brand_id") || (brandSnapshot as any)?.brandId;
       
       if (!brandId) {
         setError("Brand ID not found. Please restart onboarding.");

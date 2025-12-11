@@ -17,6 +17,7 @@ export async function recoverPublishingJobs(): Promise<void> {
   try {
     console.log("🔄 Starting job recovery from database...");
 
+    // @supabase-scope-ok System job recovery - processes all brands' jobs on server restart
     // Get all pending jobs (not yet processed)
     const { data: pendingJobs, error: pendingError } = await supabase
       .from("publishing_jobs")
@@ -27,6 +28,7 @@ export async function recoverPublishingJobs(): Promise<void> {
     if (pendingError)
       throw new Error(`Failed to fetch pending jobs: ${pendingError.message}`);
 
+    // @supabase-scope-ok System job recovery - processes all brands' jobs on server restart
     // Get all scheduled jobs that are due to run
     const { data: scheduledJobs, error: scheduledError } = await supabase
       .from("publishing_jobs")
@@ -39,6 +41,7 @@ export async function recoverPublishingJobs(): Promise<void> {
         `Failed to fetch scheduled jobs: ${scheduledError.message}`,
       );
 
+    // @supabase-scope-ok System job recovery - processes all brands' jobs on server restart
     // Get processing jobs (these crashed - need to be retried)
     const { data: processingJobs, error: processingError } = await supabase
       .from("publishing_jobs")

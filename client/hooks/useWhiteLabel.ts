@@ -33,7 +33,8 @@ export function useWhiteLabelConfig() {
       
       // Check if we're on a custom domain
       const hostname = window.location.hostname;
-      const isCustomDomain = !hostname.includes('alignedai.com') && hostname !== 'localhost';
+      // POSTD production domains: postd.app, postd.ai, or custom client domains
+const isCustomDomain = !hostname.includes('postd.app') && hostname !== 'localhost';
       
       let response;
       if (isCustomDomain) {

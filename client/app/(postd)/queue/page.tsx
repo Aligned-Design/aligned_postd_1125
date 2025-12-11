@@ -129,9 +129,8 @@ export default function ContentQueue() {
         });
         setPosts(mappedPosts);
       } else if (response.status === 404) {
-        // API endpoint not implemented yet
+        // No content items found
         setPosts([]);
-        setError("Queue feature is coming soon. The API endpoint is not yet implemented.");
       } else {
         throw new Error(`Failed to load posts: ${response.statusText}`);
       }
@@ -145,17 +144,21 @@ export default function ContentQueue() {
     }
   };
 
+  // ✅ MVP4.3: Use shared status mapping for consistency
   const mapApiStatusToPostStatus = (status: string): PostStatus => {
+    // Import mapDbStatusToUiStatus from shared when available
+    // For now, use inline mapping that matches shared/content-status.ts
     const statusMap: Record<string, PostStatus> = {
       draft: "draft",
-      "pending_review": "reviewing",
-      "in_review": "reviewing",
+      pending_review: "reviewing",
+      in_review: "reviewing",
       reviewing: "reviewing",
       scheduled: "scheduled",
-      approved: "scheduled",
+      approved: "scheduled", // approved maps to scheduled (ready to publish)
       published: "published",
       errored: "errored",
       failed: "errored",
+      rejected: "draft", // rejected items go back to draft
     };
     return statusMap[status?.toLowerCase() || ""] || "draft";
   };
@@ -319,16 +322,10 @@ export default function ContentQueue() {
                   </span>
                 )}
               </div>
+              {/* Queue actions disabled until backend APIs are implemented */}
               <PostActionMenu
                 postId={post.id}
                 status={post.status}
-                onDelete={() => {/* TODO: Implement delete */}}
-                onDuplicate={() => {/* TODO: Implement duplicate */}}
-                onSchedule={() => {/* TODO: Implement schedule */}}
-                onChangeStatus={() => {/* TODO: Implement change status */}}
-                onAssign={() => {/* TODO: Implement assign */}}
-                onMoveCampaign={() => {/* TODO: Implement move campaign */}}
-                onShare={() => {/* TODO: Implement share */}}
               />
             </div>
           </div>
@@ -422,16 +419,10 @@ export default function ContentQueue() {
             </div>
           </div>
           <div className="flex-shrink-0 opacity-0 group-hover/card:opacity-100 transition-opacity">
+            {/* Queue actions disabled until backend APIs are implemented */}
             <PostActionMenu
               postId={post.id}
               status={post.status}
-              onDelete={() => {/* TODO: Implement delete */}}
-              onDuplicate={() => {/* TODO: Implement duplicate */}}
-              onSchedule={() => {/* TODO: Implement schedule */}}
-              onChangeStatus={() => {/* TODO: Implement change status */}}
-              onAssign={() => {/* TODO: Implement assign */}}
-              onMoveCampaign={() => {/* TODO: Implement move campaign */}}
-              onShare={() => {/* TODO: Implement share */}}
             />
           </div>
         </div>
