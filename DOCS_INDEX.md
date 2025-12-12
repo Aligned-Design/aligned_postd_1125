@@ -217,7 +217,8 @@ These documents are the **canonical truth** for the system:
 
 | Document | Path | Purpose | Category | Notes |
 |----------|------|---------|----------|-------|
-| Deployment Guide | `DEPLOYMENT_GUIDE.md` | Deployment instructions | ✅ ACTIVE | Current deployment guide |
+| Deployment Guide | `docs/deployment/DEPLOYMENT_GUIDE.md` | PHASE 3 deployment instructions | ✅ ACTIVE | Current deployment guide |
+| Supabase Migration Deployment | `SUPABASE_MIGRATION_DEPLOYMENT_GUIDE.md` | client_settings table migration | ✅ ACTIVE | Specific Supabase migration guide |
 | Deployment Ready | `DEPLOYMENT_READY.md` | Deployment readiness | 🟡 SUPPORTING | Historical readiness check |
 | Deployment Ready V2 | `DEPLOYMENT_READY_V2.md` | Deployment readiness v2 | 🟡 SUPPORTING | Historical readiness check |
 | Deployment Status | `DEPLOYMENT_STATUS.md` | Deployment status | 🟡 SUPPORTING | Status log |

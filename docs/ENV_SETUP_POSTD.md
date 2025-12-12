@@ -280,6 +280,6 @@ This error appears in:
 ## Related Documentation
 
 - [API_CREDENTIALS_SETUP.md](./API_CREDENTIALS_SETUP.md) - Detailed API key setup
-- [DEPLOYMENT_GUIDE.md](./DEPLOYMENT_GUIDE.md) - Production deployment
+- [DEPLOYMENT_GUIDE.md](deployment/DEPLOYMENT_GUIDE.md) - Production deployment (PHASE 3)
 - [QUICK-DB-REFERENCE.md](./QUICK-DB-REFERENCE.md) - Supabase schema reference
 

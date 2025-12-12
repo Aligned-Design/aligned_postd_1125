@@ -282,7 +282,7 @@ This creates optimized production bundles:
 ### Deployment Platforms
 
 - **Vercel** (recommended): See [VERCEL_DEPLOYMENT.md](VERCEL_DEPLOYMENT.md)
-- **Netlify**: See [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md)
+- **Netlify**: See [docs/deployment/DEPLOYMENT_GUIDE.md](docs/deployment/DEPLOYMENT_GUIDE.md)
 
 ### Pre-Deployment Checklist
 
@@ -293,7 +293,7 @@ This creates optimized production bundles:
 - [ ] Tests passing (`pnpm test`)
 - [ ] Linting passed (`pnpm lint`)
 
-See **[DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md)** and **[GO_LIVE_PLAYBOOK.md](GO_LIVE_PLAYBOOK.md)** for detailed deployment instructions.
+See **[docs/deployment/DEPLOYMENT_GUIDE.md](docs/deployment/DEPLOYMENT_GUIDE.md)** and **[GO_LIVE_PLAYBOOK.md](GO_LIVE_PLAYBOOK.md)** for detailed deployment instructions.
 
 ---
 

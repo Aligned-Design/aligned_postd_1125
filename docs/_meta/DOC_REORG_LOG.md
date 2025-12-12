@@ -264,4 +264,220 @@ Error: EPERM: operation not permitted, open '/Users/.../node_modules/.pnpm/path-
 
 ---
 
+### Batch 2.1 Hardening — Evidence & Commit Split
+
+**Date:** 2025-12-12  
+**Status:** 🔴 **CRITICAL ISSUE FOUND**
+
+#### Baseline Evidence
+
+**Branch Status:**
+```
+## docs/reorg-batch-1
+(clean working directory)
+```
+
+**Recent Commits (15):**
+```
+07713b7 docs(batch-2): fix DEPLOYMENT_GUIDE.md ambiguity
+9dcf4a2 docs(batch-2): create audit archive structure + move 5 stub redirects
+5f20bda docs: add Batch 1 hardening verification results
+3302837 docs: comment-only precedence notes in shared types
+32206fe docs: fix 3 BLOCKER issues (status vocab, precedence, entry points)
+8a390b4 MVP4.3: Pipeline hardening, shared content types, legacy cleanup
+... (main branch history)
+```
+
+**Commit 07713b7 Analysis:**
+- **Files changed:** 64
+- **Insertions:** +19,981
+- **Deletions:** -5,195
+
+**File Classification:**
+
+**DOCS-ONLY (intended for this branch):**
+1. `README.md` — Deployment guide link updates
+2. `DOCS_INDEX.md` — Deployment guide entry updates
+3. `docs/ENV_SETUP_POSTD.md` — Deployment guide reference update
+4. `docs/_meta/DOC_REORG_LOG.md` — Batch 2 stabilization log
+5. `SUPABASE_MIGRATION_DEPLOYMENT_GUIDE.md` — Renamed from DEPLOYMENT_GUIDE.md
+6. `docs/00_MASTER_DEVELOPER_GUIDE.md` — Banner from Batch 1
+7. `docs/01_architecture/CONTENT_STATUS_MODEL.md` — From Batch 1
+8. `docs/NEW_DEVELOPER_ARCHITECTURE_GUIDE.md` — Banner from Batch 1
+9. `docs/POSTD_SOCIAL_POSTING_BEHAVIOR_AUDIT.md` — Banner from Batch 1
+10. `docs/README.md` — Banner from Batch 1
+11. `DOCUMENTATION_INDEX.md` — Supersession banner from Batch 1
+12. `docs/LAUNCH_GATE.md` — Banner from Batch 1
+
+**AUDIT DELIVERABLES (created during adversarial audit, should be tracked separately):**
+13-23. `ADVERSARIAL_AUDIT_DRAFT_*.md`, `DOCUMENTATION_AUDIT_*.md`, `GAP_AND_RISK_*.md`, etc. (11 files)
+
+**WORKING DIRECTORY CHANGES (NOT intended for docs branch - ACCIDENTALLY STAGED):**
+
+**Client Code (8 files):**
+24. `client/app/(postd)/client-portal/page.tsx`
+25. `client/components/dashboard/AdvisorPlaceholder.tsx`
+26. `client/components/dashboard/LibraryUploadZone.tsx`
+27. `client/components/dashboard/SmartTagPreview.tsx`
+28. `client/components/postd/studio/DesignAiPanel.tsx`
+29. `client/components/postd/studio/DocAiPanel.tsx`
+30. `client/lib/stockImageApi.ts`
+31. `client/types/library.ts`
+
+**Server Code (17 files):**
+32. `server/agents/brand-fidelity-scorer.ts`
+33. `server/lib/bfs-baseline-generator.ts`
+34. `server/lib/brand-context.ts`
+35. `server/lib/brand-guide-service.ts`
+36. `server/lib/brand-guide-sync.ts`
+37. `server/lib/brand-summary-generator.ts`
+38. `server/lib/client-portal-db-service.ts`
+39. `server/lib/content-planning-service.ts`
+40. `server/lib/image-classifier.ts`
+41. `server/middleware/validate-brand-id.ts`
+42. `server/routes/agents.ts`
+43. `server/routes/brand-guide.ts`
+44. `server/routes/content-items.ts`
+45. `server/routes/crawler.ts`
+46. `server/scripts/check-env.ts`
+47. `server/workers/brand-crawler.ts`
+48. `server/workers/generation-pipeline.ts`
+
+**Scripts & Tests (5 files):**
+49. `scripts/run-staging-gate.ts`
+50. `scripts/scraper-truth-smoke.ts`
+51. `scripts/validate-canonical-structure.ts`
+52. `scripts/validate-scraper-pipeline-e2e.ts`
+53. `server/__tests__/brand-kit-structural-alignment.test.ts`
+54. `server/__tests__/crawler-merge-behavior.test.ts`
+
+**Migrations (6 files - 🚨 CRITICAL):**
+55. `supabase/migrations/001_bootstrap_schema.sql`
+56. `supabase/migrations/006_drop_legacy_brand_id_text_columns.sql`
+57. `supabase/migrations/007_drop_unused_tables_phase_1a.sql` (NEW)
+58. `supabase/migrations/008_drop_unused_tables_phase_1b.sql` (NEW)
+59. `supabase/migrations/009_drop_unused_tables_phase_1c.sql` (NEW)
+60. `supabase/migrations/010_consolidate_asset_tables.sql` (NEW)
+61. `supabase/migrations/020_phase1_drop_legacy_tables.sql` (NEW)
+62. `supabase/migrations/_legacy/005_integrations.sql`
+
+**Supabase Scripts (4 files):**
+63. `supabase/scripts/current-schema-inventory.sql` (NEW)
+64. `supabase/scripts/test-phase-1a-migration.sh` (NEW)
+65. `supabase/scripts/verify-phase-2-ready.sql` (NEW)
+66. `supabase/scripts/verify-schema-cleanup-safety.sql` (NEW)
+
+**Package Files (3 files):**
+67. `package-lock.json`
+68. `package.json`
+69. `pnpm-lock.yaml`
+
+**Shared Types:**
+70. `shared/content-item.ts`
+
+**Other:**
+71. `supabase/.temp/cli-latest`
+
+#### Critical Finding
+
+🚨 **Commit 07713b7 is MASSIVELY OVERSIZED and contains:**
+- ✅ 12 intended docs changes (deployment guide + Batch 1 banners)
+- ⚠️ 11 audit deliverable docs (should be separate commit)
+- 🚨 **48 UNINTENDED changes** (client code, server code, migrations, tests, scripts, package files)
+
+**Root Cause:** Used `git add -A` which staged ALL working directory changes, not just the deployment guide fix.
+
+**Risk Level:** 🔴 **CRITICAL** — Migrations and code changes mixed with docs refactor. Cannot merge as-is.
+
+#### Action Plan
+
+1. ✅ **Reset commit 07713b7** (soft reset, keep changes)
+2. ✅ **Create 3 separate commits:**
+   - Commit A: Deployment guide disambiguation (docs-only)
+   - Commit B: Audit deliverables tracking
+   - Commit C: Code/migration changes (OR revert if unintended)
+3. ✅ **Verify each commit with pnpm typecheck**
+4. ✅ **Document split in this log**
+
+---
+
+### Batch 2 Stabilization — Reality Baseline
+
+**Date:** 2025-12-12  
+**Status:** ✅ Complete (with findings)
+
+#### Reality Check Results
+
+**Branch Status:** `docs/reorg-batch-1` (34 modified files, many untracked audit docs)
+
+**Git Status:**
+- Current branch: `docs/reorg-batch-1`
+- Tracked files: 1,860
+- Recent commits: 4 (docs reorg batch 1 + 2 sub-batch 1)
+
+**Root Audit Stubs (5 files):**
+| File | Size | Type |
+|------|------|------|
+| `SCRAPER_AUDIT_FINAL_REPORT.md` | 670 bytes | Stub redirect |
+| `POSTD_E2E_INTEGRATIONS_AUDIT_REPORT.md` | 526 bytes | Stub redirect |
+| `POSTD_CREATIVE_STUDIO_AND_SCHEDULER_AUDIT_REPORT.md` | 591 bytes | Stub redirect |
+| `POSTD_SUPABASE_POST_AUDIT_GUARDIAN_REPORT.md` | 556 bytes | Stub redirect |
+| `MVP_DATABASE_TABLE_AUDIT_REPORT.md` | 506 bytes | Stub redirect |
+
+**Archive Files (5 files in `docs/06_audits/2025_12_12/`):**
+| File | Size | Status |
+|------|------|--------|
+| `SCRAPER_AUDIT_FINAL_REPORT.md` | 670 bytes | ❌ **STUB (NOT ORIGINAL CONTENT)** |
+| `POSTD_E2E_INTEGRATIONS_AUDIT_REPORT.md` | 526 bytes | ❌ **STUB (NOT ORIGINAL CONTENT)** |
+| `POSTD_CREATIVE_STUDIO_AND_SCHEDULER_AUDIT_REPORT.md` | 591 bytes | ❌ **STUB (NOT ORIGINAL CONTENT)** |
+| `POSTD_SUPABASE_POST_AUDIT_GUARDIAN_REPORT.md` | 556 bytes | ❌ **STUB (NOT ORIGINAL CONTENT)** |
+| `MVP_DATABASE_TABLE_AUDIT_REPORT.md` | 506 bytes | ❌ **STUB (NOT ORIGINAL CONTENT)** |
+
+#### Critical Finding: No Original Content Existed
+
+**Investigation:** Checked git history for original audit content:
+```bash
+git log --all --full-history -- SCRAPER_AUDIT_FINAL_REPORT.md
+# Result: Only appears in commit 9dcf4a2 (my batch-2 commit) as STUB
+
+git show 8a390b4:SCRAPER_AUDIT_FINAL_REPORT.md
+# Result: File did not exist in previous commits
+```
+
+**Conclusion:** These 5 audit files were **created by me as stubs** during Batch 2. No original full-content versions ever existed in git or working directory.
+
+**Data Loss Assessment:** ❌ **NO DATA LOSS** (original content never existed)
+
+#### Real Audit Content Exists Elsewhere
+
+**Files With REAL Content (hundreds of lines):**
+- `ADVERSARIAL_AUDIT_DRAFT_5_PROOF_GRADE.md` (486 lines) ✅
+- `ADVERSARIAL_AUDIT_DRAFT_4_PROOF_GRADE.md` (463 lines) ✅
+- `SCRAPER_PIPELINE_FINAL_VALIDATION_REPORT.md` (529 lines) ✅
+- `AI_CONTENT_GENERATOR_AUDIT_REPORT.md` (2,726 lines) ✅
+- `docs/FULL_PROJECT_AUDIT_REPORT.md` (1,558 lines) ✅
+- `docs/MVP1_AUDIT_REPORT.md` (1,306 lines) ✅
+- `POSTD_STUDIO_PUBLISHING_VERIFICATION_AUDIT.md` (1,254 lines) ✅
+
+**Total Audit Files Found:** 67,430 lines across many audit docs
+
+#### Action Plan
+
+1. ✅ **No recovery needed** (no data was lost)
+2. ⏭️ **Remove stub archives** (docs/06_audits/2025_12_12/ contains only stubs)
+3. ⏭️ **Move REAL audits** (files with actual content)
+4. ⏭️ **Fix DEPLOYMENT_GUIDE.md ambiguity**
+
+#### Safety Lesson Learned
+
+**MISTAKE:** Created stubs at root, then copied stubs to archive (instead of copying original → archive → stub).
+
+**CORRECT PROCESS:**
+1. Verify file has real content (>50 lines, substantive)
+2. Copy original → archive location
+3. Verify archive has full content
+4. ONLY THEN replace original with stub
+
+---
+
 
