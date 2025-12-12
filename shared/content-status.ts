@@ -1,12 +1,17 @@
 /**
  * Content Status Constants
  * 
- * Single source of truth for content item status values used across:
+ * Canonical source for content item status values used across:
  * - Database (content_items.status)
  * - Queue UI
  * - Calendar UI
  * - Scheduler/Approvals
  * - Content Planning Service
+ * 
+ * ⚠️ **Precedence Note:**
+ * - This TypeScript file is the CODE source of truth for status enums
+ * - Documentation reference: `docs/01_architecture/CONTENT_STATUS_MODEL.md`
+ * - When code conflicts with docs, code wins (see DOCS_INDEX.md precedence rules)
  * 
  * Status Lifecycle:
  *   draft → pending_review → approved → scheduled → published
