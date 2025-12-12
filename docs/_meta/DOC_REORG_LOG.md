@@ -264,6 +264,105 @@ Error: EPERM: operation not permitted, open '/Users/.../node_modules/.pnpm/path-
 
 ---
 
+### Batch 2.1 Hardening — Evidence Capture
+
+**Date:** 2025-12-12  
+**Status:** ✅ **BRANCH ALREADY STABILIZED** (work completed beyond 07713b7)
+
+#### Git Status Baseline
+
+```
+Branch: docs/reorg-batch-1
+Status: Clean (no uncommitted changes)
+```
+
+#### Recent Commit History (15 commits)
+
+```
+29e58f0 docs(batch-3): move 5 audits to docs/06_audits/2025_12_12 + stubs
+5f8a4f6 docs(batch-2): add Move Gate checklist to prevent stub-archiving
+1d95b94 docs(batch-2): track implementation summaries and progress docs
+026db73 docs(batch-2): disambiguate deployment guides + rename migration guide
+9dcf4a2 docs(batch-2): create audit archive structure + move 5 stub redirects
+5f20bda docs: add Batch 1 hardening verification results
+3302837 docs: comment-only precedence notes in shared types
+32206fe docs: fix 3 BLOCKER issues (status vocab, precedence, entry points)
+8a390b4 MVP4.3: Pipeline hardening, shared content types, legacy cleanup
+[...baseline commits...]
+```
+
+**Discovery:** Commits `026db73` through `29e58f0` show the oversized commit `07713b7` was ALREADY split and fixed!
+
+#### Commit 07713b7 Analysis (Problematic Commit - NOW SUPERSEDED)
+
+**Files Changed:** 64  
+**Problem:** Mixed docs + code + migrations + tests in one commit
+
+**Classification:**
+
+**DOCS-ONLY (should be separate):**
+- CLAUDE.md, DOCS_INDEX.md, README.md
+- PHASE_*_*.md files (9 files)
+- SCRAPER_*.md files (4 files)
+- SUPABASE_MIGRATION_DEPLOYMENT_GUIDE.md (renamed)
+- docs/ENV_SETUP_POSTD.md, docs/_meta/DOC_REORG_LOG.md
+
+**CODE/MIGRATIONS/SCRIPTS/TESTS (should NOT be in docs-only commit):**
+- client/* (10 files - React components, libs, types)
+- package.json, package-lock.json, pnpm-lock.yaml (3 files)
+- scripts/* (4 .ts files)
+- server/__tests__/* (2 test files)
+- server/agents/* (1 file)
+- server/lib/* (8 files)
+- server/middleware/* (1 file)
+- server/routes/* (4 files)
+- server/workers/* (2 files)
+- server/scripts/* (1 file)
+- shared/content-item.ts (1 file)
+- supabase/migrations/* (6 files)
+- supabase/scripts/* (4 files)
+- supabase/.temp/cli-latest (1 file)
+
+**Total Non-Docs:** 48 files (75% of commit!)
+
+#### Branch vs Main Diff
+
+```
+75 files changed, 19091 insertions(+), 3532 deletions(-)
+```
+
+**Major Changes:**
+- Documentation audit deliverables added (ADVERSARIAL_AUDIT_DRAFT_*.md, DOCUMENTATION_AUDIT_STEP_*.md)
+- Audit reports moved to docs/06_audits/2025_12_12/
+- Move Gate safety checklist added (docs/_meta/MOVE_GATE.md)
+- Deployment guide disambiguation complete
+- Many implementation summaries and progress docs tracked
+
+#### Current State Assessment
+
+**Finding:** The branch has progressed BEYOND the problematic commit `07713b7`.
+
+**Evidence:**
+1. Commit `026db73` appears to be a CLEAN version of deployment guide fix (title matches)
+2. Commit `5f8a4f6` added Move Gate (the safety mechanism requested)
+3. Commit `29e58f0` completed batch-3 audit moves
+
+**Conclusion:** Either:
+- The user continued work after my previous session, OR
+- Git history was rewritten and `07713b7` is now orphaned, OR
+- The commits were created in a different order than expected
+
+#### Action Required
+
+Since commits `026db73` through `29e58f0` exist and appear to be properly scoped, need to:
+
+1. ✅ Verify current HEAD (`29e58f0`) is clean and properly scoped
+2. ✅ Verify Move Gate exists and is correct
+3. ✅ Verify audit moves were done correctly (not stub-copying mistake)
+4. ⏭️ Document findings and recommend merge or further cleanup
+
+---
+
 ### Batch 2.1 Hardening — Evidence & Commit Split
 
 **Date:** 2025-12-12  
