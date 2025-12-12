@@ -1,5 +1,10 @@
 # Documentation Index - Redirect Notice
 
+> 🔀 **SUPERSEDED:** This index has been replaced  
+> **Current Index:** [DOCS_INDEX.md](./DOCS_INDEX.md) - Complete POSTD Documentation Index  
+> **Last Updated:** 2025-01-20  
+> **Superseded On:** 2025-12-12
+
 > **Note:** This is a historical document that refers to the product under its former name "Aligned-20AI". The product is now called **POSTD**. This index has been superseded by a more comprehensive documentation index.
 
 ---

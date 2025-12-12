@@ -18,6 +18,23 @@ This index provides a complete map of all documentation in the POSTD repository.
 
 ---
 
+## 🎯 PRECEDENCE RULES
+
+**When documentation conflicts, trust this order:**
+
+1. **Schema Migrations** (`supabase/migrations/`) — Ultimate truth for database structure
+2. **Shared Types/Enums** (`shared/*.ts`) — Truth for data contracts used across client/server
+3. **API Contract** (`POSTD_API_CONTRACT.md`) — Truth for API endpoints and request/response schemas
+4. **Workflow Docs** (`docs/02_workflows/`, `docs/01_architecture/`) — Truth for user journeys and business processes
+5. **Audit Docs** (`docs/06_audits/`) — Historical snapshots; NOT current truth
+
+**Examples:**
+- ✅ If `shared/content-status.ts` (code) conflicts with `docs/LAUNCH_GATE.md` (audit), trust **code**
+- ✅ If `supabase/migrations/001_bootstrap_schema.sql` defines a column as JSONB, but docs say TEXT, trust **schema**
+- ✅ If `POSTD_API_CONTRACT.md` defines an endpoint as `/api/crawl/start`, but an audit says `/api/scraper/start`, trust **API Contract**
+
+---
+
 ## 🚀 IF YOU'RE NEW, START HERE
 
 **Recommended reading order for new engineers and agents:**

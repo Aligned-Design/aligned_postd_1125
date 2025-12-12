@@ -1,5 +1,9 @@
 # POSTD Design System Documentation
 
+> ℹ️ **SCOPE:** This directory covers **design system and UI components ONLY**  
+> **Not covered:** Backend architecture, API contracts, workflows  
+> **See also:** [DOCS_INDEX.md](../DOCS_INDEX.md) (root) for complete system documentation
+
 Welcome to the complete documentation for the POSTD design system. This folder contains everything you need to understand, implement, and extend the design system.
 
 ## 📚 Documentation Files

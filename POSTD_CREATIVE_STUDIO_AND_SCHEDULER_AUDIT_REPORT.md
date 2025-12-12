@@ -799,6 +799,11 @@ const loadReviewQueue = async () => {
 />
 ```
 
+> ⚠️ **Status Model Canonical Reference**  
+> This document contains historical or partial status info.  
+> **Canonical:** `docs/01_architecture/CONTENT_STATUS_MODEL.md`  
+> Last verified: 2025-12-12
+
 #### ✅ Status Updates
 
 **Status**: ✅ **WORKING**
