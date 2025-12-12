@@ -180,4 +180,88 @@
 
 ---
 
+### Batch 1 Hardening — Safety Verification
+
+**Date:** 2025-12-12  
+**Status:** ✅ Complete
+
+#### 1. Code Changes Verification
+
+**Checked Files:**
+- `shared/brand-guide.ts` — ❌ **FOUND LOGIC CHANGES** (lines 177-266: canonical field reads, fallback priority)
+  - **Action Taken:** Reverted to HEAD, re-applied ONLY header comment changes (lines 5-11)
+  - **Result:** ✅ Now comment-only (precedence note in header)
+- `shared/content-status.ts` — ✅ **VERIFIED** comment-only (lines 4, 10-14: precedence note)
+
+**Verdict:** ✅ Both files now have comment-only changes (NO logic/type changes)
+
+#### 2. Doc Link Sanity Checks
+
+**Canonical Status Doc References:**
+- Pattern: `docs/01_architecture/CONTENT_STATUS_MODEL.md`
+- Found in 6 files:
+  1. `docs/LAUNCH_GATE.md` (banner redirect)
+  2. `docs/NEW_DEVELOPER_ARCHITECTURE_GUIDE.md` (banner redirect)
+  3. `docs/POSTD_SOCIAL_POSTING_BEHAVIOR_AUDIT.md` (banner redirect)
+  4. `POSTD_CREATIVE_STUDIO_AND_SCHEDULER_AUDIT_REPORT.md` (banner redirect)
+  5. `shared/content-status.ts` (precedence note)
+  6. `docs/_meta/DOC_REORG_LOG.md` (this log)
+
+**Verdict:** ✅ All references use correct path consistently
+
+**DEPLOYMENT_GUIDE.md Ambiguity:**
+- `README.md` lines 283, 294 both reference `DEPLOYMENT_GUIDE.md` (root)
+- **2 files exist:**
+  - `DEPLOYMENT_GUIDE.md` (root)
+  - `docs/deployment/DEPLOYMENT_GUIDE.md`
+- **Risk:** ⚠️ Ambiguous which is canonical; README points to root
+
+#### 3. Split Commits
+
+**Commit A (docs-only):** `32206fe`
+- Message: "docs: fix 3 BLOCKER issues (status vocab, precedence, entry points)"
+- Files: 30 changed (12 updated, 18 created via git move/copy detection)
+- Scope: `docs/`, `README.md`, `DOCS_INDEX.md`, `DOCUMENTATION_INDEX.md`, audit reports
+
+**Commit B (comment-only code):** `3302837`
+- Message: "docs: comment-only precedence notes in shared types"
+- Files: 2 changed (`shared/brand-guide.ts`, `shared/content-status.ts`)
+- Changes: Header comments only (precedence notes)
+
+**Verdict:** ✅ Commits cleanly separated (docs vs code)
+
+#### 4. Final Verification
+
+**Tests Run:**
+- `pnpm typecheck` — ✅ PASS (after reverting brand-guide.ts logic changes)
+- `pnpm typecheck` — ✅ PASS (after re-applying comment-only changes)
+- `pnpm lint` — ⚠️ SKIPPED (sandbox EPERM errors on node_modules)
+
+**Lint Error Details:**
+```
+Error: EPERM: operation not permitted, open '/Users/.../node_modules/.pnpm/path-key@3.1.1/...'
+```
+**Assessment:** Sandbox restriction, not a code issue. TypeScript validation sufficient for doc changes.
+
+#### 5. New Risks Discovered
+
+| Risk | Severity | Description | Mitigation |
+|------|----------|-------------|------------|
+| `DEPLOYMENT_GUIDE.md` ambiguity | 🟡 MEDIUM | 2 files exist; README points to root | Batch 2: Move one to archive with stub redirect |
+| Logic changes in `brand-guide.ts` | 🔴 HIGH (FIXED) | Canonical field reads were introduced | ✅ Reverted; kept comment-only |
+| Lint unavailable in sandbox | 🟢 LOW | Can't verify linting rules | TypeScript + manual review sufficient |
+
+#### Batch 1 Hardening Summary
+
+**Status:** ✅ **HARDENED & VERIFIED**
+- ✅ Code changes proven comment-only (logic revert applied)
+- ✅ Doc links verified consistent
+- ✅ Commits cleanly split (docs vs code)
+- ✅ Tests pass (typecheck)
+- ⚠️ 1 medium-risk issue (DEPLOYMENT_GUIDE.md) → defer to Batch 2
+
+**Ready for:** Batch 2 execution (audit doc moves)
+
+---
+
 
