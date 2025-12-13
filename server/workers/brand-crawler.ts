@@ -2114,6 +2114,29 @@ async function extractImages(page: Page, baseUrl: string, brandName?: string): P
           const normalizedUrl = normalizeUrl(src);
           if (!normalizedUrl) return;
 
+          // ✅ FIX 2025-12-13: Filter out third-party embeds (maps, ads, tracking pixels)
+          const thirdPartyDomains = [
+            "maps.googleapis.com",
+            "maps.google.com",
+            "google-analytics.com",
+            "googletagmanager.com",
+            "doubleclick.net",
+            "facebook.com/tr",
+            "linkedin.com/px",
+            "ads.",
+            "adservice.",
+            "pixel.",
+            "track.",
+          ];
+          
+          const urlLowerCheck = normalizedUrl.toLowerCase();
+          const isThirdPartyEmbed = thirdPartyDomains.some(domain => urlLowerCheck.includes(domain));
+          
+          if (isThirdPartyEmbed) {
+            // Skip third-party embeds (maps, ads, tracking)
+            return;
+          }
+
           // ✅ MORE LENIENT: Try multiple ways to get dimensions
           // naturalWidth/naturalHeight are most accurate but may be 0 if image hasn't loaded
           // width/height attributes are fallback
