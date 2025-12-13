@@ -104,7 +104,6 @@
 - [x] Auth middleware configured
 - [x] Service integrations prepared:
   - [x] OpenAI/Anthropic (AI providers)
-  - [x] Builder.io (content management)
   - [x] SendGrid (email service)
   - [x] Social platform APIs
   - [x] Sentry (error monitoring)
@@ -138,7 +137,6 @@ These items require your input to complete deployment:
 
 ### 2. Recommended Variables
 - [ ] Add OpenAI or Anthropic API key
-- [ ] Add Builder.io keys
 - [ ] Add SendGrid configuration
 
 ### 3. Verify Deployment

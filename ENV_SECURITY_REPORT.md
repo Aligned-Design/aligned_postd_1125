@@ -87,7 +87,6 @@
 
 ### Optional
 - [ ] `SENDGRID_API_KEY` (for email)
-- [ ] `BUILDER_PRIVATE_KEY` (for Builder.io)
 - [ ] Platform-specific tokens (if not using OAuth)
 
 ---

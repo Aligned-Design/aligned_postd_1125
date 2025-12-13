@@ -63,24 +63,7 @@ Replace `your-domain` with your actual Vercel project domain (e.g., `aligned-20a
 
 ---
 
-### 4. Builder.io Configuration (REQUIRED - For content management)
-
-| Key | Value | Notes |
-|-----|-------|-------|
-| `VITE_BUILDER_PUBLIC_KEY` | `your-builder-public-key` | Get from Builder.io Dashboard → Account Settings → API Keys |
-| `BUILDER_PRIVATE_KEY` | `your-builder-private-key` | Get from Builder.io Dashboard → Account Settings → API Keys |
-| `BUILDER_WEBHOOK_SECRET` | `your-webhook-secret` | Generate a random secret string for webhook verification |
-
-**How to find Builder.io keys:**
-1. Go to [Builder.io Dashboard](https://builder.io/app)
-2. Click your avatar (top right)
-3. Select **Account Settings**
-4. Find **API Keys** section
-5. Copy the public and private keys
-
----
-
-### 5. Email Service Configuration (REQUIRED - For notifications)
+### 4. Email Service Configuration (REQUIRED - For notifications)
 
 | Key | Value | Notes |
 |-----|-------|-------|
@@ -212,9 +195,6 @@ Add these only if you want to sync analytics from social platforms.
 3. **Tier 3 (RECOMMENDED - Do third):**
    - `OPENAI_API_KEY` or `ANTHROPIC_API_KEY`
    - `AI_PROVIDER`
-   - `VITE_BUILDER_PUBLIC_KEY`
-   - `BUILDER_PRIVATE_KEY`
-   - `BUILDER_WEBHOOK_SECRET`
 
 4. **Tier 4 (OPTIONAL - Add as needed):**
    - Email service variables

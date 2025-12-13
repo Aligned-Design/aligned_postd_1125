@@ -172,9 +172,6 @@ This audit compares the repository configuration with Vercel project settings to
 - `AI_PROVIDER` - Set to `auto` for automatic provider selection
 
 **Tier 4 - OPTIONAL (Additional features):**
-- `VITE_BUILDER_PUBLIC_KEY` - Builder.io public key
-- `BUILDER_PRIVATE_KEY` - Builder.io private key
-- `BUILDER_WEBHOOK_SECRET` - Builder.io webhook secret
 - `SENDGRID_API_KEY` - Email service API key
 - `EMAIL_SERVICE_PROVIDER` - Set to `sendgrid`
 - `EMAIL_FROM_ADDRESS` - Email sender address

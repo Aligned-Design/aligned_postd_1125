@@ -26,9 +26,6 @@ VITE_API_BASE_URL=https://your-domain.vercel.app/api
 CLIENT_URL=https://your-domain.vercel.app
 SOCKETIO_CORS_ORIGIN=https://your-domain.vercel.app
 
-VITE_BUILDER_PUBLIC_KEY=your-builder-public-key
-BUILDER_PRIVATE_KEY=your-builder-private-key
-BUILDER_WEBHOOK_SECRET=your-webhook-secret
 
 VITE_ANALYTICS_ID=your-analytics-id
 

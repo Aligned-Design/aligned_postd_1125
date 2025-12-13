@@ -35,8 +35,6 @@ Run: `npm run validate:env`
   - Application Port: 8080
   - App URL: https://aligned...
   - API Base URL: https://aligned...
-  - Builder.io Public Key: OK
-  - Builder.io Private Key: OK
   - SendGrid API Key: OK
   - From Email Address: OK
   - Socket.io CORS Origin: OK

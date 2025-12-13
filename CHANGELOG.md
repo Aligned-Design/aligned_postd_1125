@@ -122,7 +122,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Import path issues fixed
 
 ### Security
-- API keys rotated (Supabase, OpenAI, Anthropic, Builder.io)
+- API keys rotated (Supabase, OpenAI, Anthropic)
 - Environment file cleaned of exposed secrets
 - RLS policies configured for all tables
 - HTTPS enforced in production

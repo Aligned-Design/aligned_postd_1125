@@ -115,12 +115,6 @@
 | **@react-three/drei** | 9.122.0 | 3D Helpers | Helper objects/utilities | 3D scene setup | Active |
 | **@types/three** | 0.176.0 | Types | Three.js types | TypeScript | Dev |
 
-### Builder.io Integration
-
-| Package | Version | Category | Purpose | Where Used | Status |
-|---------|---------|----------|---------|-----------|--------|
-| **@builder.io/react** | 8.2.9 | CMS | Builder.io content integration | Content embedding | Active |
-
 ### Utilities & Helpers
 
 | Package | Version | Category | Purpose | Where Used | Status |

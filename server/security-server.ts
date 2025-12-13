@@ -22,7 +22,6 @@ import {
 // Import route routers
 import agentsRouter from "./routes/agents";
 import aiMetricsRouter from "./routes/ai-metrics";
-import builderRouter from "./routes/builder-router";
 import crawlerRouter from "./routes/crawler";
 import escalationsRouter from "./routes/escalations";
 import integrationsRouter from "./routes/integrations";
@@ -48,10 +47,6 @@ import {
   generateDesign,
   getProviders as getAIProviders,
 } from "./routes/ai-generation";
-import {
-  generateContent as generateBuilderContent,
-  builderWebhook,
-} from "./routes/builder";
 import {
   getAnalytics,
   getInsights,
@@ -183,7 +178,6 @@ export function createSecureServer() {
           scriptSrc: [
             "'self'",
             "'unsafe-inline'",
-            "cdn.builder.io",
             "https://js.stripe.com",
           ],
           styleSrc: ["'self'", "'unsafe-inline'", "fonts.googleapis.com"],
@@ -314,7 +308,6 @@ export function createSecureServer() {
   // Register route routers
   app.use("/api/agents", strictRateLimit, agentsRouter);
   app.use("/api/ai-metrics", strictRateLimit, aiMetricsRouter);
-  app.use("/api/builder", builderRouter);
   app.use("/api/crawler", strictRateLimit, crawlerRouter);
   app.use("/api/escalations", escalationsRouter);
   app.use("/api/integrations", strictRateLimit, integrationsRouter);
@@ -331,8 +324,6 @@ export function createSecureServer() {
   app.post("/api/ai/generate/content", strictRateLimit, generateAIContent);
   app.post("/api/ai/generate/design", strictRateLimit, generateDesign);
   app.get("/api/ai/providers", getAIProviders);
-  app.post("/api/ai/generate", strictRateLimit, generateBuilderContent);
-  app.post("/api/ai/webhook", builderWebhook);
 
   // Analytics routes
   app.get("/api/analytics/:brandId", getAnalytics);
