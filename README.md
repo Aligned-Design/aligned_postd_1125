@@ -69,7 +69,9 @@ If you work with POSTD clients (sales, success, support), start here:
 
 ### Documentation Index
 
-See **[DOCS_INDEX.md](DOCS_INDEX.md)** for a complete map of all documentation files organized by category.
+**Primary Navigation:** See **[DOCS_INDEX.md](DOCS_INDEX.md)** for a complete map of all documentation files organized by category.
+
+> ⚠️ **Note:** `DOCUMENTATION_INDEX.md` is superseded. Use `DOCS_INDEX.md` for current documentation index.
 
 ### Key Documentation Categories
 
@@ -198,6 +200,26 @@ See **[TECH_STACK_GUIDE.md](TECH_STACK_GUIDE.md)** for complete environment vari
 
 ## 🎯 Core Features
 
+## Tests & Env Prereqs
+
+- Unit tests
+   - Run: `pnpm test`
+   - Notes: Unit and Vitest-based integration tests run without any external secrets or env vars.
+
+- Playwright end-to-end (optional / infra-dependent)
+   - Run: `pnpm e2e`
+   - Notes: This is optional for local dev. Playwright tests may require `@playwright/test` and Playwright browsers to be installed (`npx playwright install`) and can interact with real infra.
+
+- Server E2E flow
+   - Run: `pnpm test:e2e`
+   - Required environment variables:
+      - `SUPABASE_URL` — your Supabase project URL
+      - `SUPABASE_SERVICE_ROLE_KEY` — server-side service role key (keep this secret; use CI secrets or a local `.env` excluded from git)
+   - Example (inline):
+      SUPABASE_URL=https://your-project.supabase.co SUPABASE_SERVICE_ROLE_KEY=your_service_role_key pnpm test:e2e
+
+Notes: Because E2E tests interact with external services, run them against a dedicated test project/environment when possible and inject secrets via CI secret variables or a local `.env` file that is not committed.
+
 ### Brand Management
 
 - **Brand Intake**: Website crawler extracts brand identity (colors, logos, messaging)
@@ -260,7 +282,7 @@ This creates optimized production bundles:
 ### Deployment Platforms
 
 - **Vercel** (recommended): See [VERCEL_DEPLOYMENT.md](VERCEL_DEPLOYMENT.md)
-- **Netlify**: See [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md)
+- **Netlify**: See [docs/deployment/DEPLOYMENT_GUIDE.md](docs/deployment/DEPLOYMENT_GUIDE.md)
 
 ### Pre-Deployment Checklist
 
@@ -271,7 +293,7 @@ This creates optimized production bundles:
 - [ ] Tests passing (`pnpm test`)
 - [ ] Linting passed (`pnpm lint`)
 
-See **[DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md)** and **[GO_LIVE_PLAYBOOK.md](GO_LIVE_PLAYBOOK.md)** for detailed deployment instructions.
+See **[docs/deployment/DEPLOYMENT_GUIDE.md](docs/deployment/DEPLOYMENT_GUIDE.md)** and **[GO_LIVE_PLAYBOOK.md](GO_LIVE_PLAYBOOK.md)** for detailed deployment instructions.
 
 ---
 

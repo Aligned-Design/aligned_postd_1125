@@ -2,8 +2,13 @@
 /**
  * Brand Guide (Shared Type)
  *
- * The Brand Guide is the "source of truth" for each brand in Postd.
+ * This TypeScript interface defines the Brand Guide structure for each brand.
  * All AI agents (Copywriter, Creative, Advisor) must load and obey the Brand Guide.
+ *
+ * ⚠️ **Precedence Note:**
+ * - For database schema truth: See `supabase/migrations/001_bootstrap_schema.sql`
+ * - For lifecycle/workflow truth: See `docs/BRAND_GUIDE_LIFECYCLE.md`
+ * - This file is authoritative for TypeScript type contracts only
  *
  * Stored in Supabase `brands` table:
  * - `brand_kit` (JSONB) - Main Brand Guide data

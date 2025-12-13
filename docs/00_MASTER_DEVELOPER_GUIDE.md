@@ -8,7 +8,11 @@
 
 ## Purpose
 
-This guide explains how Cursor AI agents and human developers work together using the POSTD Command Center as the single source of truth for all development rules, patterns, and workflows.
+This guide explains how Cursor AI agents and human developers work together using the POSTD Command Center as the source of truth for **development workflow rules, patterns, and agent behavior**.
+
+> ⚠️ **Precedence Note:**  
+> This doc covers **development workflow** only.  
+> For conflicts on data schemas, status enums, or API contracts, see `DOCS_INDEX.md` precedence rules.
 
 ---
 

@@ -177,6 +177,11 @@ CREATE TABLE media_assets (
 ```
 **Purpose:** Stores all brand media (logos, images, uploaded files). Scraped images have `metadata.source = 'scrape'` and `category` indicates type.
 
+> ⚠️ **Status Model Canonical Reference**  
+> This document contains historical or partial status info.  
+> **Canonical:** `docs/01_architecture/CONTENT_STATUS_MODEL.md`  
+> Last verified: 2025-12-12
+
 #### **3. `content_items` Table**
 ```sql
 CREATE TABLE content_items (
