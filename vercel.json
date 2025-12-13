@@ -2,7 +2,7 @@
   "framework": null,
   "buildCommand": "pnpm run build",
   "installCommand": "pnpm install",
-  "outputDirectory": "dist/spa",
+  "outputDirectory": "dist",
   "rewrites": [
     {
       "source": "/api/(.*)",
