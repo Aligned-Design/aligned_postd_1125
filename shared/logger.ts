@@ -1,5 +1,5 @@
 /**
- * Centralized logging service for Aligned-20AI
+ * Centralized logging service for POSTD
  * Provides structured logging across client and server
  * Supports different log levels and metadata tracking
  */

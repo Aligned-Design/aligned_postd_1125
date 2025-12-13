@@ -51,7 +51,7 @@ export interface ColorPalette {
 }
 
 /**
- * Light mode colors (Aligned-20AI brand)
+ * Light mode colors (POSTD brand)
  */
 export const lightPalette: ColorPalette = {
   // Primary: Purple (brand signature)
@@ -359,7 +359,7 @@ export function isColorInPalette(color: string, palette: ColorPalette): boolean 
  */
 export const designSystemMetadata = {
   version: "1.0.0",
-  name: "Aligned-20AI Brand Design System",
+  name: "POSTD Brand Design System",
   wcagCompliance: "AA",
   modes: ["light", "dark", "high-contrast"] as const,
   platforms: [
