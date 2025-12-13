@@ -673,6 +673,28 @@ export async function crawlWebsite(startUrl: string): Promise<CrawlResult[]> {
           userAgent: CRAWL_USER_AGENT,
         });
 
+        // ✅ FIX: Block non-essential resources to speed up load
+        await page.route("**/*", (route) => {
+          const resourceType = route.request().resourceType();
+          const url = route.request().url();
+
+          // Block: fonts, media (video/audio), websockets, analytics
+          if (resourceType === "font" || resourceType === "media" || resourceType === "websocket") {
+            route.abort();
+            return;
+          }
+
+          // Block known analytics/tracking domains
+          if (url.includes("google-analytics.com") || url.includes("googletagmanager.com") ||
+              url.includes("doubleclick.net") || url.includes("facebook.com/tr")) {
+            route.abort();
+            return;
+          }
+
+          // Allow: document, stylesheet, image, script, xhr, fetch
+          route.continue();
+        });
+
         // Prevent bundler-generated helpers from breaking in the browser context
         await page.addInitScript(() => {
           // Some bundlers emit calls like __name(fn, "fnName") for stack traces.
@@ -680,17 +702,32 @@ export async function crawlWebsite(startUrl: string): Promise<CrawlResult[]> {
           (window as any).__name ??= (fn: unknown, _name?: string) => fn;
         });
 
-        // ✅ ENHANCED: Fetch page with retry logic and better error handling
+        // ✅ ENHANCED: Two-phase navigation for better reliability
         try {
-          await retryWithBackoff(
-            () =>
-              page.goto(url, {
-                timeout: CRAWL_TIMEOUT_MS,
-                waitUntil: "networkidle",
-              }),
-            2, // Fewer retries per page (max 3 total with main retries)
-            500, // Shorter delay for individual page fetches
-          );
+          // Phase 1: Fast initial load (domcontentloaded)
+          await page.goto(url, {
+            timeout: 30000,
+            waitUntil: "domcontentloaded",
+          });
+
+          // Phase 2: Attempt networkidle (non-fatal)
+          try {
+            await page.waitForLoadState("networkidle", { timeout: 10000 });
+          } catch {
+            // Non-fatal: continue with domcontentloaded state
+          }
+
+          // Host-specific settle wait for WordPress/Squarespace
+          const urlLowerForHost = url.toLowerCase();
+          if (urlLowerForHost.includes("wordpress") || urlLowerForHost.includes("squarespace") || 
+              urlLowerForHost.includes("wp-content")) {
+            await page.waitForTimeout(1500);
+            try {
+              await page.waitForSelector("img", { timeout: 8000 });
+            } catch {
+              // Non-fatal: images may not exist
+            }
+          }
         } catch (gotoError) {
           console.warn(`[Crawler] Failed to load page ${url}:`, gotoError instanceof Error ? gotoError.message : String(gotoError));
           // Continue to next page instead of failing entire crawl
@@ -910,6 +947,102 @@ function calculateBrandMatchScore(
   }
   
   return score;
+}
+
+/**
+ * Blocks third-party images that should never be scraped
+ * (maps tiles, analytics pixels, ad trackers, junk assets)
+ * 
+ * @returns true if image should be blocked, false if allowed
+ */
+function isBlockedThirdPartyImage(url: string): boolean {
+  try {
+    const urlLower = url.toLowerCase();
+    const urlObj = new URL(url);
+    const hostname = urlObj.hostname.toLowerCase();
+    const pathname = urlObj.pathname.toLowerCase();
+
+    // Helper: Safe domain matching (exact match or subdomain)
+    const isDomainBlocked = (hostname: string, domain: string): boolean => {
+      return hostname === domain || hostname.endsWith("." + domain);
+    };
+
+    // A) Known third-party domains (hard block)
+    const blockedDomains = [
+      "maps.googleapis.com",
+      "maps.google.com",
+      "google-analytics.com",
+      "googletagmanager.com",
+      "doubleclick.net",
+      "connect.facebook.net",
+      "staticxx.facebook.com",
+      "snap.licdn.com",
+      "bat.bing.com",
+      "t.co",
+      "px.ads.linkedin.com",
+    ];
+
+    if (blockedDomains.some(domain => isDomainBlocked(hostname, domain))) {
+      return true;
+    }
+
+    // Facebook tracking pixels (but allow fbcdn.net)
+    // Use safe domain matching instead of substring check
+    if (isDomainBlocked(hostname, "facebook.com") && pathname.includes("/tr")) {
+      return true;
+    }
+
+    // Block ad/tracking subdomains using deterministic label matching
+    // Check if any hostname label (subdomain component) matches blocked patterns
+    const blockedSubdomainPrefixes = ["adservice", "ads", "pixel", "track", "analytics"];
+    const hostnameLabels = hostname.split(".");
+    const hasBlockedSubdomain = hostnameLabels.some(label => 
+      blockedSubdomainPrefixes.includes(label)
+    );
+    if (hasBlockedSubdomain) {
+      return true;
+    }
+
+    // B) Known "tile" URL patterns (hard block)
+    const tilePatterns = [
+      "/maps/vt",
+      "tile?",
+      "/tiles/",
+      "staticmap?",
+      "pb=!", // Google Maps tile query marker
+    ];
+
+    if (tilePatterns.some(pattern => urlLower.includes(pattern))) {
+      return true;
+    }
+
+    // C) Known junk assets (hard block)
+    const junkPatterns = [
+      "favicon",
+      "sprite.svg",
+      "sprite.png",
+      "spritesheet",
+      "/loader.",
+      "/placeholder.",
+      "/blank.",
+      "/spacer.",
+      "/pixel.",
+      "1x1.gif",
+      "1x1.png",
+      "tracking.gif",
+      "track.gif",
+    ];
+
+    const filename = pathname.split("/").pop() || "";
+    if (junkPatterns.some(pattern => filename.includes(pattern) || pathname.includes(pattern))) {
+      return true;
+    }
+
+    return false;
+  } catch {
+    // If URL parsing fails, allow it (conservative approach)
+    return false;
+  }
 }
 
 /**
@@ -2114,26 +2247,8 @@ async function extractImages(page: Page, baseUrl: string, brandName?: string): P
           const normalizedUrl = normalizeUrl(src);
           if (!normalizedUrl) return;
 
-          // ✅ FIX 2025-12-13: Filter out third-party embeds (maps, ads, tracking pixels)
-          const thirdPartyDomains = [
-            "maps.googleapis.com",
-            "maps.google.com",
-            "google-analytics.com",
-            "googletagmanager.com",
-            "doubleclick.net",
-            "facebook.com/tr",
-            "linkedin.com/px",
-            "ads.",
-            "adservice.",
-            "pixel.",
-            "track.",
-          ];
-          
-          const urlLowerCheck = normalizedUrl.toLowerCase();
-          const isThirdPartyEmbed = thirdPartyDomains.some(domain => urlLowerCheck.includes(domain));
-          
-          if (isThirdPartyEmbed) {
-            // Skip third-party embeds (maps, ads, tracking)
+          // ✅ FIX 2025-12-13: Filter out third-party embeds before classification
+          if (isBlockedThirdPartyImage(normalizedUrl)) {
             return;
           }
 
@@ -2189,7 +2304,7 @@ async function extractImages(page: Page, baseUrl: string, brandName?: string): P
           // Determine initial role (will be refined later)
           let role: "logo" | "hero" | "other" = "other";
 
-          // ✅ IMPROVED: Stricter logo detection - prioritize size and location
+          // ✅ IMPROVED: Stricter logo detection - require explicit logo indicators
           const altLower = alt?.toLowerCase() || "";
           const filenameLower = filename.toLowerCase();
           const parentClasses = img.parentElement?.className?.toLowerCase() || "";
@@ -2199,25 +2314,23 @@ async function extractImages(page: Page, baseUrl: string, brandName?: string): P
           const isLarge = width && height && ((width > 600 && height > 400) || (width > 400 && height > 600));
           const brandNameLower = brandName?.toLowerCase().replace(/\s+/g, "-") || "";
 
-          // ✅ STRICT LOGO DETECTION: Only classify as logo if:
-          // 1. Small image (< 400px) AND (in header/nav OR has clear logo indicators)
-          // 2. Very small image (< 300px) with logo indicators
-          // Large images are never logos - they're hero/brand images
-          const hasLogoIndicator = altLower.includes("logo") ||
+          // ✅ GUARDRAIL: Require at least one logo indicator for small square images
+          const hasExplicitLogoIndicator = altLower.includes("logo") ||
             filenameLower.includes("logo") ||
-            (brandNameLower && (filenameLower.includes(brandNameLower) || altLower.includes(brandName?.toLowerCase() || ""))) ||
+            normalizedUrl.toLowerCase().includes("/logo/") ||
             parentClasses.includes("logo") ||
-            parentId.includes("logo");
+            parentId.includes("logo") ||
+            (brandNameLower && filenameLower.includes(brandNameLower));
           
           if (isLarge) {
             // Large images are hero/brand images, never logos
             role = inHeroOrAboveFold ? "hero" : "other";
-          } else if ((inHeaderOrNav && (isSmall || isVerySmall)) || (hasLogoIndicator && isVerySmall)) {
-            // Only small images in header/nav or very small with logo indicators
+          } else if (hasExplicitLogoIndicator && (inHeaderOrNav || isVerySmall)) {
+            // Only classify as logo if: has explicit indicator AND (in header/nav OR very small)
             role = "logo";
-          } else if (hasLogoIndicator && !isSmall) {
-            // Has logo indicator but not small - likely a brand image, not a logo
-            role = inHeroOrAboveFold ? "hero" : "other";
+          } else if (inHeroOrAboveFold) {
+            // No logo indicator but in hero area -> hero image
+            role = "hero";
           }
 
           results.push({
@@ -2977,6 +3090,16 @@ export async function extractColors(url: string): Promise<ColorPalette> {
     browser = await launchBrowser();
     const page = await browser.newPage({ userAgent: CRAWL_USER_AGENT });
     
+    // ✅ FIX: Block non-essential resources
+    await page.route("**/*", (route) => {
+      const resourceType = route.request().resourceType();
+      if (resourceType === "font" || resourceType === "media" || resourceType === "websocket") {
+        route.abort();
+        return;
+      }
+      route.continue();
+    });
+    
     // Prevent bundler-generated helpers from breaking in the browser context
     await page.addInitScript(() => {
       // Some bundlers emit calls like __name(fn, "fnName") for stack traces.
@@ -2984,10 +3107,17 @@ export async function extractColors(url: string): Promise<ColorPalette> {
       (window as any).__name ??= (fn: unknown, _name?: string) => fn;
     });
     
+    // ✅ FIX: Two-phase navigation for reliability
     await page.goto(url, {
-      timeout: CRAWL_TIMEOUT_MS,
-      waitUntil: "networkidle",
+      timeout: 30000,
+      waitUntil: "domcontentloaded",
     });
+
+    try {
+      await page.waitForLoadState("networkidle", { timeout: 10000 });
+    } catch {
+      // Non-fatal: continue with domcontentloaded
+    }
 
     // ✅ NEW: Extract UI colors from CSS and computed styles
     const uiColors = await page.evaluate(() => {
