@@ -3110,7 +3110,18 @@ export async function extractColors(url: string): Promise<ColorPalette> {
       return sorted.map(([color]) => color);
     });
 
-    // ✅ FALLBACK: Extract from screenshot if UI colors are insufficient
+    // ✅ FIX 2025-12-13: Scroll to capture hero/content area, not just header
+    // This ensures color palette reflects brand photography/hero, not just logo/header
+    try {
+      await page.evaluate(() => {
+        window.scrollTo(0, Math.min(window.innerHeight * 0.5, document.body.scrollHeight * 0.3));
+      });
+      await page.waitForTimeout(500);
+    } catch (scrollError) {
+      console.warn("[ColorExtract] Scroll failed, using top of page:", scrollError);
+    }
+    
+    // ✅ FALLBACK: Extract from screenshot (now includes hero/content area)
     const screenshot = await page.screenshot({ fullPage: false });
     const palette = await Vibrant.from(screenshot).getPalette();
 

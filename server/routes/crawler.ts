@@ -974,11 +974,9 @@ async function runCrawlJobSync(url: string, brandId: string, tenantId: string | 
                     host: brandKit.metadata?.host || undefined,
                   },
                 },
-                voice_summary: brandKit.voice_summary || {},
-                visual_summary: {
-                  colors: brandKit.colors?.allColors || brandKit.colors?.primaryColors || [],
-                  fonts: brandKit.typography ? [brandKit.typography.heading, brandKit.typography.body].filter(Boolean) : [],
-                },
+                // ✅ FIX 2025-12-13: REMOVED legacy column writes
+                // voice_summary, visual_summary, tone_keywords are DEPRECATED (see migration 009)
+                // All data now stored in canonical brand_kit JSONB field only
                 updated_at: new Date().toISOString(),
               })
               .eq("id", brandId);

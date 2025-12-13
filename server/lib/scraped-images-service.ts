@@ -249,6 +249,15 @@ export async function persistScrapedImages(
       return false;
     }
     
+    // ✅ FIX 2025-12-13: Filter out GIFs (animated assets deprioritized)
+    // GIFs are typically animations, not professional brand photography
+    // Exception: Allow GIFs if they're explicitly marked as hero or photo
+    const isGif = img.url.toLowerCase().endsWith(".gif");
+    if (isGif && img.role !== "hero" && img.role !== "photo") {
+      console.log(`[ScrapedImages] Filtering out GIF (not hero/photo): ${img.url.substring(0, 60)}...`);
+      return false;
+    }
+    
     // ✅ FIX: Filter out solid color placeholders
     if (isSolidColorPlaceholder(img)) {
       console.log(`[ScrapedImages] Filtering out placeholder/solid color: ${img.url.substring(0, 60)}...`);
@@ -380,7 +389,6 @@ export async function persistScrapedImages(
   // ✅ LIMIT BRAND IMAGES: Max 15
   const selectedBrandImages = brandImages.slice(0, 15);
   
-  // ✅ COMBINE: Logos first, then brand images
   // ✅ DEDUPLICATION: Remove duplicates by URL before combining
   const seenUrls = new Set<string>();
   const deduplicatedLogos = selectedLogos.filter(img => {
@@ -393,7 +401,12 @@ export async function persistScrapedImages(
     seenUrls.add(img.url);
     return true;
   });
-  const imagesToPersist = [...deduplicatedLogos, ...deduplicatedBrandImages];
+  
+  // ✅ FIX 2025-12-13: Prioritize brand images (people/products/hero) over logos
+  // BEFORE: [...logos, ...brandImages] (logos appeared first in UI)
+  // AFTER: [...brandImages, ...logos] (real photography appears first)
+  // Logos are still detected and limited to 2, but appear at the END of the array
+  const imagesToPersist = [...deduplicatedBrandImages, ...deduplicatedLogos];
   
   // ✅ ENHANCED: Log classification breakdown for debugging
   const roleBreakdown = images.reduce((acc, img) => {
