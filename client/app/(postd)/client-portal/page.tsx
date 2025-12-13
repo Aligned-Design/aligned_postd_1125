@@ -1761,7 +1761,7 @@ function MessagesSection({ data }: { data: ClientDashboardData }) {
                 <div className="flex-1">
                   <p className="text-sm text-gray-900">{comment.message}</p>
                   <p className="text-xs text-gray-500 mt-1">
-                    On: {comment.contentTitle} • {new Date(comment.createdAt || Date.now()).toLocaleDateString()}
+                    On: {comment.contentTitle} • {comment.createdAt ? new Date(comment.createdAt).toLocaleDateString() : "Recently"}
                   </p>
                 </div>
               </div>

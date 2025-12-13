@@ -77,7 +77,7 @@ console.log("\n🔍 POSTD Environment Variable Check\n");
 printSection("REQUIRED VARIABLES");
 
 let hasAIProvider = false;
-let missingRequired: string[] = [];
+const missingRequired: string[] = [];
 
 for (const { key, required, group } of REQUIRED_VARS) {
   const { present, masked } = checkVar(key);

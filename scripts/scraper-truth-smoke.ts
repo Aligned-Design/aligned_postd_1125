@@ -832,7 +832,7 @@ async function main() {
 
   let totalCritical = 0;
   let totalWarnings = 0;
-  let brandsWithFailures: string[] = [];
+  const brandsWithFailures: string[] = [];
 
   for (const summary of summaries) {
     const icon = summary.passed ? "✅" : "❌";

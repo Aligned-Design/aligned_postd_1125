@@ -200,8 +200,8 @@ export function extractBody(content: ContentItemContent | Record<string, unknown
   
   // Check standard fields in priority order
   if (typeof content.body === "string") return content.body;
-  if (typeof (content as any).caption === "string") return (content as any).caption;
-  if (typeof (content as any).text === "string") return (content as any).text;
+  if (typeof (content as Record<string, unknown>).caption === "string") return (content as Record<string, unknown>).caption as string;
+  if (typeof (content as Record<string, unknown>).text === "string") return (content as Record<string, unknown>).text as string;
   
   return "";
 }
@@ -233,13 +233,13 @@ export function extractChannel(content: ContentItemContent | Record<string, unkn
   if (!content || typeof content !== "object") return undefined;
   
   // Preferred: nested under metadata
-  if (content.metadata && typeof (content.metadata as any).channel === "string") {
-    return (content.metadata as any).channel;
+  if (content.metadata && typeof (content.metadata as Record<string, unknown>).channel === "string") {
+    return (content.metadata as Record<string, unknown>).channel as string;
   }
   
   // Fallback: legacy root-level platform
-  if (typeof (content as any).platform === "string") {
-    return (content as any).platform;
+  if (typeof (content as Record<string, unknown>).platform === "string") {
+    return (content as Record<string, unknown>).platform as string;
   }
   
   return undefined;
@@ -255,13 +255,13 @@ export function extractSource(content: ContentItemContent | Record<string, unkno
   if (!content || typeof content !== "object") return undefined;
   
   // Preferred: nested under metadata
-  if (content.metadata && typeof (content.metadata as any).source === "string") {
-    return (content.metadata as any).source;
+  if (content.metadata && typeof (content.metadata as Record<string, unknown>).source === "string") {
+    return (content.metadata as Record<string, unknown>).source as string;
   }
   
   // Fallback: legacy root-level source
-  if (typeof (content as any).source === "string") {
-    return (content as any).source;
+  if (typeof (content as Record<string, unknown>).source === "string") {
+    return (content as Record<string, unknown>).source as string;
   }
   
   return undefined;
