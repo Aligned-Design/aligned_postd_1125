@@ -19,6 +19,50 @@
 
 ---
 
+## Core Entities
+
+### Primary Domain Objects
+
+**Brand/BrandKit**
+- Database table: `brands` (core brand record)
+- Related table: `brand_guide` (AI-extracted brand guidelines)
+- Type: `Brand`, `BrandKit`, `BrandGuideData`
+- Route prefix: `/api/brands`
+- **Note:** `BrandKit` and `Brand` are used interchangeably in code - both refer to the same entity
+
+**ContentItem**
+- Database table: `content_items` (canonical content storage)
+- Type: `ContentItem`, `ContentItemContent`
+- Route prefix: `/api/content-items`
+- **Note:** Replaces legacy `content` table usage
+
+**ConnectedAccount / PlatformConnection**
+- Database table: `platform_connections`
+- Type: `PlatformConnectionRecord`, `ConnectedAccount`
+- Route prefix: `/api/platform-connections` or `/api/connections`
+- **Note:** OAuth tokens and platform integrations
+
+**PublishJob / ScheduledContent**
+- Database tables: `publishing_jobs`, `scheduled_content`
+- Type: `PublishingJob`, `ScheduledContentRow`
+- Route prefix: `/api/publish` or `/api/schedule`
+- **Note:** Handles content publishing and scheduling
+
+**User / UserProfile**
+- Database tables: `user_profiles`, `brand_members`
+- Type: `UserProfile`, `BrandMemberRecord`
+- Route prefix: `/api/users` or `/api/auth`
+
+### Banned Synonyms
+
+❌ **Do not use these terms in code:**
+- `aligned-20`, `aligned20`, `Aligned-20AI` (old product name)
+- `builder.io`, `@builder.io/*` (removed dependency)
+- `content` table alone (ambiguous - use `content_items`)
+- `brand_profile` (non-existent - use `brands` or `brand_guide`)
+
+---
+
 ## Database Conventions
 
 ### Table Names
