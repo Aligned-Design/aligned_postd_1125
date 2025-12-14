@@ -146,9 +146,6 @@ NODE_ENV                    # Set to "production"
 ```
 OPENAI_API_KEY              # For AI features
 ANTHROPIC_API_KEY           # For AI features
-VITE_BUILDER_PUBLIC_KEY     # For Builder.io
-BUILDER_PRIVATE_KEY         # For Builder.io
-BUILDER_WEBHOOK_SECRET      # For Builder.io webhooks
 ```
 
 See `VERCEL_ENV_CHECKLIST.md` for complete setup guide.
@@ -191,7 +188,6 @@ See `VERCEL_ENV_CHECKLIST.md` for complete setup guide.
 ### Integrations
 - ✅ Supabase (database & auth)
 - ✅ OpenAI / Anthropic (AI providers)
-- ✅ Builder.io (content management)
 - ✅ SendGrid (email)
 - ✅ Multiple social platforms (Instagram, Facebook, Twitter, etc)
 - ✅ Sentry (error monitoring)
@@ -307,7 +303,7 @@ project-root/
 
 5. **Configure Services**
    - Set up Supabase project (database, auth)
-   - Get API keys from Supabase, OpenAI/Anthropic, Builder.io, etc
+   - Get API keys from Supabase, OpenAI/Anthropic, etc
    - Add to Vercel environment variables
 
 ### Automated (Already Done)

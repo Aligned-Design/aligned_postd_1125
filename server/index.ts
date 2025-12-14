@@ -62,10 +62,6 @@ import {
   generateDesign,
   getProviders as getAIProviders,
 } from "./routes/ai-generation";
-import {
-  generateContent as generateBuilderContent,
-  builderWebhook,
-} from "./routes/builder";
 import analyticsRouter from "./routes/analytics";
 import orchestrationRouter from "./routes/orchestration";
 import contentPackagesRouter from "./routes/content-packages";

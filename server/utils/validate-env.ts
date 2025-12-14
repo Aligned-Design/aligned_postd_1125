@@ -152,24 +152,6 @@ const validators: Record<string, EnvValidator> = {
     }),
   },
 
-  // Builder.io
-  VITE_BUILDER_PUBLIC_KEY: {
-    name: "Builder.io Public Key",
-    required: false,
-    validate: (val) => ({
-      valid: val.length > 5,
-      message: "Should be a valid public key",
-    }),
-  },
-  BUILDER_PRIVATE_KEY: {
-    name: "Builder.io Private Key",
-    required: false,
-    validate: (val) => ({
-      valid: val.length > 5,
-      message: "Should be a valid private key",
-    }),
-  },
-
   // Email Service
   SENDGRID_API_KEY: {
     name: "SendGrid API Key",

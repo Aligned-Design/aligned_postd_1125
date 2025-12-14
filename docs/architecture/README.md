@@ -29,7 +29,6 @@ This directory contains comprehensive documentation about the system architectur
 
 ### AI & Integration
 - **AI Models:** Claude API (Anthropic), OpenAI API
-- **Design System:** Builder.io
 - **Email Service:** SendGrid (Phase 9)
 - **Monitoring:** Sentry (optional)
 

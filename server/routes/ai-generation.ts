@@ -1,7 +1,6 @@
 import { RequestHandler } from "express";
 import {
-  generateBuilderContent,
-  generateDesignVisuals,
+  generateWithAI,
   validateAIProviders,
   getAvailableProviders,
 } from "../workers/ai-generation";
@@ -39,13 +38,13 @@ export const generateContent: RequestHandler = async (req, res) => {
       );
     }
 
-    const result = await generateBuilderContent({
-      prompt,
-      agentType,
-      provider,
-    });
+    const result = await generateWithAI(prompt, agentType, provider);
 
-    (res as any).json(result);
+    (res as any).json({
+      content: result.content,
+      provider: result.provider || provider || "openai",
+      agentType: agentType
+    });
   } catch (error) {
     logger.error("AI content generation failed", error instanceof Error ? error : new Error(String(error)), {
       operation: "generateContent",
@@ -91,13 +90,13 @@ export const generateDesign: RequestHandler = async (req, res) => {
       );
     }
 
-    const result = await generateDesignVisuals({
-      prompt,
-      agentType: "design",
-      provider,
-    });
+    const result = await generateWithAI(prompt, "design", provider);
 
-    (res as any).json(result);
+    (res as any).json({
+      content: result.content,
+      provider: result.provider || provider || "openai",
+      agentType: "design"
+    });
   } catch (error) {
     logger.error("AI design generation failed", error instanceof Error ? error : new Error(String(error)), {
       operation: "generateDesign",

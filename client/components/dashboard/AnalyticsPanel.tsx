@@ -1,6 +1,7 @@
 import { BarChart3, TrendingUp, Plus, Youtube, Mail, ShoppingCart, Globe } from "lucide-react";
 import { Facebook, Twitter, Instagram, Linkedin, Share2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import type { LucideIcon } from "lucide-react";
 
 interface AnalyticsCard {
   label: string;
@@ -11,7 +12,7 @@ interface AnalyticsCard {
 
 interface Integration {
   name: string;
-  icon: any;
+  icon: LucideIcon;
   connected: boolean;
 }
 

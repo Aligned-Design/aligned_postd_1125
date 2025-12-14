@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { Facebook, Twitter, Instagram, Linkedin, ChevronLeft, ChevronRight, Music, Youtube, MapPin, ShoppingCart } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 
 interface DraftedPostsItem {
   platform: string;
   count: number;
-  icon: any;
+  icon: LucideIcon;
 }
 
 export function DraftedPosts() {

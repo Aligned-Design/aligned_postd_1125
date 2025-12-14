@@ -1,12 +1,13 @@
 import { useState, useEffect, useRef } from "react";
 import { X, ChevronDown, Type, ImageIcon, Badge, Square, Send, Star, Layout, Layers } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 
 interface ElementType {
   id: string;
   name: string;
-  icon: React.ComponentType<any>;
+  icon: LucideIcon;
   description: string;
-  defaultProps: Record<string, any>;
+  defaultProps: Record<string, unknown>;
 }
 
 const ELEMENT_TYPES: ElementType[] = [

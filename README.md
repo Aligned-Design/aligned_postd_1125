@@ -47,39 +47,36 @@ The application will be available at `http://localhost:8080`.
 
 ## 📚 Documentation
 
-### For New Developers
+### Core Documentation (Start Here)
 
-**Start here** to understand POSTD:
+POSTD has **3 canonical documentation files** that contain everything you need:
 
-1. **[Product Definition & Guardrails](docs/POSTD_PRODUCT_DEFINITION_AND_GUARDRAILS.md)** - Product purpose, system pillars, and scope boundaries
-2. **[Codebase Architecture Overview](CODEBASE_ARCHITECTURE_OVERVIEW.md)** - High-level architecture and system structure
-3. **[System Architecture Diagrams](docs/SYSTEM_ARCHITECTURE_DIAGRAMS.md)** - Visual system architecture with Mermaid diagrams
-4. **[Tech Stack Guide](TECH_STACK_GUIDE.md)** - Complete technology stack reference
-5. **[Setup Guide](docs/SETUP_GUIDE.md)** - Detailed development setup instructions
-6. **[API Contract](POSTD_API_CONTRACT.md)** - Complete API reference documentation
+1. **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** - How the system is built
+   - Repository structure
+   - Core architectural rules (data access layer, auth, multi-tenancy)
+   - Feature folder conventions
+   - Guardrails (banned terms, lint baseline)
+   - Tech stack and database architecture
 
-### For Client-Facing Teams
+2. **[docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)** - How to work here
+   - Setup and requirements
+   - Development commands (`pnpm check`, `pnpm dev`, etc.)
+   - How to add a feature (step-by-step)
+   - Code style guidelines
+   - Testing and debugging
 
-If you work with POSTD clients (sales, success, support), start here:
+3. **[docs/MIGRATIONS_AND_DECISIONS.md](docs/MIGRATIONS_AND_DECISIONS.md)** - Why we did what we did
+   - Historical architectural decisions
+   - Migration history
+   - Deprecations and rationale
 
-1. **[Client Onboarding Overview](docs/CLIENT_ONBOARDING_OVERVIEW.md)** - High-level journey overview, personas, and success metrics
-2. **[Client First 30 Days Playbook](docs/CLIENT_FIRST_30_DAYS_PLAYBOOK.md)** - Day-by-day experience guide for client success
-3. **[Client Onboarding Checklist](docs/CLIENT_ONBOARDING_CHECKLIST.md)** - Step-by-step completion criteria and escalation triggers
-4. **[Brand Guide Lifecycle](docs/BRAND_GUIDE_LIFECYCLE.md)** - How the Brand Guide is created, updated, and maintained
+### Additional Resources
 
-### Documentation Index
-
-See **[DOCS_INDEX.md](DOCS_INDEX.md)** for a complete map of all documentation files organized by category.
-
-### Key Documentation Categories
-
-- **Architecture**: System design, database schema, routing structure
-  - [System Architecture Diagrams](docs/SYSTEM_ARCHITECTURE_DIAGRAMS.md) - Visual system flows and component relationships
-  - [Final Lock-In Verification Report](docs/audit/FINAL_LOCK_IN_VERIFICATION_REPORT.md) - Repository alignment verification (2025-01-20) - **Baseline alignment complete**
-- **Features**: Brand onboarding, Creative Studio, content generation
-- **API**: Endpoints, authentication, integrations
-- **Development**: Setup guides, coding standards, deployment
-- **Security**: Authentication, encryption, data governance
+- **[TECH_STACK_GUIDE.md](TECH_STACK_GUIDE.md)** - Complete technology stack reference
+- **[POSTD_API_CONTRACT.md](POSTD_API_CONTRACT.md)** - Complete API reference
+- **[CONTRIBUTING.md](CONTRIBUTING.md)** - Contribution guidelines
+- **[DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md)** - Deployment instructions
+- **[CHANGELOG.md](CHANGELOG.md)** - Version history
 
 ---
 
@@ -130,6 +127,8 @@ See **[CODEBASE_ARCHITECTURE_OVERVIEW.md](CODEBASE_ARCHITECTURE_OVERVIEW.md)** f
 
 ### Development Workflow
 
+**IMPORTANT:** Run `pnpm check` before pushing to ensure all validations pass.
+
 1. **Create a feature branch**:
    ```bash
    git checkout -b feature/your-feature-name
@@ -137,14 +136,12 @@ See **[CODEBASE_ARCHITECTURE_OVERVIEW.md](CODEBASE_ARCHITECTURE_OVERVIEW.md)** f
 
 2. **Make changes** following the [Contributing Guidelines](CONTRIBUTING.md)
 
-3. **Test locally**:
+3. **Validate before committing**:
    ```bash
-   pnpm test
-   pnpm typecheck
-   pnpm lint
+   pnpm check  # Runs: lint, typecheck, test, banned terms check
    ```
 
-4. **Brand health check** (before PR):
+4. **Brand health check** (optional, before PR):
    ```bash
    # Get a real brand ID
    pnpm brands:list
@@ -338,9 +335,9 @@ See [LICENSE](LICENSE) file for details.
 
 ## 🆘 Support
 
-- **Documentation**: See [DOCS_INDEX.md](DOCS_INDEX.md) for complete documentation index
+- **Documentation**: See the 3 canonical docs in [docs/](docs/) directory
 - **Issues**: Report bugs and request features via GitHub Issues
-- **Development Guide**: See [docs/development/README.md](docs/development/README.md)
+- **Questions**: Check [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) and [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)
 
 ---
 
@@ -360,4 +357,4 @@ Built with modern web technologies and best practices. See **[TECH_STACK_GUIDE.m
 
 ---
 
-**Questions?** Check the [Documentation Index](DOCS_INDEX.md) or see [Setup Guide](docs/SETUP_GUIDE.md) for getting started.
+**Questions?** See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for system design or [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for getting started.

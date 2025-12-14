@@ -5,7 +5,7 @@ import { TemplateLibrarySelector } from "./TemplateLibrarySelector";
 
 interface CreativeStudioLandingProps {
   onStartDesign: (mode: "ai" | "template" | "scratch", format: DesignFormat) => void;
-  onSelectTemplate: (design: any) => void;
+  onSelectTemplate: (design: unknown) => void;
   onCancel: () => void;
 }
 

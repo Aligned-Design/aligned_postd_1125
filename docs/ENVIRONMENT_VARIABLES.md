@@ -78,16 +78,6 @@ ANTHROPIC_API_KEY=sk-ant-your-anthropic-key-here
 AI_PROVIDER=auto
 
 # ============================================================================
-# BUILDER.IO (OPTIONAL)
-# ============================================================================
-
-# Builder.io - No-Code UI System
-# Get from: https://builder.io → Account Settings → API Keys
-VITE_BUILDER_PUBLIC_KEY=your-builder-public-key-here
-BUILDER_PRIVATE_KEY=your-builder-private-key-here
-BUILDER_WEBHOOK_SECRET=your-webhook-secret-here
-
-# ============================================================================
 # EMAIL SERVICE (OPTIONAL)
 # ============================================================================
 

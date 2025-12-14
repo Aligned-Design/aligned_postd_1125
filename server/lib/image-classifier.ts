@@ -445,8 +445,8 @@ export function classifyImage(input: ImageClassificationInput): ClassificationRe
   
   const matchedPatterns: string[] = [];
   const negativeSignals: string[] = [];
-  let role: ImageRole = "other";
-  let confidence = 0.5;
+  const role: ImageRole = "other";
+  const confidence = 0.5;
   
   // === EXCLUSION CHECKS FIRST ===
   

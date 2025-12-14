@@ -901,7 +901,7 @@ router.post("/generate/social", async (req, res) => {
     let contentPackage: SocialContentPackage;
     try {
       // Clean up the response (remove markdown code blocks if present)
-      let cleaned = aiResponse.content
+      const cleaned = aiResponse.content
         .replace(/```json\n?/g, "")
         .replace(/```\n?/g, "")
         .trim();

@@ -28,7 +28,9 @@ export default tseslint.config(
         "warn",
         { allowConstantExport: true },
       ],
-      "@typescript-eslint/no-unused-vars": "off",
+      // Smoothness Pass: Guardrails (adjusted for current codebase)
+      "@typescript-eslint/no-unused-vars": "off", // Too many false positives with React/type imports
+      "prefer-const": "error", // Auto-fixable, enforces immutability
     },
   },
   // ============================================================================
