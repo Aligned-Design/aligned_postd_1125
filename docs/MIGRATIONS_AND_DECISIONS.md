@@ -35,8 +35,6 @@ This document captures durable architectural decisions and migrations that affec
 - Banned terms check blocks `@builder.io` in code (`pnpm check:banned`)
 - CI fails if Builder.io references found in active code
 
-**Reference:** `BUILDER_IO_REMOVAL_COMPLETE.md` (archived)
-
 ---
 
 ### D2: Data Access Layer Enforcement (2025-12-13)
@@ -64,10 +62,9 @@ UI Component → React Hook → client/lib/api/* → Server API / Supabase
 - Refactored `BrandContext.tsx` to use `listBrands()` from API layer
 - Added compliance documentation: `client/lib/api/DATA_ACCESS_COMPLIANCE.md`
 
-**Compliance Status:**
-- Before: ~70% compliant
-- After: 100% compliant
-- Verified: Zero direct Supabase calls in UI (`rg "supabase\.(from|auth|storage)" client/`)
+**Migration Result:**
+- Achieved 100% compliance (previously ~70%)
+- Zero direct Supabase calls remain in UI code
 
 **Enforcement:**
 - Banned terms check blocks `.from`, `.auth`, `.storage` in UI directories
