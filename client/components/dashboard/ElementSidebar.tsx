@@ -1,10 +1,11 @@
 import { Type, ImageIcon, Badge, Square, Send, Star, ZoomIn, ZoomOut, Undo2, Redo2 } from "lucide-react";
 import { cn } from "@/lib/design-system";
+import type { LucideIcon } from "lucide-react";
 
 interface ElementCategory {
   id: string;
   name: string;
-  icon: React.ComponentType<any>;
+  icon: LucideIcon;
   tooltip: string;
 }
 

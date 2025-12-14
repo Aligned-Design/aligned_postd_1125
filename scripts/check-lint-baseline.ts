@@ -1,13 +1,13 @@
 #!/usr/bin/env tsx
 /**
- * Check that lint warnings don't increase beyond baseline
+ * Lint ratchet enforcement: warnings must decrease over time
  * 
  * Usage:
  *   pnpm check:lint-baseline
  *   
  * Exit codes:
- *   0 - Warnings within baseline
- *   1 - Warnings increased beyond baseline
+ *   0 - Warnings decreased
+ *   1 - Warnings stayed same or increased (ratchet violation)
  */
 
 import { execSync } from "child_process";
@@ -22,11 +22,11 @@ interface LintBaseline {
   warningCount: number;
   errorCount: number;
   lastUpdated: string;
-  allowedIncrease: number;
+  requiredDecrease?: number; // How many warnings must decrease (default 1)
 }
 
 function main() {
-  console.log("🔍 Checking lint against baseline...\n");
+  console.log("🔍 Enforcing lint ratchet (warnings must decrease)...\n");
 
   // Read baseline
   const baselinePath = join(__dirname, "..", "tools", "lint-baseline.json");
@@ -78,29 +78,31 @@ function main() {
     process.exit(1);
   }
 
-  // Check warnings
-  const maxAllowed = baseline.warningCount + baseline.allowedIncrease;
-  
-  if (currentWarnings > maxAllowed) {
-    console.error("❌ FAIL: Lint warnings increased beyond baseline!");
-    console.error(`   Baseline:     ${baseline.warningCount} warnings`);
-    console.error(`   Max allowed:  ${maxAllowed} warnings`);
-    console.error(`   Current:      ${currentWarnings} warnings`);
-    console.error(`   Increase:     +${currentWarnings - baseline.warningCount}`);
+  // RATCHET ENFORCEMENT: warnings must NOT increase (can stay same or decrease)
+  if (currentWarnings > baseline.warningCount) {
+    console.error("❌ FAIL: Lint ratchet violation!");
+    console.error(`   Baseline: ${baseline.warningCount} warnings`);
+    console.error(`   Current:  ${currentWarnings} warnings`);
+    console.error(`   Increase: +${currentWarnings - baseline.warningCount}`);
     console.error();
-    console.error("   Fix the new warnings or update the baseline with justification.");
+    console.error("   🔒 RATCHET POLICY: Warning count must NEVER increase.");
+    console.error("   Fix the new warnings before merging.");
     process.exit(1);
   }
 
   if (currentWarnings < baseline.warningCount) {
     console.log("✅ SUCCESS: Lint warnings DECREASED!");
     console.log(`   Reduced by: ${baseline.warningCount - currentWarnings}`);
-    console.log("   Consider updating the baseline to lock in this improvement.");
-  } else if (currentWarnings === baseline.warningCount) {
-    console.log("✅ SUCCESS: Lint warnings at baseline (no increase)");
+    console.log();
+    console.log("   📝 IMPORTANT: Update tools/lint-baseline.json to lock in this improvement:");
+    console.log(`   Change "warningCount" from ${baseline.warningCount} to ${currentWarnings}`);
+    console.log();
+    console.log("   This prevents future drift and enforces continuous improvement.");
   } else {
-    console.log(`⚠️  WARNING: Lint warnings increased by ${currentWarnings - baseline.warningCount}`);
-    console.log(`   Still within allowed increase of ${baseline.allowedIncrease}`);
+    console.log("✅ SUCCESS: Lint warnings at baseline (no increase)");
+    console.log();
+    console.log("   💡 TIP: Consider reducing warnings further to improve code quality.");
+    console.log(`   Target for next PR: ${currentWarnings - 1} or fewer warnings`);
   }
 
   process.exit(0);
