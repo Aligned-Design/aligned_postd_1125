@@ -32,7 +32,8 @@
     "test:ci": "vitest --run",
     "format.fix": "prettier --write .",
     "format": "prettier --check .",
-    "lint": "eslint . --ext .ts,.tsx,.js,.jsx --max-warnings 250",
+    "lint": "eslint . --ext .ts,.tsx,.js,.jsx",
+    "check:lint-baseline": "tsx scripts/check-lint-baseline.ts",
     "lint:fix": "eslint . --ext .ts,.tsx,.js,.jsx --fix",
     "lint:supabase": "tsx server/scripts/lint-supabase-queries.ts",
     "lint:supabase:error": "tsx server/scripts/lint-supabase-queries.ts --error",
@@ -52,7 +53,7 @@
     "test:schema-align": "tsx server/scripts/schema-alignment-smoke-test.ts",
     "check:env": "tsx server/scripts/check-env.ts",
     "check:banned": "tsx scripts/check-banned-terms.ts",
-    "check": "npm run lint && npm run typecheck && npm run test && npm run check:banned",
+    "check": "npm run lint && npm run check:lint-baseline && npm run typecheck && npm run test && npm run check:banned",
     "predeploy": "npm run security:check && npm run typecheck && npm run lint && npm run test"
   },
   "dependencies": {

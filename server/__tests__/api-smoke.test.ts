@@ -72,7 +72,7 @@ describe("API Smoke Tests", () => {
       // May fail without proper auth/env, but should not 404
       // Also may return 502 if Supabase connection fails
       expect([200, 401, 403, 500, 502, 503]).toContain(response.status);
-    });
+    }, 15000); // Increased timeout: endpoint may check Supabase/external services
   });
 
   describe("Public Endpoints", () => {
