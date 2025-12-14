@@ -36,7 +36,7 @@ describe("requireScope Middleware", () => {
 
   // SKIP-LEGACY: These tests use deprecated done() callback pattern from Jest/Mocha
   // The async/await versions above provide equivalent coverage
-  // Future: Remove once we're confident async versions are comprehensive
+  // Keeping skipped for reference - will be removed in future cleanup
   describe.skip("Single Scope Checks [SKIP-LEGACY]", () => {
     it.skip("should allow user with required scope", (done: () => void) => {
       const middleware = requireScope("content:create");

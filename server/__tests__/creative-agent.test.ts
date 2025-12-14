@@ -82,11 +82,22 @@ describe("Component Token Mapping", () => {
  * SKIP-E2E: These tests require AI providers (Anthropic/OpenAI) integration.
  * Run in dedicated AI pipeline with rate limiting and cost controls.
  * 
- * Extended AI tests require mocking the AI provider (OpenAI/Anthropic).
+ * Tracking: TEST-001 - Full E2E tests require mocked AI providers
  */
-describe.skip("Creative Agent Integration Tests [E2E]", () => {
-  it.todo("Agent initialization with brand ID");
-  it.todo("Design concept generation from strategy brief");
-  it.todo("Accessibility compliance in design concepts");
-  it.todo("End-to-end workflow execution");
+describe.skip("Creative Agent Integration Tests [SKIP-E2E]", () => {
+  it.skip("should initialize agent with brand ID (requires AI provider mock)", () => {
+    // Placeholder for E2E test requiring Anthropic/OpenAI mock
+  });
+  
+  it.skip("should generate design concepts from strategy brief (requires AI provider mock)", () => {
+    // Placeholder for E2E test requiring AI generation
+  });
+  
+  it.skip("should validate accessibility compliance in design concepts (requires AI provider mock)", () => {
+    // Placeholder for E2E test requiring AI validation
+  });
+  
+  it.skip("should execute end-to-end workflow (requires AI provider mock)", () => {
+    // Placeholder for complete E2E workflow test
+  });
 });
