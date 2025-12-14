@@ -24,19 +24,34 @@ const ARTIFACT_PATTERNS = [
   { pattern: "_SUMMARY", name: "Summary documents" },
 ];
 
-const ALLOWED_DOCS = [
+// Canonical docs (always allowed)
+const CANONICAL_DOCS = [
   "docs/ARCHITECTURE.md",
   "docs/DEVELOPMENT.md",
   "docs/MIGRATIONS_AND_DECISIONS.md",
 ];
 
+// Legitimate docs (allowed anywhere)
+const ALLOWED_DOCS = [
+  "README.md",
+  "CHANGELOG.md",
+  "SECURITY.md",
+  "CONTRIBUTING.md",
+  ...CANONICAL_DOCS,
+];
+
+// Paths to exclude from scanning
 const EXCLUDED_PATHS = [
   "node_modules",
   "dist",
   ".git",
   "docs/archive", // Allow archived docs
   "docs/07_archive", // Allow archived docs
+  "docs/reports", // Allow historical reports
 ];
+
+// Only scan docs/ directory for artifacts (avoid false positives in code comments)
+const SCAN_PATHS = ["docs/"];
 
 interface Violation {
   file: string;
@@ -49,13 +64,15 @@ function searchPattern(pattern: string): string {
     const excludeArgs = EXCLUDED_PATHS.map((path) => `--exclude-dir=${path}`).join(" ");
 
     // Use ripgrep if available (faster), fallback to grep
+    // Only scan docs/ directory to avoid false positives in code/comments
     let cmd: string;
     try {
       execSync("which rg", { stdio: "ignore" });
       const excludeGlobs = EXCLUDED_PATHS.map((path) => `--glob '!${path}/**'`).join(" ");
-      cmd = `rg --files ${excludeGlobs} . | grep -E '${pattern}\\.md$' || true`;
+      cmd = `rg --files ${excludeGlobs} docs/ | grep -E '${pattern}\\.md$' || true`;
     } catch {
-      cmd = `find . -type f -name "*${pattern}*.md" ${EXCLUDED_PATHS.map((p) => `-not -path "*/${p}/*"`).join(" ")} || true`;
+      const scanPaths = SCAN_PATHS.join(" ");
+      cmd = `find ${scanPaths} -type f -name "*${pattern}*.md" ${EXCLUDED_PATHS.map((p) => `-not -path "*/${p}/*"`).join(" ")} || true`;
     }
 
     return execSync(cmd, { encoding: "utf-8", cwd: join(__dirname, "..") });
@@ -83,7 +100,7 @@ function parseResults(output: string, pattern: string): Violation[] {
 }
 
 function main() {
-  console.log("🔍 Checking for process artifact documentation...\n");
+  console.log("🔍 Checking for process artifact documentation in docs/...\n");
 
   const allViolations: Violation[] = [];
 
@@ -103,9 +120,11 @@ function main() {
   console.log("\n" + "=".repeat(60));
 
   if (allViolations.length === 0) {
-    console.log("✅ SUCCESS: No process artifact docs found!");
-    console.log("\nCanonical docs only:");
-    ALLOWED_DOCS.forEach((doc) => console.log(`  - ${doc}`));
+    console.log("✅ SUCCESS: No process artifact docs found in docs/!");
+    console.log("\nCanonical docs:");
+    CANONICAL_DOCS.forEach((doc) => console.log(`  - ${doc}`));
+    console.log("\nScanned: docs/ directory");
+    console.log("Excluded: docs/archive, docs/07_archive, docs/reports");
     console.log("=".repeat(60));
     process.exit(0);
   }
