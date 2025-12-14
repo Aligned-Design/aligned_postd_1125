@@ -53,7 +53,8 @@
     "test:schema-align": "tsx server/scripts/schema-alignment-smoke-test.ts",
     "check:env": "tsx server/scripts/check-env.ts",
     "check:banned": "tsx scripts/check-banned-terms.ts",
-    "check": "npm run lint && npm run check:lint-baseline && npm run typecheck && npm run test && npm run check:banned",
+    "check:docs": "tsx scripts/check-doc-artifacts.ts",
+    "check": "npm run lint && npm run check:lint-baseline && npm run typecheck && npm run test && npm run check:banned && npm run check:docs",
     "predeploy": "npm run security:check && npm run typecheck && npm run lint && npm run test"
   },
   "dependencies": {
