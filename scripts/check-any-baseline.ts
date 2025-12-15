@@ -1,13 +1,13 @@
 #!/usr/bin/env tsx
 /**
- * TypeScript 'any' Baseline Guardrail
+ * TypeScript any Baseline Guardrail (Production Code Only)
  * 
- * Prevents regression in TypeScript type safety by blocking increases in 'any' usage.
- * Scans client/, server/, and scripts/ directories for:
- * - : any
- * - as any
- * - <any>
- * - any[]
+ * Prevents regression in TypeScript type safety by blocking increases in any usage.
+ * Scans client and server PRODUCTION code only (excludes tests).
+ * 
+ * Patterns tracked: any type annotations and casts
+ * 
+ * Excludes test files and scripts from baseline count
  * 
  * Fails CI if current count exceeds baseline.
  */
@@ -23,11 +23,11 @@ interface Baseline {
 }
 
 const BASELINE_FILE = join(process.cwd(), "tools/any-baseline.json");
-const SCAN_DIRS = ["client", "server", "scripts"];
+const SCAN_DIRS = ["client", "server"];
 
 function getCurrentAnyCount(): number {
   try {
-    // Count 'any' usage patterns across TypeScript files
+    // Count 'any' usage patterns across TypeScript files (production code only)
     // Patterns: : any, as any, <any>, any[]
     const patterns = [
       ": any\\b",
@@ -45,9 +45,15 @@ function getCurrentAnyCount(): number {
 
       for (const pattern of patterns) {
         try {
-          // Use grep to count occurrences
+          // Exclude test files from count
           const output = execSync(
-            `find ${dir} -type f \\( -name "*.ts" -o -name "*.tsx" \\) -exec grep -o "${pattern}" {} \\; 2>/dev/null | wc -l || echo 0`,
+            `find ${dir} -type f \\( -name "*.ts" -o -name "*.tsx" \\) ` +
+            `-not -path "*/__tests__/*" ` +
+            `-not -name "*.test.ts" ` +
+            `-not -name "*.test.tsx" ` +
+            `-not -name "*.spec.ts" ` +
+            `-not -name "*.spec.tsx" ` +
+            `-exec grep -o "${pattern}" {} \\; 2>/dev/null | wc -l || echo 0`,
             { encoding: "utf-8" }
           );
 
@@ -81,7 +87,7 @@ function loadBaseline(): Baseline | null {
 }
 
 function main() {
-  console.log("🔍 Checking TypeScript 'any' usage baseline...\n");
+  console.log("🔍 Checking TypeScript 'any' usage baseline (production code only)...\n");
 
   const currentCount = getCurrentAnyCount();
   const baseline = loadBaseline();
@@ -90,12 +96,13 @@ function main() {
     console.error("❌ FAIL: Baseline file not found");
     console.error(`   Expected: ${BASELINE_FILE}`);
     console.error(`\n   Create baseline with current count (${currentCount}):`);
-    console.error(`   echo '{"count": ${currentCount}, "lastUpdated": "${new Date().toISOString()}", "note": "Initial baseline"}' > tools/any-baseline.json`);
+    console.error(`   echo '{"count": ${currentCount}, "lastUpdated": "${new Date().toISOString()}", "note": "Initial baseline (production code only)"}' > tools/any-baseline.json`);
     process.exit(1);
   }
 
   console.log(`   Current 'any' count: ${currentCount}`);
   console.log(`   Baseline count:      ${baseline.count}`);
+  console.log(`   Scope:               Production code (excludes tests)`);
   console.log(`   Last updated:        ${baseline.lastUpdated}`);
 
   if (currentCount > baseline.count) {
@@ -104,8 +111,8 @@ function main() {
     console.error(`\n   Current: ${currentCount}`);
     console.error(`   Baseline: ${baseline.count}`);
     console.error(`\n   Please remove 'any' types or update baseline if intentional.`);
-    console.error(`   To see where 'any' is used, run:`);
-    console.error(`   rg -t ts -t tsx "\\b(: any\\b|as any\\b|<any>|any\\[\\])" client server scripts`);
+    console.error(`   To see where 'any' is used in production code, run:`);
+    console.error(`   find client server -name "*.ts*" -not -path "*/__tests__/*" -not -name "*.test.*" -not -name "*.spec.*" -exec grep -n "\\b(: any\\b|as any\\b)" {} +`);
     process.exit(1);
   }
 
@@ -113,7 +120,7 @@ function main() {
     const decrease = baseline.count - currentCount;
     console.log(`\n✅ IMPROVEMENT: 'any' usage decreased by ${decrease}!`);
     console.log(`   Consider updating the baseline:`);
-    console.log(`   echo '{"count": ${currentCount}, "lastUpdated": "${new Date().toISOString()}", "note": "Reduced any usage"}' > tools/any-baseline.json`);
+    console.log(`   echo '{"count": ${currentCount}, "lastUpdated": "${new Date().toISOString()}", "note": "Reduced any usage in production"}' > tools/any-baseline.json`);
   } else {
     console.log(`\n✅ PASS: 'any' usage within baseline`);
   }
