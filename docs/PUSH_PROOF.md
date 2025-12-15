@@ -1,8 +1,8 @@
 # Push Proof - Canonical Source of Truth
 
 **Status**: This is the **single canonical push-proof record** for the POSTD repository.  
-**Last Updated**: 2025-12-15T18:36:00Z  
-**Current SHA**: `5a215e47ec395efb2565c657e3afd5ca448a0d33`
+**Last Updated**: 2025-12-15T18:40:00Z  
+**Current SHA**: `180b8eb9fffed69d15cc45cf479fd2c444dc3b43`
 
 > **Note**: All related verification documents, bug reports, and fix summaries are archived in `docs/releases/` and referenced below. This document provides the complete audit trail with links to supporting evidence.
 
@@ -27,12 +27,12 @@ Related documentation for this release (archived):
 
 ### Local HEAD
 ```
-5a215e47ec395efb2565c657e3afd5ca448a0d33
+180b8eb9fffed69d15cc45cf479fd2c444dc3b43
 ```
 
 ### Remote HEAD (origin/main)
 ```
-5a215e47ec395efb2565c657e3afd5ca448a0d33	refs/heads/main
+180b8eb9fffed69d15cc45cf479fd2c444dc3b43	refs/heads/main
 ```
 
 **Match**: ✅ YES - Local and remote are identical
@@ -127,6 +127,30 @@ Audit-grade documentation complete.
 ```
  1 file changed, 211 insertions(+), 93 deletions(-)
  modified: docs/PUSH_PROOF.md
+```
+
+### Commit 4: Documentation Consolidation (180b8eb)
+**Message**:
+```
+docs: consolidate push proof into canonical docs/PUSH_PROOF.md
+
+- Archive all brand-status-fix docs to docs/releases/brand-status-fix/
+- Add Evidence Index section with links to archived docs
+- Add comprehensive Runtime Verification section
+- Mark runtime verification as PENDING with clear rationale
+- Update canonical doc with single source of truth designation
+```
+
+**Files Changed**:
+```
+ 7 files changed, 170 insertions(+), 44 deletions(-)
+ rename docs/BRAND_STATUS_FIX_PUSH_PROOF.md → releases/brand-status-fix/
+ rename docs/CRAWLER_BRAND_STATUS_BUG.md → releases/brand-status-fix/
+ rename docs/CRAWLER_BRAND_STATUS_FIX.md → releases/brand-status-fix/
+ rename docs/FIRST_RUN_CRAWL_BUG_REPORT.md → releases/brand-status-fix/
+ rename docs/FIRST_RUN_CRAWL_FIX_SUMMARY.md → releases/brand-status-fix/
+ rename docs/FIRST_RUN_UI_VERIFICATION_REPORT.md → releases/brand-status-fix/
+ modified: docs/PUSH_PROOF.md (added Evidence Index, Runtime Verification template)
 ```
 
 ---
@@ -328,7 +352,7 @@ asset_count
 |-----------|--------|----------|
 | git status clean | ✅ PASS | "nothing to commit, working tree clean" |
 | No untracked files | ✅ PASS | `git ls-files --others --exclude-standard` = empty |
-| Local HEAD == Remote HEAD | ✅ PASS | Both: `5a215e47ec395efb2565c657e3afd5ca448a0d33` |
+| Local HEAD == Remote HEAD | ✅ PASS | Both: `180b8eb9fffed69d15cc45cf479fd2c444dc3b43` |
 | TypeCheck passes | ✅ PASS | `tsc` with no errors |
 | Build passes | ✅ PASS | `dist/server/vercel-server.mjs` built successfully |
 | Tests pass | ✅ PASS | 5/5 brand status tests passing |
@@ -339,7 +363,7 @@ asset_count
 
 ## Summary
 
-**Fix Status**: ✅ **DEPLOYED TO MAIN** (SHA: `5a215e4`)
+**Fix Status**: ✅ **DEPLOYED TO MAIN** (SHA: `180b8eb`)
 
 **What Changed**:
 - Created `server/lib/brand-status-updater.ts` helper function
