@@ -216,7 +216,7 @@ export function createServer() {
               let routerPath = "";
               if (layer.regexp?.source) {
                 // Match patterns like: /^\/api\/metrics\/?(?=\/|$)/i
-                const match = layer.regexp.source.match(/\^\\?\/([\w\-\/]+)/);
+                const match = layer.regexp.source.match(/\^\\?\/([\w\-/]+)/);
                 if (match) {
                   routerPath = "/" + match[1].replace(/\\\//g, "/");
                 }
