@@ -84,6 +84,7 @@ import {
   logCrawlRunEnd,
   getRuntimeFingerprint 
 } from "../lib/runtimeFingerprint";
+import { markBrandCrawlFinished } from "../lib/brand-status-updater";
 import {
   crawlWebsite,
   extractColors,
@@ -743,6 +744,18 @@ async function runCrawlJobSync(
           existingAssetsCount: existingAssetCount || 0,
         });
         
+        // Update brand crawl status in database
+        if (brandId && !brandId.startsWith("brand_")) {
+          await markBrandCrawlFinished(brandId, {
+            status: "ok",
+            runId: crawlRunId,
+            durationMs: crawlDurationMs,
+            pagesScraped: 0, // cached result
+            imagesExtracted: existingAssetCount || 0,
+            colorsExtracted: 0,
+          });
+        }
+        
         // Return same shape as normal path
         // Client expects only { brandKit }; images/assets fetched separately from media_assets
         return { brandKit: cachedBrandKit };
@@ -1208,13 +1221,24 @@ async function runCrawlJobSync(
         
         // ✅ RUNTIME FINGERPRINT: Log crawl run end (success)
         const crawlDurationMs = Date.now() - crawlStartTime;
-        logCrawlRunEnd(crawlRunId, {
-          status: "ok",
+        const crawlData = {
+          status: "ok" as const,
           durationMs: crawlDurationMs,
           pagesScraped: crawlResults?.length || 0,
           imagesExtracted: brandKit.images?.length || 0,
           colorsExtracted: brandKit.colors?.allColors?.length || 0,
-        });
+        };
+        
+        logCrawlRunEnd(crawlRunId, crawlData);
+        
+        // Update brand crawl status in database (even if 0 assets extracted)
+        if (brandId && !brandId.startsWith("brand_")) {
+          await markBrandCrawlFinished(brandId, {
+            ...crawlData,
+            runId: crawlRunId,
+            url,
+          });
+        }
         
         return { brandKit };
       })(),
@@ -1240,11 +1264,23 @@ async function runCrawlJobSync(
     
     // ✅ RUNTIME FINGERPRINT: Log crawl run end (failure)
     const crawlDurationMs = Date.now() - crawlStartTime;
-    logCrawlRunEnd(crawlRunId, {
-      status: "fail",
+    const failureData = {
+      status: "fail" as const,
       durationMs: crawlDurationMs,
       error: errorMessage,
-    });
+    };
+    
+    logCrawlRunEnd(crawlRunId, failureData);
+    
+    // Update brand crawl status in database (mark as error)
+    if (brandId && !brandId.startsWith("brand_")) {
+      await markBrandCrawlFinished(brandId, {
+        ...failureData,
+        status: "error", // Convert "fail" to "error" for DB
+        runId: crawlRunId,
+        url,
+      });
+    }
     
     throw error;
   }
