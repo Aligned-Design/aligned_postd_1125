@@ -1,0 +1,20 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    // POSTD Foundation: Strict mode enforced for new foundation code
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noImplicitAny": true,
+    "noFallthroughCasesInSwitch": true,
+    "strictNullChecks": true,
+    "noUncheckedIndexedAccess": true,
+    "noEmit": true
+  },
+  "include": [
+    // Foundation surface area - strict mode enforced
+    "scripts/docs-gate.ts",
+    "db/**/*"
+  ],
+  "exclude": ["node_modules", "dist"]
+}
