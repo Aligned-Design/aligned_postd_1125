@@ -1,6 +1,7 @@
 import { ArrowRight } from "lucide-react";
 import { useScrollAnimation } from "@/hooks/useScrollAnimation";
-import { ZiaQuip, ZIA_QUIPS } from "./ZiaPersonality";
+import { ZiaQuip } from "./ZiaPersonality";
+import { ZIA_QUIPS } from "./ZiaPersonality.constants";
 
 interface WhatItFeelsLikeSectionProps {
   onCTA?: () => void;

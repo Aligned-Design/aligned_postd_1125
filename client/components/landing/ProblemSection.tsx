@@ -1,6 +1,7 @@
 import { ZiaMascot } from "@/components/dashboard/ZiaMascot";
 import { useScrollAnimation } from "@/hooks/useScrollAnimation";
-import { ZiaQuip, ZIA_QUIPS } from "./ZiaPersonality";
+import { ZiaQuip } from "./ZiaPersonality";
+import { ZIA_QUIPS } from "./ZiaPersonality.constants";
 import {
   BrandChaosVisual,
   ApprovalBottleneckVisual,

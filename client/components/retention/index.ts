@@ -1,12 +1,9 @@
-export {
-  LearningMilestoneNotification,
-  mockLearningMilestone,
-} from "./LearningMilestoneNotification";
-export {
-  WinCelebration,
-  celebrateWinToast,
-  exampleWins,
-} from "./WinCelebration";
+export { LearningMilestoneNotification } from "./LearningMilestoneNotification";
+export { mockLearningMilestone } from "./LearningMilestoneNotification.constants";
+
+export { WinCelebration } from "./WinCelebration";
+export { celebrateWinToast, exampleWins } from "./WinCelebration.helpers";
+
 export { ROIDashboard } from "./ROIDashboard";
 // ✅ REMOVED: mockROIData export - no longer used in production
 // Mock data moved to Storybook or test fixtures if needed
@@ -14,8 +11,6 @@ export { ROIDashboard } from "./ROIDashboard";
 export { BrandEvolutionVisualization } from "./BrandEvolutionVisualization";
 // ✅ REMOVED: mockBrandEvolutionData export - no longer used in production
 // Mock data moved to Storybook or test fixtures if needed
-export {
-  SeasonalDipInsurance,
-  summerSlumpWarning,
-  summerRecovery,
-} from "./SeasonalDipInsurance";
+
+export { SeasonalDipInsurance } from "./SeasonalDipInsurance";
+export { summerSlumpWarning, summerRecovery } from "./SeasonalDipInsurance.constants";
