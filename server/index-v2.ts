@@ -135,6 +135,7 @@ import trialRouter from "./routes/trial";
 import clientPortalRouter from "./routes/client-portal";
 import publishingRouter from "./routes/publishing-router";
 import integrationsRouter from "./routes/integrations";
+import aiRewriteRouter from "./routes/ai-rewrite";
 
 export function createServer() {
   const app = express();
@@ -247,6 +248,7 @@ export function createServer() {
   app.use("/api/client-portal", authenticateUser, clientPortalRouter);
   app.use("/api/publishing", authenticateUser, publishingRouter);
   app.use("/api/integrations", authenticateUser, integrationsRouter);
+  app.use("/api/ai-rewrite", aiRewriteRouter);
   
   // ✅ DEBUG: Health check endpoint (comprehensive system verification)
   app.use("/api/debug", debugHealthRouter);
