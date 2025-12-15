@@ -216,8 +216,10 @@ function getDefaultConfig(agencyId: string): WhiteLabelConfig {
 }
 
 // Register routes
-router.get('/config/:agencyId?', getWhiteLabelConfig);
+router.get('/config/:agencyId', getWhiteLabelConfig);
+router.get('/config', getWhiteLabelConfig);
 router.get('/config-by-domain', getConfigByDomain);
-router.put('/config/:agencyId?', updateWhiteLabelConfig);
+router.put('/config/:agencyId', updateWhiteLabelConfig);
+router.put('/config', updateWhiteLabelConfig);
 
 export default router;
