@@ -56,7 +56,8 @@
     "check:docs": "tsx scripts/check-doc-artifacts.ts",
     "check:any-baseline": "tsx scripts/check-any-baseline.ts",
     "check:console-baseline": "tsx scripts/check-console-baseline.ts",
-    "check": "npm run lint && npm run check:lint-baseline && npm run typecheck && npm run test && npm run check:banned && npm run check:docs && npm run check:any-baseline && npm run check:console-baseline",
+    "check:skipped-tests": "tsx scripts/check-skipped-tests-baseline.ts",
+    "check": "npm run lint && npm run check:lint-baseline && npm run typecheck && npm run test && npm run check:banned && npm run check:docs && npm run check:any-baseline && npm run check:console-baseline && npm run check:skipped-tests",
     "predeploy": "npm run security:check && npm run typecheck && npm run lint && npm run test"
   },
   "dependencies": {
