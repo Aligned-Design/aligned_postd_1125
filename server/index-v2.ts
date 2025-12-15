@@ -194,22 +194,29 @@ export function createServer() {
         // Extract mounted routes from Express router stack
         const routes: string[] = [];
         
-        function extractRoutes(stack: any[], prefix = "") {
+        interface RouterLayer {
+          route?: { path: string; methods: Record<string, boolean> };
+          name?: string;
+          handle?: { stack: RouterLayer[] };
+          regexp?: { source: string };
+        }
+        
+        function extractRoutes(stack: RouterLayer[], prefix = "") {
           for (const layer of stack) {
             if (layer.route) {
               // Regular route
               const path = prefix + layer.route.path;
               const methods = Object.keys(layer.route.methods).join(",").toUpperCase();
               routes.push(`${methods} ${path}`);
-            } else if (layer.name === "router" && layer.handle.stack) {
+            } else if (layer.name === "router" && layer.handle?.stack) {
               // Nested router
-              const routerPath = prefix + (layer.regexp.source.match(/^\\\/([^\\]*)/)?.[1] || "");
+              const routerPath = prefix + (layer.regexp?.source.match(/^\\\/([^\\]*)/)?.[1] || "");
               extractRoutes(layer.handle.stack, routerPath);
             }
           }
         }
 
-        extractRoutes(app._router.stack);
+        extractRoutes(app._router.stack as RouterLayer[]);
 
         res.json({
           pid: process.pid,
