@@ -316,25 +316,27 @@ CREATE POLICY "Users see only their tenant's data"
 
 ---
 
-### D11: Cleanup Merge Order (2025-12-15)
+### D11: Smoothness Pass Merge (2025-12-15)
 
-**Decision:** Three cleanup branches were merged in sequential order: smoothness-pass → incomplete-code-audit → TypeScript cleanup.
+**Decision:** Merged `chore/smoothness-pass` branch to improve documentation and test quality.
 
-**Rationale:** This order minimized merge conflicts by establishing architectural baselines first (smoothness), connecting/deleting disconnected code second (structural changes), and applying broad TypeScript improvements last (type annotations across many files). Each merge built upon a progressively cleaner codebase.
+**Rationale:** Codebase had accumulated process artifacts in documentation and TODO tests that created maintenance burden. This merge established cleaner documentation standards and test practices.
 
 **What Changed:**
-- Removed 9 dead files (deprecated servers, unused routes)
-- Connected 8 disconnected API routes to their client callers
-- Added /api/ai-rewrite endpoint for content rewriting
-- Implemented console.log baseline guardrail (274 statements locked)
-- Reduced TypeScript 'any' usage (1128 → 1094)
+- Documentation system overhaul (removed process artifacts)
+- Test debt elimination (formalized skipped-test policy)
+- Refined guardrails to avoid false positives
 
-**Impact:** Codebase now has enforced quality baselines preventing regression, no dead code, and all endpoints verified as actively used.
+**Impact:** Canonical documentation system now enforced, preventing accumulation of temporary docs.
 
 **Enforcement:**
-- `pnpm check:console-baseline` - Prevents new console.log in production routes
-- `pnpm check:any-baseline` - Prevents TypeScript 'any' usage increase
-- All connected routes have documented callers
+- `pnpm check:docs` - Blocks process artifact documentation
+- `pnpm check:lint-baseline` - Prevents warning increase
+- `pnpm check:banned` - Prevents reintroduction of removed dependencies
+
+**Status:** ✅ Successfully merged (commit 38998c0)
+
+**Note:** Other cleanup branches (`incomplete-code-audit`, `ts-whole-repo-cleanup`) were **not merged**. See `docs/REALITY_CHECK_REPORT.md` for current state assessment.
 
 ---
 
