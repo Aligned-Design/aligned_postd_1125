@@ -179,6 +179,8 @@ export async function generateWithChatCompletions(
     model?: string;
     temperature?: number;
     maxTokens?: number;
+    presence_penalty?: number;
+    frequency_penalty?: number;
   }
 ): Promise<string> {
   const client = getOpenAIClient();
@@ -193,15 +195,42 @@ export async function generateWithChatCompletions(
   }
 
   try {
-    const response = await client.chat.completions.create({
+    // Build base payload
+    const basePayload: any = {
       model,
       messages: messages.map((msg) => ({
         role: msg.role,
         content: msg.content,
       })),
-      temperature: options?.temperature ?? 0.7,
       max_completion_tokens: options?.maxTokens ?? 1000,
-    });
+    };
+
+    // Check model capabilities
+    // gpt-5* models (mini, nano, etc.) have limited parameter support
+    const isGpt5Model = model.startsWith("gpt-5");
+    const supportsPenalties = !isGpt5Model;
+    const supportsTemperature = !isGpt5Model;
+
+    // Only add temperature if supported (gpt-5-mini requires default of 1 or omit)
+    if (supportsTemperature && options?.temperature !== undefined) {
+      basePayload.temperature = options.temperature;
+    } else if (!isGpt5Model) {
+      // Default temperature for non-gpt-5 models
+      basePayload.temperature = 0.7;
+    }
+    // For gpt-5 models, omit temperature entirely (API defaults to 1)
+
+    // Only add penalty parameters if supported
+    if (supportsPenalties) {
+      if (options?.presence_penalty !== undefined) {
+        basePayload.presence_penalty = options.presence_penalty;
+      }
+      if (options?.frequency_penalty !== undefined) {
+        basePayload.frequency_penalty = options.frequency_penalty;
+      }
+    }
+
+    const response = await client.chat.completions.create(basePayload);
 
     const content = response.choices[0]?.message?.content;
     if (!content) {

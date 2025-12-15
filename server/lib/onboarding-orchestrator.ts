@@ -106,21 +106,71 @@ async function runCrawlerStep(
 
     // Call crawler via HTTP endpoint (simplest approach)
     // In production, this could be optimized to call the function directly
-    const apiBaseUrl = process.env.VITE_API_BASE_URL || "http://localhost:8080";
-    const crawlResponse = await fetch(`${apiBaseUrl}/api/crawl/start`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
+    // Use API_BASE_URL for server-to-server communication (not VITE_API_BASE_URL which is client-side)
+    // In Vercel, VERCEL_URL is automatically provided (e.g., "your-app.vercel.app")
+    const apiBaseUrl = 
+      process.env.API_BASE_URL || 
+      (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null) ||
+      process.env.VITE_APP_URL ||
+      "http://localhost:8080";
+    
+    const crawlUrl = `${apiBaseUrl}/api/crawl/start`;
+    
+    logger.info("Onboarding: Calling crawler endpoint", {
+      brandId,
+      crawlUrl,
+      apiBaseUrl,
+      env: {
+        hasApiBaseUrl: !!process.env.API_BASE_URL,
+        hasVercelUrl: !!process.env.VERCEL_URL,
+        hasViteAppUrl: !!process.env.VITE_APP_URL,
       },
-      body: JSON.stringify({
-        brand_id: brandId,
-        url: websiteUrl,
-        sync: true, // Use sync mode for onboarding
-      }),
     });
+    
+    let crawlResponse;
+    try {
+      crawlResponse = await fetch(crawlUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          brand_id: brandId,
+          url: websiteUrl,
+          sync: true, // Use sync mode for onboarding
+        }),
+      });
+    } catch (fetchError) {
+      const errorMessage = fetchError instanceof Error ? fetchError.message : String(fetchError);
+      const error = fetchError instanceof Error ? fetchError : new Error(errorMessage);
+      logger.error(
+        "Onboarding: Crawler fetch failed (network error)",
+        error,
+        {
+          brandId,
+          crawlUrl,
+          apiBaseUrl,
+          errorType: error.constructor.name,
+        }
+      );
+      throw new Error(`Crawler fetch failed: ${errorMessage}. Check API_BASE_URL/VERCEL_URL configuration.`);
+    }
 
     if (!crawlResponse.ok) {
-      throw new Error(`Crawler failed: ${crawlResponse.statusText}`);
+      const errorText = await crawlResponse.text().catch(() => "Unable to read error response");
+      const error = new Error(`Crawler failed: ${crawlResponse.status} ${crawlResponse.statusText}`);
+      logger.error(
+        "Onboarding: Crawler endpoint returned error",
+        error,
+        {
+          brandId,
+          status: crawlResponse.status,
+          statusText: crawlResponse.statusText,
+          errorBody: errorText,
+          crawlUrl,
+        }
+      );
+      throw error;
     }
 
     const crawlData = await crawlResponse.json();
