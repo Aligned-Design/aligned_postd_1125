@@ -14,6 +14,7 @@
 
 import OpenAI from "openai";
 import { logger } from "./logger";
+import { sanitizeOpenAIPayload } from "./openai-payload-sanitizer";
 
 /**
  * Initialize OpenAI client
@@ -230,20 +231,24 @@ export async function generateWithChatCompletions(
       }
     }
 
+    // CRITICAL: Sanitize payload to remove unsupported parameters before API call
+    // This prevents errors with models that have limited parameter support (e.g., gpt-5*)
+    const sanitizedPayload = sanitizeOpenAIPayload(basePayload);
+
     // OPENAI_PAYLOAD_PROOF: Log what's actually being sent (no secrets/prompts)
     logger.info("OPENAI_PAYLOAD_PROOF", {
-      model: basePayload.model,
-      hasTemperature: basePayload.temperature !== undefined,
-      temperatureValue: basePayload.temperature,
-      hasPresencePenalty: basePayload.presence_penalty !== undefined,
-      presencePenaltyValue: basePayload.presence_penalty,
-      hasFrequencyPenalty: basePayload.frequency_penalty !== undefined,
-      frequencyPenaltyValue: basePayload.frequency_penalty,
-      messageCount: basePayload.messages.length,
+      model: sanitizedPayload.model,
+      hasTemperature: sanitizedPayload.temperature !== undefined,
+      temperatureValue: sanitizedPayload.temperature,
+      hasPresencePenalty: sanitizedPayload.presence_penalty !== undefined,
+      presencePenaltyValue: sanitizedPayload.presence_penalty,
+      hasFrequencyPenalty: sanitizedPayload.frequency_penalty !== undefined,
+      frequencyPenaltyValue: sanitizedPayload.frequency_penalty,
+      messageCount: sanitizedPayload.messages.length,
       endpoint: "generateWithChatCompletions",
     });
 
-    const response = await client.chat.completions.create(basePayload);
+    const response = await client.chat.completions.create(sanitizedPayload);
 
     const content = response.choices[0]?.message?.content;
     if (!content) {

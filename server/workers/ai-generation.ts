@@ -18,6 +18,7 @@ import {
   isOpenAIConfigured,
 } from "../lib/openai-client";
 import { logger } from "../lib/logger";
+import { sanitizeOpenAIPayload } from "../lib/openai-payload-sanitizer";
 
 export type AIProvider = "openai" | "claude";
 
@@ -259,20 +260,24 @@ async function generateWithOpenAI(prompt: string, agentType: string, _client?: u
       frequency_penalty: 0.1
     };
     
+    // CRITICAL: Sanitize payload to remove unsupported parameters before API call
+    // This prevents errors with models that have limited parameter support (e.g., gpt-5*)
+    const sanitizedPayload = sanitizeOpenAIPayload(payload);
+    
     // OPENAI_PAYLOAD_PROOF: Log what's actually being sent (no secrets/prompts)
     logger.info("OPENAI_PAYLOAD_PROOF", {
-      model: payload.model,
-      hasTemperature: payload.temperature !== undefined,
-      temperatureValue: payload.temperature,
-      hasPresencePenalty: payload.presence_penalty !== undefined,
-      presencePenaltyValue: payload.presence_penalty,
-      hasFrequencyPenalty: payload.frequency_penalty !== undefined,
-      frequencyPenaltyValue: payload.frequency_penalty,
-      messageCount: payload.messages.length,
+      model: sanitizedPayload.model,
+      hasTemperature: sanitizedPayload.temperature !== undefined,
+      temperatureValue: sanitizedPayload.temperature,
+      hasPresencePenalty: sanitizedPayload.presence_penalty !== undefined,
+      presencePenaltyValue: sanitizedPayload.presence_penalty,
+      hasFrequencyPenalty: sanitizedPayload.frequency_penalty !== undefined,
+      frequencyPenaltyValue: sanitizedPayload.frequency_penalty,
+      messageCount: sanitizedPayload.messages.length,
       agentType,
     });
     
-    const response = await client.chat.completions.create(payload);
+    const response = await client.chat.completions.create(sanitizedPayload);
     const latencyMs = Date.now() - startTime;
 
     const content = response.choices[0]?.message?.content;
