@@ -1,8 +1,10 @@
-import { RequestHandler, Request } from 'express';
+import { Router, RequestHandler, Request } from 'express';
 import { WhiteLabelConfig, WhiteLabelRequest, WhiteLabelResponse } from '@shared/branding';
 import { whiteLabelDB } from '../lib/white-label-db-service';
 import { AppError } from '../lib/error-middleware';
 import { ErrorCode, HTTP_STATUS } from '../lib/error-responses';
+
+const router = Router();
 
 // Extended request interface with user context - using type instead of interface to avoid TS2430
 type AuthenticatedRequest = Request & {
@@ -212,3 +214,10 @@ function getDefaultConfig(agencyId: string): WhiteLabelConfig {
     updatedAt: new Date().toISOString()
   };
 }
+
+// Register routes
+router.get('/config/:agencyId?', getWhiteLabelConfig);
+router.get('/config-by-domain', getConfigByDomain);
+router.put('/config/:agencyId?', updateWhiteLabelConfig);
+
+export default router;

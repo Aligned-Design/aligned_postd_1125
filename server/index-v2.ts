@@ -127,6 +127,14 @@ import {
   getWebhookLogs,
   retryWebhookEvent,
 } from "./routes/webhooks";
+// Import missing routers for reality check remediation
+import aiMetricsRouter from "./routes/ai-metrics";
+import reportsRouter from "./routes/reports";
+import whiteLabelRouter from "./routes/white-label";
+import trialRouter from "./routes/trial";
+import clientPortalRouter from "./routes/client-portal";
+import publishingRouter from "./routes/publishing-router";
+import integrationsRouter from "./routes/integrations";
 
 export function createServer() {
   const app = express();
@@ -231,14 +239,17 @@ export function createServer() {
   app.use("/api/orchestration", authenticateUser, orchestrationRouter);
   app.use("/api/brand-brain", authenticateUser, brandBrainRouter);
   
+  // ✅ REALITY CHECK FIX: Register previously disconnected routes
+  app.use("/api/metrics", authenticateUser, aiMetricsRouter);
+  app.use("/api/reports", authenticateUser, reportsRouter);
+  app.use("/api/white-label", authenticateUser, whiteLabelRouter);
+  app.use("/api/trial", trialRouter);
+  app.use("/api/client-portal", authenticateUser, clientPortalRouter);
+  app.use("/api/publishing", authenticateUser, publishingRouter);
+  app.use("/api/integrations", authenticateUser, integrationsRouter);
+  
   // ✅ DEBUG: Health check endpoint (comprehensive system verification)
   app.use("/api/debug", debugHealthRouter);
-
-  // Future work: Add these routers incrementally after testing
-  // These routers are available but not yet enabled in production
-  // app.use("/api/client-portal", clientPortalRouter);
-  // app.use("/api/publishing", publishingRouter);
-  // app.use("/api/integrations", integrationsRouter);
 
   // =============================================================================
   // Error Handling
