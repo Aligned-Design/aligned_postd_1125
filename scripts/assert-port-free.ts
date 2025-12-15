@@ -8,7 +8,8 @@
 
 import { execSync } from "child_process";
 
-const PORT = process.env.PORT || 3000;
+// Prefer BACKEND_PORT, fallback to PORT, default to 3000
+const PORT = process.env.BACKEND_PORT || process.env.PORT || 3000;
 
 function checkPort(): { inUse: boolean; pid?: string; command?: string } {
   try {
@@ -50,7 +51,7 @@ function main() {
     }
     console.error(`\n   To fix this:`);
     console.error(`   1. Kill the process: kill ${result.pid}`);
-    console.error(`   2. Or use a different port: PORT=3001 pnpm dev`);
+    console.error(`   2. Or use a different port: BACKEND_PORT=3001 pnpm dev`);
     console.error(``);
     process.exit(1);
   }

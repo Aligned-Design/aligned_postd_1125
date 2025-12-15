@@ -216,14 +216,17 @@ export function createServer() {
           }
         }
 
-        extractRoutes(app._router.stack as RouterLayer[]);
+        // Check if router is initialized
+        if (app._router && app._router.stack) {
+          extractRoutes(app._router.stack as RouterLayer[]);
+        }
 
         res.json({
           pid: process.pid,
           bootFile: import.meta.url,
           cwd: process.cwd(),
           nodeEnv: process.env.NODE_ENV || "development",
-          port: process.env.PORT || 3000,
+          port: process.env.BACKEND_PORT || process.env.PORT || 3000,
           mountedRoutes: routes,
           routeCount: routes.length,
         });
@@ -323,7 +326,7 @@ export function createServer() {
 // Only start server if this file is run directly
 if (import.meta.url === `file://${process.argv[1]}`) {
   const app = createServer();
-  const port = process.env.PORT || 3000;
+  const port = process.env.BACKEND_PORT || process.env.PORT || 3000;
 
   // ✅ BOOT FINGERPRINT: Log server identity for debugging
   console.log("\n" + "=".repeat(60));
