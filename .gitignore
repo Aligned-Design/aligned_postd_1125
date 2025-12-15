@@ -9,6 +9,9 @@ node_modules/
 /.next/
 /out/
 
+# Build metadata (generated at build time)
+client/src/build-meta.json
+
 # Environment variables
 .env
 .env.*

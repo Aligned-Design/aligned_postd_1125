@@ -12,6 +12,7 @@ import { WorkspaceProvider } from "@/contexts/WorkspaceContext";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { BrandProvider } from "@/contexts/BrandContext";
 import MilestoneCelebrator from "@/components/MilestoneCelebrator";
+import { DeployProof } from "@/components/DeployProof";
 import Index from "./pages/Index";
 import Onboarding from "./pages/Onboarding";
 import Screen0Login from "./pages/onboarding/Screen0Login";
@@ -590,6 +591,7 @@ export const App = () => {
                   <Toaster />
                   <Sonner />
                   <MilestoneCelebrator />
+                  <DeployProof />
                   <ProtectedRoutes />
                 </TooltipProvider>
               </BrandProvider>
