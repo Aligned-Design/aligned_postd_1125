@@ -78,6 +78,12 @@ import { ErrorCode, HTTP_STATUS } from "../lib/error-responses";
 import { authenticateUser } from "../middleware/security";
 import { validateBrandIdFormat } from "../middleware/validate-brand-id";
 import { assertBrandAccess } from "../lib/brand-access";
+import { 
+  generateCrawlRunId, 
+  logCrawlRunStart, 
+  logCrawlRunEnd,
+  getRuntimeFingerprint 
+} from "../lib/runtimeFingerprint";
 import {
   crawlWebsite,
   extractColors,
@@ -165,9 +171,12 @@ router.post("/start", authenticateUser, validateBrandIdFormat, async (req, res, 
   
   // ✅ CRITICAL: Wrap entire handler to ensure response is always sent
   try {
-    const { brand_id, url, sync, websiteUrl, workspaceId } = req.body;
+    const { brand_id, url, sync, websiteUrl, workspaceId, cacheMode } = req.body;
     const isSync = sync === true || req.query.sync === "true";
     const finalUrl = url || websiteUrl;
+    // ✅ CACHE MODE: Support cache control (default | bypass | refresh)
+    // Currently all crawls are fresh (no caching), but parameter is available for future use
+    const finalCacheMode = cacheMode || "default";
 
     // ✅ Get tenantId from user context for logging
     const user = (req as any).user;
@@ -235,6 +244,11 @@ router.post("/start", authenticateUser, validateBrandIdFormat, async (req, res, 
       const lockAge = Date.now() - activeLock.startedAt;
       const lockAgeSeconds = Math.floor(lockAge / 1000);
       
+      // ✅ DB SHORT-CIRCUIT LOG: Log decision to skip due to in-progress lock
+      console.log(
+        `CRAWL_DECISION decision=SKIP_DUPLICATE_REQUEST reason=crawl_in_progress lockKey=${lockKey} lockAgeSeconds=${lockAgeSeconds} brandId=${finalBrandId} url=${normalizedUrl}`
+      );
+      
       console.warn("[Crawler] Duplicate crawl request detected", {
         lockKey,
         lockAgeSeconds,
@@ -255,6 +269,11 @@ router.post("/start", authenticateUser, validateBrandIdFormat, async (req, res, 
         },
       });
     }
+    
+    // ✅ DB SHORT-CIRCUIT LOG: Log decision to proceed with fresh crawl
+    console.log(
+      `CRAWL_DECISION decision=PROCEED_FRESH_CRAWL reason=no_active_lock brandId=${finalBrandId} url=${normalizedUrl} cacheMode=${finalCacheMode}`
+    );
 
     // ✅ CREATE LOCK: Mark crawl as in-progress
     const lockTimeout = setTimeout(() => {
@@ -335,7 +354,7 @@ router.post("/start", authenticateUser, validateBrandIdFormat, async (req, res, 
       }
       
       try {
-        const result = await runCrawlJobSync(finalUrl, finalBrandId, tenantId);
+        const result = await runCrawlJobSync(finalUrl, finalBrandId, tenantId, finalCacheMode);
         
         // ✅ LOGGING: Log crawler result (for Vercel server logs)
         const images = result.brandKit?.images || [];
@@ -639,12 +658,108 @@ router.post("/start", authenticateUser, validateBrandIdFormat, async (req, res, 
  * CRITICAL: This function MUST receive tenantId. Without it, scraped images cannot be persisted.
  * During onboarding, tenantId comes from user's workspace/auth context.
  */
-async function runCrawlJobSync(url: string, brandId: string, tenantId: string | null = null): Promise<{ brandKit: any }> {
+async function runCrawlJobSync(
+  url: string, 
+  brandId: string, 
+  tenantId: string | null = null,
+  cacheMode: "default" | "bypass" | "refresh" = "default"
+): Promise<{ brandKit: any }> {
   // ✅ Increased timeout to 60s for JS-heavy sites and slow networks
   const CRAWL_TIMEOUT_MS = 60000; // 60 second timeout for onboarding
   
   // ✅ METRICS: Track total crawl time
   const crawlStartTime = Date.now();
+  
+  // ✅ RUNTIME FINGERPRINT: Log crawl run start for staleness debugging
+  const crawlRunId = generateCrawlRunId();
+  logCrawlRunStart(crawlRunId, {
+    brandId,
+    url,
+    tenantId,
+    cacheMode,
+  });
+  
+  // ✅ ENVIRONMENT IDENTITY: Log environment details to prevent staging/prod confusion
+  const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || "unknown";
+  const supabaseHost = supabaseUrl !== "unknown" ? new URL(supabaseUrl).hostname : "unknown";
+  const projectRef = supabaseHost !== "unknown" ? supabaseHost.split(".")[0] : "unknown";
+  console.log(
+    `ENV_ID runId=${crawlRunId} nodeEnv=${process.env.NODE_ENV || "development"} supabaseHost=${supabaseHost} projectRef=${projectRef}`
+  );
+  
+  // ✅ CACHE TRANSPARENCY: Log cache behavior for debugging
+  // Current implementation: No caching (always fresh crawl)
+  // Future: Could check DB for recent brand_kit.crawled_at and return cached if < X minutes old
+  console.log(
+    `CACHE runId=${crawlRunId} step=crawl-check hit=false mode=${cacheMode} reason=no-cache-implemented`
+  );
+  console.log(
+    `CACHE runId=${crawlRunId} step=color-extraction hit=false mode=${cacheMode} reason=no-cache-implemented`
+  );
+  console.log(
+    `CACHE runId=${crawlRunId} step=ai-generation hit=false mode=${cacheMode} reason=no-cache-implemented`
+  );
+  
+  // ✅ DB SHORT-CIRCUIT: Asset extraction decision (check if should skip crawl entirely)
+  // Check if assets already extracted and persisted
+  const { count: existingAssetCount } = await supabase
+    .from("media_assets")
+    .select("id", { count: "exact", head: true })
+    .eq("brand_id", brandId)
+    .eq("metadata->>source", "scrape");
+  
+  const assetsAlreadyExtracted = (existingAssetCount || 0) > 0;
+  
+  if (assetsAlreadyExtracted && cacheMode === "default") {
+    // Skip extraction entirely, return cached brand_kit
+    // Note: Assets already persisted in media_assets; client fetches them separately
+    console.log(
+      `CRAWL_DECISION decision=SKIP_ASSET_EXTRACTION reason=assets_persisted count=${existingAssetCount} brandId=${brandId} url=${url} runId=${crawlRunId} cacheMode=${cacheMode}`
+    );
+    
+    try {
+      // Fetch existing brand_kit to return cached data
+      const { data: existingBrand, error: fetchError } = await supabase
+        .from("brands")
+        .select("brand_kit")
+        .eq("id", brandId)
+        .single();
+      
+      if (fetchError || !existingBrand) {
+        // Brand not found or RLS denied - log error and proceed with fresh crawl
+        console.warn(
+          `CRAWL_DECISION decision=PROCEED_ASSET_EXTRACTION reason=cache_fetch_failed error=${fetchError?.message || "brand_not_found"} brandId=${brandId} runId=${crawlRunId}`
+        );
+        // Continue to fresh extraction below
+      } else {
+        const cachedBrandKit = (existingBrand as any)?.brand_kit || {};
+        
+        // Log run end (cached)
+        const crawlDurationMs = Date.now() - crawlStartTime;
+        logCrawlRunEnd(crawlRunId, {
+          status: "ok",
+          durationMs: crawlDurationMs,
+          cached: true,
+          existingAssetsCount: existingAssetCount || 0,
+        });
+        
+        // Return same shape as normal path
+        // Client expects only { brandKit }; images/assets fetched separately from media_assets
+        return { brandKit: cachedBrandKit };
+      }
+    } catch (cacheError) {
+      // Cache fetch failed, proceed with fresh crawl
+      console.warn(
+        `CRAWL_DECISION decision=PROCEED_ASSET_EXTRACTION reason=cache_fetch_error error=${cacheError instanceof Error ? cacheError.message : String(cacheError)} brandId=${brandId} runId=${crawlRunId}`
+      );
+      // Continue to fresh extraction below
+    }
+  }
+  
+  // Proceed with fresh extraction
+  console.log(
+    `CRAWL_DECISION decision=PROCEED_ASSET_EXTRACTION reason=${assetsAlreadyExtracted ? "cache_bypass" : "no_assets_persisted"} count=${existingAssetCount || 0} brandId=${brandId} url=${url} runId=${crawlRunId} cacheMode=${cacheMode}`
+  );
 
   try {
     // Set timeout for crawl operation
@@ -820,44 +935,78 @@ async function runCrawlJobSync(url: string, brandId: string, tenantId: string | 
               if (finalTenantId === "unknown" || !finalTenantId.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
                 console.error(`[Crawler] CRITICAL: Invalid tenantId format: "${finalTenantId}". Cannot persist images. This is a system error - tenantId must be a valid UUID.`);
               } else {
-                // ✅ METRICS: Track persistence timing
-                const persistenceStartTime = Date.now();
+                // ✅ DB SHORT-CIRCUIT: Check if assets already exist
+                const { count: existingAssetCount } = await supabase
+                  .from("media_assets")
+                  .select("id", { count: "exact", head: true })
+                  .eq("brand_id", brandId)
+                  .eq("metadata->>source", "scrape");
                 
-                const persistedIds = await persistScrapedImages(brandId, finalTenantId, allImages);
-                persistedImageCount = persistedIds.length;
-                logoFound = !!logoImage;
+                const assetsExist = (existingAssetCount || 0) > 0;
                 
-                const persistenceTime = Date.now() - persistenceStartTime;
-                const totalCrawlTime = Date.now() - crawlStartTime;
-                
-                // ✅ ENHANCED LOGGING: Structured log with timing metrics
-                console.log(`[Crawler] Scrape complete`, {
-                  tenantId: finalTenantId,
-                  brandId: brandId,
-                  url: url,
-                  pagesCrawled: crawlResults.length,
-                  imagesFound: allImages.length,
-                  imagesPersisted: persistedImageCount,
-                  logoFound: logoFound,
-                  logoUrl: logoUrl || null,
-                  timing: {
-                    totalCrawlTimeMs: totalCrawlTime,
-                    persistenceTimeMs: persistenceTime,
-                  },
-                });
-                
-                // ✅ ENHANCED: More detailed warning if no images persisted
-                if (persistedImageCount === 0 && allImages.length > 0) {
-                  console.error(`[Crawler] ❌ CRITICAL: Found ${allImages.length} image(s) but NONE were persisted.`, {
-                    brandId: brandId,
+                if (assetsExist && cacheMode === "default") {
+                  // Skip persistence, assets already exist
+                  console.log(
+                    `CRAWL_DECISION decision=SKIP_IMAGE_PERSISTENCE reason=assets_exist count=${existingAssetCount} brandId=${brandId} tenantId=${finalTenantId} url=${url} runId=${crawlRunId} cacheMode=${cacheMode}`
+                  );
+                  // Track existing assets (not newly persisted)
+                  persistedImageCount = 0;
+                  const existingAssetsCount = existingAssetCount || 0;
+                  logoFound = !!logoImage;
+                  
+                  console.log(`[Crawler] Skipped image persistence (assets already exist)`, {
+                    brandId,
                     tenantId: finalTenantId,
+                    url,
+                    imagesFoundThisRun: allImages.length,
+                    existingAssetsInDB: existingAssetsCount,
+                    imagesPersistedThisRun: 0,
+                    cacheMode,
+                  });
+                } else {
+                  // Proceed with persistence
+                  console.log(
+                    `CRAWL_DECISION decision=PROCEED_IMAGE_PERSISTENCE reason=${assetsExist ? "cache_bypass" : "no_assets_found"} count=${existingAssetCount || 0} brandId=${brandId} tenantId=${finalTenantId} url=${url} runId=${crawlRunId} cacheMode=${cacheMode}`
+                  );
+                  
+                  // ✅ METRICS: Track persistence timing
+                  const persistenceStartTime = Date.now();
+                  
+                    const persistedIds = await persistScrapedImages(brandId, finalTenantId, allImages);
+                  persistedImageCount = persistedIds.length;
+                  logoFound = !!logoImage;
+                  
+                  const persistenceTime = Date.now() - persistenceStartTime;
+                  const totalCrawlTime = Date.now() - crawlStartTime;
+                  
+                  // ✅ ENHANCED LOGGING: Structured log with timing metrics
+                  console.log(`[Crawler] Scrape complete`, {
+                    tenantId: finalTenantId,
+                    brandId: brandId,
                     url: url,
+                    pagesCrawled: crawlResults.length,
                     imagesFound: allImages.length,
                     imagesPersisted: persistedImageCount,
-                    hint: "Check [ScrapedImages] logs above for detailed failure reasons. Possible causes: DB connectivity issues, schema mismatch, or tenantId validation failure.",
+                    logoFound: logoFound,
+                    logoUrl: logoUrl || null,
+                    timing: {
+                      totalCrawlTimeMs: totalCrawlTime,
+                      persistenceTimeMs: persistenceTime,
+                    },
                   });
-                  console.error(`[Crawler] Detailed error logs should appear above with [ScrapedImages] prefix showing per-image failure reasons.`);
-                } else if (persistedImageCount > 0 && persistedImageCount < allImages.length) {
+                  
+                  // ✅ ENHANCED: More detailed warning if no images persisted
+                  if (persistedImageCount === 0 && allImages.length > 0) {
+                    console.error(`[Crawler] ❌ CRITICAL: Found ${allImages.length} image(s) but NONE were persisted.`, {
+                      brandId: brandId,
+                      tenantId: finalTenantId,
+                      url: url,
+                      imagesFound: allImages.length,
+                      imagesPersisted: persistedImageCount,
+                      hint: "Check [ScrapedImages] logs above for detailed failure reasons. Possible causes: DB connectivity issues, schema mismatch, or tenantId validation failure.",
+                    });
+                    console.error(`[Crawler] Detailed error logs should appear above with [ScrapedImages] prefix showing per-image failure reasons.`);
+                  } else if (persistedImageCount > 0 && persistedImageCount < allImages.length) {
                   // Partial persistence - this is expected due to design limits (max 2 logos, max 15 brand images)
                   // The [ScrapedImages] logs above show detailed breakdown of selected vs filtered images
                   const filteredCount = allImages.length - persistedImageCount;
@@ -867,8 +1016,9 @@ async function runCrawlJobSync(url: string, brandId: string, tenantId: string | 
                     imagesFound: allImages.length,
                     imagesPersisted: persistedImageCount,
                     imagesFiltered: filteredCount,
-                    note: "This is expected behavior. The system selects up to 2 logos and up to 15 brand images. Check [ScrapedImages] logs above for detailed breakdown.",
-                  });
+                      note: "This is expected behavior. The system selects up to 2 logos and up to 15 brand images. Check [ScrapedImages] logs above for detailed breakdown.",
+                    });
+                  }
                 }
               }
             } else {
@@ -954,47 +1104,99 @@ async function runCrawlJobSync(url: string, brandId: string, tenantId: string | 
         // This ensures brand story is persisted even if client save fails
         if (brandId && !brandId.startsWith("brand_")) {
           try {
-            // @supabase-scope-ok Brand lookup by its own primary key
-            const { error: updateError } = await supabase
+            // ✅ DB SHORT-CIRCUIT: Check if brand_kit fields already populated
+            const { data: existingBrand } = await supabase
               .from("brands")
-              .update({
-                brand_kit: {
-                  ...brandKit,
-                  // Ensure both purpose and about_blurb are saved
-                  purpose: brandKit.about_blurb || brandKit.purpose || "",
-                  about_blurb: brandKit.about_blurb || "",
-                  longFormSummary: (brandKit as any).longFormSummary || brandKit.about_blurb || "",
-                  // ✅ Host-aware copy extraction fields
-                  heroHeadline: brandKit.heroHeadline || undefined,
-                  aboutText: brandKit.aboutText || undefined,
-                  services: brandKit.services || undefined,
-                  // ✅ Persist Open Graph metadata and host info
-                  metadata: {
-                    openGraph: openGraphMetadata || undefined,
-                    host: brandKit.metadata?.host || undefined,
-                  },
-                },
-                // ✅ FIX 2025-12-13: REMOVED legacy column writes
-                // voice_summary, visual_summary, tone_keywords are DEPRECATED (see migration 009)
-                // All data now stored in canonical brand_kit JSONB field only
-                updated_at: new Date().toISOString(),
-              })
-              .eq("id", brandId);
+              .select("brand_kit")
+              .eq("id", brandId)
+              .single();
             
-            if (updateError) {
-              console.error("[Crawler] ❌ Failed to save brandKit to database:", updateError);
+            const existingKit = (existingBrand as any)?.brand_kit || {};
+            const keyFields = ["about_blurb", "colors"];
+            const populatedFields = keyFields.filter(f => {
+              const val = existingKit[f];
+              if (!val) return false;
+              
+              // Handle tracked field shape: { value, source, updatedAt }
+              // Guard: val must be object with "value" property
+              if (val && typeof val === "object" && "value" in val) {
+                const actualVal = val.value;
+                if (!actualVal) return false;
+                
+                // Guard: actualVal might be null or primitive
+                if (typeof actualVal === "string") {
+                  return actualVal.length > 0;
+                } else if (actualVal && typeof actualVal === "object") {
+                  return Object.keys(actualVal).length > 0;
+                }
+                return false;
+              }
+              
+              // Handle raw shape
+              if (typeof val === "string") {
+                return val.length > 0;
+              } else if (typeof val === "object") {
+                return Object.keys(val).length > 0;
+              }
+              return false;
+            });
+            
+            const isPopulated = populatedFields.length === keyFields.length;
+            
+            if (isPopulated && cacheMode === "default") {
+              // Skip update, fields already populated
+              console.log(
+                `CRAWL_DECISION decision=SKIP_BRANDKIT_UPDATE reason=fields_populated fields=${JSON.stringify(populatedFields)} brandId=${brandId} url=${url} runId=${crawlRunId} cacheMode=${cacheMode}`
+              );
             } else {
-              console.log("[Crawler] ✅ BrandKit saved directly to database", {
-                brandId,
-                hasAboutBlurb: !!brandKit.about_blurb,
-                aboutBlurbLength: brandKit.about_blurb?.length || 0,
-                // ✅ Log host-aware copy fields
-                hasHeroHeadline: !!brandKit.heroHeadline,
-                hasAboutText: !!brandKit.aboutText,
-                aboutTextLength: brandKit.aboutText?.length || 0,
-                servicesCount: brandKit.services?.length || 0,
-                host: brandKit.metadata?.host?.name || "unknown",
-              });
+              // Proceed with update
+              const missingFields = keyFields.filter(f => !populatedFields.includes(f));
+              console.log(
+                `CRAWL_DECISION decision=PROCEED_BRANDKIT_UPDATE reason=${isPopulated ? "cache_bypass" : "missing_fields"} fields=${JSON.stringify(missingFields)} brandId=${brandId} url=${url} runId=${crawlRunId} cacheMode=${cacheMode}`
+              );
+              
+              // @supabase-scope-ok Brand lookup by its own primary key
+                const { error: updateError } = await supabase
+                  .from("brands")
+                  .update({
+                    brand_kit: {
+                      ...brandKit,
+                      // Ensure both purpose and about_blurb are saved
+                      purpose: brandKit.about_blurb || brandKit.purpose || "",
+                      about_blurb: brandKit.about_blurb || "",
+                      longFormSummary: (brandKit as any).longFormSummary || brandKit.about_blurb || "",
+                      // ✅ Host-aware copy extraction fields
+                      heroHeadline: brandKit.heroHeadline || undefined,
+                      aboutText: brandKit.aboutText || undefined,
+                      services: brandKit.services || undefined,
+                      // ✅ Persist Open Graph metadata and host info
+                      metadata: {
+                        openGraph: openGraphMetadata || undefined,
+                        host: brandKit.metadata?.host || undefined,
+                      },
+                    },
+                    // ✅ FIX 2025-12-13: REMOVED legacy column writes
+                    // voice_summary, visual_summary, tone_keywords are DEPRECATED (see migration 009)
+                    // All data now stored in canonical brand_kit JSONB field only
+                    updated_at: new Date().toISOString(),
+                  })
+                  .eq("id", brandId);
+              
+              if (updateError) {
+                console.error("[Crawler] ❌ Failed to save brandKit to database:", updateError);
+              } else {
+                console.log("[Crawler] ✅ BrandKit saved directly to database", {
+                  brandId,
+                  hasAboutBlurb: !!brandKit.about_blurb,
+                  aboutBlurbLength: brandKit.about_blurb?.length || 0,
+                  // ✅ Log host-aware copy fields
+                  hasHeroHeadline: !!brandKit.heroHeadline,
+                  hasAboutText: !!brandKit.aboutText,
+                  aboutTextLength: brandKit.aboutText?.length || 0,
+                  servicesCount: brandKit.services?.length || 0,
+                  host: brandKit.metadata?.host?.name || "unknown",
+                });
+              }
             }
           } catch (dbError) {
             console.error("[Crawler] ❌ Error saving brandKit to database:", dbError);
@@ -1003,6 +1205,16 @@ async function runCrawlJobSync(url: string, brandId: string, tenantId: string | 
         } else {
           console.warn("[Crawler] Skipping database save - brandId is temporary:", brandId);
         }
+        
+        // ✅ RUNTIME FINGERPRINT: Log crawl run end (success)
+        const crawlDurationMs = Date.now() - crawlStartTime;
+        logCrawlRunEnd(crawlRunId, {
+          status: "ok",
+          durationMs: crawlDurationMs,
+          pagesScraped: crawlResults?.length || 0,
+          imagesExtracted: brandKit.images?.length || 0,
+          colorsExtracted: brandKit.colors?.allColors?.length || 0,
+        });
         
         return { brandKit };
       })(),
@@ -1024,6 +1236,14 @@ async function runCrawlJobSync(url: string, brandId: string, tenantId: string | 
       brandId: brandId,
       tenantId: tenantId || "none",
       errorType: error instanceof Error ? error.constructor.name : typeof error,
+    });
+    
+    // ✅ RUNTIME FINGERPRINT: Log crawl run end (failure)
+    const crawlDurationMs = Date.now() - crawlStartTime;
+    logCrawlRunEnd(crawlRunId, {
+      status: "fail",
+      durationMs: crawlDurationMs,
+      error: errorMessage,
     });
     
     throw error;

@@ -10,9 +10,72 @@ import { jwtAuth } from "../lib/jwt-auth";
  * Expects Authorization: Bearer <token> header
  * Attaches req.auth with userId, email, role, brandIds
  * Also sets req.user for backward compatibility
+ * 
+ * Dev-only bypass: If NODE_ENV !== "production" and x-reality-check header is present,
+ * bypass auth for automated testing/verification
  */
 export const authenticateUser: RequestHandler = (req, res, next) => {
   const aReq = req as AuthenticatedRequest;
+  
+  // ✅ DEV-ONLY: Reality check bypass
+  // Requires: NODE_ENV !== "production" + secret token + allowed path
+  const isDevMode = process.env.NODE_ENV !== "production";
+  const realityCheckToken = req.headers["x-reality-check-token"] as string;
+  const expectedToken = process.env.REALITY_CHECK_TOKEN;
+  
+  // Only bypass if all conditions met:
+  // 1. Dev mode (not production)
+  // 2. Token matches secret (prevents unauthorized use in preview envs)
+  // 3. Path is allowed (/__debug/* or /api/crawl/start)
+  const isRealityCheck = 
+    isDevMode && 
+    expectedToken && 
+    realityCheckToken === expectedToken;
+  
+  const allowedPaths = ["/__debug/fingerprint", "/api/crawl/start"];
+  const isAllowedPath = allowedPaths.some(p => (req.path || req.url).startsWith(p));
+  
+  if (isRealityCheck && isAllowedPath) {
+    console.log("[Auth] Reality check bypass (dev-only, token verified)", {
+      path: req.path || req.url,
+      method: req.method,
+    });
+    
+    // Provide minimal fake user context for dev testing
+    aReq.user = {
+      id: "reality-check-user",
+      email: "reality-check@dev.local",
+      role: "owner",
+      brandId: undefined,
+      brandIds: [],
+      scopes: ["*"],
+      tenantId: null,
+      workspaceId: null,
+    };
+    
+    aReq.auth = {
+      userId: "reality-check-user",
+      email: "reality-check@dev.local",
+      role: "owner",
+      brandIds: [],
+      scopes: ["*"],
+      tenantId: null,
+      workspaceId: null,
+    };
+    
+    return next();
+  }
+  
+  // If reality check attempted but token missing/wrong, log warning
+  if (isDevMode && req.headers["x-reality-check-token"]) {
+    console.warn("[Auth] Reality check bypass rejected (invalid token or path)", {
+      path: req.path || req.url,
+      hasToken: !!realityCheckToken,
+      tokenMatches: realityCheckToken === expectedToken,
+      isAllowedPath,
+    });
+  }
+  
   try {
     jwtAuth(req, res, () => {
       // Normalize req.user for backward compatibility

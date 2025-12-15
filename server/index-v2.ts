@@ -1,6 +1,7 @@
 import "dotenv/config";
 import express from "express";
 import cors from "cors";
+import { fileURLToPath } from "url";
 import { logger } from "./lib/logger";
 
 // ✅ CRITICAL: Validate Supabase environment variables on startup
@@ -87,6 +88,9 @@ if (process.env.NODE_ENV !== "production") {
 // Import error handling
 import { AppError, errorHandler } from "./lib/error-middleware";
 import { ErrorCode, HTTP_STATUS } from "./lib/error-responses";
+
+// Import runtime fingerprinting for code version tracking
+import { logBootFingerprint, getRuntimeFingerprint, getBootContext } from "./lib/runtimeFingerprint";
 
 // Import RBAC middleware
 import { authenticateUser } from "./middleware/security";
@@ -257,6 +261,26 @@ export function createServer() {
         });
       }
     });
+
+    // ✅ DEV-ONLY: Runtime fingerprint endpoint for automated verification
+    app.get("/__debug/fingerprint", (_req, res) => {
+      try {
+        const fingerprint = getRuntimeFingerprint();
+        const bootCtx = getBootContext();
+        
+        res.json({
+          ...fingerprint,
+          serverStartedAt: bootCtx?.serverStartedAt || "unknown",
+          uptime: process.uptime(),
+          memoryUsage: process.memoryUsage(),
+        });
+      } catch (error) {
+        res.status(500).json({
+          error: "Failed to get fingerprint",
+          message: error instanceof Error ? error.message : String(error),
+        });
+      }
+    });
   }
 
   // =============================================================================
@@ -358,6 +382,25 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   console.log(`   Port:       ${port}`);
   console.log(`   Node ENV:   ${process.env.NODE_ENV || "development"}`);
   console.log("=".repeat(60) + "\n");
+
+  // ✅ RUNTIME FINGERPRINT: Log exact code version for staleness debugging
+  const entryFile = import.meta.url ? fileURLToPath(import.meta.url) : "server/index-v2.ts";
+  logBootFingerprint("SERVER", { port, entryFile });
+  
+  // ✅ BUILD ARTIFACT CORRECTNESS: Warn if running stale dist in dev mode
+  const nodeEnv = process.env.NODE_ENV || "development";
+  const isDev = nodeEnv === "development";
+  const isRunningFromDist = import.meta.url.includes("/dist/");
+  
+  if (isDev && isRunningFromDist) {
+    console.warn("\n" + "!".repeat(60));
+    console.warn("⚠️  WARNING: Running from dist/ in development mode");
+    console.warn("⚠️  You may be executing STALE compiled code!");
+    console.warn("⚠️  Expected: tsx server/index-v2.ts (source)");
+    console.warn("⚠️  Actual:   node dist/server/... (built)");
+    console.warn("⚠️  Action:   Run 'pnpm dev:server' to use live source");
+    console.warn("!".repeat(60) + "\n");
+  }
 
   app.listen(port, () => {
     logger.info("Fusion Server v2 started", {
