@@ -27,6 +27,20 @@ interface BuildMeta {
 }
 
 function getGitSha(): { full: string; short: string } {
+  // Priority 1: Vercel environment variables (production deployments)
+  const vercelSha =
+    process.env.VERCEL_GIT_COMMIT_SHA ||
+    process.env.VERCEL_GITHUB_COMMIT_SHA ||
+    process.env.VERCEL_GITLAB_COMMIT_SHA ||
+    process.env.VERCEL_BITBUCKET_COMMIT_SHA;
+
+  if (vercelSha) {
+    const shortSha = vercelSha.substring(0, 7);
+    console.log(`✅ Using Vercel commit SHA: ${shortSha}`);
+    return { full: vercelSha, short: shortSha };
+  }
+
+  // Priority 2: Local git (development/CI)
   try {
     const fullSha = execSync("git rev-parse HEAD", {
       encoding: "utf-8",
@@ -38,10 +52,21 @@ function getGitSha(): { full: string; short: string } {
       stdio: ["ignore", "pipe", "ignore"],
     }).trim();
 
+    console.log(`✅ Using git SHA: ${shortSha}`);
     return { full: fullSha, short: shortSha };
   } catch (error) {
-    console.warn("⚠️  Git not available, using fallback SHA");
-    return { full: "unknown", short: "unknown" };
+    // Git not available - only acceptable in development
+    const nodeEnv = process.env.NODE_ENV || "development";
+    
+    if (nodeEnv === "production") {
+      console.error("❌ FATAL: Missing commit SHA in production build");
+      console.error("   VERCEL_* environment variables are absent and git is unavailable");
+      console.error("   Cannot deploy without commit traceability");
+      process.exit(1);
+    }
+
+    console.warn("⚠️  Git not available in development, using fallback SHA");
+    return { full: "dev-unknown", short: "dev-unknown" };
   }
 }
 

@@ -330,6 +330,34 @@ Source: Production build (dist/)
 
 **Fix**: The current build is correct. Deploy the latest build to production.
 
+### Vercel Deployment Fixes
+
+**Date**: 2025-12-15  
+**Issue**: Vercel deployments showing "unknown" SHA + TypeScript errors
+
+**Changes Made**:
+
+1. **Build Meta SHA Detection** (`scripts/generate-build-meta.ts`):
+   - ✅ Prioritize Vercel environment variables (`VERCEL_GIT_COMMIT_SHA`, etc.)
+   - ✅ Fail production builds if SHA cannot be determined
+   - ✅ Provide clear error messages for missing commit traceability
+
+2. **Build Pipeline Enforcement** (`package.json`):
+   - ✅ `prebuild` now runs `typecheck` before `build:meta`
+   - ✅ Added `build:vercel` script that enforces typecheck
+   - ✅ Ensures TypeScript errors block deployment
+
+3. **Production Smoke Test** (`scripts/smoke-prod-endpoints.mjs`):
+   - ✅ Tests critical endpoints (analytics, auth, crawler)
+   - ✅ Verifies no 404s on deployed environment
+   - ✅ Provides clear pass/fail output
+
+**Expected Results After Redeployment**:
+- DeployProof UI shows real git SHA (not "unknown")
+- Vercel build logs show SHA from environment variables
+- TypeScript errors block build if present
+- All critical endpoints return non-404 status codes
+
 ---
 
 ## Runtime Verification – PENDING (Staging/Prod)
