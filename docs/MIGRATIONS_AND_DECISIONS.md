@@ -316,6 +316,28 @@ CREATE POLICY "Users see only their tenant's data"
 
 ---
 
+### D11: Cleanup Merge Order (2025-12-15)
+
+**Decision:** Three cleanup branches were merged in sequential order: smoothness-pass → incomplete-code-audit → TypeScript cleanup.
+
+**Rationale:** This order minimized merge conflicts by establishing architectural baselines first (smoothness), connecting/deleting disconnected code second (structural changes), and applying broad TypeScript improvements last (type annotations across many files). Each merge built upon a progressively cleaner codebase.
+
+**What Changed:**
+- Removed 9 dead files (deprecated servers, unused routes)
+- Connected 8 disconnected API routes to their client callers
+- Added /api/ai-rewrite endpoint for content rewriting
+- Implemented console.log baseline guardrail (274 statements locked)
+- Reduced TypeScript 'any' usage (1128 → 1094)
+
+**Impact:** Codebase now has enforced quality baselines preventing regression, no dead code, and all endpoints verified as actively used.
+
+**Enforcement:**
+- `pnpm check:console-baseline` - Prevents new console.log in production routes
+- `pnpm check:any-baseline` - Prevents TypeScript 'any' usage increase
+- All connected routes have documented callers
+
+---
+
 ## Migration History (Database)
 
 ### M1: Initial Schema (Migration 001)
