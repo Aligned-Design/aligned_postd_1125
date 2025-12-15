@@ -101,7 +101,7 @@ import authRouter from "./routes/auth";
 import authDiagnosticsRouter from "./routes/auth-diagnostics";
 import milestonesRouter from "./routes/milestones";
 import agentsRouter from "./routes/agents";
-import analyticsRouter from "./routes/analytics-v2";
+import analyticsRouter from "./routes/analytics";
 import contentItemsRouter from "./routes/content-items";
 import approvalsRouter from "./routes/approvals-v2";
 import mediaRouter from "./routes/media-v2";

@@ -58,6 +58,42 @@ const performanceMetricSchema = z.object({
   metadata: z.record(z.unknown()).optional(),
 });
 
+const logEventSchema = z.object({
+  type: z.enum(["telemetry", "error", "warning"]),
+  timestamp: z.string().datetime(),
+  event: z.string().optional(),
+  message: z.string().optional(),
+  context: z.record(z.unknown()).optional(),
+  error: z.object({
+    name: z.string().optional(),
+    message: z.string().optional(),
+    stack: z.string().optional(),
+  }).optional(),
+});
+
+const logEvent: RequestHandler = async (req, res) => {
+  try {
+    const logData = logEventSchema.parse(req.body ?? {});
+    
+    // Log to console for now (in production, would send to logging service like Datadog)
+    const logPrefix = `[Client ${logData.type.toUpperCase()}]`;
+    if (logData.type === "error") {
+      console.error(logPrefix, logData.message || logData.event, logData.error, logData.context);
+    } else if (logData.type === "warning") {
+      console.warn(logPrefix, logData.message || logData.event, logData.context);
+    } else {
+      console.log(logPrefix, logData.event, logData.context);
+    }
+    
+    // Return 202 Accepted (fire-and-forget logging)
+    res.status(202).json({ success: true });
+  } catch (error) {
+    // Don't throw errors for logging endpoints - silently accept
+    console.error("[Analytics] Failed to process log event:", error);
+    res.status(202).json({ success: true });
+  }
+};
+
 const getAnalytics: RequestHandler = async (req, res) => {
   try {
     // ✅ VALIDATION: Validate params and query
@@ -911,6 +947,10 @@ const logPerformanceMetric: RequestHandler = async (req, res) => {
   }
 };
 
+// ✅ CRITICAL: Register specific routes BEFORE dynamic /:brandId routes
+// Frontend logging endpoint (no auth required - fire-and-forget)
+analyticsRouter.post("/log", logEvent);
+
 analyticsRouter.post(
   "/performance",
   requireScope("analytics:read"),
@@ -922,6 +962,8 @@ analyticsRouter.get(
   requireScope("analytics:read"),
   getAnalyticsStatus,
 );
+
+// ✅ Dynamic routes come last to avoid shadowing specific routes
 analyticsRouter.get(
   "/:brandId",
   requireScope("analytics:read"),

@@ -20,11 +20,13 @@
     "queue:cancel",
     "analytics:read",
     "analytics:export",
+    "analytics:manage",
     "integrations:connect",
     "integrations:manage",
     "integrations:view",
     "workflow:manage",
-    "approval:configure"
+    "approval:configure",
+    "ai:generate"
   ],
   "ADMIN": [
     "brand:manage",
@@ -46,11 +48,13 @@
     "queue:cancel",
     "analytics:read",
     "analytics:export",
+    "analytics:manage",
     "integrations:connect",
     "integrations:manage",
     "integrations:view",
     "workflow:manage",
-    "approval:configure"
+    "approval:configure",
+    "ai:generate"
   ],
   "AGENCY_ADMIN": [
     "brand:manage",
@@ -70,6 +74,7 @@
     "queue:cancel",
     "analytics:read",
     "analytics:export",
+    "analytics:manage",
     "integrations:connect",
     "integrations:manage",
     "integrations:view",
@@ -77,7 +82,8 @@
     "white_label:manage",
     "workflow:manage",
     "approval:configure",
-    "platform:admin"
+    "platform:admin",
+    "ai:generate"
   ],
   "BRAND_MANAGER": [
     "brand:edit",
@@ -95,10 +101,12 @@
     "queue:cancel",
     "analytics:read",
     "analytics:export",
+    "analytics:manage",
     "integrations:view",
     "integrations:manage",
     "workflow:manage",
-    "approval:configure"
+    "approval:configure",
+    "ai:generate"
   ],
   "CREATOR": [
     "brand:view",
