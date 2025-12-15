@@ -21,6 +21,7 @@ export const HTTP_STATUS = {
   TOO_MANY_REQUESTS: 429, // ✅ Added
   PAYLOAD_TOO_LARGE: 413, // ✅ Added
   INTERNAL_SERVER_ERROR: 500,
+  NOT_IMPLEMENTED: 501, // ✅ Route exists but feature not built yet
   BAD_GATEWAY: 502, // ✅ Added
   SERVICE_UNAVAILABLE: 503,
 } as const;
@@ -262,6 +263,15 @@ export const ErrorScenarios = {
     severity: "warning" as ErrorSeverity,
     details: platforms ? { requestedPlatforms: platforms } : undefined,
     suggestion: "Connect Facebook or Instagram in Settings → Linked Accounts before scheduling for auto-publish.",
+  }),
+
+  notImplemented: (feature = "feature", plannedVersion?: string) => ({
+    statusCode: HTTP_STATUS.NOT_IMPLEMENTED,
+    code: ErrorCode.NOT_IMPLEMENTED,
+    message: `This ${feature} is not yet implemented`,
+    severity: "info" as ErrorSeverity,
+    details: plannedVersion ? { plannedVersion } : undefined,
+    suggestion: "This endpoint is registered but the feature is still under development",
   }),
 };
 

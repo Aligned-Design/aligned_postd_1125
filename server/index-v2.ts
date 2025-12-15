@@ -197,28 +197,42 @@ export function createServer() {
         interface RouterLayer {
           route?: { path: string; methods: Record<string, boolean> };
           name?: string;
-          handle?: { stack: RouterLayer[] };
-          regexp?: { source: string };
+          handle?: { stack?: RouterLayer[]; name?: string };
+          regexp?: { source?: string; fast_slash?: boolean };
+          path?: string;
         }
         
         function extractRoutes(stack: RouterLayer[], prefix = "") {
+          if (!stack) return;
+          
           for (const layer of stack) {
             if (layer.route) {
-              // Regular route
+              // Direct route
               const path = prefix + layer.route.path;
               const methods = Object.keys(layer.route.methods).join(",").toUpperCase();
               routes.push(`${methods} ${path}`);
             } else if (layer.name === "router" && layer.handle?.stack) {
-              // Nested router
-              const routerPath = prefix + (layer.regexp?.source.match(/^\\\/([^\\]*)/)?.[1] || "");
+              // Nested router - extract path from regexp
+              let routerPath = "";
+              if (layer.regexp?.source) {
+                // Match patterns like: /^\/api\/metrics\/?(?=\/|$)/i
+                const match = layer.regexp.source.match(/\^\\?\/([\w\-\/]+)/);
+                if (match) {
+                  routerPath = "/" + match[1].replace(/\\\//g, "/");
+                }
+              }
               extractRoutes(layer.handle.stack, routerPath);
+            } else if (layer.name === "bound dispatch" && layer.handle?.stack) {
+              // Another pattern for nested routers
+              extractRoutes(layer.handle.stack, prefix);
             }
           }
         }
 
-        // Check if router is initialized
-        if (app._router && app._router.stack) {
-          extractRoutes(app._router.stack as RouterLayer[]);
+        // Check if router is initialized (try both _router and router)
+        const router = (app as any)._router || (app as any).router;
+        if (router?.stack) {
+          extractRoutes(router.stack as RouterLayer[]);
         }
 
         res.json({
