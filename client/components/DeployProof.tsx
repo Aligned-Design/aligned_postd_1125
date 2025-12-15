@@ -5,10 +5,20 @@
  * Renders in bottom-right corner, subtle but visible.
  * 
  * This component survives minification and proves the exact build deployed.
+ * 
+ * Uses environment variables instead of importing generated files to avoid
+ * TypeScript compile-time errors in Vercel builds.
  */
 
 import { useState } from "react";
-import buildMeta from "../src/build-meta.json";
+
+// Read build metadata from environment variables (set by build process)
+const buildMeta = {
+  gitSha: import.meta.env.VITE_GIT_SHA ?? "unknown",
+  gitShortSha: import.meta.env.VITE_GIT_SHORT_SHA ?? "unknown",
+  buildTime: import.meta.env.VITE_BUILD_TIME ?? new Date().toISOString(),
+  buildId: import.meta.env.VITE_BUILD_ID ?? "dev",
+};
 
 export function DeployProof() {
   const [expanded, setExpanded] = useState(false);
@@ -80,6 +90,13 @@ export function DeployProof() {
  * Use this if you want it even more subtle
  */
 export function DeployProofMinimal() {
+  // Read build metadata from environment variables
+  const buildMeta = {
+    gitShortSha: import.meta.env.VITE_GIT_SHORT_SHA ?? "unknown",
+    buildTime: import.meta.env.VITE_BUILD_TIME ?? new Date().toISOString(),
+    buildId: import.meta.env.VITE_BUILD_ID ?? "dev",
+  };
+  
   const proofString = `${buildMeta.gitShortSha}-${buildMeta.buildId}`;
 
   return (

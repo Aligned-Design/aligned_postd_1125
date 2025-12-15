@@ -543,3 +543,61 @@ asset_count
 **Review Status**: Ready for human review and runtime verification
 **Next Action**: Execute runtime verification checklist on staging/production
 ```
+
+---
+
+## Commit 4: TypeScript Import Fixes (2025-12-15)
+
+**SHA**: PENDING  
+**Status**: ⏳ Local changes ready for commit
+
+### Problem Statement
+
+Two failing imports were blocking Vercel TypeScript checks:
+
+1. **`api/[...all].ts`** imports `../dist/server/vercel-server.mjs` (build artifact that doesn't exist at typecheck time)
+2. **`client/components/DeployProof.tsx`** imports `../src/build-meta.json` (generated file that doesn't exist at typecheck time)
+
+### Solution Implemented
+
+#### Fix 1: TypeScript Shims for `.mjs` Files
+
+Created `types/shims.d.ts` to allow TS to compile files that import `.mjs` modules.
+
+#### Fix 2: Environment Variables Instead of JSON Import
+
+Modified `DeployProof.tsx` to use `import.meta.env.VITE_*` variables instead of importing `build-meta.json`.
+
+#### Fix 3: Generate `.env.production.local`
+
+Updated `scripts/generate-build-meta.ts` to export environment variables for Vite.
+
+#### Fix 4: Type Definitions for Env Vars
+
+Extended `client/vite-env.d.ts` with `ImportMetaEnv` interface.
+
+### Files Changed
+
+```
+Modified (4):
+  client/components/DeployProof.tsx
+  client/vite-env.d.ts
+  scripts/generate-build-meta.ts
+  tsconfig.json
+
+Created (1):
+  types/shims.d.ts
+```
+
+### Verification
+
+```bash
+pnpm typecheck    # ✅ PASS
+pnpm run prebuild # ✅ PASS - Generates .env.production.local
+pnpm build        # ✅ PASS - All builds successful
+```
+
+### Why This Fixes Vercel
+
+- **Before**: `tsc` runs before `build-meta.json` exists → compilation fails ❌
+- **After**: `DeployProof` uses env vars (always valid) + shims allow `.mjs` imports → compilation succeeds ✅

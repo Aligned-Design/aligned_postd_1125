@@ -27,7 +27,7 @@
     "noImplicitAny": false,
     "noFallthroughCasesInSwitch": false,
     "strictNullChecks": false,
-    "typeRoots": ["./node_modules/@types", "./server/types"],
+    "typeRoots": ["./node_modules/@types", "./types", "./server/types"],
     "types": ["node", "express"],
 
     "baseUrl": ".",
@@ -44,6 +44,7 @@
     "server/**/*",
     "shared/**/*",
     "api/**/*",
+    "types/**/*",
     "vite.config.ts",
     "vite.config.server.ts",
     "vite.config.vercel-server.ts",
