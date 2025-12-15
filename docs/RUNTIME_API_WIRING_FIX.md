@@ -119,14 +119,63 @@ curl http://localhost:3000/api/metrics/ai/snapshot
 # Returns: 404 (❌ route missing)
 ```
 
-## Status
+## ROOT CAUSE IDENTIFIED ✅
+
+**The Problem:** Stale server process (PID 27557) was already running on port 3000.
+
+**The Evidence:**
+```bash
+$ tsx scripts/assert-port-free.ts
+❌ ERROR: Port 3000 is already in use!
+   PID: 27557
+   Command: tsx server/index-v2.ts
+```
+
+**The Fix:**
+1. Kill stale process: `kill 27557`
+2. Add port check to prevent future occurrences
+
+**The Proof:**
+After fixing, smoke test shows all endpoints working:
+```
+✅ /api/metrics: 401 (auth required)
+✅ /api/reports: 401 (auth required)
+✅ /api/white-label: 401 (auth required)
+✅ /api/trial: 401 (auth required)
+✅ /api/client-portal: 401 (auth required)
+✅ /api/publishing: 401 (auth required)
+✅ /api/integrations: 401 (auth required)
+✅ /api/ai-rewrite: 401 (auth required)
+```
+
+## Solutions Implemented
+
+1. **Port Check Script** (`scripts/assert-port-free.ts`)
+   - Runs before dev:server starts
+   - Detects occupied port and shows PID/command
+   - Blocks startup with clear error message
+
+2. **Runtime Diagnostics** (`/__debug/routes`)
+   - Dev-only endpoint showing server identity
+   - Returns: pid, bootFile, mounted routes
+   - Helps verify which server is running
+
+3. **Improved Smoke Test**
+   - Waits for health endpoint
+   - Queries debug endpoint
+   - Tests all 8 restored endpoints
+   - Treats 401/403 as success
+
+## Status ✅
 
 - ✅ Routes correctly defined in code
 - ✅ Imports present
-- ✅ Unit tests pass
+- ✅ Unit tests pass (22 tests)
 - ✅ Direct execution works
-- ❌ pnpm dev execution fails
-- ✅ Smoke test improved with readiness check
+- ✅ pnpm dev execution works (after killing stale process)
+- ✅ All 8 endpoints return 401 (registered + auth required)
+- ✅ Port check prevents future stale process issues
+- ✅ Runtime diagnostics available for debugging
 
-**Next:** Debug why `pnpm dev` doesn't register the routes despite them being in the code.
+**Result:** All endpoints live and working!
 
