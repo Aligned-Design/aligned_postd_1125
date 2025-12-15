@@ -39,7 +39,7 @@ vi.mock("../middleware/validate-brand-id", () => ({
 
 describe("AI Rewrite Endpoint", () => {
   let app: Express;
-  let request: supertest.SuperTest<supertest.Test>;
+  let request: ReturnType<typeof supertest>;
 
   beforeEach(() => {
     app = createServer();

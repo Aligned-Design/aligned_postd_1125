@@ -16,7 +16,7 @@ import type { Express } from "express";
 
 describe("Restored Endpoints - Reality Check Fixes", () => {
   let app: Express;
-  let request: supertest.SuperTest<supertest.Test>;
+  let request: ReturnType<typeof supertest>;
 
   beforeAll(() => {
     app = createServer();
