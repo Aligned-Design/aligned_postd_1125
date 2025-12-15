@@ -230,9 +230,15 @@ export function createServer() {
         }
 
         // Check if router is initialized (try both _router and router)
-        const router = (app as any)._router || (app as any).router;
+        // Express internally uses _router which is not in the public type definitions
+        interface ExpressAppInternal {
+          _router?: { stack?: RouterLayer[] };
+          router?: { stack?: RouterLayer[] };
+        }
+        const appInternal = app as unknown as ExpressAppInternal;
+        const router = appInternal._router || appInternal.router;
         if (router?.stack) {
-          extractRoutes(router.stack as RouterLayer[]);
+          extractRoutes(router.stack);
         }
 
         res.json({
