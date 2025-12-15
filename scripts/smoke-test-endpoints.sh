@@ -50,6 +50,38 @@ fi
 
 echo ""
 
+# Verify server identity and mounted routes
+echo "Checking server identity..."
+debug_response=$(curl -s "http://localhost:${BACKEND_PORT}/__debug/routes" 2>/dev/null || echo "{}")
+
+if [ "$debug_response" != "{}" ]; then
+  echo "✅ Debug endpoint accessible"
+  echo ""
+  echo "Server Identity:"
+  echo "$debug_response" | jq -r '"  PID: \(.pid)"' 2>/dev/null || echo "  (parse error)"
+  echo "$debug_response" | jq -r '"  Boot File: \(.bootFile)"' 2>/dev/null || echo ""
+  echo "$debug_response" | jq -r '"  Port: \(.port)"' 2>/dev/null || echo ""
+  echo "$debug_response" | jq -r '"  Route Count: \(.routeCount)"' 2>/dev/null || echo ""
+  
+  echo ""
+  echo "Checking for required routes..."
+  routes_json=$(echo "$debug_response" | jq -r '.mountedRoutes[]' 2>/dev/null || echo "")
+  
+  required_routes=("/api/metrics" "/api/reports" "/api/white-label" "/api/trial" "/api/client-portal" "/api/publishing" "/api/integrations" "/api/ai-rewrite")
+  
+  for route in "${required_routes[@]}"; do
+    if echo "$routes_json" | grep -q "$route"; then
+      echo "  ✅ $route found in router stack"
+    else
+      echo "  ❌ $route NOT in router stack"
+    fi
+  done
+  echo ""
+else
+  echo "⚠️  Debug endpoint not available (might be production mode)"
+  echo ""
+fi
+
 # Function to test endpoint (test against backend directly to avoid proxy issues)
 test_endpoint() {
   local method=$1
