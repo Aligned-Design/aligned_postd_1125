@@ -4,18 +4,46 @@
 # Expected: 401/403 (auth required) or 400 (validation) but NOT 404
 
 set -e
+set -m  # Enable job control for process groups
 
 echo "🔥 Smoke Testing Restored Endpoints..."
 echo ""
 
 # Configuration
-BACKEND_PORT=${PORT:-3000}
+BACKEND_PORT=${BACKEND_PORT:-3000}
 VITE_PORT=8080
 MAX_WAIT=30
+LOG_FILE="/tmp/postd-smoke-test-$$.log"
 
-# Start server in background
+# Cleanup function - kills the entire process group
+cleanup() {
+  echo ""
+  echo "Stopping dev servers..."
+  
+  # Kill the process group (negative PID)
+  if [ -n "$SERVER_PID" ]; then
+    kill -- -$SERVER_PID 2>/dev/null || true
+    wait $SERVER_PID 2>/dev/null || true
+  fi
+  
+  # Fallback: if anything is still on the port, kill it
+  local remaining_pid=$(lsof -ti:$BACKEND_PORT 2>/dev/null || true)
+  if [ -n "$remaining_pid" ]; then
+    echo "⚠️  Killing stale process on port $BACKEND_PORT: $remaining_pid"
+    kill $remaining_pid 2>/dev/null || true
+    sleep 1
+  fi
+  
+  # Clean up log files
+  rm -f "$LOG_FILE" /tmp/debug-response.json 2>/dev/null || true
+}
+
+# Set trap to always cleanup on exit
+trap cleanup EXIT
+
+# Start server in background as its own process group
 echo "Starting dev servers (Vite + Express)..."
-pnpm dev > /tmp/server.log 2>&1 &
+pnpm dev > "$LOG_FILE" 2>&1 &
 SERVER_PID=$!
 
 # Function to check if backend is ready
@@ -42,9 +70,9 @@ wait_for_backend() {
 
 # Wait for backend to be ready
 if ! wait_for_backend; then
-  echo "Server logs:"
-  cat /tmp/server.log 2>/dev/null || echo "No logs available"
-  kill $SERVER_PID 2>/dev/null || true
+  echo ""
+  echo "❌ Server failed to start. Last 200 lines of logs:"
+  tail -200 "$LOG_FILE" 2>/dev/null || echo "No logs available"
   exit 1
 fi
 
@@ -52,9 +80,23 @@ echo ""
 
 # Verify server identity and mounted routes
 echo "Checking server identity..."
-debug_response=$(curl -s "http://localhost:${BACKEND_PORT}/__debug/routes" 2>/dev/null || echo "{}")
+debug_status=$(curl -s -o /tmp/debug-response.json -w "%{http_code}" "http://localhost:${BACKEND_PORT}/__debug/routes" 2>/dev/null || echo "000")
+debug_response=$(cat /tmp/debug-response.json 2>/dev/null || echo "{}")
 
-if [ "$debug_response" != "{}" ]; then
+if [ "$debug_status" = "404" ]; then
+  echo "❌ ERROR: Debug endpoint /__debug/routes returned 404!"
+  echo ""
+  echo "This means NODE_ENV might be set to 'production' in dev mode."
+  echo ""
+  echo "Server logs (last 100 lines):"
+  tail -100 "$LOG_FILE" 2>/dev/null || echo "No logs available"
+  echo ""
+  echo "Processes on port $BACKEND_PORT:"
+  lsof -i :$BACKEND_PORT 2>/dev/null || echo "None"
+  exit 1
+fi
+
+if [ "$debug_status" = "200" ] && [ "$debug_response" != "{}" ]; then
   echo "✅ Debug endpoint accessible"
   echo ""
   echo "Server Identity:"
@@ -69,13 +111,22 @@ if [ "$debug_response" != "{}" ]; then
   
   required_routes=("/api/metrics" "/api/reports" "/api/white-label" "/api/trial" "/api/client-portal" "/api/publishing" "/api/integrations" "/api/ai-rewrite")
   
+  missing_routes=0
   for route in "${required_routes[@]}"; do
     if echo "$routes_json" | grep -q "$route"; then
       echo "  ✅ $route found in router stack"
     else
-      echo "  ❌ $route NOT in router stack"
+      echo "  ⚠️  $route NOT in router stack (will verify via direct test)"
+      missing_routes=$((missing_routes + 1))
     fi
   done
+  
+  if [ $missing_routes -gt 0 ]; then
+    echo ""
+    echo "⚠️  Warning: $missing_routes route(s) not visible in debug stack"
+    echo "   (This might be a route extraction issue, not a registration issue)"
+    echo "   Continuing with direct endpoint tests..."
+  fi
   echo ""
 else
   echo "⚠️  Debug endpoint not available (might be production mode)"
@@ -102,6 +153,7 @@ test_endpoint() {
   # 404 = endpoint not registered (FAIL)
   # 401/403 = auth required (SUCCESS - route exists)
   # 400 = validation error (SUCCESS - route exists)
+  # 501 = not implemented yet (SUCCESS - route exists but not implemented)
   # 200-299 = success (SUCCESS)
   # 500+ = server error (SUCCESS - route exists but errored)
   
@@ -116,6 +168,9 @@ test_endpoint() {
     return 0
   elif [ "$status" = "400" ]; then
     echo "✅ $name: $status (registered, validation error)"
+    return 0
+  elif [ "$status" = "501" ]; then
+    echo "✅ $name: $status (registered, not implemented yet)"
     return 0
   elif [ "${status:0:1}" = "2" ]; then
     echo "✅ $name: $status (registered, success)"
@@ -141,12 +196,7 @@ test_endpoint "GET" "/api/publishing/jobs" "" "6. /api/publishing" || failed=$((
 test_endpoint "GET" "/api/integrations" "" "7. /api/integrations" || failed=$((failed+1))
 test_endpoint "POST" "/api/ai-rewrite" '{"content":"test","platform":"instagram","brandId":"550e8400-e29b-41d4-a716-446655440000"}' "8. /api/ai-rewrite" || failed=$((failed+1))
 
-# Cleanup
-echo ""
-echo "Stopping server..."
-kill $SERVER_PID 2>/dev/null || true
-wait $SERVER_PID 2>/dev/null || true
-
+# Results (cleanup handled by trap)
 echo ""
 if [ $failed -eq 0 ]; then
   echo "✅ All 8 endpoints registered and responding!"
