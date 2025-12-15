@@ -113,6 +113,23 @@ node    4625 krisfoust   22u  IPv6 0x...      0t0  TCP *:hbci (LISTEN)
 ✅ Port owned by expected PID  
 ✅ All 8 required API prefixes detected
 
+**Route Path Verification:**
+All 8 required routes are consistently registered across server, client, and smoke test:
+- `GET /api/metrics/ai/snapshot` (and other /api/metrics/* routes)
+- `GET /api/reports/*`
+- `GET /api/white-label/config` (and other /api/white-label/* routes)
+- `GET /api/trial/status` (and other /api/trial/* routes)
+- `GET /api/client-portal/dashboard` (and other /api/client-portal/* routes)
+- `GET /api/publishing/jobs` (and other /api/publishing/* routes)
+- `GET /api/integrations/*`
+- `POST /api/ai-rewrite` (singular route, not under /api/ai/)
+
+**Debug Endpoint Output Format:**
+The `mountedRoutes` array is now stable and used for runtime verification:
+- Format: `"METHOD /path"` (e.g., `"GET /api/metrics/ai/snapshot"`)
+- Includes all direct routes and nested router routes
+- Output format will remain stable to avoid smoke test parsing drift
+
 ## Verification
 
 ```bash
@@ -150,10 +167,17 @@ The route extraction now handles:
 - Router-mounted routes (`app.use("/prefix", router)`)
 - Nested routers (routers within routers)
 
+**Output Format Stability:**
+The `mountedRoutes` array format is: `"METHOD /full/path"`
+- DO NOT change this format casually
+- Smoke test parsing depends on this structure
+- If format must change, update smoke test parsing in sync
+
 If a new routing pattern is introduced and routes show as missing:
 1. Check the `/__debug/routes` response
 2. Add console.log in `extractRoutes()` to see layer types
 3. Update the extraction logic to handle the new pattern
+4. Verify smoke test still parses correctly
 
 ### For Stale Processes
 
