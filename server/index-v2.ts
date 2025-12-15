@@ -187,6 +187,48 @@ export function createServer() {
     res.json({ message: process.env.PING_MESSAGE || "pong" });
   });
 
+  // ✅ DEV-ONLY: Runtime diagnostics endpoint
+  if (process.env.NODE_ENV !== "production") {
+    app.get("/__debug/routes", (_req, res) => {
+      try {
+        // Extract mounted routes from Express router stack
+        const routes: string[] = [];
+        
+        function extractRoutes(stack: any[], prefix = "") {
+          for (const layer of stack) {
+            if (layer.route) {
+              // Regular route
+              const path = prefix + layer.route.path;
+              const methods = Object.keys(layer.route.methods).join(",").toUpperCase();
+              routes.push(`${methods} ${path}`);
+            } else if (layer.name === "router" && layer.handle.stack) {
+              // Nested router
+              const routerPath = prefix + (layer.regexp.source.match(/^\\\/([^\\]*)/)?.[1] || "");
+              extractRoutes(layer.handle.stack, routerPath);
+            }
+          }
+        }
+
+        extractRoutes(app._router.stack);
+
+        res.json({
+          pid: process.pid,
+          bootFile: import.meta.url,
+          cwd: process.cwd(),
+          nodeEnv: process.env.NODE_ENV || "development",
+          port: process.env.PORT || 3000,
+          mountedRoutes: routes,
+          routeCount: routes.length,
+        });
+      } catch (error) {
+        res.status(500).json({
+          error: "Failed to extract routes",
+          message: error instanceof Error ? error.message : String(error),
+        });
+      }
+    });
+  }
+
   // =============================================================================
   // Webhook Routes (No authentication - uses signature verification)
   // =============================================================================
@@ -276,12 +318,24 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const app = createServer();
   const port = process.env.PORT || 3000;
 
+  // ✅ BOOT FINGERPRINT: Log server identity for debugging
+  console.log("\n" + "=".repeat(60));
+  console.log("🚀 BOOT: index-v2.ts");
+  console.log("=".repeat(60));
+  console.log(`   PID:        ${process.pid}`);
+  console.log(`   CWD:        ${process.cwd()}`);
+  console.log(`   Entry:      ${import.meta.url}`);
+  console.log(`   Port:       ${port}`);
+  console.log(`   Node ENV:   ${process.env.NODE_ENV || "development"}`);
+  console.log("=".repeat(60) + "\n");
+
   app.listen(port, () => {
     logger.info("Fusion Server v2 started", {
       port,
       frontend: `http://localhost:${port}`,
       api: `http://localhost:${port}/api`,
       health: `http://localhost:${port}/health`,
+      debug: process.env.NODE_ENV !== "production" ? `http://localhost:${port}/__debug/routes` : undefined,
     });
   });
 
