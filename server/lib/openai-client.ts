@@ -230,6 +230,19 @@ export async function generateWithChatCompletions(
       }
     }
 
+    // OPENAI_PAYLOAD_PROOF: Log what's actually being sent (no secrets/prompts)
+    logger.info("OPENAI_PAYLOAD_PROOF", {
+      model: basePayload.model,
+      hasTemperature: basePayload.temperature !== undefined,
+      temperatureValue: basePayload.temperature,
+      hasPresencePenalty: basePayload.presence_penalty !== undefined,
+      presencePenaltyValue: basePayload.presence_penalty,
+      hasFrequencyPenalty: basePayload.frequency_penalty !== undefined,
+      frequencyPenaltyValue: basePayload.frequency_penalty,
+      messageCount: basePayload.messages.length,
+      endpoint: "generateWithChatCompletions",
+    });
+
     const response = await client.chat.completions.create(basePayload);
 
     const content = response.choices[0]?.message?.content;

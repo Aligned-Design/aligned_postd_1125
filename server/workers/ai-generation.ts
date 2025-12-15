@@ -249,14 +249,30 @@ async function generateWithOpenAI(prompt: string, agentType: string, _client?: u
     }
 
     const startTime = Date.now();
-    const response = await client.chat.completions.create({
+    
+    const payload = {
       model,
       messages,
       temperature: getTemperature(agentType),
       max_completion_tokens: getMaxTokens(agentType),
       presence_penalty: 0.1,
       frequency_penalty: 0.1
+    };
+    
+    // OPENAI_PAYLOAD_PROOF: Log what's actually being sent (no secrets/prompts)
+    logger.info("OPENAI_PAYLOAD_PROOF", {
+      model: payload.model,
+      hasTemperature: payload.temperature !== undefined,
+      temperatureValue: payload.temperature,
+      hasPresencePenalty: payload.presence_penalty !== undefined,
+      presencePenaltyValue: payload.presence_penalty,
+      hasFrequencyPenalty: payload.frequency_penalty !== undefined,
+      frequencyPenaltyValue: payload.frequency_penalty,
+      messageCount: payload.messages.length,
+      agentType,
     });
+    
+    const response = await client.chat.completions.create(payload);
     const latencyMs = Date.now() - startTime;
 
     const content = response.choices[0]?.message?.content;
