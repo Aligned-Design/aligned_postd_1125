@@ -184,31 +184,73 @@ export default function BrandIntake() {
 
       setImportProgress("Crawling website...");
 
-      // Call real crawler API with sync mode
-      const result = await apiPost<{
-        success: boolean;
-        brandKit: Record<string, unknown>;
-        status: string;
-      }>("/api/crawl/start?sync=true", {
+      // ✅ NEW ASYNC API: Start crawl job and poll for results
+      const startResult = await apiPost<{ runId: string; status: string }>("/api/crawl/start", {
         brand_id: brandId,
         url: formData.websiteUrl,
         websiteUrl: formData.websiteUrl,
-        sync: true,
         workspaceId: workspaceId,
       });
 
-      if (!result.success) {
-        throw new Error("Failed to crawl website. Please try again.");
+      const runId = startResult.runId;
+      if (!runId) {
+        throw new Error("Failed to start crawl job - no runId returned");
       }
 
-      setImportProgress("Processing images and colors...");
+      // ✅ POLL FOR RESULTS: Check status until completed or failed
+      let pollAttempts = 0;
+      const maxPollAttempts = 120; // 2 minutes
+      let crawlStatus: any = null;
 
-      // Wait a moment for images to be persisted
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      while (pollAttempts < maxPollAttempts) {
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        pollAttempts++;
+
+        try {
+          const { apiGet } = await import("@/lib/api");
+          crawlStatus = await apiGet<{
+            id: string;
+            status: "pending" | "processing" | "completed" | "failed";
+            progress: number;
+            brandKit: any | null;
+            errorMessage: string | null;
+          }>(`/api/crawl/status/${runId}`);
+
+          // Update progress message
+          if (crawlStatus.status === "processing") {
+            if (crawlStatus.progress < 30) {
+              setImportProgress("Crawling website...");
+            } else if (crawlStatus.progress < 60) {
+              setImportProgress("Extracting brand assets...");
+            } else if (crawlStatus.progress < 90) {
+              setImportProgress("Generating brand kit...");
+            } else {
+              setImportProgress("Finalizing...");
+            }
+          }
+
+          // Exit when done
+          if (crawlStatus.status === "completed" || crawlStatus.status === "failed") {
+            break;
+          }
+        } catch (pollError) {
+          // Continue polling even if one request fails
+          console.error("Poll error:", pollError);
+        }
+      }
+
+      // Check final status
+      if (!crawlStatus || crawlStatus.status === "failed") {
+        throw new Error(crawlStatus?.errorMessage || "Crawl failed. Please try again.");
+      }
+
+      if (crawlStatus.status !== "completed") {
+        throw new Error("Crawl timed out - please try again");
+      }
 
       setImportProgress("Processing complete!");
 
-      const brandKit = result.brandKit || {};
+      const brandKit = crawlStatus.brandKit || {};
 
       // Type-safe extraction with proper type guards
       const colors = brandKit.colors as { primary?: string; secondary?: string; accent?: string; allColors?: string[] } | undefined;

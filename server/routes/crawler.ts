@@ -85,6 +85,7 @@ import {
   getRuntimeFingerprint 
 } from "../lib/runtimeFingerprint";
 import { markBrandCrawlFinished } from "../lib/brand-status-updater";
+import { createCrawlJob, getCrawlJobStatus, processPendingJobs } from "../lib/crawler-job-service";
 import {
   crawlWebsite,
   extractColors,
@@ -139,6 +140,119 @@ function cleanupStaleLocks() {
 
 // Clean up stale locks every minute
 setInterval(cleanupStaleLocks, 60 * 1000);
+
+/**
+ * POST /api/crawl/start-async (NEW ASYNC VERSION)
+ * Start a website crawl job - returns immediately with 202 Accepted
+ * 
+ * Purpose: Queues a crawler job to avoid Vercel 504 timeouts
+ * 
+ * Request Body:
+ * - url (string, required): Website URL to crawl
+ * - brand_id (string, optional): Brand ID (temporary during onboarding)
+ * - workspaceId (string, optional): Workspace/tenant ID for image persistence
+ * - cacheMode (string, optional): Cache control mode
+ * 
+ * Response: 202 Accepted
+ * { runId: "uuid", status: "pending" }
+ * 
+ * Client must poll GET /api/crawl/status/:runId for results
+ */
+router.post("/start-async", authenticateUser, validateBrandIdFormat, async (req, res, next) => {
+  try {
+    const { brand_id, url, websiteUrl, workspaceId, cacheMode } = req.body;
+    const finalUrl = url || websiteUrl;
+    
+    // Get user context
+    const user = (req as any).user;
+    const auth = (req as any).auth;
+    const tenantId = workspaceId || user?.workspaceId || user?.tenantId || auth?.workspaceId || auth?.tenantId || null;
+    
+    // Validate URL
+    if (!finalUrl) {
+      throw new AppError(
+        ErrorCode.MISSING_REQUIRED_FIELD,
+        "url is required",
+        HTTP_STATUS.BAD_REQUEST,
+        "warning"
+      );
+    }
+    
+    // Generate brand ID if not provided
+    const finalBrandId = brand_id || (req as any).validatedBrandId || `brand_${Date.now()}`;
+    
+    // Create async job
+    const { runId } = await createCrawlJob({
+      url: finalUrl,
+      brandId: finalBrandId,
+      tenantId,
+      cacheMode,
+      workspaceId,
+    });
+    
+    // Return 202 Accepted with runId for polling
+    res.status(202).json({
+      runId,
+      status: "pending",
+      message: "Crawl job queued. Poll /api/crawl/status/:runId for results.",
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * GET /api/crawl/status/:runId
+ * Get crawl job status and results
+ * 
+ * Response:
+ * {
+ *   id: string,
+ *   status: "pending" | "processing" | "completed" | "failed",
+ *   progress: number (0-100),
+ *   startedAt: string | null,
+ *   finishedAt: string | null,
+ *   brandKit: object | null,
+ *   errorMessage: string | null,
+ *   errorCode: string | null
+ * }
+ */
+router.get("/status/:runId", authenticateUser, async (req, res, next) => {
+  try {
+    const { runId } = req.params;
+    
+    const status = await getCrawlJobStatus(runId);
+    
+    if (!status) {
+      throw new AppError(
+        ErrorCode.NOT_FOUND,
+        "Crawl job not found",
+        HTTP_STATUS.NOT_FOUND,
+        "warning"
+      );
+    }
+    
+    res.json(status);
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * POST /api/crawl/process-jobs (WORKER ENDPOINT)
+ * Process pending crawl jobs - called by Vercel Cron or background trigger
+ * 
+ * This endpoint should be protected or called only by authorized sources
+ */
+router.post("/process-jobs", async (req, res, next) => {
+  try {
+    // TODO: Add auth check (API key, Vercel Cron secret, etc.)
+    await processPendingJobs();
+    res.json({ success: true, message: "Processing jobs" });
+  } catch (error) {
+    next(error);
+  }
+});
 
 /**
  * POST /api/crawl/start
@@ -317,8 +431,34 @@ router.post("/start", authenticateUser, validateBrandIdFormat, async (req, res, 
       }
     }
 
-    // SYNC MODE: For onboarding, run crawl immediately and return results
-    if (isSync) {
+    // ✅ ASYNC MODE BY DEFAULT: Redirect to async job system to avoid 504 timeouts
+    // This fixes Vercel 504 errors by moving long-running crawls out of HTTP request lifecycle
+    // Release the lock since we're using DB-backed job queue now
+    const lock = activeCrawlLocks.get(lockKey);
+    if (lock) {
+      clearTimeout(lock.timeout);
+      activeCrawlLocks.delete(lockKey);
+    }
+    
+    // Create async job and return runId immediately
+    const { runId } = await createCrawlJob({
+      url: finalUrl,
+      brandId: finalBrandId,
+      tenantId: userTenantId,
+      cacheMode: finalCacheMode,
+      workspaceId,
+    });
+    
+    return res.status(202).json({
+      runId,
+      status: "pending",
+      message: "Crawl job queued. Poll /api/crawl/status/:runId for results.",
+      pollUrl: `/api/crawl/status/${runId}`,
+    });
+    
+    // LEGACY SYNC MODE: Kept for backwards compatibility but deprecated
+    // This code path is no longer used - all crawls now use async job system
+    if (false && isSync) {
       // ✅ ROOT FIX: Get workspaceId/tenantId from user or request body
       // This allows us to persist images even if brand doesn't exist yet
       let tenantId: string | null = null;

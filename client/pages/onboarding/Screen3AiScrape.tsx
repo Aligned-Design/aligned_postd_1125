@@ -218,24 +218,96 @@ export default function Screen3AiScrape() {
         });
       }
       
-      const result = await apiPost(`/api/crawl/start`, {
+      // ✅ NEW ASYNC API: Start crawl job and get runId
+      const startResult = await apiPost<{ runId: string; status: string; message: string }>(`/api/crawl/start`, {
         url: user.website,
-        brand_id: brandId, // ✅ Use consistent brandId
-        workspaceId: crawlerWorkspaceId, // ✅ CRITICAL: Pass workspaceId for image persistence
-        sync: true, // Use sync mode for immediate results
+        brand_id: brandId,
+        workspaceId: crawlerWorkspaceId,
       });
+
+      const runId = startResult.runId;
+      if (!runId) {
+        throw new Error("Failed to start crawl job - no runId returned");
+      }
+
+      if (import.meta.env.DEV) {
+        logInfo("Crawl job started", { step: "crawl_queued", runId });
+      }
+
+      // ✅ POLL FOR RESULTS: Check status until completed or failed
+      let pollAttempts = 0;
+      const maxPollAttempts = 120; // 2 minutes (120 * 1000ms)
+      let crawlStatus: any = null;
+
+      while (pollAttempts < maxPollAttempts) {
+        await new Promise((resolve) => setTimeout(resolve, 1000)); // Wait 1 second
+        pollAttempts++;
+
+        try {
+          const { apiGet } = await import("@/lib/api");
+          crawlStatus = await apiGet<{
+            id: string;
+            status: "pending" | "processing" | "completed" | "failed";
+            progress: number;
+            brandKit: any | null;
+            errorMessage: string | null;
+          }>(`/api/crawl/status/${runId}`);
+
+          if (import.meta.env.DEV) {
+            logInfo("Crawl status", {
+              step: "poll_status",
+              status: crawlStatus.status,
+              progress: crawlStatus.progress,
+              attempt: pollAttempts,
+            });
+          }
+
+          // Update progress based on status
+          if (crawlStatus.status === "processing") {
+            // Progress is tracked automatically by the steps state
+            const progressStep = Math.floor(crawlStatus.progress / 25); // 0-3
+            if (progressStep < steps.length) {
+              setCurrentStepIndex(progressStep);
+              setSteps(steps.map((s, i) => ({
+                ...s,
+                status: i < progressStep ? "complete" : i === progressStep ? "processing" : "pending"
+              })));
+            }
+          }
+
+          // Exit loop when completed or failed
+          if (crawlStatus.status === "completed" || crawlStatus.status === "failed") {
+            break;
+          }
+        } catch (pollError) {
+          logError("Crawl status poll error", pollError instanceof Error ? pollError : new Error(String(pollError)), {
+            step: "poll_error",
+            attempt: pollAttempts,
+          });
+          // Continue polling even if one request fails
+        }
+      }
+
+      // Check final status
+      if (!crawlStatus || crawlStatus.status === "failed") {
+        throw new Error(crawlStatus?.errorMessage || "Crawl failed");
+      }
+
+      if (crawlStatus.status !== "completed") {
+        throw new Error("Crawl timed out - please try again");
+      }
 
       if (import.meta.env.DEV) {
         logInfo("Crawler API success", {
           step: "crawl_complete",
-          hasBrandKit: !!result.brandKit,
-          hasImages: !!(result.brandKit?.images?.length),
-          hasAboutBlurb: !!result.brandKit?.about_blurb,
+          hasBrandKit: !!crawlStatus.brandKit,
+          hasImages: !!(crawlStatus.brandKit?.images?.length),
+          hasAboutBlurb: !!crawlStatus.brandKit?.about_blurb,
         });
       }
       
       // Handle both success and fallback responses
-      const brandKit = result.brandKit || result;
+      const brandKit = crawlStatus.brandKit || {};
       
       // ✅ CRITICAL: Log if about_blurb is missing or invalid
       if (!brandKit?.about_blurb || brandKit.about_blurb === "0" || brandKit.about_blurb.length < 10) {
@@ -290,13 +362,9 @@ export default function Screen3AiScrape() {
           },
       };
       
-      // Log if we got real scraped data or fallback
-      if (result.status === "fallback") {
-        logWarning("Crawler returned fallback data", { step: "crawl_fallback" });
-      } else {
-        if (import.meta.env.DEV) {
-          logInfo("Successfully scraped website data", { step: "scrape_complete" });
-        }
+      // Log successful scrape
+      if (import.meta.env.DEV) {
+        logInfo("Successfully scraped website data", { step: "scrape_complete" });
       }
 
       setBrandSnapshot(brandSnapshot);
