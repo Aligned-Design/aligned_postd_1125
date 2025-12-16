@@ -210,7 +210,7 @@ export default function BrandIntake() {
           const { apiGet } = await import("@/lib/api");
           crawlStatus = await apiGet<{
             id: string;
-            status: "pending" | "processing" | "completed" | "failed";
+            status: 'pending' | 'processing' | 'completed' | 'failed';
             progress: number;
             brandKit: any | null;
             errorMessage: string | null;

@@ -25,6 +25,7 @@
 
 import { supabase } from "./supabase";
 import { logger } from "./logger";
+import { CrawlStatus, type CrawlRunStatus, isTerminalStatus } from "./crawl-status";
 import {
   crawlWebsite,
   extractColors,
@@ -44,9 +45,9 @@ export interface CrawlJobOptions {
   workspaceId?: string;
 }
 
-export interface CrawlRunStatus {
+export interface CrawlRunStatusResponse {
   id: string;
-  status: "pending" | "processing" | "completed" | "failed";
+  status: CrawlRunStatus;
   progress: number;
   startedAt: string | null;
   finishedAt: string | null;
@@ -77,7 +78,7 @@ export async function createCrawlJob(options: CrawlJobOptions): Promise<{ runId:
       brand_id: brandId,
       tenant_id: tenantId || workspaceId || null,
       url,
-      status: "pending",
+      status: CrawlStatus.PENDING,
       progress: 0,
       crawl_options: {
         cacheMode,
@@ -107,7 +108,7 @@ export async function createCrawlJob(options: CrawlJobOptions): Promise<{ runId:
 /**
  * Get crawl job status
  */
-export async function getCrawlJobStatus(runId: string): Promise<CrawlRunStatus | null> {
+export async function getCrawlJobStatus(runId: string): Promise<CrawlRunStatusResponse | null> {
   const { data: job, error } = await supabase
     .from("crawl_runs")
     .select("*")
@@ -144,7 +145,7 @@ async function reapStaleJobs(): Promise<void> {
   const { data: staleJobs, error: fetchError } = await supabase
     .from("crawl_runs")
     .select("id, brand_id, url, updated_at")
-    .eq("status", "processing")
+    .eq("status", CrawlStatus.PROCESSING)
     .lt("updated_at", new Date(Date.now() - staleThresholdMinutes * 60 * 1000).toISOString());
 
   if (fetchError) {
@@ -166,8 +167,9 @@ async function reapStaleJobs(): Promise<void> {
     const { error: updateError } = await supabase
       .from("crawl_runs")
       .update({
-        status: "failed",
+        status: CrawlStatus.FAILED,
         finished_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
         error_message: `Stale job timeout - no progress for ${staleThresholdMinutes} minutes`,
         error_code: "STALE_JOB_TIMEOUT",
       })
@@ -197,7 +199,7 @@ export async function processPendingJobs(): Promise<void> {
   const { data: jobs, error } = await supabase
     .from("crawl_runs")
     .select("*")
-    .eq("status", "pending")
+    .eq("status", CrawlStatus.PENDING)
     .order("created_at", { ascending: true })
     .limit(5); // Process max 5 at a time
 
@@ -229,7 +231,7 @@ async function processCrawlJob(runId: string): Promise<void> {
   const { data: job, error: fetchError } = await supabase
     .from("crawl_runs")
     .update({
-      status: "processing",
+      status: CrawlStatus.PROCESSING,
       started_at: now,
       updated_at: now, // ✅ Heartbeat starts here
       progress: 10,
@@ -240,7 +242,7 @@ async function processCrawlJob(runId: string): Promise<void> {
       },
     })
     .eq("id", runId)
-    .eq("status", "pending") // ✅ Optimistic lock - only claim if still pending
+    .eq("status", CrawlStatus.PENDING) // ✅ Optimistic lock - only claim if still pending
     .select()
     .single();
 
@@ -322,7 +324,7 @@ async function processCrawlJob(runId: string): Promise<void> {
     await supabase
       .from("crawl_runs")
       .update({
-        status: "completed",
+        status: CrawlStatus.COMPLETED,
         progress: 100,
         finished_at: finishedAt,
         updated_at: finishedAt, // ✅ Final heartbeat
@@ -370,7 +372,7 @@ async function processCrawlJob(runId: string): Promise<void> {
     await supabase
       .from("crawl_runs")
       .update({
-        status: "failed",
+        status: CrawlStatus.FAILED,
         finished_at: failedAt,
         updated_at: failedAt, // ✅ Final heartbeat
         error_message: errorMessage,
@@ -405,13 +407,26 @@ async function processCrawlJob(runId: string): Promise<void> {
  * CRITICAL: Also updates updated_at so reaper knows job is alive
  */
 async function updateJobProgress(runId: string, progress: number, message?: string): Promise<void> {
-  await supabase
+  const { data, error } = await supabase
     .from("crawl_runs")
     .update({
       progress,
       updated_at: new Date().toISOString(), // ✅ Heartbeat - prevents false reaping
     })
-    .eq("id", runId);
+    .eq("id", runId)
+    .select("id")
+    .single();
+
+  if (error || !data) {
+    // ✅ CRITICAL: Log heartbeat failure but don't crash the crawl
+    logger.warn("Heartbeat write failed - reaper may mark job as stale", {
+      runId,
+      progress,
+      error: error?.message || "No data returned",
+      errorCode: error?.code,
+    });
+    return; // Continue crawling despite heartbeat failure
+  }
 
   logger.info("CRAWL_RUN_PROGRESS", { runId, progress, message });
 }
