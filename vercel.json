@@ -14,10 +14,6 @@
       "includeFiles": "dist/server/**"
     }
   },
-  "crons": [
-    {
-      "path": "/api/crawl/process-jobs",
-      "schedule": "* * * * *"
-    }
-  ]
+  "_comment_crons": "⚠️ CRON CONFIGURATION REQUIRED IN VERCEL UI - see deployment docs",
+  "_comment_why": "Vercel does not interpolate env vars in vercel.json. Configure cron manually in Vercel Dashboard → Crons with: Path=/api/crawl/process-jobs?secret=<actual-value> Schedule=every-minute"
 }

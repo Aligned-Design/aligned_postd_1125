@@ -23,6 +23,34 @@ import { v4 as uuidv4 } from 'uuid';
 // LOGGER CONFIGURATION
 // ============================================================================
 
+/**
+ * Sanitize URL by removing sensitive query parameters
+ * Prevents secrets from leaking in logs, analytics, error reports
+ */
+function sanitizeUrl(url: string | undefined): string {
+  if (!url) return '';
+  
+  // List of sensitive query param names to redact
+  const sensitiveParams = ['secret', 'token', 'key', 'password', 'apikey', 'api_key'];
+  
+  try {
+    const urlObj = new URL(url, 'http://dummy.com'); // Need base for relative URLs
+    
+    // Redact sensitive params
+    sensitiveParams.forEach(param => {
+      if (urlObj.searchParams.has(param)) {
+        urlObj.searchParams.set(param, '[REDACTED]');
+      }
+    });
+    
+    // Return path + sanitized query string
+    return urlObj.pathname + urlObj.search;
+  } catch {
+    // If URL parsing fails, just return the path part (before ?)
+    return url.split('?')[0];
+  }
+}
+
 const isProduction = process.env.NODE_ENV === 'production';
 
 const _pinoLogger = pino({
@@ -40,7 +68,7 @@ const _pinoLogger = pino({
   serializers: {
     req: (req: any) => ({
       method: req.method,
-      url: req.url,
+      url: sanitizeUrl(req.url),
       headers: req.headers,
       remoteAddress: req.ip,
     }),
@@ -257,7 +285,7 @@ export function tracingMiddleware(req: any, res: any, next: any): void {
       cycleId,
       requestId,
       method: req.method,
-      url: req.url,
+      url: sanitizeUrl(req.url),
       ip: req.ip,
     },
     'HTTP request'
@@ -273,7 +301,7 @@ export function tracingMiddleware(req: any, res: any, next: any): void {
         cycleId,
         requestId,
         method: req.method,
-        url: req.url,
+        url: sanitizeUrl(req.url),
         statusCode: res.statusCode,
         latencyMs,
       },
