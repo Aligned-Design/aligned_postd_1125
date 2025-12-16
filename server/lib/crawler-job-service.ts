@@ -116,10 +116,65 @@ export async function getCrawlJobStatus(runId: string): Promise<CrawlRunStatus |
 }
 
 /**
+ * Reap stale jobs that have been stuck in "processing" for too long
+ * Prevents permanent spins from server crashes, timeouts, etc.
+ */
+async function reapStaleJobs(): Promise<void> {
+  const staleThresholdMinutes = 10;
+  
+  // Find jobs stuck in processing for > 10 minutes
+  const { data: staleJobs, error: fetchError } = await supabase
+    .from("crawl_runs")
+    .select("id, brand_id, url, updated_at")
+    .eq("status", "processing")
+    .lt("updated_at", new Date(Date.now() - staleThresholdMinutes * 60 * 1000).toISOString());
+
+  if (fetchError) {
+    logger.error("Failed to fetch stale crawl jobs", fetchError);
+    return;
+  }
+
+  if (!staleJobs || staleJobs.length === 0) {
+    return; // No stale jobs
+  }
+
+  logger.warn(`Found ${staleJobs.length} stale crawl jobs - marking as failed`, {
+    staleThresholdMinutes,
+    jobIds: staleJobs.map(j => j.id),
+  });
+
+  // Mark all stale jobs as failed
+  for (const job of staleJobs) {
+    const { error: updateError } = await supabase
+      .from("crawl_runs")
+      .update({
+        status: "failed",
+        finished_at: new Date().toISOString(),
+        error_message: `Stale job timeout - no progress for ${staleThresholdMinutes} minutes`,
+        error_code: "STALE_JOB_TIMEOUT",
+      })
+      .eq("id", job.id);
+
+    if (updateError) {
+      logger.error("Failed to mark stale job as failed", updateError, { jobId: job.id });
+    } else {
+      logger.info("Marked stale job as failed", {
+        jobId: job.id,
+        brandId: job.brand_id,
+        url: job.url,
+      });
+    }
+  }
+}
+
+/**
  * Process all pending crawl jobs
  * Called by background worker or Vercel Cron
  */
 export async function processPendingJobs(): Promise<void> {
+  // First, reap any stale jobs stuck in "processing"
+  await reapStaleJobs();
+
   // Get pending jobs (oldest first, limit to avoid overload)
   const { data: jobs, error } = await supabase
     .from("crawl_runs")
