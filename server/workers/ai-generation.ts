@@ -265,17 +265,20 @@ async function generateWithOpenAI(prompt: string, agentType: string, _client?: u
     const sanitizedPayload = sanitizeOpenAIPayload(payload);
     
     // OPENAI_PAYLOAD_PROOF: Log what's actually being sent (no secrets/prompts)
-    logger.info("OPENAI_PAYLOAD_PROOF", {
-      model: sanitizedPayload.model,
-      hasTemperature: sanitizedPayload.temperature !== undefined,
-      temperatureValue: sanitizedPayload.temperature,
-      hasPresencePenalty: sanitizedPayload.presence_penalty !== undefined,
-      presencePenaltyValue: sanitizedPayload.presence_penalty,
-      hasFrequencyPenalty: sanitizedPayload.frequency_penalty !== undefined,
-      frequencyPenaltyValue: sanitizedPayload.frequency_penalty,
-      messageCount: sanitizedPayload.messages.length,
-      agentType,
-    });
+    // Can be disabled by setting OPENAI_PAYLOAD_DEBUG=false or removing env var
+    if (process.env.OPENAI_PAYLOAD_DEBUG !== "false") {
+      logger.info("OPENAI_PAYLOAD_PROOF", {
+        model: sanitizedPayload.model,
+        hasTemperature: sanitizedPayload.temperature !== undefined,
+        temperatureValue: sanitizedPayload.temperature,
+        hasPresencePenalty: sanitizedPayload.presence_penalty !== undefined,
+        presencePenaltyValue: sanitizedPayload.presence_penalty,
+        hasFrequencyPenalty: sanitizedPayload.frequency_penalty !== undefined,
+        frequencyPenaltyValue: sanitizedPayload.frequency_penalty,
+        messageCount: sanitizedPayload.messages.length,
+        agentType,
+      });
+    }
     
     const response = await client.chat.completions.create(sanitizedPayload);
     const latencyMs = Date.now() - startTime;

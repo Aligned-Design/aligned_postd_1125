@@ -236,17 +236,20 @@ export async function generateWithChatCompletions(
     const sanitizedPayload = sanitizeOpenAIPayload(basePayload);
 
     // OPENAI_PAYLOAD_PROOF: Log what's actually being sent (no secrets/prompts)
-    logger.info("OPENAI_PAYLOAD_PROOF", {
-      model: sanitizedPayload.model,
-      hasTemperature: sanitizedPayload.temperature !== undefined,
-      temperatureValue: sanitizedPayload.temperature,
-      hasPresencePenalty: sanitizedPayload.presence_penalty !== undefined,
-      presencePenaltyValue: sanitizedPayload.presence_penalty,
-      hasFrequencyPenalty: sanitizedPayload.frequency_penalty !== undefined,
-      frequencyPenaltyValue: sanitizedPayload.frequency_penalty,
-      messageCount: sanitizedPayload.messages.length,
-      endpoint: "generateWithChatCompletions",
-    });
+    // Can be disabled by setting OPENAI_PAYLOAD_DEBUG=false or removing env var
+    if (process.env.OPENAI_PAYLOAD_DEBUG !== "false") {
+      logger.info("OPENAI_PAYLOAD_PROOF", {
+        model: sanitizedPayload.model,
+        hasTemperature: sanitizedPayload.temperature !== undefined,
+        temperatureValue: sanitizedPayload.temperature,
+        hasPresencePenalty: sanitizedPayload.presence_penalty !== undefined,
+        presencePenaltyValue: sanitizedPayload.presence_penalty,
+        hasFrequencyPenalty: sanitizedPayload.frequency_penalty !== undefined,
+        frequencyPenaltyValue: sanitizedPayload.frequency_penalty,
+        messageCount: sanitizedPayload.messages.length,
+        endpoint: "generateWithChatCompletions",
+      });
+    }
 
     const response = await client.chat.completions.create(sanitizedPayload);
 

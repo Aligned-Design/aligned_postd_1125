@@ -59,8 +59,12 @@ function getModelCapabilities(model: string): ModelCapabilities {
  * - **gpt-5* models**: Remove temperature, presence_penalty, frequency_penalty
  * - **gpt-4* and other models**: Keep all parameters
  * 
+ * **Important**: If you add new parameters to OpenAI payloads in the future,
+ * update the `handledKeys` Set in this function to ensure proper sanitization
+ * for models that don't support them.
+ * 
  * @param payload - Original payload with potentially unsupported parameters
- * @returns Sanitized payload safe to send to OpenAI API
+ * @returns Sanitized payload safe to send to OpenAI API (typed as any for SDK compatibility)
  * 
  * @example
  * ```typescript
