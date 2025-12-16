@@ -243,20 +243,31 @@ router.get("/status/:runId", authenticateUser, async (req, res, next) => {
  * POST /api/crawl/process-jobs (WORKER ENDPOINT)
  * Process pending crawl jobs - called by Vercel Cron or background trigger
  * 
- * Protected by CRON_SECRET env var - must match x-cron-secret header
+ * Protected by CRON_SECRET env var - must match one of:
+ * - Authorization: Bearer <secret> header
+ * - x-cron-secret: <secret> header
+ * - ?secret=<secret> query param (Vercel Cron sometimes drops headers in redirects)
  */
 router.post("/process-jobs", async (req, res, next) => {
   try {
-    // ✅ SECURITY: Verify cron secret (Vercel Cron sends Authorization: Bearer <CRON_SECRET>)
+    // ✅ SECURITY: Verify cron secret from multiple sources
     const expectedSecret = process.env.CRON_SECRET;
     const authHeader = req.headers.authorization;
-    const cronSecret = req.headers["x-cron-secret"] as string;
+    const cronSecretHeader = req.headers["x-cron-secret"] as string;
+    const querySecret = req.query.secret as string;
     
-    // Allow either Authorization: Bearer or x-cron-secret header
-    const providedSecret = authHeader?.replace("Bearer ", "") || cronSecret;
+    // Try auth sources in order: Bearer token, custom header, query param
+    const providedSecret = authHeader?.replace("Bearer ", "") || cronSecretHeader || querySecret;
+    
+    // Track which auth methods were attempted (for debugging, don't log secrets)
+    const authSources = {
+      hasAuthHeader: !!authHeader,
+      hasCronHeader: !!cronSecretHeader,
+      hasQueryParam: !!querySecret,
+    };
     
     if (expectedSecret && providedSecret !== expectedSecret) {
-      logger.warn("Unauthorized cron job attempt", {
+      logger.warn(`Unauthorized cron attempt - auth_sources: Bearer=${authSources.hasAuthHeader} x-cron-secret=${authSources.hasCronHeader} query=${authSources.hasQueryParam}`, {
         ip: req.ip,
         userAgent: req.headers["user-agent"],
       });
@@ -269,6 +280,7 @@ router.post("/process-jobs", async (req, res, next) => {
     logger.info("Processing crawl jobs", { trigger: "cron" });
     await processPendingJobs();
     
+    // ✅ SUCCESS: Return 200 even if no jobs (not an error condition)
     res.json({
       success: true,
       message: "Crawl jobs processed",
