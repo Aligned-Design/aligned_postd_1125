@@ -86,6 +86,7 @@ import {
 } from "../lib/runtimeFingerprint";
 import { markBrandCrawlFinished } from "../lib/brand-status-updater";
 import { createCrawlJob, getCrawlJobStatus, processPendingJobs } from "../lib/crawler-job-service";
+import { logger } from "../lib/logger";
 import {
   crawlWebsite,
   extractColors,
@@ -242,13 +243,37 @@ router.get("/status/:runId", authenticateUser, async (req, res, next) => {
  * POST /api/crawl/process-jobs (WORKER ENDPOINT)
  * Process pending crawl jobs - called by Vercel Cron or background trigger
  * 
- * This endpoint should be protected or called only by authorized sources
+ * Protected by CRON_SECRET env var - must match x-cron-secret header
  */
 router.post("/process-jobs", async (req, res, next) => {
   try {
-    // TODO: Add auth check (API key, Vercel Cron secret, etc.)
+    // ✅ SECURITY: Verify cron secret (Vercel Cron sends Authorization: Bearer <CRON_SECRET>)
+    const expectedSecret = process.env.CRON_SECRET;
+    const authHeader = req.headers.authorization;
+    const cronSecret = req.headers["x-cron-secret"] as string;
+    
+    // Allow either Authorization: Bearer or x-cron-secret header
+    const providedSecret = authHeader?.replace("Bearer ", "") || cronSecret;
+    
+    if (expectedSecret && providedSecret !== expectedSecret) {
+      logger.warn("Unauthorized cron job attempt", {
+        ip: req.ip,
+        userAgent: req.headers["user-agent"],
+      });
+      return res.status(403).json({
+        success: false,
+        error: "Unauthorized - invalid cron secret",
+      });
+    }
+    
+    logger.info("Processing crawl jobs", { trigger: "cron" });
     await processPendingJobs();
-    res.json({ success: true, message: "Processing jobs" });
+    
+    res.json({
+      success: true,
+      message: "Crawl jobs processed",
+      timestamp: new Date().toISOString(),
+    });
   } catch (error) {
     next(error);
   }
