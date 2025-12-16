@@ -3,6 +3,24 @@
  * 
  * Manages crawler jobs outside HTTP request lifecycle to avoid Vercel 504 timeouts.
  * Jobs are queued in crawl_runs table and processed by background worker.
+ * 
+ * ============================================================================
+ * CANONICAL JOB STATUS FLOW (enforced throughout codebase)
+ * ============================================================================
+ * 
+ * pending → processing → completed
+ *                    └→ failed
+ * 
+ * - createCrawlJob() sets: pending
+ * - processCrawlJob() claims atomically: pending → processing
+ * - success path: processing → completed
+ * - error path: processing → failed
+ * - reaper marks stale: processing → failed (if updated_at > 10 min old)
+ * 
+ * ⚠️ CRITICAL: updated_at MUST be bumped on every progress update
+ * Otherwise reaper will incorrectly mark active jobs as stale!
+ * 
+ * ============================================================================
  */
 
 import { supabase } from "./supabase";
@@ -200,22 +218,43 @@ export async function processPendingJobs(): Promise<void> {
 }
 
 /**
- * Process a single crawl job
+ * Process a single crawl job with atomic claim/lock
  */
 async function processCrawlJob(runId: string): Promise<void> {
-  // Mark as processing
+  const workerId = `worker-${process.pid || Math.random().toString(36).substring(7)}`;
+  const now = new Date().toISOString();
+  
+  // ✅ ATOMIC CLAIM: Mark as processing with worker ID
+  // This prevents double-processing if cron overlaps
   const { data: job, error: fetchError } = await supabase
     .from("crawl_runs")
-    .update({ status: "processing", started_at: new Date().toISOString(), progress: 10 })
+    .update({
+      status: "processing",
+      started_at: now,
+      updated_at: now, // ✅ Heartbeat starts here
+      progress: 10,
+      // Store worker info in runtime_info for debugging
+      runtime_info: {
+        worker_id: workerId,
+        claimed_at: now,
+      },
+    })
     .eq("id", runId)
-    .eq("status", "pending") // Optimistic lock
+    .eq("status", "pending") // ✅ Optimistic lock - only claim if still pending
     .select()
     .single();
 
   if (fetchError || !job) {
-    logger.warn("Failed to lock crawl job", { runId, error: fetchError?.message });
-    return; // Another worker might have picked it up
+    // Either doesn't exist, or another worker claimed it
+    logger.debug("Failed to claim crawl job (may be claimed by another worker)", {
+      runId,
+      workerId,
+      error: fetchError?.message,
+    });
+    return;
   }
+
+  logger.info("Claimed crawl job", { runId, workerId });
 
   const crawlRunId = generateCrawlRunId();
   const startTime = Date.now();
@@ -279,17 +318,20 @@ async function processCrawlJob(runId: string): Promise<void> {
     }
 
     // Mark job as completed
+    const finishedAt = new Date().toISOString();
     await supabase
       .from("crawl_runs")
       .update({
         status: "completed",
         progress: 100,
-        finished_at: new Date().toISOString(),
+        finished_at: finishedAt,
+        updated_at: finishedAt, // ✅ Final heartbeat
         brand_kit: brandKit,
         runtime_info: {
           duration_ms: durationMs,
           pages_crawled: crawlResults.length,
           runtime_fingerprint: getRuntimeFingerprint(),
+          worker_id: job.runtime_info?.worker_id,
         },
       })
       .eq("id", runId);
@@ -324,16 +366,19 @@ async function processCrawlJob(runId: string): Promise<void> {
     });
 
     // Mark job as failed
+    const failedAt = new Date().toISOString();
     await supabase
       .from("crawl_runs")
       .update({
         status: "failed",
-        finished_at: new Date().toISOString(),
+        finished_at: failedAt,
+        updated_at: failedAt, // ✅ Final heartbeat
         error_message: errorMessage,
         error_code: "CRAWL_ERROR",
         runtime_info: {
           duration_ms: durationMs,
           runtime_fingerprint: getRuntimeFingerprint(),
+          worker_id: job.runtime_info?.worker_id,
         },
       })
       .eq("id", runId);
@@ -356,12 +401,16 @@ async function processCrawlJob(runId: string): Promise<void> {
 }
 
 /**
- * Update job progress
+ * Update job progress with heartbeat
+ * CRITICAL: Also updates updated_at so reaper knows job is alive
  */
 async function updateJobProgress(runId: string, progress: number, message?: string): Promise<void> {
   await supabase
     .from("crawl_runs")
-    .update({ progress })
+    .update({
+      progress,
+      updated_at: new Date().toISOString(), // ✅ Heartbeat - prevents false reaping
+    })
     .eq("id", runId);
 
   logger.info("CRAWL_RUN_PROGRESS", { runId, progress, message });
