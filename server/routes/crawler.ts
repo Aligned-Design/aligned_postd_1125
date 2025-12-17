@@ -233,6 +233,16 @@ router.get("/status/:runId", authenticateUser, async (req, res, next) => {
       );
     }
     
+    // ✅ STRUCTURED LOG: Status read (only log if status changed or is terminal)
+    if (status.status === "completed" || status.status === "failed" || status.progress % 25 === 0) {
+      logger.info("CRAWL_STATUS_READ", {
+        runId,
+        status: status.status,
+        progress: status.progress,
+        hasError: !!status.errorMessage,
+      });
+    }
+    
     res.json(status);
   } catch (error) {
     next(error);
@@ -470,6 +480,17 @@ router.post("/start", authenticateUser, validateBrandIdFormat, async (req, res, 
       tenantId: userTenantId,
       cacheMode: finalCacheMode,
       workspaceId,
+    });
+    
+    // ✅ STRUCTURED LOG: Crawl job created and accepted
+    const urlObj = new URL(finalUrl);
+    logger.info("CRAWL_START_ACCEPTED", {
+      runId,
+      brandId: finalBrandId,
+      tenantId: userTenantId,
+      urlHost: urlObj.host,
+      urlPath: urlObj.pathname,
+      cacheMode: finalCacheMode,
     });
     
     return res.status(202).json({

@@ -248,20 +248,37 @@ async function processCrawlJob(runId: string): Promise<void> {
 
   if (fetchError || !job) {
     // Either doesn't exist, or another worker claimed it
-    logger.debug("Failed to claim crawl job (may be claimed by another worker)", {
+    // ✅ STRUCTURED LOG: Claim attempt failed/skipped
+    logger.info("CRAWL_JOB_CLAIM_ATTEMPT", {
       runId,
+      result: "skipped",
+      reason: fetchError?.message || "already_claimed",
       workerId,
-      error: fetchError?.message,
     });
     return;
   }
 
-  logger.info("Claimed crawl job", { runId, workerId });
+  // ✅ STRUCTURED LOG: Job claimed successfully
+  logger.info("CRAWL_JOB_CLAIM_ATTEMPT", {
+    runId,
+    result: "claimed",
+    workerId,
+    brandId: job.brand_id,
+    url: job.url,
+  });
 
   const crawlRunId = generateCrawlRunId();
   const startTime = Date.now();
 
   try {
+    // ✅ STRUCTURED LOG: Processing begins
+    logger.info("CRAWL_JOB_PROCESS_BEGIN", {
+      runId,
+      brandId: job.brand_id,
+      url: job.url,
+      workerId,
+    });
+    
     logger.info("CRAWL_RUN_PROGRESS", { runId, brandId: job.brand_id, url: job.url, progress: 10 });
 
     // Update progress: starting crawl
@@ -272,8 +289,26 @@ async function processCrawlJob(runId: string): Promise<void> {
 
     await updateJobProgress(runId, 50, "Extracting brand assets...");
 
-    // Extract colors from URL
-    const colors = await extractColors(job.url);
+    // Extract colors from URL (non-blocking - don't fail entire crawl if this times out)
+    let colors;
+    try {
+      colors = await extractColors(job.url);
+    } catch (colorError) {
+      logger.warn("Color extraction failed (non-blocking)", {
+        runId,
+        brandId: job.brand_id,
+        url: job.url,
+        error: colorError instanceof Error ? colorError.message : String(colorError),
+      });
+      // Use empty color palette as fallback
+      colors = {
+        primary: "#000000",
+        secondary: "#FFFFFF",
+        accent: null,
+        allColors: [],
+      };
+    }
+    
     const brandName = extractBrandNameFromUrl(job.url);
     const industry = extractIndustryFromContent(crawlResults);
 
@@ -364,6 +399,15 @@ async function processCrawlJob(runId: string): Promise<void> {
       })
       .eq("id", runId);
 
+    // ✅ STRUCTURED LOG: Job processing completed successfully
+    logger.info("CRAWL_JOB_PROCESS_END", {
+      runId,
+      status: "completed",
+      durationMs,
+      pagesScraped: crawlResults.length,
+      imagesExtracted: extractedImages.length,
+    });
+    
     logger.info("CRAWL_RUN_END", {
       runId,
       brandId: job.brand_id,
@@ -383,6 +427,15 @@ async function processCrawlJob(runId: string): Promise<void> {
   } catch (error) {
     const durationMs = Date.now() - startTime;
     const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorCode = (error as any)?.code || "UNKNOWN_ERROR";
+
+    // ✅ STRUCTURED LOG: Job processing failed
+    logger.info("CRAWL_JOB_PROCESS_FAIL", {
+      runId,
+      errorCode,
+      messageSafe: errorMessage.substring(0, 200), // Truncate for safety
+      durationMs,
+    });
 
     logger.error("CRAWL_RUN_END", new Error(errorMessage), {
       runId,
@@ -454,6 +507,8 @@ async function updateJobProgress(runId: string, progress: number, message?: stri
     return; // Continue crawling despite heartbeat failure
   }
 
+  // ✅ STRUCTURED LOG: Heartbeat successful
+  logger.info("CRAWL_JOB_HEARTBEAT", { runId, progress, message });
   logger.info("CRAWL_RUN_PROGRESS", { runId, progress, message });
 }
 
