@@ -319,6 +319,32 @@ async function processCrawlJob(runId: string): Promise<void> {
       });
     }
 
+    // ✅ VERSIONED SAVE: Save brand kit with versioning
+    try {
+      const { saveBrandKit } = await import("./brand-kit-service");
+      await saveBrandKit({
+        brandId: job.brand_id,
+        tenantId: job.tenant_id || undefined,
+        brandKit,
+        source: "crawler",
+        crawlRunId: runId,
+        changeSummary: `Crawler extracted ${extractedImages.length} images, ${brandKit.colors?.allColors?.length || 0} colors from ${crawlResults.length} pages`,
+        autoValidate: false, // User should review crawler results
+      });
+      logger.info("Brand kit version saved", {
+        brandId: job.brand_id,
+        runId,
+        source: "crawler",
+      });
+    } catch (versionError) {
+      // Log but don't fail - we'll still save to crawl_runs
+      logger.warn("Failed to save brand kit version", {
+        error: versionError instanceof Error ? versionError.message : String(versionError),
+        brandId: job.brand_id,
+        runId,
+      });
+    }
+
     // Mark job as completed
     const finishedAt = new Date().toISOString();
     await supabase

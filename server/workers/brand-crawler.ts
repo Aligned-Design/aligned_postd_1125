@@ -2577,6 +2577,41 @@ async function extractImages(page: Page, baseUrl: string, brandName?: string): P
     
     console.log(`[Crawler] Returning ${finalImages.length} images for page ${baseUrl}`);
     
+    // ✅ SQUARESPACE FALLBACK: If few images found and it's a Squarespace site, use enhanced extraction
+    if (finalImages.length < 5) {
+      console.log(`[Crawler] Only ${finalImages.length} images found, checking for Squarespace fallback...`);
+      
+      const { isSquarespaceSite, extractSquarespaceImages } = await import("./squarespace-image-extractor");
+      const isSquarespace = await isSquarespaceSite(page).catch(() => false);
+      
+      if (isSquarespace) {
+        console.log("[Crawler] Squarespace site detected, running enhanced extraction");
+        try {
+          const sqsImages = await extractSquarespaceImages(page, baseUrl);
+          console.log(`[Crawler] Squarespace extraction found ${sqsImages.length} additional images`);
+          
+          // Merge with existing images, avoiding duplicates
+          const existingUrls = new Set(finalImages.map(img => img.url));
+          const newImages = sqsImages
+            .filter(img => !existingUrls.has(img.url))
+            .map(img => ({
+              url: img.url,
+              alt: img.alt,
+              width: img.width,
+              height: img.height,
+              role: img.role || "photo",
+              filename: img.url.split("/").pop() || "",
+              sourceType: img.source,
+            }));
+          
+          finalImages.push(...newImages);
+          console.log(`[Crawler] After Squarespace fallback: ${finalImages.length} total images`);
+        } catch (sqsError) {
+          console.warn("[Crawler] Squarespace fallback extraction failed:", sqsError);
+        }
+      }
+    }
+    
     return { images: finalImages, detectedHost };
   } catch (error) {
     console.error("[Crawler] Error extracting images:", error);
