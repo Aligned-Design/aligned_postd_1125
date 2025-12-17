@@ -236,7 +236,7 @@ export default function Screen3AiScrape() {
 
       // ✅ POLL FOR RESULTS: Check status until completed or failed
       let pollAttempts = 0;
-      const maxPollAttempts = 120; // 2 minutes (120 * 1000ms)
+      const maxPollAttempts = 300; // 5 minutes (300 * 1000ms) - increased for slow sites like Squarespace
       let crawlStatus: any = null;
 
       while (pollAttempts < maxPollAttempts) {
