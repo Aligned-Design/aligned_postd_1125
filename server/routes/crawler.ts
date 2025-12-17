@@ -447,25 +447,11 @@ router.post("/start", authenticateUser, validateBrandIdFormat, async (req, res, 
     });
     
     // For onboarding (sync mode), skip brand access check (temp IDs allowed)
-    // For async mode, verify user has access to brand (UUID only)
+    // ✅ BRAND ACCESS: Verify user has access to brand (UUID only)
+    // Uses assertBrandAccess which has fallback for newly created brands
     if (!isSync && finalBrandId && !finalBrandId.startsWith("brand_")) {
-      // UUID format - verify access
-      const userId = req.headers["x-user-id"]; // From auth middleware
-      const { data: member, error: memberError } = await supabase
-        .from("brand_members")
-        .select("*")
-        .eq("brand_id", finalBrandId)
-        .eq("user_id", userId)
-        .single();
-
-      if (memberError || !member) {
-        throw new AppError(
-          ErrorCode.FORBIDDEN,
-          "Access denied",
-          HTTP_STATUS.FORBIDDEN,
-          "warning"
-        );
-      }
+      const { assertBrandAccess } = await import("../lib/brand-access");
+      await assertBrandAccess(req, finalBrandId, true, true);
     }
 
     // ✅ ASYNC MODE BY DEFAULT: Redirect to async job system to avoid 504 timeouts
