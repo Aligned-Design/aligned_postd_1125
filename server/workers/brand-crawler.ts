@@ -3142,9 +3142,9 @@ export async function extractColors(url: string): Promise<ColorPalette> {
       (window as any).__name ??= (fn: unknown, _name?: string) => fn;
     });
     
-    // ✅ FIX: Two-phase navigation for reliability
+    // ✅ FIX: Two-phase navigation for reliability with extended timeout for slow sites
     await page.goto(url, {
-      timeout: 30000,
+      timeout: 90000, // Increased to 90s for very slow sites (color extraction is non-blocking anyway)
       waitUntil: "domcontentloaded",
     });
 
