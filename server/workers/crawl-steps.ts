@@ -128,7 +128,7 @@ export async function executeFetchStep(url: string): Promise<StepAResult | StepE
       twitterImage: extractMetaContent(html, 'twitter:image'),
       favicon: extractFavicon(html, url),
       appleTouchIcon: extractAppleTouchIcon(html, url),
-      logoC andidates: extractLogoCandidates(html, url),
+      logoCandidates: extractLogoCandidates(html, url),
       heroText: extractHeroText(html),
       aboutText: '', // Optional: extract first paragraphs
       links: extractLinks(html, url),
@@ -158,7 +158,7 @@ export async function executeFetchStep(url: string): Promise<StepAResult | StepE
       };
     }
     
-    logger.error('[StepA] Fetch failed', { url, error: error.message, durationMs });
+    logger.error('[StepA] Fetch failed', error, { url, durationMs });
     return {
       code: CrawlErrorCode.FETCH_FAILED,
       message: error.message || 'Failed to load website',
@@ -212,7 +212,7 @@ export async function executeRenderStep(
       };
     }
     
-    logger.error('[StepB] Render failed', { url, error: error.message, durationMs });
+    logger.error('[StepB] Render failed', error, { url, durationMs });
     return {
       code: CrawlErrorCode.RENDER_CRASH,
       message: error.message || 'Browser crashed',
@@ -268,7 +268,7 @@ export async function executeGenerateStep(
       };
     }
     
-    logger.error('[StepC] AI generation failed', { url, error: error.message, durationMs });
+    logger.error('[StepC] AI generation failed', error, { url, durationMs });
     return {
       code: CrawlErrorCode.UNKNOWN_ERROR,
       message: error.message || 'AI generation failed',

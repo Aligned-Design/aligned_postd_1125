@@ -185,10 +185,9 @@ async function executeCurrentStep(job: CrawlJob): Promise<void> {
     
   } catch (error: any) {
     const durationMs = Date.now() - startTime;
-    logger.error('[StepProcessor] Step failed', {
+    logger.error('[StepProcessor] Step failed', error, {
       runId: job.id,
       step: job.step,
-      error: error.message,
       durationMs,
     });
     
@@ -229,7 +228,7 @@ async function executeFetchStepForJob(job: CrawlJob): Promise<void> {
     .eq('id', job.id);
   
   if (updateError) {
-    logger.error('[StepA] Failed to store results', { runId: job.id, error: updateError });
+    logger.error('[StepA] Failed to store results', updateError, { runId: job.id });
   }
   
   // Decide next step
@@ -281,7 +280,7 @@ async function executeRenderStepForJob(job: CrawlJob): Promise<void> {
     .eq('id', job.id);
   
   if (updateError) {
-    logger.error('[StepB] Failed to store results', { runId: job.id, error: updateError });
+    logger.error('[StepB] Failed to store results', updateError, { runId: job.id });
   }
   
   // Advance to generate
@@ -331,7 +330,7 @@ async function advanceToStep(runId: string, nextStep: string, progress: number):
     .eq('id', runId);
   
   if (error) {
-    logger.error('[StepProcessor] Failed to advance step', { runId, nextStep, error });
+    logger.error('[StepProcessor] Failed to advance step', error, { runId, nextStep });
   } else {
     logger.info('[StepProcessor] Advanced to next step', { runId, nextStep, progress });
   }
@@ -354,7 +353,7 @@ async function completeJob(runId: string, brandId: string, brandKit: any, timing
     .eq('id', runId);
   
   if (error) {
-    logger.error('[StepProcessor] Failed to complete job', { runId, error });
+    logger.error('[StepProcessor] Failed to complete job', error, { runId });
   } else {
     logger.info('[StepProcessor] Job completed', { runId, brandId });
   }
@@ -390,7 +389,7 @@ async function handleStepFailure(job: CrawlJob, stepError: StepError): Promise<v
     
   } else {
     // Fail permanently
-    logger.error('[StepProcessor] Step failed permanently', {
+    logger.error('[StepProcessor] Step failed permanently', undefined, {
       runId: job.id,
       step: job.step,
       attempt: job.step_attempt,

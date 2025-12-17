@@ -85,7 +85,8 @@ import {
   getRuntimeFingerprint 
 } from "../lib/runtimeFingerprint";
 import { markBrandCrawlFinished } from "../lib/brand-status-updater";
-import { createCrawlJob, getCrawlJobStatus, processPendingJobs } from "../lib/crawler-job-service";
+import { createCrawlJob, getCrawlJobStatus } from "../lib/crawler-job-service";
+import { processPendingJobs } from "../lib/crawler-step-processor";
 import { logger } from "../lib/logger";
 import {
   crawlWebsite,

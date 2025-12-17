@@ -79,6 +79,7 @@ export async function createCrawlJob(options: CrawlJobOptions): Promise<{ runId:
       tenant_id: tenantId || workspaceId || null,
       url,
       status: CrawlStatus.PENDING,
+      step: 'fetch', // Start with fast HTTP fetch
       progress: 0,
       crawl_options: {
         cacheMode,
