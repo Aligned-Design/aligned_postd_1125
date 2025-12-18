@@ -74,10 +74,10 @@ export const openai = new Proxy({} as OpenAI, {
  * Used for most content generation tasks (brand copy, social posts, etc.)
  * Can be overridden via OPENAI_MODEL or OPENAI_MODEL_TEXT environment variable.
  * 
- * Default: "gpt-5-mini" (cost-effective, fast)
+ * Default: "gpt-4o-mini" (cost-effective, fast)
  */
 export const DEFAULT_OPENAI_MODEL =
-  process.env.OPENAI_MODEL ?? process.env.OPENAI_MODEL_TEXT ?? "gpt-5-mini";
+  process.env.OPENAI_MODEL ?? process.env.OPENAI_MODEL_TEXT ?? "gpt-4o-mini";
 
 /**
  * High-performance model for complex reasoning tasks
@@ -85,10 +85,10 @@ export const DEFAULT_OPENAI_MODEL =
  * Used for advisor/analysis tasks that require deeper reasoning.
  * Can be overridden via OPENAI_MODEL_ADVANCED environment variable.
  * 
- * Default: "gpt-5.1" (more capable, higher cost)
+ * Default: "gpt-4o" (more capable, higher cost)
  */
 export const ADVANCED_OPENAI_MODEL =
-  process.env.OPENAI_MODEL_ADVANCED ?? "gpt-5.1";
+  process.env.OPENAI_MODEL_ADVANCED ?? "gpt-4o";
 
 /**
  * Cheaper/faster model for background jobs
@@ -96,10 +96,10 @@ export const ADVANCED_OPENAI_MODEL =
  * Used for non-critical background processing where cost/speed matters.
  * Can be overridden via OPENAI_MODEL_CHEAP environment variable.
  * 
- * Default: "gpt-5-nano" (fast and cost-effective)
+ * Default: "gpt-3.5-turbo" (fast and cost-effective)
  */
 export const CHEAP_OPENAI_MODEL =
-  process.env.OPENAI_MODEL_CHEAP ?? "gpt-5-nano";
+  process.env.OPENAI_MODEL_CHEAP ?? "gpt-3.5-turbo";
 
 /**
  * Default embedding model
