@@ -843,8 +843,10 @@ router.post("/start", authenticateUser, validateBrandIdFormat, async (req, res, 
  * 
  * CRITICAL: This function MUST receive tenantId. Without it, scraped images cannot be persisted.
  * During onboarding, tenantId comes from user's workspace/auth context.
+ * 
+ * EXPORTED: This function is exported for use by onboarding orchestrator
  */
-async function runCrawlJobSync(
+export async function runCrawlJobSync(
   url: string, 
   brandId: string, 
   tenantId: string | null = null,

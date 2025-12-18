@@ -92,6 +92,7 @@ async function markOnboardingCompleted(brandId: string): Promise<void> {
 async function runCrawlerStep(
   brandId: string,
   websiteUrl: string,
+  workspaceId: string | undefined,
   step: OnboardingStep
 ): Promise<OnboardingStep> {
   step.status = "in_progress";
@@ -104,104 +105,29 @@ async function runCrawlerStep(
       stepId: step.id,
     });
 
-    // Call crawler via HTTP endpoint (simplest approach)
-    // In production, this could be optimized to call the function directly
-    // Use API_BASE_URL for server-to-server communication (not VITE_API_BASE_URL which is client-side)
-    // In Vercel, VERCEL_URL is automatically provided (e.g., "your-app.vercel.app")
-    const apiBaseUrl = 
-      process.env.API_BASE_URL || 
-      (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null) ||
-      process.env.VITE_APP_URL ||
-      "http://localhost:8080";
+    // ✅ FIX: Call crawler function directly (no HTTP, no auth issues)
+    // Import runCrawlJobSync from crawler routes
+    const { runCrawlJobSync } = await import("../routes/crawler");
     
-    const crawlUrl = `${apiBaseUrl}/api/crawl/start`;
+    // Get tenantId from workspaceId (passed from onboarding request)
+    const tenantId = workspaceId || null;
     
-    logger.info("Onboarding: Calling crawler endpoint", {
+    logger.info("Onboarding: Calling crawler function directly", {
       brandId,
-      crawlUrl,
-      apiBaseUrl,
-      env: {
-        hasApiBaseUrl: !!process.env.API_BASE_URL,
-        hasVercelUrl: !!process.env.VERCEL_URL,
-        hasViteAppUrl: !!process.env.VITE_APP_URL,
-      },
+      websiteUrl,
+      tenantId,
     });
     
-    let crawlResponse;
-    try {
-      crawlResponse = await fetch(crawlUrl, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          brand_id: brandId,
-          url: websiteUrl,
-          sync: true, // Use sync mode for onboarding
-        }),
-      });
-    } catch (fetchError) {
-      const errorMessage = fetchError instanceof Error ? fetchError.message : String(fetchError);
-      const error = fetchError instanceof Error ? fetchError : new Error(errorMessage);
-      logger.error(
-        "Onboarding: Crawler fetch failed (network error)",
-        error,
-        {
-          brandId,
-          crawlUrl,
-          apiBaseUrl,
-          errorType: error.constructor.name,
-        }
-      );
-      throw new Error(`Crawler fetch failed: ${errorMessage}. Check API_BASE_URL/VERCEL_URL configuration.`);
-    }
-
-    if (!crawlResponse.ok) {
-      const errorText = await crawlResponse.text().catch(() => "Unable to read error response");
-      const error = new Error(`Crawler failed: ${crawlResponse.status} ${crawlResponse.statusText}`);
-      logger.error(
-        "Onboarding: Crawler endpoint returned error",
-        error,
-        {
-          brandId,
-          status: crawlResponse.status,
-          statusText: crawlResponse.statusText,
-          errorBody: errorText,
-          crawlUrl,
-        }
-      );
-      throw error;
-    }
-
-    const crawlData = await crawlResponse.json();
-    const crawlResult = {
-      brandKit: crawlData.brandKit || {},
-      pages: crawlData.pages || [],
-    };
-
-    // @supabase-scope-ok Brand lookup by its own primary key
-    // Store crawl results in brand_kit
-    const { error: updateError } = await supabase
-      .from("brands")
-      .update({
-        brand_kit: {
-          ...crawlResult.brandKit,
-          crawled_at: new Date().toISOString(),
-          crawled_url: websiteUrl,
-        },
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", brandId);
-
-    if (updateError) {
-      throw new Error(`Failed to save crawl results: ${updateError.message}`);
-    }
+    // Call crawler function directly (no HTTP overhead, no auth issues)
+    // Note: runCrawlJobSync already saves the brand_kit to the database
+    const crawlResult = await runCrawlJobSync(websiteUrl, brandId, tenantId, "default");
 
     step.status = "completed";
     step.completedAt = new Date().toISOString();
     step.result = {
-      pagesCrawled: crawlResult.pages?.length || 0,
-      colorsExtracted: Object.keys(crawlResult.brandKit?.colors || {}).length,
+      imagesExtracted: crawlResult.brandKit?.images?.length || 0,
+      colorsExtracted: crawlResult.brandKit?.colors?.allColors?.length || 0,
+      hasAboutBlurb: !!crawlResult.brandKit?.about_blurb,
     };
 
     logger.info("Onboarding: Crawler step completed", {
@@ -605,7 +531,7 @@ export async function runOnboardingWorkflow(
     if (websiteUrl) {
       const crawlerStep = result.steps.find((s) => s.id === "crawler");
       if (crawlerStep) {
-        await runCrawlerStep(brandId, websiteUrl, crawlerStep);
+        await runCrawlerStep(brandId, websiteUrl, workspaceId, crawlerStep);
         if (crawlerStep.status === "failed") {
           result.errors.push({
             step: "crawler",
