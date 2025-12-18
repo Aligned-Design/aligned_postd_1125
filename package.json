@@ -74,7 +74,7 @@
     "@testing-library/react": "^16.3.0",
     "canvas-confetti": "^1.9.4",
     "dotenv": "^17.2.1",
-    "express": "^5.1.0",
+    "express": "^4.21.2",
     "helmet": "^8.0.0",
     "multer": "^2.0.2",
     "node-vibrant": "^4.0.3",
@@ -90,7 +90,7 @@
     "uuid": "^13.0.0",
     "web-vitals": "^5.1.0",
     "zod": "^3.25.76",
-    "@types/express": "^5.0.3",
+    "@types/express": "^4.17.21",
     "typescript": "^5.9.2"
   },
   "devDependencies": {
